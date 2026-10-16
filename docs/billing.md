@@ -6,7 +6,7 @@ Phase 4 of the [competitive alignment review](claimavenue_competitive_alignment_
 
 | Product | Price | What the owner gets |
 | --- | --- | --- |
-| Launch Pack | $9 once | A week in **New this week** at the top of Discover, a highlighted card, a **New this week** badge on the profile page, and a summary of the week on `/business/manage` |
+| Launch Pack | $9 once | A week in **New this week** at the top of Discover, a highlighted card, a **New this week** badge on the profile page, a share image with a gold frame and a "New this week" label for that week, and a summary of the week on `/business/manage` |
 | Pro | $19 a month | Where visitors came from, campaign results, the 30-day chart, and CSV export of the figures. Cancelling stops renewal at the end of the paid month. |
 | Sponsored placement | A week: $99 top of Discover, $49 a district page, $29 a category page | A card labelled **Sponsored** at the top of that page. Each spot has three slots, so sponsored cards never fill the page. |
 
@@ -47,6 +47,14 @@ If a slot was oversold anyway (two payments land at the same moment), the later 
 
 Every checkout, payment, refund, grant and revocation is written to the hash-chained `audit_log` ([authoritative_data.md](authoritative_data.md)).
 
+## Receipts
+
+Stripe sends the receipts, so VoxelVenture keeps no receipt numbering or tax records of its own.
+
+- Checkout fills in the owner's address when it is verified, and Stripe asks for one otherwise.
+- Stripe only emails receipts when they are switched on. In the dashboard, under **Settings > Customer emails**, turn on **Successful payments** and **Refunds**. For Pro, also turn on the emails for paid invoices under **Settings > Billing > Subscriptions and emails**.
+- Test mode never emails receipts. Look at the payment in the dashboard instead.
+
 ## Settings (`deploy/env/api.env.example`)
 
 | Setting | Meaning |
@@ -63,4 +71,5 @@ The API refuses to start in production with an unsafe combination; `npm run chec
 1. Create the Stripe account and finish its business verification.
 2. In **Developers > Webhooks**, add the endpoint `https://<api host>/billing/webhook` and select the events listed above. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 3. Write the terms, the refund policy, and the advertising and placement terms (the review's P0 list). Publish them and set `TERMS_URL` and `REFUND_POLICY_URL`.
-4. Try the whole loop with a test key and Stripe's test cards (`4242 4242 4242 4242`): buy, check `/business/manage`, refund, and check that the entitlement goes away. Then switch to the live key.
+4. Turn on customer emails for receipts (see [Receipts](#receipts)).
+5. Try the whole loop with a test key and Stripe's test cards (`4242 4242 4242 4242`): buy, check `/business/manage`, refund, and check that the entitlement goes away. Then switch to the live key.
