@@ -19,7 +19,7 @@ export default function ProfileTracker({ slug }) {
     const send = () => {
       if (sent || document.visibilityState !== 'visible') return;
       sent = true;
-      request('POST', `/businesses/${encodeURIComponent(slug)}/events`, { kind: 'view', visitor: visitorId(), ref, source: sourceOf(document.referrer, window.location.hostname) }).catch(() => {});
+      request('POST', `/businesses/${encodeURIComponent(slug)}/events`, { kind: 'view', visitor: visitorId(), ref, source: sourceOf(document.referrer, window.location.hostname, window.location.search) }).catch(() => {});
     };
     const arm = () => {
       clearTimeout(timer);

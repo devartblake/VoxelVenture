@@ -9,7 +9,8 @@ import ProfileForm from './ProfileForm';
 import NotLive from './NotLive';
 import { signIn, useOwner } from './useOwner';
 
-const SOURCE_LABEL = { direct: 'Direct', search: 'Search engines', social: 'Social sites', referral: 'Referral links', city: 'The 3D city' };
+const SOURCE_LABEL = { direct: 'Direct', search: 'Search engines', social: 'Social sites', referral: 'Referral links', city: 'The 3D city', x: 'VoxelVenture on X' };
+const POST_STATUS = { review: 'waiting for a quick check before it goes out', queued: 'about to be posted', posted: 'posted', failed: 'could not be posted', rejected: 'not posted', skipped: 'not posted' };
 const pct = (x) => `${Math.round((x ?? 0) * 100)}%`;
 
 // "My profiles": every profile the owner has, with its verified figures (never simulated), what to do next, the share link that credits
@@ -72,7 +73,7 @@ export default function ManageProfiles() {
 }
 
 function ProfileRow({ row, code, origin, plots, onChange }) {
-  const { profile: p, stats, steps, prompts } = row;
+  const { profile: p, stats, steps, prompts, welcomePost } = row;
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState('');
@@ -140,6 +141,12 @@ function ProfileRow({ row, code, origin, plots, onChange }) {
               </div>
             ))}
           </dl>
+          {welcomePost && (
+            <p className="mt-3 text-sm text-slate-300">
+              Welcome post on X: {POST_STATUS[welcomePost.status] ?? welcomePost.status}
+              {welcomePost.url && <> · <a href={welcomePost.url} target="_blank" rel="noopener" className="text-sx-cyan underline">see the post</a></>}
+            </p>
+          )}
           {stats.views > 0 && (
             <div className="mt-4">
               <h3 className="mb-2 text-sm font-semibold text-slate-200">Where visitors came from</h3>

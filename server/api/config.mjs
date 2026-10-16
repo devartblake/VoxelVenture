@@ -24,6 +24,11 @@ export function checkApiEnv(env = {}) {
   if (env.HUMAN_MIN_AGE_MS != null && Number(env.HUMAN_MIN_AGE_MS) < 1000) errors.push('HUMAN_MIN_AGE_MS is a test setting (under a second of presence counts as human). Remove it.');
   for (const [k, max] of [['HUMAN_VISIT_CAP', 20], ['HUMAN_CLICK_CAP', 10], ['PROFILE_VIEW_CAP', 20], ['PROFILE_CTA_CAP', 10]]) if (env[k] != null && Number(env[k]) > max) errors.push(`${k}=${env[k]} lets one network count as a crowd (at most ${max}). Remove it to use the default.`);
   if (env.MESSAGING_SERVICE_URL && String(env.INTERNAL_SECRET ?? '').length < 32) errors.push('MESSAGING_SERVICE_URL is set, so INTERNAL_SECRET must be set too (32+ characters).');
+  if (['review', 'auto'].includes(env.SOCIAL_POSTS)) {
+    const missing = ['X_API_KEY', 'X_API_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET'].filter((k) => !env[k] || PLACEHOLDER.test(env[k]));
+    if (missing.length) errors.push(`SOCIAL_POSTS=${env.SOCIAL_POSTS} needs the X account's keys: ${missing.join(', ')} (or set SOCIAL_POSTS=off).`);
+    if (!https(env.PUBLIC_SITE_URL || env.API_ORIGIN)) errors.push('Welcome posts link to the site: set PUBLIC_SITE_URL to its https:// address.');
+  }
   if (!env.TRUST_PROXY) warnings.push('TRUST_PROXY is not set: behind a reverse proxy every visitor looks like one network, and the per-network limits stop counting real visitors.');
   if (!env.MP_NOTIFY_URL) warnings.push('MP_NOTIFY_URL is not set: players see changes only on the 15-second refresh.');
   if (!env.MAIL_WEBHOOK_URL) warnings.push('MAIL_WEBHOOK_URL is not set: emails are written to files, not sent.');

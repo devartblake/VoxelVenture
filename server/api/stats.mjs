@@ -89,3 +89,26 @@ export function overview(db, { now = Date.now(), offsetMin = 0 } = {}) {
 export function prunePresence(db, now = Date.now()) {
   return Number(db.prepare('DELETE FROM presence WHERE last_at < ?').run(now - DAY).changes);
 }
+
+// The live state of the whole city, for the admin headquarters' cards (GET /world/live): what is happening now and this week, from
+// real events only (presence, verified visits and clicks, verified profile events, accounts and profiles). Totals only, nobody's details.
+export function liveCity(db, { now = Date.now() } = {}) {
+  const day = now - DAY;
+  const week = now - 7 * DAY;
+  const n = (sql, ...args) => db.prepare(sql).get(...args).n;
+  return {
+    at: now,
+    online: n('SELECT COUNT(*) AS n FROM presence WHERE last_at >= ?', now - ONLINE_WINDOW_MS),
+    visitors24h: n('SELECT COUNT(DISTINCT visitor) AS n FROM arrivals WHERE at >= ?', day),
+    cityVisits7d: n('SELECT COUNT(*) AS n FROM arrivals WHERE at >= ?', week),
+    buildingViews7d: n("SELECT COUNT(*) AS n FROM events WHERE kind = 'visit' AND verified = 1 AND at >= ?", week),
+    websiteClicks7d: n("SELECT COUNT(*) AS n FROM events WHERE kind = 'click' AND verified = 1 AND at >= ?", week),
+    profileViews7d: n("SELECT COUNT(*) AS n FROM business_events WHERE kind = 'view' AND verified = 1 AND at >= ?", week),
+    ctaPresses7d: n("SELECT COUNT(*) AS n FROM business_events WHERE kind = 'cta' AND verified = 1 AND at >= ?", week),
+    playerBusinesses: n('SELECT COUNT(*) AS n FROM plots WHERE owner_account IS NOT NULL'),
+    profiles: n("SELECT COUNT(*) AS n FROM businesses WHERE status = 'published'"),
+    newProfiles7d: n("SELECT COUNT(*) AS n FROM businesses WHERE status = 'published' AND created_at >= ?", week),
+    accounts: n('SELECT COUNT(*) AS n FROM accounts'),
+    newAccounts7d: n('SELECT COUNT(*) AS n FROM accounts WHERE created_at >= ?', week),
+  };
+}

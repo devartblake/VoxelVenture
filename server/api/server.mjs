@@ -20,6 +20,7 @@
 //                 tickets and plots stay here, and the service asks about them through /internal/identity and /internal/plots.
 //   NODE_ENV=production (or API_STRICT=1)  refuse to start with unsafe settings (server/api/config.mjs)
 //   INTERNAL_SECRET  the credential the messaging service and this API use with each other (needed with MESSAGING_SERVICE_URL)
+//   SOCIAL_POSTS / X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_SECRET / PUBLIC_SITE_URL   welcome posts on X (server/api/social.mjs)
 //   REFERRAL_SECRET  signs referral codes (?ref= links, server/api/business.mjs). Set it in production; changing it voids every shared link
 //   PROFILE_VIEW_CAP / PROFILE_CTA_CAP   verified profile views and call-to-action presses per network per profile per day (defaults 3 and 1)
 import http from 'node:http';
@@ -35,6 +36,7 @@ import * as community from './community.mjs';
 import * as messaging from './messaging.mjs';
 import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
+import * as social from './social.mjs';
 import { transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 
@@ -61,6 +63,10 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   noticeTimer2?.unref();
   const mailTimer = deliverEveryMs > 0 ? setInterval(deliver, deliverEveryMs) : null;
   mailTimer?.unref();
+  // welcome posts on X (social.mjs): sent once a minute, and at once after one is queued or approved
+  const postSocial = () => social.deliver(db, env).catch((e) => console.error('social posts:', e.message));
+  const socialTimer = deliverEveryMs > 0 ? setInterval(postSocial, 60000) : null;
+  socialTimer?.unref();
   // tell the presence server something changed, so every player's game refreshes at once (fire and forget)
   const push = (kind, ids = []) => {
     if (!env.MP_NOTIFY_URL) return;
@@ -193,6 +199,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const b = await screened(req, BUSINESS);
       const out = logged(A.byAccount(account), 'plot.claim', { kind: 'plot', id: r[1] }, () => core.claimPlot(db, account, r[1], b), (o) => ({ title: o.title, value: o.value, leaseDays: o.lease?.days ?? null }));
       push('plot', [Number(r[1])]);
+      if (social.welcomePlot(db, r[1], account.id, env)) setImmediate(postSocial);
       return out;
     }
     if ((r = p.match(/^\/plots\/(\d+)\/takeover$/)) && m === 'POST') {
@@ -261,6 +268,13 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const q = url.searchParams;
       return A.list(db, { targetKind: q.get('target_kind'), targetId: q.get('target_id'), action: q.get('action'), actorId: q.get('actor'), before: q.get('before'), limit: q.get('limit') });
     }
+    if (m === 'GET' && p === '/admin/social') return (adminOnly(token), social.list(db, url.searchParams.get('status') ?? 'review', env));
+    if ((r = p.match(/^\/admin\/social\/(\d+)\/(approve|reject)$/)) && m === 'POST') {
+      adminOnly(token);
+      const out = logged(A.ADMIN, `social.${r[2]}`, { kind: 'social_post', id: r[1] }, () => social.decide(db, r[1], r[2]), (o) => ({ text: o.text }));
+      if (r[2] === 'approve') setImmediate(postSocial);
+      return out;
+    }
     if (m === 'GET' && p === '/admin/audit/verify') return (adminOnly(token), A.verifyChain(db));
     if (m === 'GET' && p === '/me/wallet') return engage.wallet(db, account);
     if (m === 'POST' && p === '/admin/newsletter') {
@@ -315,7 +329,9 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     }
     if (m === 'POST' && p === '/businesses') {
       const b = await screened(req, PROFILE);
-      return logged(A.byAccount(account), 'business.create', (o) => ({ kind: 'business', id: o.slug }), () => business.createProfile(db, account, b), (o) => ({ name: o.name, category: o.category }));
+      const out = logged(A.byAccount(account), 'business.create', (o) => ({ kind: 'business', id: o.slug }), () => business.createProfile(db, account, b), (o) => ({ name: o.name, category: o.category, announce: o.announce }));
+      if (social.welcomeBusiness(db, out.slug, env)) setImmediate(postSocial);
+      return out;
     }
     if (m === 'GET' && p === '/businesses/sitemap') return { entries: business.sitemapEntries(db) };
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'GET') return business.getProfile(db, r[1]);
@@ -355,6 +371,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       return core.recordAdEvent(db, account, await body(req), { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, minAgeMs: env.HUMAN_MIN_AGE_MS != null ? Number(env.HUMAN_MIN_AGE_MS) : undefined, visitCap: env.HUMAN_VISIT_CAP ? Number(env.HUMAN_VISIT_CAP) : undefined, clickCap: env.HUMAN_CLICK_CAP ? Number(env.HUMAN_CLICK_CAP) : undefined });
     }
     if (m === 'GET' && p === '/world/stats') return core.worldStats(db, 0);
+    if (m === 'GET' && p === '/world/live') return stats.liveCity(db); // the admin headquarters' live panel (totals only)
     // what the messaging service asks (docs/node_fastapi_architecture_plan.md): this API stays the authority on accounts and plots
     if (m === 'POST' && p === '/internal/identity/session') {
       serviceOnly(req);
@@ -443,7 +460,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       send(500, { error: 'Something went wrong.', code: 'server_error' });
     }
   });
-  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), db.close(), r()))) };
+  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), db.close(), r()))) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {

@@ -25,6 +25,8 @@ flowchart LR
 | 6. Owner onboarding checklist | Name and category, district, description, CTA, share. Linking a 3D building is listed as optional. | `onboardingSteps`, `/business/manage` |
 | 7. Value-linked upgrade prompts | The Launch Pack, Pro and sponsored placements are offered only on the strength of the owner's own **verified** figures. "Tell me when it is ready" records the demand, because checkout comes in phase 4. | `upgradePrompts`, `upgrade_interest` table |
 
+Owners can also add their X handle and opt in to a welcome post on VoxelVenture's X account that tags them; see [social_posts.md](social_posts.md).
+
 The 3D city stays one link away. The header has "Explore the 3D city", and a profile with a linked building shows "Step inside the 3D storefront", which goes to `/b/<plot>`.
 
 ## Verified figures only

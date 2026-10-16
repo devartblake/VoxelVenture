@@ -393,3 +393,23 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log(target_kind, target_id, id)
 CREATE INDEX IF NOT EXISTS audit_action ON audit_log(action, id);
 CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+
+-- Welcome posts on VoxelVenture's X account (server/api/social.mjs, docs/social_posts.md): one per business that opted in, tagging its handle.
+CREATE TABLE IF NOT EXISTS social_posts (
+  id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL,                            -- welcome
+  target_kind TEXT NOT NULL,                     -- business | plot
+  target_id TEXT NOT NULL,
+  account_id INTEGER REFERENCES accounts(id),    -- the owner it welcomes
+  text TEXT NOT NULL,                            -- exactly what will be posted
+  status TEXT NOT NULL,                          -- review | queued | posted | failed | rejected | skipped
+  post_id TEXT,                                  -- X's id for the post, once posted
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_at INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  created_at INTEGER NOT NULL,
+  decided_at INTEGER,
+  posted_at INTEGER,
+  UNIQUE (kind, target_kind, target_id)          -- a business is welcomed once
+);
+CREATE INDEX IF NOT EXISTS social_posts_due ON social_posts(status, next_at);

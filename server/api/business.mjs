@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
 import { ApiError, fail, requireAccount, text } from './core.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
+import { postFor } from './social.mjs';
 
 // Free business profiles, referral attribution and the owner's figures (docs/business_funnel.md). The rules (categories, districts, calls to
 // action, validation, onboarding steps, upgrade prompts) are lib/business/profile.js, shared with the public pages.
@@ -15,7 +16,7 @@ import { imp } from '../../scripts/lib-loader.mjs';
 const { cleanProfile, uniqueSlug, isSlug, isRefCode, onboardingSteps, upgradePrompts, profileReady, PLANS } = await imp('business/profile.js');
 
 export const MAX_PROFILES = 5;
-export const SOURCES = ['direct', 'search', 'social', 'referral', 'city'];
+export const SOURCES = ['direct', 'search', 'social', 'referral', 'city', 'x']; // x: a link in VoxelVenture's own X posts (social.mjs)
 const DAY = 86400000;
 const now = () => Date.now();
 const BOT_UA = /bot|crawl|spider|slurp|headless|lighthouse|curl|wget|python-requests|preview|facebookexternalhit/i;
@@ -55,10 +56,13 @@ export function profileView(row) {
     website: row.website,
     cta: JSON.parse(row.cta),
     plotId: row.plot_id,
+    xHandle: row.x_handle ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
+// What only the owner sees besides the public view: whether they agreed to a welcome post on X.
+export const ownerView = (row) => ({ ...profileView(row), announce: Boolean(row.announce) });
 const getRow = (db, slug) => (isSlug(slug) ? db.prepare("SELECT * FROM businesses WHERE slug = ? AND status = 'published'").get(String(slug)) : null) ?? fail(404, 'No such business.', 'no_business');
 const ownRow = (db, account, slug) => {
   requireAccount(account);
@@ -82,21 +86,21 @@ export function createProfile(db, account, input) {
     const taken = db.prepare('SELECT 1 FROM businesses WHERE slug = ?');
     const slug = uniqueSlug(v.name, (s) => Boolean(taken.get(s)));
     const referredBy = db.prepare('SELECT referred_by FROM accounts WHERE id = ?').get(account.id)?.referred_by ?? null;
-    db.prepare('INSERT INTO businesses (slug, account_id, name, category, district, tagline, description, website, cta, referred_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(slug, account.id, v.name, v.category, v.district ?? null, v.tagline ?? null, v.description ?? null, v.website ?? null, JSON.stringify(v.cta), referredBy, now(), now());
-    return profileView(getRow(db, slug));
+    db.prepare('INSERT INTO businesses (slug, account_id, name, category, district, tagline, description, website, cta, x_handle, announce, referred_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(slug, account.id, v.name, v.category, v.district ?? null, v.tagline ?? null, v.description ?? null, v.website ?? null, JSON.stringify(v.cta), v.xHandle ?? null, v.announce ? 1 : 0, referredBy, now(), now());
+    return ownerView(getRow(db, slug));
   });
 }
 
 // The owner changes their profile. The slug stays (links to it keep working).
 export function updateProfile(db, account, slug, input) {
   const row = ownRow(db, account, slug);
-  const merged = { ...profileView(row), ...input };
+  const merged = { ...ownerView(row), ...input };
   if (input.website !== undefined && input.cta === undefined && merged.cta.kind === 'website') merged.cta = { ...merged.cta, url: null };
   const v = checked(merged);
-  db.prepare('UPDATE businesses SET name=?, category=?, district=?, tagline=?, description=?, website=?, cta=?, updated_at=? WHERE id=?')
-    .run(v.name, v.category, v.district ?? null, v.tagline ?? null, v.description ?? null, v.website ?? null, JSON.stringify(v.cta), now(), row.id);
-  return profileView(getRow(db, slug));
+  db.prepare('UPDATE businesses SET name=?, category=?, district=?, tagline=?, description=?, website=?, cta=?, x_handle=?, announce=?, updated_at=? WHERE id=?')
+    .run(v.name, v.category, v.district ?? null, v.tagline ?? null, v.description ?? null, v.website ?? null, JSON.stringify(v.cta), v.xHandle ?? null, v.announce ? 1 : 0, now(), row.id);
+  return ownerView(getRow(db, slug));
 }
 
 // Link (or, with plotId null, unlink) the owner's own building in the city: the profile then offers "Step inside".
@@ -200,10 +204,10 @@ export function myProfiles(db, account, env = process.env) {
   return {
     referral: myReferrals(db, account, env),
     profiles: rows.map((row) => {
-      const profile = profileView(row);
+      const profile = ownerView(row);
       const stats = profileStats(db, row.id);
       const steps = onboardingSteps(profile, stats);
-      return { profile, stats, steps, ready: profileReady(steps), prompts: upgradePrompts(profile, stats).map((p) => ({ ...p, requested: interest.all(row.id).some((r) => r.plan === p.plan.id) })) };
+      return { profile, stats, steps, ready: profileReady(steps), welcomePost: postFor(db, 'business', row.id), prompts: upgradePrompts(profile, stats).map((p) => ({ ...p, requested: interest.all(row.id).some((r) => r.plan === p.plan.id) })) };
     }),
   };
 }

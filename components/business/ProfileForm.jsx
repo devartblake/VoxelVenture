@@ -18,6 +18,8 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCan
     website: initial.website ?? '',
     ctaKind: initial.cta?.kind ?? 'website',
     ctaUrl: initial.cta?.kind && initial.cta.kind !== 'website' ? initial.cta.url ?? '' : '',
+    xHandle: initial.xHandle ?? '',
+    announce: initial.announce ?? false,
   });
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
@@ -26,7 +28,7 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCan
 
   const submit = async (e) => {
     e.preventDefault();
-    const input = { name: v.name, category: v.category, district: v.district || null, tagline: v.tagline, description: v.description, website: v.website, cta: { kind: v.ctaKind, url: v.ctaKind === 'website' ? v.website : v.ctaUrl } };
+    const input = { name: v.name, category: v.category, district: v.district || null, tagline: v.tagline, description: v.description, website: v.website, cta: { kind: v.ctaKind, url: v.ctaKind === 'website' ? v.website : v.ctaUrl }, xHandle: v.xHandle, announce: v.announce && Boolean(v.xHandle.replace(/^@/, '').trim()) };
     const checked = cleanProfile(input);
     if (!checked.ok) return setErrors(checked.errors);
     setErrors({});
@@ -101,6 +103,19 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCan
         )}
         {kind?.id === 'newsletter' && <p className="mt-2 text-xs text-sx-muted">Visitors leave their email; they confirm it before you see it.</p>}
         {err('cta')}
+      </fieldset>
+      <fieldset className="rounded-xl border border-sx-stroke p-3">
+        <legend className="px-1 text-sm font-medium text-slate-200">On X <span className="font-normal text-sx-muted">(optional)</span></legend>
+        <label htmlFor="pf-x" className={LABEL}>Your X handle</label>
+        <div className="flex items-center gap-1">
+          <span className="text-slate-400" aria-hidden="true">@</span>
+          <input id="pf-x" className={INPUT} value={v.xHandle} onChange={(e) => setV((s) => ({ ...s, xHandle: e.target.value.replace(/^@+/, '') }))} maxLength={16} placeholder="yourbusiness" autoComplete="off" {...aria('xHandle')} />
+        </div>
+        {err('xHandle')}
+        <label className="mt-3 flex items-start gap-2 text-sm text-slate-200">
+          <input type="checkbox" checked={v.announce} disabled={!v.xHandle.replace(/^@/, '').trim()} onChange={(e) => setV((s) => ({ ...s, announce: e.target.checked }))} className="mt-1" />
+          <span>Welcome my business on VoxelVenture&apos;s X account and tag my handle. <span className="block text-xs text-sx-muted">One post with a link to your page; visits from it show up in your figures as “VoxelVenture on X”.</span></span>
+        </label>
       </fieldset>
       {errors.form && <p className="text-sm text-rose-300" role="alert">{errors.form}</p>}
       <div className="flex gap-3">

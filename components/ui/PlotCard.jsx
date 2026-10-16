@@ -46,7 +46,7 @@ function MessageOwner({ plot }) {
     </button>
   );
 }
-import { AddressCard, BuildingHistory, Chip, LogoBadge, SiteVisits, StatGrid, StepInside } from './PlotInfoCards';
+import { AddressCard, BuildingHistory, Chip, HqLive, LogoBadge, SiteVisits, StatGrid, StepInside } from './PlotInfoCards';
 
 const INPUT = 'w-full px-3 py-1.5 text-xs bg-sx-alt border border-sx-stroke rounded text-white focus:outline-none focus:border-sx-cyan';
 
@@ -489,6 +489,8 @@ export default function PlotCard() {
   const people = info.room ? Math.max(4, Math.round((info.room.width * info.room.depth * info.room.floors) / 3.2)) : 0;
   const floors = p.interiorData?.floors ?? floorsForHeight(p.height);
   const history = info.history;
+  // the admin headquarters never show invented figures: with a server they are real like every building, without one they show none
+  const hqOffline = Boolean(p.admin) && !apiOn();
   const daysOpen = history.length ? history[history.length - 1].daysAgo : 0;
 
   const handleClaim = (e) => {
@@ -515,7 +517,7 @@ export default function PlotCard() {
 
   return (
     <div className="space-y-3 text-slate-100">
-      {isClaimed && !isSuburb && <StepInside plot={p} people={people} visits={info.visits} onClick={() => openInterior(p)} />}
+      {isClaimed && !isSuburb && <StepInside plot={p} people={people} visits={hqOffline ? null : info.visits} onClick={() => openInterior(p)} />}
 
       {/* who it is */}
       <div className="flex items-start gap-3">
@@ -526,8 +528,9 @@ export default function PlotCard() {
         </div>
       </div>
 
-      <StatGrid height={floors} visits={info.visits} price={price} priceLabel={isClaimed ? (canTakeOver ? 'Take over for' : 'Value') : 'Buy from'} owners={isClaimed ? info.owners : 0} />
+      <StatGrid height={floors} visits={hqOffline ? null : info.visits} price={price} priceLabel={isClaimed ? (canTakeOver ? 'Take over for' : 'Value') : 'Buy from'} owners={isClaimed ? info.owners : 0} />
 
+      {p.admin && <HqLive company={p.owner} />}
       {apiOn() && isClaimed && p.ownerAccount && !p.userClaimed && <MessageOwner plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && <VoteBox plot={p} />}
@@ -670,13 +673,13 @@ export default function PlotCard() {
         </Fold>
       )}
 
-      {isClaimed && !isSuburb && <SiteVisits stats={info.stats} own={p.userClaimed} />}
+      {isClaimed && !isSuburb && !hqOffline && <SiteVisits stats={info.stats} own={p.userClaimed} />}
       {isClaimed && !isSuburb && apiOn() && !info.stats && typeof p.id === 'number' && (
         <p className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3 text-[11px] text-slate-400" role="status">
           {figuresState(p.id, liveFigures) === 'error' ? 'Visitor figures could not be loaded from the server. Try again in a moment.' : 'Loading verified visitor figures…'}
         </p>
       )}
-      {isClaimed && !isSuburb && <BuildingHistory events={history} clicks={info.stats?.clicks ?? 0} days={daysOpen} />}
+      {isClaimed && !isSuburb && !hqOffline && <BuildingHistory events={history} clicks={info.stats?.clicks ?? 0} days={daysOpen} />}
     </div>
   );
 }

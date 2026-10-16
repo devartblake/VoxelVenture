@@ -66,6 +66,9 @@ export default async function BusinessPage({ params }) {
           <p className="whitespace-pre-line text-slate-300">{p.description}</p>
         </section>
       )}
+      {p.xHandle && (
+        <p className="mt-4 text-sm text-slate-400">On X: <a href={`https://x.com/${p.xHandle}`} target="_blank" rel="noopener nofollow ugc" className="text-sx-cyan underline">@{p.xHandle}</a></p>
+      )}
       {p.website && p.cta?.kind !== 'website' && (
         <p className="mt-4 text-sm text-slate-400">Website: <a href={p.website} target="_blank" rel="noopener nofollow ugc" className="text-sx-cyan underline">{p.website.replace(/^https?:\/\//, '')}</a></p>
       )}

@@ -16,6 +16,7 @@ The rule: **with a game server, the server is the only source of truth, and noth
 | Market bookings | Server | Bookings, prices, visits and notices (`market.mjs`). Bookings and cancellations are now audited. |
 | Moderation actions | Server, **audited (new)** | Reports, decisions and bans are recorded in the audit trail with who decided and what happened. |
 | Audit records | **Server (new)** | See [The audit trail](#the-audit-trail) below. |
+| Admin headquarters | **Real, live (new)** | The two headquarters (Synaptix Play, Theoretical Minds Technology) stay as they are: the same buildings and models, not for sale. Their own visit figures are verified like any building. Their card adds **The city, live**: players online now, visitors in the last 24 hours, city and building visits, website clicks, profile views and CTA presses this week, player businesses, profiles and accounts (`GET /world/live`, totals only, refreshed every 15 seconds while the card is open). Without a server the card shows no figures for them rather than invented ones. |
 | Production settings | **New** | See [Deploying and verifying](#deploying-and-verifying) below. |
 
 ## Verified figures only
