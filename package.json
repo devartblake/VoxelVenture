@@ -15,6 +15,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "check:freeze": "node scripts/check-world-freeze.mjs",
     "postinstall": "patch-package",
     "test": "node tests/run.mjs",
     "test:browser": "node tests/run.mjs --only-browser",

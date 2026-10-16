@@ -2,6 +2,8 @@
 
 Written for: you, to plan the next stage. Status on 2026-10-15: `npm test` passes all 59 of its suites (live-browser included, which also does a production build). The 60th, the real-browser test (`npm run test:browser`), was last run before this update. Details of each item are in [project_status.md](project_status.md) (section numbers in brackets).
 
+> **World-expansion freeze (from 2026-10-16).** New world content and simulation systems are on hold until the commercial pilot is validated; fixes, performance, accessibility and commercial work continue. Items marked ⏸ are deferred. See [world_freeze.md](world_freeze.md) and the [competitive alignment review](claimavenue_competitive_alignment_review.md); `npm run check:freeze` flags new files in the world's folders.
+
 ## Done
 
 ### City and world
@@ -71,18 +73,18 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | 7 | ✅ Moderation: word filter, optional outside service for images, reports with auto-hide, admin queue, bans (`npm run moderate`) | 2 | 3 |
 | 8 | ✅ Email: confirmations, take-over notices, Plot of the Day newsletter (outbox, webhook or file transport; needs a real mail service key to deliver to the world) | 2 | 3 |
 
-### 2. A bigger, authored world (island, ocean, shipping yard)
+### 2. A bigger, authored world (island, ocean, shipping yard) ⏸ deferred by the freeze
 | # | Task | Size | Depends on |
 | :-: | :--- | :-: | :--- |
-| 9 | World recipe (cities, coast, highways, port) and a preview page | 3 | **Needs you** (layout) |
-| 10 | World format and bake step; global plot ids | 3-4 | 9 |
-| 11 | Streaming runtime: chunk manager, baked chunk geometry, overview pictures, spatial collision, shadows following the camera | 4-5 | 10 |
-| 12 | Several cities placed on one map; highways between them (and a fast-road class for traffic) | 5-6 | 9 |
+| 9 | ⏸ World recipe (cities, coast, highways, port) and a preview page | 3 | **Needs you** (layout) |
+| 10 | ⏸ World format and bake step; global plot ids | 3-4 | 9 |
+| 11 | ⏸ Streaming runtime: chunk manager, baked chunk geometry, overview pictures, spatial collision, shadows following the camera | 4-5 | 10 |
+| 12 | ⏸ Several cities placed on one map; highways between them (and a fast-road class for traffic) | 5-6 | 9 |
 | 13 | Street-name script (offline, OpenStreetMap; check the licence) — **script done** (`scripts/streets/road_generator.py`, see [street_names.md](street_names.md)); names load in the generator and /editor | 1 | |
-| 14 | Coastline, island and ocean (boats and fishing work at sea) | 3 | 11 |
-| 15 | Shipping yard: quay, cranes, containers, moving ships | 4-5 | 14 |
-| 16 | Region-aware traffic, planes, daily features, search, multiplayer rooms | 4 | 11 |
-| 17 | (Optional) real terrain and mountains | 4-6 | 11 |
+| 14 | ⏸ Coastline, island and ocean (boats and fishing work at sea) | 3 | 11 |
+| 15 | ⏸ Shipping yard: quay, cranes, containers, moving ships | 4-5 | 14 |
+| 16 | ⏸ Region-aware traffic, planes, daily features, search, multiplayer rooms | 4 | 11 |
+| 17 | ⏸ (Optional) real terrain and mountains | 4-6 | 11 |
 
 ### 3. Content and polish
 | # | Task | Size |
@@ -91,8 +93,8 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | 19 | ✅ Other players see your car or boat (kind, colour, and a sailboat or rowboat) instead of your avatar: `veh` in the presence `state` message, checked and cleaned by the server | 2 |
 | 20 | ✅ **Rotation:** others can share a billboard or banner (up to two extra ads at 0.4 of the slot value); the screen rotates every 10 s from the wall clock, so everyone sees the same ad (the owner gets two turns in every four). **Contrast:** ad text is white or black by WCAG contrast (at least 4.5:1 on any colour), a preview shows the ratio, colours are cleaned to #rrggbb. Local game only (a server slot holds one ad) | 2 |
 | 21 | 🟡 **Done:** interior hotspots: a Look at list (Whole room, Entrance, Back wall, Left, Right, and for each offer an Offer desk, Video wall, Game cabinet, Visit reward) that glides the camera there and lights up that part of the storefront panel. **Left:** brand-specific interiors (looks, colours, props), mini-games, hosted WASM demos | 5+ (see `scope_assets_and_wasm.md`) |
-| 31 | Real 3D assets: model pipeline, Kenney buildings, MagicaVoxel landmarks, Blockbench avatar. **Done:** Kenney commercial and suburban buildings (31 models, instanced, box fallback, `?models=0`), `.vox` loader and the park monument. Also done: Kenney trees, bushes and cars (instanced, box fallback; park trees are leafy only), voxel mall, airport terminals as joined Kenney wings, Blockbench-layout avatar (`public/models/avatar/player.glb`, sample made by `scripts/models/make-sample-avatar.mjs`). **Left:** your own Blockbench/MagicaVoxel art, Kenney ground tiles (Nature Kit `ground_*`, path pieces), the player-driven cars and remote players still use boxes | 11-14 plus modelling (`scope_assets_and_wasm.md`) |
-| 22 | 🟡 Started (the crescent: see priority 13). Original note: curved or diagonal reserved sites need curved lanes in the traffic model (`lib/sim/traffic.js` is built on straight, axis-aligned roads, with junction boxes, signals and a lane-based car-following), plus the site designer and the walkers' graph. It is a refactor of the simulation, not an add-on, so it was left | 5 |
+| 31 | ⏸ Real 3D assets: model pipeline, Kenney buildings, MagicaVoxel landmarks, Blockbench avatar. **Done:** Kenney commercial and suburban buildings (31 models, instanced, box fallback, `?models=0`), `.vox` loader and the park monument. Also done: Kenney trees, bushes and cars (instanced, box fallback; park trees are leafy only), voxel mall, airport terminals as joined Kenney wings, Blockbench-layout avatar (`public/models/avatar/player.glb`, sample made by `scripts/models/make-sample-avatar.mjs`). **Left:** your own Blockbench/MagicaVoxel art, Kenney ground tiles (Nature Kit `ground_*`, path pieces), the player-driven cars and remote players still use boxes | 11-14 plus modelling (`scope_assets_and_wasm.md`) |
+| 22 | ⏸ 🟡 Started (the crescent: see priority 13). Original note: curved or diagonal reserved sites need curved lanes in the traffic model (`lib/sim/traffic.js` is built on straight, axis-aligned roads, with junction boxes, signals and a lane-based car-following), plus the site designer and the walkers' graph. It is a refactor of the simulation, not an add-on, so it was left | 5 |
 | 23 | ✅ Traffic queues behind a car the player leaves in a lane and tows it after about 9 s; parked cars are saved with the city seed (`voxelventure-parked`). Walkers now walk round parked cars too | 1 |
 | 24 | ✅ "Create image" on the building card (1200 x 630 PNG drawn in the browser, shared or downloaded; `lib/game/shareImage.js`); "Report" was already there (needs the server) | 1 |
 
@@ -115,7 +117,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | :-: | :--- | :--- |
 | 32 | Interior viewer blank on one machine (Brave): check `brave://gpu`, Shields, or use Chrome/Edge; if it persists, get the first console error | Cannot reproduce in Chrome/Edge; framing was tightened but the dev screenshot did not change, so confirm after clearing `.next` |
 | 33 | ✅ Draw the waypoint route on the corner mini-map | done (`components/ui/MiniMap.jsx`) |
-| 34 | Stream the 3D scene by area (only the map is culled today) | see `study_world_streaming.md` |
+| 34 | ⏸ Stream the 3D scene by area (only the map is culled today) | see `study_world_streaming.md` |
 | 35 | Run `live-browser` and a docs/test pass for the world map on phones (pinch, touch) | needs a device |
 | 36 | Checkout, meeting scheduling and the creator asset marketplace from `voxelventure_idea_01.md` | needs outside services |
 | 37 | Pascal viewer backdrop is grey and the cut view shows dither dots; no setting found, may need a patch | polish |
@@ -124,7 +126,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | 41 | Chat decisions before going public (plan section 12): sign-in-only chat, request limits, retention, audience and age rules, who moderates, the 140-character limit | needs you |
 | 42 | Messaging on the Python service, the switch-over (`node_fastapi_architecture_plan.md` steps 6-7, runbook in `deploy/README.md`); before it: the presence load benchmark with the messaging calls on, a copy back from the service to Node for rollback, a restore rehearsal of both databases, metrics | 2-3 days, then your go-ahead |
 | 43 | Close the inquiry/take-over race fully (a reservation held by the Node API), if a strict guarantee is wanted | 1 day, your choice |
-| 39 | Outside music (optional): the music is all made in the browser; CC0 tracks by Juhani Junkala (OpenGameArt) are candidates (FreePD.com has closed) | add any track to `lib/content/credits.js` and `CREDITS.md` |
+| 39 | ⏸ Outside music (optional): the music is all made in the browser; CC0 tracks by Juhani Junkala (OpenGameArt) are candidates (FreePD.com has closed) | add any track to `lib/content/credits.js` and `CREDITS.md` |
 
 ## Priorities: by impact and by what sets VoxelVenture apart from ClaimAvenue
 
@@ -141,10 +143,10 @@ ClaimAvenue is a static, single-player directory of buildings bought at 1.25x. V
 6. 🟡 **Brand-specific interiors: started.** Done: the furniture menu follows the business type (essentials first, "show all" for the rest), brand-coloured walls with an accent back wall, hotspots, and a price list with a business-worth formula that stays at zero until you set prices ([interiors_fixtures.md](interiors_fixtures.md)). **Left:** your prices and rules for what items cost and how they change a business's worth, brand logo signs and props, mini-games, hosted WASM game demos.
 7. 🟡 **Presence at scale: done** (protocol 2: interest management, short messages, load test; about 600 players in a packed crowd on one ordinary core, see [presence_scale.md](presence_scale.md)). **Left:** one world split across several servers if it ever passes about a thousand at once, binary messages, guestbooks.
 8. ✅ **My businesses dashboard** (toolbar icon; it opens by itself after you claim, take over or rent): every building you own with views, visitors, clicks, click rate, time inside, offers, lease state, a six-step set-up checklist (description, design the inside, coupon, visit reward, video or game, website) and actions (open card, design inside, show on map), totals, and a CSV export. Figures are verified-human with a server and simulated without. Also lists the ad spaces you hold or share and draws a 14-day chart per building. (Ad spaces are listed in the local game; with a server the slot owner is not yet shown.)
-9. Creator asset marketplace (idea 2.3): voxel facades, signs and furniture, with a revenue share.
+9. ⏸ Creator asset marketplace (idea 2.3): voxel facades, signs and furniture, with a revenue share.
 10. ✅ (done) Free-look for the follow cameras (G or the camera menu: drag to pan, walking or G brings it back) and click-to-open from the world map (click a building or a mall for an Open / Waypoint card). Today, in Action, Third-person and First-person views the camera is tied to your avatar, so a building near the East mall can only be clicked once you have walked there (or switched to the original view). The world map can pan anywhere but cannot open a building from it except plots by shift-click; stores cannot be opened from it at all.
 
-**C. Scale and spectacle**
+**C. Scale and spectacle** ⏸ deferred by the freeze ([world_freeze.md](world_freeze.md))
 11. The bigger authored world: island, ocean, port, several cities, streaming runtime (tasks 9-17, 34).
 12. Your own Blockbench/MagicaVoxel art and Kenney ground tiles; replace the remaining boxes (other players' avatars, walkers, driven cars) (task 31).
 13. 🟡 **Curved reserved sites: started.** The designer has a **Curved crescent** style (dev tool): a curved street leaves the front road, sweeps round and returns, with turned lots on both sides, cars and walkers on it, drawn on the maps; it fits all 90 sites tested. **Left:** a curved street joined into the main junctions and signals (it is a self-contained street beside the main traffic), diagonal sites, routes across a curved street, and a shipped (non-dev) design for the market site.
@@ -173,7 +175,11 @@ ClaimAvenue is a static, single-player directory of buildings bought at 1.25x. V
 Ideas 02 to 06 are reviewed in [ideas_review.md](ideas_review.md), with quick wins (deep links and badges, a shared day/night cycle, ambient sound, style presets, crown props, facade ticker) ahead of the longer projects.
 
 ## Suggested order
-1. Decide task 1 (stack) and task 9 (world layout), the two things only you can settle.
-2. Backend tasks 2-5 (the game becomes shared), in parallel with a vertical slice of the world (tasks 9-11).
-3. Payments, moderation and email (6-8) once claims are authoritative.
-4. Coast, ocean, port and ships (14-15), then the content items.
+Re-ordered on 2026-10-16 to follow the [competitive alignment review](claimavenue_competitive_alignment_review.md#recommended-implementation-sequence): the commercial loop first, the world after it is validated.
+1. ✅ **Phase 1, freeze world expansion** ([world_freeze.md](world_freeze.md)): deferred items marked ⏸; stability, performance and accessibility work continues (tasks 25, 29, 30, 32, 35, 37).
+2. **Phase 2, business-first funnel:** free business profile, public indexable pages (`/discover`, `/business/[slug]`, `/district/[slug]`, `/category/[slug]`) with Open Graph images and structured data, CTA selection, share and referral attribution, owner onboarding, value-linked upgrade prompts. The 3D building becomes an optional destination linked from the profile.
+3. **Phase 3, authoritative production data:** decide task 1 (stack, host, sign-in; **needs you**), deploy the API (priority A1), server-owned claims and leases, verified statistics only (no simulated figures in owner dashboards), ads, market bookings, moderation and audit records.
+4. **Phase 4, low-risk monetisation:** Stripe Checkout with webhook idempotency for a $9 Launch Pack, $19/month Pro, fixed-term sponsored placements, market bookings and leases (task 6, without the real-money 1.25x payout until legal, tax and fraud review).
+5. **Phase 5, conversion measurement:** newsletter, meeting and lead CTAs (priority A3, task 36) and conversion events in the dashboard.
+6. **Phase 6, constrained pilot:** 10-20 businesses in two districts for four weeks; the freeze lifts if it meets the criteria in [world_freeze.md](world_freeze.md#when-it-lifts).
+7. Alongside all of these: CI (build, lint, tests, `check:freeze`), a protected `main`, and privacy, refund, advertising and placement terms (the review's P0 list).
