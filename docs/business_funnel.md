@@ -38,7 +38,7 @@ An event is **verified** only if all of the following hold:
 - It is not from a known bot or headless browser.
 - The visitor id is well formed.
 - It is not the owner's own visit.
-- The network is under its daily cap per profile: 3 views and 1 press by default (`PROFILE_VIEW_CAP`, `PROFILE_CTA_CAP`).
+- The network is under its daily cap per profile: 3 views and 1 press by default (`PROFILE_VIEW_CAP`, `PROFILE_CTA_CAP`). Phase 5 adds impressions, qualified visits, store entries, requests and purchases, verified the same way: see [conversions.md](conversions.md).
 - For a press, the same visitor viewed the profile in the last day.
 
 A view is sent only after the page has been visible for 2 seconds. Every event is stored, but only verified ones are counted.

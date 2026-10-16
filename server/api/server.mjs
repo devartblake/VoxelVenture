@@ -39,6 +39,7 @@ import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
 import * as social from './social.mjs';
 import * as billing from './billing.mjs';
+import * as conversions from './conversions.mjs';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 
@@ -130,6 +131,15 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     await mod.screenWithService(b, env);
     return b;
   }
+  // what verifying a visitor's event needs: their network (hashed), their browser, and the caps (business.mjs, conversions.mjs)
+  const visitCtx = (req) => ({
+    ip: (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '',
+    userAgent: req.headers['user-agent'],
+    salt: env.IP_SALT,
+    secret: business.referralSecret(env),
+    viewCap: env.PROFILE_VIEW_CAP ? Number(env.PROFILE_VIEW_CAP) : undefined,
+    ctaCap: env.PROFILE_CTA_CAP ? Number(env.PROFILE_CTA_CAP) : undefined,
+  });
   const BUSINESS = { title: 0, description: 1, website: 1 };
   const PROFILE = { name: 0, tagline: 0, description: 1 };
   const adminOnly = (token) => {
@@ -378,10 +388,20 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const plan = (await body(req)).plan;
       return logged(A.byAccount(account), 'business.upgrade_interest', { kind: 'business', id: r[1] }, () => business.requestUpgrade(db, account, r[1], plan), () => ({ plan }));
     }
-    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/events$/)) && m === 'POST') {
-      const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
-      return business.recordProfileEvent(db, account, r[1], await body(req), { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, secret: business.referralSecret(env), viewCap: env.PROFILE_VIEW_CAP ? Number(env.PROFILE_VIEW_CAP) : undefined, ctaCap: env.PROFILE_CTA_CAP ? Number(env.PROFILE_CTA_CAP) : undefined });
+    // conversion measurement (conversions.mjs, docs/conversions.md)
+    if (m === 'POST' && p === '/businesses/impressions') return conversions.recordImpressions(db, account, await body(req), visitCtx(req));
+    if (m === 'POST' && p === '/conversions') return conversions.recordPurchase(db, await body(req), { secret: business.referralSecret(env) });
+    if (m === 'GET' && p === '/conversions/pixel.gif') return conversions.purchasePixel(db, Object.fromEntries(url.searchParams), { secret: business.referralSecret(env) });
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/tracking$/)) && m === 'GET') return conversions.trackingFor(db, account, r[1], env);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/inquiries$/)) && m === 'POST') return conversions.createInquiry(db, account, r[1], await screened(req, { name: 0, message: 0, preferred: 0 }), { ...visitCtx(req), inquiryLimit: env.INQUIRY_LIMIT ? Number(env.INQUIRY_LIMIT) : undefined });
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/inquiries$/)) && m === 'GET') return conversions.listInquiries(db, account, r[1]);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/inquiries\/(\d+)$/)) && m === 'PATCH') return conversions.setInquiryStatus(db, account, r[1], r[2], (await body(req)).status);
+    if ((r = p.match(/^\/plots\/(\d+)\/coupon\/redeem$/)) && m === 'POST') {
+      const b = await body(req);
+      return logged(A.byAccount(account), 'coupon.redeem', { kind: 'plot', id: r[1] }, () => conversions.redeemCoupon(db, account, r[1], b), (o) => ({ ticket: o.ticket }));
     }
+    if (m === 'GET' && p === '/admin/metrics/renewals') return (adminOnly(token), conversions.renewals(db));
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/events$/)) && m === 'POST') return business.recordProfileEvent(db, account, r[1], await body(req), visitCtx(req));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'business', r[1]);
     if (m === 'GET' && p === '/me/businesses') return business.myProfiles(db, account, env);
     // billing (billing.mjs, docs/billing.md)
@@ -505,7 +525,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       if (messagingService && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) return await forward(req, res, url, headers);
       const out = await route(req, url);
       if (out && out.__raw) {
-        res.writeHead(200, { ...headers, 'Content-Type': out.__raw.type, ...(out.__raw.filename ? { 'Content-Disposition': `attachment; filename="${out.__raw.filename}"` } : {}) });
+        res.writeHead(200, { ...headers, 'Content-Type': out.__raw.type, ...(out.__raw.filename ? { 'Content-Disposition': `attachment; filename="${out.__raw.filename}"` } : {}), ...(out.__raw.cache ? { 'Cache-Control': out.__raw.cache } : {}) });
         return res.end(out.__raw.body);
       }
       if (out && out.__html) {

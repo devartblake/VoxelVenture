@@ -1,6 +1,6 @@
-# Alignment status: phases 1 to 4
+# Alignment status: phases 1 to 5
 
-Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](claimavenue_competitive_alignment_review.md): its phases 1 to 4, the parts of the P0 and P1 backlog that belong to them, and the review's "critical gaps" sections.
+Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](claimavenue_competitive_alignment_review.md): its phases 1 to 5, the parts of the P0 and P1 backlog that belong to them, and the review's "critical gaps" sections.
 
 **Key:**
 
@@ -61,6 +61,21 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 | Real-money 1.25x take-over payouts | Not done on purpose | Waits for a legal, tax and fraud review |
 | Stripe account, webhook endpoint, terms and refund policy | 👤 | [billing.md](billing.md#setting-it-up-needs-you) |
 
+## Phase 5: conversion measurement ([conversions.md](conversions.md))
+
+| Measure | Status | Where |
+| --- | --- | --- |
+| Profile impressions | ✅ | Cards on screen on Discover, category and district pages |
+| Qualified visits | ✅ | 15 seconds on the profile |
+| Store entries | ✅ | Walking into the linked 3D storefront |
+| CTA interactions | ✅ | Presses; link buttons carry a click id |
+| Newsletter sign-ups | ✅ | Double opt-in (phase 2), now counted per 30 days |
+| Meeting requests (and quote requests) | ✅ | New call-to-action kinds with a form on the profile, emailed to the owner |
+| Coupon claims and redemptions | ✅ | A ticket per claim, which the owner marks used |
+| Purchases | ✅ | A postback or a pixel from the owner's site, credited by click id |
+| Cost per result | ✅ | Spend on the profile divided by its results |
+| Renewal rate | ✅ | `GET /admin/metrics/renewals`, `npm run moderate -- renewals` |
+
 ## P0 backlog items belonging to phases 1 to 3
 
 | Item | Status | Notes |
@@ -84,7 +99,6 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 These belong to later phases, or wait for the pilot to justify them:
 
 - Phase 4 is done in code ([billing.md](billing.md)). It needs your Stripe account and terms.
-- Newsletter, meeting and lead CTAs measured as conversions (phase 5).
 - The pilot itself (phase 6).
 - Server-side reservation of the three-minute claim hold.
 - Gold on the server.

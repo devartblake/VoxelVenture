@@ -15,7 +15,7 @@ const now = () => Date.now();
 const DAY = 86400000;
 const token = () => crypto.randomBytes(24).toString('hex');
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-const cleanEmail = (v) => {
+export const cleanEmail = (v) => {
   const e = text(v, 120).toLowerCase();
   return EMAIL.test(e) && e.length <= 120 ? e : fail(400, 'That email address does not look right.', 'bad_email');
 };
@@ -58,13 +58,15 @@ export function storefront(db, account, plotId, input = {}) {
   if (!row.owner_name) fail(404, 'There is no business here.', 'no_business');
   const brand = brandOf(db, row);
   const me = visitorOf(account, input);
-  const mine = db.prepare('SELECT code FROM coupon_claims WHERE plot_id = ? AND visitor = ?').get(row.id, me);
+  const mine = db.prepare('SELECT code, ticket, redeemed_at FROM coupon_claims WHERE plot_id = ? AND visitor = ?').get(row.id, me);
   const own = Boolean(account && row.owner_account === account.id);
   return {
     plotId: row.id,
     own,
     brand: own ? brand : { ...brand, coupon: brand.coupon && { ...brand.coupon, code: undefined } },
     myCoupon: mine?.code ?? null,
+    myTicket: mine?.ticket ?? null, // shown with the code: the owner marks it redeemed at the till (conversions.mjs)
+    myCouponRedeemed: Boolean(mine?.redeemed_at),
     questDone: Boolean(account && db.prepare('SELECT 1 FROM quest_claims WHERE plot_id = ? AND account_id = ?').get(row.id, account.id)),
     feedback: listFeedback(db, row, account),
   };
@@ -112,11 +114,15 @@ export function claimCoupon(db, account, plotId, input = {}) {
     if (!brand.coupon) fail(404, 'This business has no coupon.', 'no_coupon');
     if (account && row.owner_account === account.id) fail(409, 'You cannot claim your own coupon.', 'own_coupon');
     const me = visitorOf(account, input);
-    const had = db.prepare('SELECT code FROM coupon_claims WHERE plot_id = ? AND visitor = ?').get(row.id, me);
-    if (had) return { code: had.code, already: true, left: brand.coupon.total - brand.coupon.claimed };
+    const had = db.prepare('SELECT code, ticket FROM coupon_claims WHERE plot_id = ? AND visitor = ?').get(row.id, me);
+    if (had) return { code: had.code, ticket: had.ticket ?? null, already: true, left: brand.coupon.total - brand.coupon.claimed };
     if (brand.coupon.claimed >= brand.coupon.total) fail(409, 'All the coupons have been claimed.', 'coupons_gone');
-    db.prepare('INSERT INTO coupon_claims (plot_id, visitor, code, at) VALUES (?,?,?,?)').run(row.id, me, brand.coupon.code, now());
-    return { code: brand.coupon.code, already: false, left: brand.coupon.total - brand.coupon.claimed - 1 };
+    // a ticket per claim (unique for this storefront), so the owner can mark exactly this claim redeemed
+    let ticket;
+    do ticket = crypto.randomBytes(3).toString('hex').toUpperCase();
+    while (db.prepare('SELECT 1 FROM coupon_claims WHERE plot_id = ? AND ticket = ?').get(row.id, ticket));
+    db.prepare('INSERT INTO coupon_claims (plot_id, visitor, code, at, ticket) VALUES (?,?,?,?,?)').run(row.id, me, brand.coupon.code, now(), ticket);
+    return { code: brand.coupon.code, ticket, already: false, left: brand.coupon.total - brand.coupon.claimed - 1 };
   });
 }
 

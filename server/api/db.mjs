@@ -34,6 +34,13 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'reports', 'evidence', 'TEXT'); // a reported chat message as it was when reported (JSON)
   addColumn(db, 'business_events', 'campaign', 'TEXT'); // utm_campaign of the link the visitor came by (business.mjs)
   addColumn(db, 'businesses', 'x_handle', 'TEXT'); // the owner's X handle, without the @ (optional)
+  addColumn(db, 'business_events', 'click_id', 'TEXT'); // a press of the call to action: the id added to its link (docs/conversions.md)
+  addColumn(db, 'business_events', 'value_cents', 'INTEGER'); // a purchase: its value
+  addColumn(db, 'business_events', 'order_ref', 'TEXT'); // a purchase: the business's own order number (a purchase is counted once)
+  db.exec('CREATE INDEX IF NOT EXISTS business_events_click ON business_events(business_id, click_id)');
+  addColumn(db, 'coupon_claims', 'ticket', 'TEXT'); // one per claim, so the owner can mark exactly that claim redeemed
+  addColumn(db, 'coupon_claims', 'redeemed_at', 'INTEGER');
+  addColumn(db, 'orders', 'renewals', 'INTEGER NOT NULL DEFAULT 0'); // Pro: paid months after the first (the renewal rate)
   addColumn(db, 'businesses', 'offer', 'TEXT'); // Pro: a one-line offer shown on the public page (business.mjs setOffer)
   addColumn(db, 'businesses', 'offer_until', 'INTEGER'); // when the offer ends, or NULL for no end date
   addColumn(db, 'businesses', 'announce', 'INTEGER NOT NULL DEFAULT 0'); // 1: the owner agreed to a welcome post on VoxelVenture's X account that tags them

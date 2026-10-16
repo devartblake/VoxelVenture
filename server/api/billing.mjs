@@ -271,6 +271,9 @@ function apply(db, event) {
       const order = orderOfSubscription(db, sub, meta);
       if (!order) return null;
       const periodEnd = Number(o.lines?.data?.[0]?.period?.end ?? o.period_end) * 1000 || null;
+      const periodStart = Number(o.lines?.data?.[0]?.period?.start ?? o.period_start) * 1000 || null;
+      // a month after the first one is a renewal (the renewal rate: conversions.mjs); each invoice's event is applied once
+      if (order.status === 'paid' && periodStart && order.paid_at && periodStart > order.paid_at + DAY_MS) db.prepare('UPDATE orders SET renewals = renewals + 1 WHERE id = ?').run(order.id);
       return markPaid(db, order, { subscription: sub, paymentIntent: o.payment_intent ?? null, periodEnd });
     }
     case 'customer.subscription.deleted': {
