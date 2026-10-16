@@ -6,6 +6,7 @@
 | [overview.md](overview.md) | **Start here.** What the project is, how to run and test it, how the city, game and multiplayer work, and what is next |
 | [project_status.md](project_status.md) | The detailed record: everything built, section by section (5 to 5z), known issues, progress against the blueprint |
 | [claimavenue_competitive_alignment_review.md](claimavenue_competitive_alignment_review.md) | **The current plan.** How the project compares with the recommended commercial strategy, the critical gaps, and the six-phase implementation sequence |
+| [authoritative_data.md](authoritative_data.md) | Phase 3: verified figures only (nothing simulated with a server), the building's outside kept by the server, the audit trail, the production settings check and `npm run verify:live` |
 | [business_funnel.md](business_funnel.md) | Phase 2: free business profiles, the public pages (`/discover`, `/business/[slug]`, categories, districts), calls to action, referral links, owner onboarding and upgrade prompts |
 | [world_freeze.md](world_freeze.md) | Phase 1: what world work is frozen, what continues, the `npm run check:freeze` check and its exceptions, and when the freeze lifts |
 | [voxelventure_blueprint.md](voxelventure_blueprint.md) | The product concept and the ClaimAvenue analysis |

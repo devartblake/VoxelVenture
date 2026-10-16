@@ -70,7 +70,7 @@ export function StatGrid({ height, visits, price, priceLabel, owners }) {
       <Tile icon={Building2} label="Height" value={height} sub={height === 1 ? 'floor' : 'floors'} />
       <Tile icon={Eye} label="Visits" value={visits.toLocaleString()} tint="bg-violet-500/15 text-violet-300" />
       <Tile icon={Tag} label={priceLabel} value={`$${price.toLocaleString()}`} accent="text-sx-cyan" tint="bg-sky-500/15 text-sky-300" />
-      <Tile icon={Users} label="Owners" value={owners} tint="bg-amber-500/15 text-amber-300" />
+      <Tile icon={Users} label="Owners" value={owners ?? '…'} tint="bg-amber-500/15 text-amber-300" />
     </div>
   );
 }
@@ -165,17 +165,19 @@ export function SiteVisits({ stats, own }) {
         </div>
         <div className="rounded-xl bg-sx-panel/80 p-2">
           <span className="text-[10px] text-slate-400">Busiest hour</span>
-          <span className="block font-semibold text-white">{formatHour(stats.busiestHour)}</span>
+          <span className="block font-semibold text-white">{stats.busiestHour == null ? '–' : formatHour(stats.busiestHour)}</span>
         </div>
         <div className="rounded-xl bg-sx-panel/80 p-2">
           <span className="text-[10px] text-slate-400">Busiest day</span>
-          <span className="block font-semibold text-white">{stats.busiestDay}</span>
+          <span className="block font-semibold text-white">{stats.busiestDay ?? '–'}</span>
         </div>
       </div>
       <h4 className="mb-1.5 mt-3 text-[11px] font-semibold text-slate-300">Where visitors come from</h4>
       <Sources sources={stats.sources} />
       <p className="mt-2.5 text-[10px] leading-snug text-slate-500">
-        {own ? 'Your own visits and website clicks are counted in these figures. ' : ''}These figures are simulated from the building's size and spot until accounts and a server can count real visitors.
+        {stats.simulated
+          ? `${own ? 'Your own visits and website clicks are counted in these figures. ' : ''}These figures are simulated from the building's size and spot: this copy of the game has no server to count real visitors.`
+          : `Counted by the game server: verified visitors only${own ? ', not your own visits' : ''}.`}
       </p>
     </section>
   );

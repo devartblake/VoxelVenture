@@ -18,7 +18,8 @@ A runbook for one server running everything: the web app, the API and the presen
 ## First deployment
 1. **Copy the project** to `/srv/voxelventure` (without `node_modules`, `.next` or `server/data`), e.g. `rsync -a --exclude node_modules --exclude .next --exclude server/data ./ root@SERVER:/srv/voxelventure/`.
 2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`.
-3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env`: your domain, and a long random value for `ADMIN_TOKEN`, `IP_SALT` and `MP_NOTIFY_SECRET` (`openssl rand -hex 32`; the notify secret must be the same in `api.env` and `presence.env`). `API_SEED` must match the game's seed. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
+3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env`: your domain, and a long random value for `ADMIN_TOKEN`, `IP_SALT`, `MP_NOTIFY_SECRET` and `REFERRAL_SECRET` (`openssl rand -hex 32`, a different one each; the notify secret must be the same in `api.env` and `presence.env`). `API_SEED` must match the game's seed. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
+   Then **check them**: `cd /srv/voxelventure && sudo -u voxel npm ci && npm run check:env -- /etc/voxelventure/api.env /etc/voxelventure/web.env` must say `ok` for both (it lists anything still a placeholder, too short, a test setting, or not https). The API checks the same again when it starts and **refuses to start in production** until they are fixed (`journalctl -u voxelventure-api` says why).
 4. **Install and build**, with the web settings loaded (the `NEXT_PUBLIC_` addresses are fixed into the build):
    ```
    cd /srv/voxelventure
@@ -34,6 +35,7 @@ A runbook for one server running everything: the web app, the API and the presen
    - `curl https://play.example.com/health` returns `{"ok":true,...}`
    - Open `https://example.com`: you should be able to look around without signing in, and sign-in appears only when you claim something.
    - `journalctl -u voxelventure-api -f` (and `-presence`, `-web`) show the logs.
+   - **Verify the data is authoritative:** `npm run verify:live -- --api https://api.example.com --site https://example.com --admin-token <ADMIN_TOKEN>` must end `all checks passed`. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/authoritative_data.md](../docs/authoritative_data.md).
 
 ## Updating
 ```
@@ -43,6 +45,7 @@ sudo -u voxel npm ci
 set -a; . /etc/voxelventure/web.env; set +a
 sudo -E -u voxel npm run build
 systemctl restart voxelventure-api voxelventure-presence voxelventure-web
+npm run verify:live -- --api https://api.example.com --site https://example.com --admin-token <ADMIN_TOKEN>
 ```
 The API upgrades the database in place when it starts (new columns are added). Take a backup first: `sudo -u voxel voxelventure-backup`.
 

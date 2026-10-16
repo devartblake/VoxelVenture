@@ -31,6 +31,9 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'plots', 'quest_budget', 'INTEGER NOT NULL DEFAULT 0');
   addColumn(db, 'accounts', 'dm_requests', 'INTEGER NOT NULL DEFAULT 1'); // 0: nobody new can send this account a message request
   addColumn(db, 'reports', 'evidence', 'TEXT'); // a reported chat message as it was when reported (JSON)
+  addColumn(db, 'plots', 'exterior', 'TEXT'); // JSON: the outside the owner set up (lib/game/exterior.js), or NULL for the usual one
+  addColumn(db, 'ad_events', 'ip_hash', 'TEXT');
+  addColumn(db, 'ad_events', 'verified', 'INTEGER NOT NULL DEFAULT 0'); // rows from before verification are not counted
   addColumn(db, 'accounts', 'referred_by', 'INTEGER REFERENCES accounts(id)'); // the account whose referral link brought this one (business.mjs)
   return db;
 }
@@ -40,8 +43,21 @@ function addColumn(db, table, column, definition) {
 }
 
 // Runs fn inside one transaction: all or nothing, and nobody else writes meanwhile (this is what makes a claim atomic).
+// Re-entrant: a transaction opened inside another joins it, so a route can wrap a change and its audit record (audit.mjs) in one
+// transaction even though the change opens its own. Any error rolls the whole outer transaction back.
+const depth = new WeakMap();
 export function transaction(db, fn) {
+  const d = depth.get(db) ?? 0;
+  if (d > 0) {
+    depth.set(db, d + 1);
+    try {
+      return fn();
+    } finally {
+      depth.set(db, d);
+    }
+  }
   db.exec('BEGIN IMMEDIATE');
+  depth.set(db, 1);
   try {
     const out = fn();
     db.exec('COMMIT');
@@ -49,5 +65,7 @@ export function transaction(db, fn) {
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
+  } finally {
+    depth.set(db, 0);
   }
 }

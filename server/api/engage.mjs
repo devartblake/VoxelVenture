@@ -305,14 +305,15 @@ export function notifyAdTakeover(db, previousAccount, { slot, newAdvertiser, pai
 
 // The Plot of the Day newsletter: the day's pick and the three busiest businesses, to confirmed world sign-ups and to accounts with notices on.
 export function buildNewsletter(db, date = new Date()) {
-  const built = db.prepare("SELECT id, title, owner_name, website, base_visits FROM plots WHERE owner_name IS NOT NULL AND building_type IS NOT NULL AND building_type != 'house' ORDER BY id").all();
+  // "busiest" is verified visits in the last seven days, never the generator's starting figures
+  const built = db.prepare("SELECT p.id, p.title, p.owner_name, p.website, (SELECT COUNT(*) FROM events e WHERE e.plot_id = p.id AND e.kind = 'visit' AND e.verified = 1 AND e.at >= ?) AS recent FROM plots p WHERE p.owner_name IS NOT NULL AND p.building_type IS NOT NULL AND p.building_type != 'house' ORDER BY p.id").all(date.getTime() - 7 * 86400000);
   if (!built.length) return null;
   const key = date.toISOString().slice(0, 10);
   const h = [...key].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   const pick = built[h % built.length];
-  const top = [...built].sort((a, b) => b.base_visits - a.base_visits || a.id - b.id).slice(0, 3);
+  const top = [...built].filter((p) => p.recent > 0).sort((a, b) => b.recent - a.recent || a.id - b.id).slice(0, 3);
   const line = (p) => `  #${p.id} ${p.title} (${p.owner_name})${p.website ? ` - ${p.website}` : ''}`;
-  return { key, subject: `Plot of the Day: ${pick.title}`, body: `Today's Plot of the Day: ${pick.title}\n${line(pick)}\n\nWalk in for a bonus. The busiest businesses right now:\n${top.map(line).join('\n')}\n\nSee you in the city.` };
+  return { key, subject: `Plot of the Day: ${pick.title}`, body: `Today's Plot of the Day: ${pick.title}\n${line(pick)}\n\nWalk in for a bonus.${top.length ? ` The busiest businesses this week:\n${top.map(line).join('\n')}` : ''}\n\nSee you in the city.` };
 }
 export function sendNewsletter(db, date = new Date()) {
   const n = buildNewsletter(db, date);

@@ -165,7 +165,8 @@ try {
   check('only an admin can send the newsletter', (await call('POST', '/admin/newsletter')).status === 403 && (await call('POST', '/admin/newsletter', { token: 'wrong' })).status === 403);
   const news = await call('POST', '/admin/newsletter', { token: 'admin-secret' });
   const got = await waitMail((m) => m.to === 'reader@example.com' && /Plot of the Day/.test(m.subject));
-  check('the Plot of the Day newsletter goes to confirmed readers, with an unsubscribe link', sub.status === 200 && news.data.queued >= 1 && got && /Unsubscribe: .*leads\/unsubscribe\?token=/.test(got.text) && /busiest/.test(got.text), JSON.stringify(news.data));
+  check('the Plot of the Day newsletter goes to confirmed readers, with an unsubscribe link', sub.status === 200 && news.data.queued >= 1 && got && /Unsubscribe: .*leads\/unsubscribe\?token=/.test(got.text) && /Walk in for a bonus/.test(got.text), JSON.stringify(news.data));
+  check('with no verified visits this week it lists no "busiest" businesses (never the generated figures)', got && !/busiest/.test(got.text));
   check('and a second send the same day does nothing', (await call('POST', '/admin/newsletter', { token: 'admin-secret' })).data.already === true);
   check('nobody who unsubscribed or never confirmed gets it', !mails.some((m) => /Plot of the Day/.test(m.subject) && m.to === 'fan@example.com'));
 

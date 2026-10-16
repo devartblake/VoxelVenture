@@ -373,3 +373,23 @@ CREATE TABLE IF NOT EXISTS upgrade_interest (
   at INTEGER NOT NULL,
   PRIMARY KEY (business_id, plan)
 );
+
+-- The audit trail (server/api/audit.mjs, docs/authoritative_data.md): who did what to whom, for every change of ownership, purchase,
+-- booking, moderation decision and admin action. Append-only: the triggers refuse any change or deletion, and each row carries the hash
+-- of the row before it, so a row edited outside the API (straight in the file) breaks the chain that GET /admin/audit/verify checks.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY,
+  at INTEGER NOT NULL,
+  actor_kind TEXT NOT NULL,                      -- account | admin | service | system
+  actor_id INTEGER,                              -- the account, for actor_kind account
+  action TEXT NOT NULL,                          -- plot.claim, plot.takeover, ad.buy, report.resolve, account.ban, ...
+  target_kind TEXT NOT NULL,                     -- plot | ad | business | booking | account | report | market | newsletter
+  target_id TEXT,
+  detail TEXT,                                   -- JSON: the facts of the change (price, previous owner, decision, ...)
+  prev_hash TEXT NOT NULL,
+  hash TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS audit_target ON audit_log(target_kind, target_id, id);
+CREATE INDEX IF NOT EXISTS audit_action ON audit_log(action, id);
+CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
