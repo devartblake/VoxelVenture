@@ -66,7 +66,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | :-: | :--- | :-: | :--- |
 | 1 | Choose the stack and sign-in method (Supabase and Stripe were the plan) | 0.5 | **Needs you** |
 | 2 | ✅ Database: plots, owners, ledger, events and ad slots (`docs/backend.md`) | 3 | 1 |
-| 3 | ✅ Accounts and atomic claim / take-over (Gold on the server still to do) | 4 | 2 |
+| 3 | ✅ Accounts and atomic claim / take-over (Gold on the server still to do: it comes before the Gold-only 1.25x take-over, [takeover_payouts.md](takeover_payouts.md)) | 4 | 2 |
 | 4 | ✅ Event logging (visits, clicks with a source) and the stats, history and directory endpoints | 3 | 2 |
 | 5 | ✅ The game claims, takes over, buys ad spaces and sends events through the server; sign-in only on claim; 15-second sync. Still to do: instant push, and the card's stats/history from the server | 2 | 3, 4 |
 | 6 | ✅ Payments (Stripe): Launch Pack, Pro (with offers), sponsored placements, leases (claim, take-over, renewal) and market stalls; webhooks, reconciliation, refunds ([billing.md](billing.md)). Not planned: buying Gold, and the real-money 1.25x payout until legal, tax and fraud review | 4 | 3, **needs you** (Stripe account, terms) |
