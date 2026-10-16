@@ -38,7 +38,7 @@ jobs:
         if: steps.pick.outputs.install == 'true'
         run: npm ci
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.pick.outputs.python == 'true'
         with:
           python-version: '3.12'
