@@ -26,7 +26,7 @@
   "dependencies": {
     "@pascal-app/core": "^1.0.3",
     "@pascal-app/editor": "^1.0.3",
-    "@pascal-app/nodes": "^1.0.3",
+    "@pascal-app/nodes": "^1.0.4",
     "@pascal-app/viewer": "^1.0.3",
     "@pascal/typescript-config": "file:vendor/typescript-config",
     "@react-three/drei": "^10.7.9",
