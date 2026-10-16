@@ -77,8 +77,11 @@ try {
   // ---- the storefront of a business: offers and the feedback board come from the server
   const biz = JSON.parse(await other.eval(`JSON.stringify((() => { const p = window.__vvStore.getState().plots.find((q) => q.owner && q.generated && q.brand?.coupon); return { id: p.id, title: p.title }; })())`));
   await other.eval(`window.__vvStore.getState().openInterior(window.__vvStore.getState().plots.find((q) => q.id === ${biz.id}))`);
-  await sleep(9000);
-  check('a business\'s storefront shows its offer and a feedback board (from the server)', await other.eval(`(() => { const t = document.body.innerText.toLowerCase(); return t.includes('feedback board') && t.includes('claim coupon') && t.includes('get updates'); })()`));
+  // the storefront loads its 3D scene and then asks the server: wait for it (up to 30 s on a slow machine) rather than a fixed time
+  const storefrontReady = () => other.eval(`(() => { const t = document.body.innerText.toLowerCase(); return t.includes('feedback board') && t.includes('claim coupon') && t.includes('get updates'); })()`).catch(() => false);
+  let shown = false;
+  for (let i = 0; i < 60 && !(shown = await storefrontReady()); i++) await sleep(500);
+  check('a business\'s storefront shows its offer and a feedback board (from the server)', shown);
   await type2(other, 'input[aria-label="Feedback"]', 'Lovely place, will be back.');
   await other.eval(`[...document.querySelectorAll('aside button')].find((b) => b.textContent.trim() === 'Post').click()`);
   await sleep(800);
