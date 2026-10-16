@@ -108,7 +108,8 @@ try {
     await call('POST', `/admin/social/${plotPost.id}/reject`, { token: 'admin' });
     await settle();
     check('a rejected post is never sent', x.posts.length === 1);
-    // the post's visits are counted as their own source
+    // the post's visits are counted as their own source (a Pro figure: the profile gets complimentary Pro to see it)
+    await call('POST', `/admin/billing/grant/${made.slug}`, { token: 'admin', body: { product: 'pro', reason: 'test' } });
     const ping = await call('POST', `/businesses/${made.slug}/events`, { body: { kind: 'view', visitor: 'from-x-post', source: 'x' } });
     check('a visit from the post counts as "x" in the owner\'s figures', ping.data.verified && (await call('GET', '/me/businesses', { token: maya.token })).data.profiles[0].stats.sources.find((s) => s.id === 'x').views === 1);
     await api.close();

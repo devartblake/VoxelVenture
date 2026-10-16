@@ -51,6 +51,7 @@ export default async function BusinessPage({ params }) {
             </Link>
           )}
         </p>
+        {p.launch && <p className="mt-3 inline-block rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-300">New this week</p>}
         <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{p.name}</h1>
         {p.tagline && <p className="mt-2 text-lg text-slate-200">{p.tagline}</p>}
         <div className="mt-6 flex flex-wrap items-center gap-3">

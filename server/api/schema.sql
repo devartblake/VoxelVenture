@@ -413,3 +413,47 @@ CREATE TABLE IF NOT EXISTS social_posts (
   UNIQUE (kind, target_kind, target_id)          -- a business is welcomed once
 );
 CREATE INDEX IF NOT EXISTS social_posts_due ON social_posts(status, next_at);
+
+-- Billing (server/api/billing.mjs, docs/billing.md): Stripe Checkout for the Launch Pack, Pro and sponsored placements.
+-- An order is made before checkout; only Stripe's signed webhook (or the reconciliation job asking Stripe) marks it paid, and only a paid
+-- order grants anything. Amounts come from lib/business/plans.js, never from a browser.
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  product TEXT NOT NULL,                         -- launch | pro | sponsored
+  placement TEXT,                                -- sponsored: discover | category:<id> | district:<id>
+  cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'usd',
+  status TEXT NOT NULL DEFAULT 'pending',        -- pending | paid | expired | refunded | failed
+  stripe_session TEXT UNIQUE,
+  stripe_payment_intent TEXT,
+  stripe_subscription TEXT,
+  hold_until INTEGER,                            -- sponsored: the spot is held for checkout until then
+  created_at INTEGER NOT NULL,
+  paid_at INTEGER,
+  refunded_at INTEGER,
+  note TEXT
+);
+CREATE INDEX IF NOT EXISTS orders_business ON orders(business_id, id);
+CREATE INDEX IF NOT EXISTS orders_status ON orders(status, created_at);
+-- Every Stripe event applied, by its id: a webhook delivered twice (Stripe retries) is applied once.
+CREATE TABLE IF NOT EXISTS stripe_events (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  received_at INTEGER NOT NULL
+);
+-- What a paid order grants, for how long. Pro's end moves with each paid month; a refund or a cancellation ends it.
+CREATE TABLE IF NOT EXISTS entitlements (
+  id INTEGER PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  kind TEXT NOT NULL,                            -- launch | pro | sponsored
+  placement TEXT,
+  starts_at INTEGER NOT NULL,
+  ends_at INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',         -- active | revoked
+  UNIQUE (order_id)
+);
+CREATE INDEX IF NOT EXISTS entitlements_business ON entitlements(business_id, kind, ends_at);
+CREATE INDEX IF NOT EXISTS entitlements_placement ON entitlements(placement, ends_at);

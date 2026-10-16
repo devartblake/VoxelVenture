@@ -74,7 +74,10 @@ try {
   check('a press after a view is', (await cta('visitor-one')).data.verified === true);
   check('a bad event kind is refused', (await call('POST', '/businesses/amys-cafe-bar/events', { body: { kind: 'purchase', visitor: 'visitor-one' } })).status === 400);
 
-  // ---- campaigns (utm_campaign on the link)
+  // ---- campaigns (utm_campaign on the link): a Pro figure, so this profile gets complimentary Pro first (server/api/billing.mjs)
+  check('campaign figures are Pro: the free plan does not see them', (await call('GET', '/me/businesses', { token: bob.token })).data.profiles.find((x) => x.profile.slug === 'amys-cafe-bar-2').stats.campaigns === undefined);
+  check('only an admin can grant Pro', (await call('POST', '/admin/billing/grant/amys-cafe-bar-2', { token: bob.token, body: { product: 'pro' } })).status === 403);
+  await call('POST', '/admin/billing/grant/amys-cafe-bar-2', { token: 'admin-secret', body: { product: 'pro', days: 30, reason: 'test' } });
   // (on a profile nobody has viewed yet: this test's network has used its daily views on Amy's)
   await call('POST', '/businesses/amys-cafe-bar-2/events', { body: { kind: 'view', visitor: 'camp-visitor', campaign: 'Spring-Sale' } });
   await call('POST', '/businesses/amys-cafe-bar-2/events', { body: { kind: 'view', visitor: 'camp-visitor-2', campaign: '<script>' } });

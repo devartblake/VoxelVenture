@@ -20,6 +20,7 @@
 //                 tickets and plots stay here, and the service asks about them through /internal/identity and /internal/plots.
 //   NODE_ENV=production (or API_STRICT=1)  refuse to start with unsafe settings (server/api/config.mjs)
 //   INTERNAL_SECRET  the credential the messaging service and this API use with each other (needed with MESSAGING_SERVICE_URL)
+//   STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / PUBLIC_SITE_URL / TERMS_URL   payments through Stripe Checkout (server/api/billing.mjs)
 //   SOCIAL_POSTS / X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_SECRET / PUBLIC_SITE_URL   welcome posts on X (server/api/social.mjs)
 //   REFERRAL_SECRET  signs referral codes (?ref= links, server/api/business.mjs). Set it in production; changing it voids every shared link
 //   PROFILE_VIEW_CAP / PROFILE_CTA_CAP   verified profile views and call-to-action presses per network per profile per day (defaults 3 and 1)
@@ -37,6 +38,7 @@ import * as messaging from './messaging.mjs';
 import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
 import * as social from './social.mjs';
+import * as billing from './billing.mjs';
 import { transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 
@@ -67,6 +69,10 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   const postSocial = () => social.deliver(db, env).catch((e) => console.error('social posts:', e.message));
   const socialTimer = deliverEveryMs > 0 ? setInterval(postSocial, 60000) : null;
   socialTimer?.unref();
+  // billing (billing.mjs): ask Stripe about pending orders and running Pro plans every hour, so a lost webhook is caught
+  const reconcileBilling = () => billing.reconcile(db, env).catch((e) => console.error('billing reconcile:', e.message));
+  const billingTimer = deliverEveryMs > 0 && billing.billingOn(env) ? setInterval(reconcileBilling, 3600000) : null;
+  billingTimer?.unref();
   // tell the presence server something changed, so every player's game refreshes at once (fire and forget)
   const push = (kind, ids = []) => {
     if (!env.MP_NOTIFY_URL) return;
@@ -334,6 +340,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       return out;
     }
     if (m === 'GET' && p === '/businesses/sitemap') return { entries: business.sitemapEntries(db) };
+    if (m === 'GET' && p === '/businesses/featured') { const f = billing.featured(db, url.searchParams.get('placement') || 'discover'); return { sponsored: f.sponsored.map(business.profileView), launches: f.launches.map(business.profileView) }; } // sponsored and launch-week profiles
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'GET') return business.getProfile(db, r[1]);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'PATCH') {
       const b = await screened(req, PROFILE);
@@ -355,6 +362,18 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     }
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'business', r[1]);
     if (m === 'GET' && p === '/me/businesses') return business.myProfiles(db, account, env);
+    // billing (billing.mjs, docs/billing.md)
+    if (m === 'GET' && p === '/billing/config') return { enabled: billing.billingOn(env), termsUrl: env.TERMS_URL || null };
+    if (m === 'GET' && p === '/billing/availability') return billing.availability(db, url.searchParams.get('placement'));
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/checkout$/)) && m === 'POST') return billing.createCheckout(db, account, r[1], await body(req), env);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/pro\/cancel$/)) && m === 'POST') return billing.cancelPro(db, account, r[1], env);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/export\.csv$/)) && m === 'GET') return business.exportCsv(db, account, r[1]);
+    if (m === 'GET' && p === '/me/orders') return billing.myOrders(db, account);
+    if ((r = p.match(/^\/me\/orders\/(\d+)$/)) && m === 'GET') return billing.orderStatus(db, account, r[1]);
+    if (m === 'GET' && p === '/admin/billing/orders') return (adminOnly(token), billing.adminOrders(db, url.searchParams.get('status')));
+    if ((r = p.match(/^\/admin\/billing\/orders\/(\d+)\/refund$/)) && m === 'POST') return (adminOnly(token), billing.refundOrder(db, r[1], A.ADMIN, env));
+    if ((r = p.match(/^\/admin\/billing\/grant\/([a-z0-9-]{1,48})$/)) && m === 'POST') return (adminOnly(token), billing.grant(db, r[1], await body(req)));
+    if (m === 'POST' && p === '/admin/billing/reconcile') return (adminOnly(token), billing.reconcile(db, env));
     if (m === 'GET' && p === '/me/referrals') return business.myReferrals(db, account, env);
     if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db) };
     if ((r = p.match(/^\/ads\/([\w-]+)$/)) && m === 'GET') return core.getAdSlot(db, r[1]);
@@ -445,12 +464,27 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const url = new URL(req.url, 'http://localhost');
       // the presence server speaks for every player at once, so its own calls (with the shared secret) are not counted against one address
       const secret = req.headers['x-internal-secret'];
+      // Stripe's webhook needs the exact bytes it signed, so it is read raw here, before anything parses it; Stripe is not rate limited
+      if (req.method === 'POST' && url.pathname === '/billing/webhook') {
+        const chunks = [];
+        let size = 0;
+        for await (const c of req) {
+          size += c.length;
+          if (size > 1_000_000) throw new core.ApiError(413, 'That is too large.', 'too_large');
+          chunks.push(c);
+        }
+        return send(200, await billing.receiveWebhook(db, Buffer.concat(chunks).toString('utf8'), req.headers['stripe-signature'], env));
+      }
       const internal = url.pathname.startsWith('/internal/') && secret && (secret === env.MP_NOTIFY_SECRET || secret === env.INTERNAL_SECRET);
       if (!internal && limited(req.socket.remoteAddress ?? '?', url.pathname.startsWith('/auth/'))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
       // MESSAGING_READONLY=1: a pause for moving messages (deploy/README.md): everything can be read, nothing about messages is written
       if (env.MESSAGING_READONLY === '1' && req.method !== 'GET' && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) throw new core.ApiError(503, 'Messages are read-only for a few minutes while we do maintenance.', 'unavailable');
       if (messagingService && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) return await forward(req, res, url, headers);
       const out = await route(req, url);
+      if (out && out.__raw) {
+        res.writeHead(200, { ...headers, 'Content-Type': out.__raw.type, ...(out.__raw.filename ? { 'Content-Disposition': `attachment; filename="${out.__raw.filename}"` } : {}) });
+        return res.end(out.__raw.body);
+      }
       if (out && out.__html) {
         res.writeHead(200, { ...headers, 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(out.__html);
@@ -462,7 +496,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       send(500, { error: 'Something went wrong.', code: 'server_error' });
     }
   });
-  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), db.close(), r()))) };
+  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), clearInterval(billingTimer), db.close(), r()))) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {

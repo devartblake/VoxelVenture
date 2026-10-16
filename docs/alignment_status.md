@@ -64,13 +64,13 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 | Production smoke tests | ✅ | `npm run verify:live` |
 | Privacy, refund, advertising and placement terms | 👤 | Legal text is for you or your counsel to write. The privacy notice should cover what is collected: accounts and email, presence pings with a country, hashed network addresses for the verification caps, the referral code kept 30 days in the browser, and the X handle (opt-in). |
 | Preview deployments | 👤 | Depends on the host you choose |
-| Stripe Checkout and webhook idempotency | ⏭ | Phase 4 |
+| Stripe Checkout and webhook idempotency | ✅ | [billing.md](billing.md): signed webhooks applied once, idempotency keys, hourly reconciliation. The Stripe account is 👤 |
 
 ## Not done on purpose
 
 These belong to later phases, or wait for the pilot to justify them:
 
-- Checkout and paid tiers (phase 4).
+- Market bookings and lease payments through Stripe (phase 4b). The Launch Pack, Pro and sponsored placements are done: [billing.md](billing.md).
 - Newsletter, meeting and lead CTAs measured as conversions (phase 5).
 - The pilot itself (phase 6).
 - Server-side reservation of the three-minute claim hold.
