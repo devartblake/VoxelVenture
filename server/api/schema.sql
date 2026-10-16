@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS market_bookings (
   website TEXT,
   notified_open INTEGER NOT NULL DEFAULT 0,      -- the "opens soon" email has been queued
   notified_close INTEGER NOT NULL DEFAULT 0,     -- the "closed" summary has been queued
-  status TEXT NOT NULL DEFAULT 'booked',         -- booked | cancelled
+  status TEXT NOT NULL DEFAULT 'booked',         -- booked | pending (waiting for its payment, holds the stall until hold_until) | cancelled
   created_at INTEGER NOT NULL
 );
 -- Visitors who looked at a stall while it was open: one row per visitor per hour.
@@ -420,8 +420,11 @@ CREATE INDEX IF NOT EXISTS social_posts_due ON social_posts(status, next_at);
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY,
   account_id INTEGER NOT NULL REFERENCES accounts(id),
-  business_id INTEGER NOT NULL REFERENCES businesses(id),
-  product TEXT NOT NULL,                         -- launch | pro | sponsored
+  business_id INTEGER REFERENCES businesses(id),  -- launch, pro and sponsored: the profile they are for
+  product TEXT NOT NULL,                         -- launch | pro | sponsored | lease (claim, take over or renew a plot) | market (a stall)
+  target TEXT,                                   -- lease: plot:<id>; market: booking:<id>
+  request TEXT,                                  -- lease: JSON { action, input }: what is done once it is paid
+  label TEXT,                                    -- what was bought, in words (the order lists)
   placement TEXT,                                -- sponsored: discover | category:<id> | district:<id>
   cents INTEGER NOT NULL,
   currency TEXT NOT NULL DEFAULT 'usd',
@@ -437,6 +440,7 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_business ON orders(business_id, id);
 CREATE INDEX IF NOT EXISTS orders_status ON orders(status, created_at);
+CREATE INDEX IF NOT EXISTS orders_target ON orders(target, status);
 -- Every Stripe event applied, by its id: a webhook delivered twice (Stripe retries) is applied once.
 CREATE TABLE IF NOT EXISTS stripe_events (
   id TEXT PRIMARY KEY,

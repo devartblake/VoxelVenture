@@ -1,11 +1,15 @@
 import crypto from 'node:crypto';
-import { transaction } from './db.mjs';
+import { attempt, dryRun, transaction } from './db.mjs';
+import * as core from './core.mjs';
+import * as community from './community.mjs';
+import * as market from './market.mjs';
 import { ApiError, fail, requireAccount } from './core.mjs';
 import { audit, ADMIN, SYSTEM, byAccount } from './audit.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 
 // Payments through Stripe Checkout (phase 4, docs/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
-// each for one business profile.
+// each for one business profile; and, in the game, leases (claiming, taking over or renewing a plot) and market stalls. A lease or a stall
+// is held for the player while they pay and only happens once the payment is confirmed (step 2): what an order does is in fulfil().
 //
 //   1. checkout   the owner asks for a product; the server makes a pending order at the catalogue's price (lib/business/plans.js) and a
 //                 Stripe Checkout session for exactly that amount, and sends the owner to Stripe's page
@@ -20,7 +24,7 @@ import { imp } from '../../scripts/lib-loader.mjs';
 const { PRODUCTS, placementOf, priceOf, planOf, DAY_MS } = await imp('business/plans.js');
 const { categoryOf, districtOf, isSlug } = await imp('business/profile.js');
 
-const HOLD_MS = 30 * 60000; // Stripe's shortest checkout expiry: a sponsored spot is held this long for a checkout in progress
+const HOLD_MS = 30 * 60000; // Stripe's shortest checkout expiry: a sponsored spot, a plot or a stall is held this long for a checkout in progress
 const TOLERANCE_S = 300; // a webhook signed longer ago than this is refused (a replay)
 const now = () => Date.now();
 
@@ -97,32 +101,125 @@ export async function createCheckout(db, account, slug, input, env = process.env
     const r = db.prepare('INSERT INTO orders (account_id, business_id, product, placement, cents, hold_until, created_at) VALUES (?,?,?,?,?,?,?)').run(account.id, b.id, product, placement, cents, placement ? now() + HOLD_MS : null, now());
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid));
   });
-  const site = siteOf(env);
   const item = PRODUCTS[product];
   const name = `${item.name}${placement ? ` (${placementOf(placement).label}${placementOf(placement).target ? `: ${placementOf(placement).target}` : ''})` : ''} for ${b.name}`;
+  const url = await openSession(db, account, order, { name, mode: item.mode, interval: item.interval, back: '/business/manage', metadata: { business: b.slug, product } }, env, fetchImpl);
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product, placement, cents, business: b.slug });
+  return { orderId: order.id, url };
+}
+
+// The Stripe Checkout session for an order, for exactly its amount. If Stripe refuses, the order fails and anything it held is let go.
+async function openSession(db, account, order, { name, mode = 'payment', interval, back, metadata = {} }, env, fetchImpl) {
+  const site = siteOf(env);
   const email = db.prepare('SELECT email, email_verified FROM accounts WHERE id = ?').get(account.id);
   let session;
   try {
     session = await stripe(env, 'POST', '/checkout/sessions', {
-      mode: item.mode,
+      mode,
       client_reference_id: String(order.id),
       customer_email: email?.email_verified ? email.email : undefined,
-      line_items: { 0: { quantity: 1, price_data: { currency: 'usd', unit_amount: cents, product_data: { name }, recurring: item.mode === 'subscription' ? { interval: item.interval } : undefined } } },
-      metadata: { order: order.id, business: b.slug, product },
-      ...(item.mode === 'subscription' ? { subscription_data: { metadata: { order: order.id } } } : { payment_intent_data: { metadata: { order: order.id } } }),
-      success_url: `${site}/business/manage?paid=${order.id}`,
-      cancel_url: `${site}/business/manage?canceled=${order.id}`,
+      line_items: { 0: { quantity: 1, price_data: { currency: 'usd', unit_amount: order.cents, product_data: { name }, recurring: mode === 'subscription' ? { interval } : undefined } } },
+      metadata: { order: order.id, ...metadata },
+      ...(mode === 'subscription' ? { subscription_data: { metadata: { order: order.id } } } : { payment_intent_data: { metadata: { order: order.id } } }),
+      success_url: `${site}${back}?paid=${order.id}`,
+      cancel_url: `${site}${back}?canceled=${order.id}`,
       expires_at: Math.floor((now() + HOLD_MS) / 1000) + 60,
       // the terms and refund policy, beside the pay button (Stripe's own terms checkbox needs a dashboard setting, this does not)
       ...(env.TERMS_URL ? { custom_text: { submit: { message: `By paying you agree to the terms (${env.TERMS_URL})${env.REFUND_POLICY_URL ? ` and the refund policy (${env.REFUND_POLICY_URL})` : ''}.` } } } : {}),
     }, { idempotencyKey: `vv-order-${order.id}`, fetchImpl });
   } catch (e) {
-    db.prepare("UPDATE orders SET status = 'failed', hold_until = NULL, note = ? WHERE id = ?").run(String(e.message).slice(0, 200), order.id);
+    transaction(db, () => {
+      db.prepare("UPDATE orders SET status = 'failed', hold_until = NULL, note = ? WHERE id = ?").run(String(e.message).slice(0, 200), order.id);
+      release(db, order);
+    });
     throw e;
   }
   db.prepare('UPDATE orders SET stripe_session = ? WHERE id = ?').run(session.id, order.id);
-  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product, placement, cents, business: b.slug });
-  return { orderId: order.id, url: session.url };
+  return session.url;
+}
+
+// ---- in the game: leases and market stalls ----------------------------------------------------------------------------------------------
+// Claim, take over or renew a plot, paid for. Everything the action checks is checked now (by doing it and undoing it), the price is what it
+// would write in the ledger, and the plot is held for the player while they pay. The action itself runs when the payment arrives (fulfil).
+// A take-over is charged like any lease: no money goes to the tenant it replaces (the 1.25x payout waits for a legal, tax and fraud review).
+const LEASE_ACTIONS = {
+  claim: (db, account, plotId, input) => core.claimPlot(db, account, plotId, input),
+  takeover: (db, account, plotId, input) => core.takeOverPlot(db, account, plotId, input),
+  renew: (db, account, plotId, input) => community.renewLease(db, account, plotId, input),
+};
+export async function payLease(db, account, plotId, action, input = {}, env = process.env, fetchImpl = fetch) {
+  requireAccount(account);
+  if (!billingOn(env)) fail(503, 'Payments are not set up yet.', 'billing_off');
+  const run = LEASE_ACTIONS[action] ?? fail(400, 'Unknown action.', 'bad_action');
+  const id = Number(plotId);
+  const order = transaction(db, () => {
+    const would = dryRun(db, () => {
+      const out = run(db, account, id, input);
+      const plot = out.plot ?? out;
+      const price = db.prepare('SELECT price FROM ledger WHERE plot_id = ? ORDER BY id DESC LIMIT 1').get(id).price;
+      return { price, title: plot.title, days: plot.lease?.days ?? null };
+    });
+    const label = `${{ claim: 'Lease', takeover: 'Take-over lease', renew: 'Lease renewal' }[action]}: ${would.title} (plot ${id}, ${would.days} days)`;
+    const r = db.prepare("INSERT INTO orders (account_id, product, target, request, label, cents, hold_until, created_at) VALUES (?, 'lease', ?, ?, ?, ?, ?, ?)").run(account.id, `plot:${id}`, JSON.stringify({ action, input, days: would.days }), label, Math.round(would.price * 100), now() + HOLD_MS, now());
+    return db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid));
+  });
+  const url = await openSession(db, account, order, { name: order.label, back: '/', metadata: { plot: id, action } }, env, fetchImpl);
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'lease', action, plot: id, cents: order.cents });
+  return { checkout: { orderId: order.id, url, cents: order.cents } };
+}
+
+// Book a market stall, paid for: a pending booking holds the stall while the player pays; it becomes a booking when the payment arrives.
+export async function payStall(db, seed, account, input = {}, env = process.env, fetchImpl = fetch) {
+  requireAccount(account);
+  if (!billingOn(env)) fail(503, 'Payments are not set up yet.', 'billing_off');
+  const { order, booked } = transaction(db, () => {
+    const booked = market.book(db, seed, account, input, { holdUntil: now() + HOLD_MS });
+    const label = `Market stall ${booked.stall.id} (${booked.siteCode}), ${booked.booking.hours} hours from ${new Date(booked.booking.start).toUTCString().slice(0, 22)}`;
+    const r = db.prepare("INSERT INTO orders (account_id, product, target, label, cents, hold_until, created_at) VALUES (?, 'market', ?, ?, ?, ?, ?)").run(account.id, `booking:${booked.booking.id}`, label, booked.paid, now() + HOLD_MS, now());
+    return { booked, order: db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid)) };
+  });
+  const url = await openSession(db, account, order, { name: order.label, back: '/', metadata: { booking: booked.booking.id } }, env, fetchImpl);
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'market', booking: booked.booking.id, cents: order.cents });
+  return { checkout: { orderId: order.id, url, cents: order.cents }, booking: booked.booking, stall: booked.stall };
+}
+
+// The paid order is carried out. { fulfilled } tells the server what changed (to tell the other players); { refund } when it can no longer
+// be done (somebody else claimed the plot or booked the stall after the hold ran out): the payment goes back.
+const targetId = (order) => Number(String(order.target ?? '').split(':')[1]);
+function fulfil(db, order) {
+  const req = JSON.parse(order.request || '{}');
+  if (req.done) return null;
+  if (order.product === 'market') {
+    const r = market.confirmBooking(db, targetId(order));
+    if (r.refund) return (db.prepare("UPDATE orders SET note = 'the stall was booked by someone else before the payment completed: refunded' WHERE id = ?").run(order.id), { refund: order.id });
+    db.prepare('UPDATE orders SET request = ? WHERE id = ?').run(JSON.stringify({ done: true }), order.id);
+    return { fulfilled: { kind: 'market', stallId: r.booking.stallId } };
+  }
+  const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(order.account_id);
+  const plotId = targetId(order);
+  let out;
+  try {
+    out = attempt(db, () => LEASE_ACTIONS[req.action](db, account, plotId, req.input ?? {}));
+  } catch (e) {
+    if (!(e instanceof ApiError)) throw e;
+    db.prepare('UPDATE orders SET note = ? WHERE id = ?').run(`could not be done once paid (${e.message}): refunded`.slice(0, 200), order.id);
+    return { refund: order.id };
+  }
+  db.prepare('UPDATE orders SET request = ? WHERE id = ?').run(JSON.stringify({ ...req, done: true }), order.id);
+  const plot = out.plot ?? out;
+  const detail = { claim: { title: plot.title, value: plot.value, leaseDays: plot.lease?.days ?? null }, takeover: { title: plot.title, paidOut: 0, previousOwner: out.previousOwner, previousAccount: out.previousAccount ?? null }, renew: { paid: out.paid, leaseDays: plot.lease?.days ?? null } }[req.action];
+  audit(db, byAccount(account), `plot.${req.action}`, { kind: 'plot', id: plotId }, { ...detail, order: order.id });
+  return { fulfilled: { kind: 'lease', action: req.action, plotId, accountId: account.id, out } };
+}
+
+// What an order held is let go (its checkout expired or failed): a pending stall is freed. (A plot's hold is the order's own hold_until.)
+function release(db, order) {
+  if (order.product === 'market') market.releaseBooking(db, targetId(order));
+}
+function expire(db, order, status) {
+  if (order?.status !== 'pending') return;
+  db.prepare('UPDATE orders SET status = ?, hold_until = NULL WHERE id = ?').run(status, order.id);
+  release(db, order);
 }
 
 // ---- 2. the webhook ---------------------------------------------------------------------------------------------------------------
@@ -164,8 +261,7 @@ function apply(db, event) {
     }
     case 'checkout.session.expired':
     case 'checkout.session.async_payment_failed': {
-      const order = orderById(db, o.client_reference_id ?? o.metadata?.order);
-      if (order?.status === 'pending') db.prepare("UPDATE orders SET status = ?, hold_until = NULL WHERE id = ?").run(event.type.endsWith('expired') ? 'expired' : 'failed', order.id);
+      expire(db, orderById(db, o.client_reference_id ?? o.metadata?.order), event.type.endsWith('expired') ? 'expired' : 'failed');
       return null;
     }
     case 'invoice.paid': {
@@ -203,6 +299,7 @@ function markPaid(db, order, { paymentIntent = null, subscription = null, period
   } else if (paymentIntent || subscription) {
     db.prepare('UPDATE orders SET stripe_payment_intent = COALESCE(stripe_payment_intent, ?), stripe_subscription = COALESCE(stripe_subscription, ?) WHERE id = ?').run(paymentIntent, subscription, order.id);
   }
+  if (order.product === 'lease' || order.product === 'market') return fulfil(db, orderById(db, order.id));
   const existing = db.prepare('SELECT * FROM entitlements WHERE order_id = ?').get(order.id);
   if (order.product === 'pro') {
     const end = periodEnd ?? at + 31 * DAY_MS; // the first invoice sets the exact end; a month until then
@@ -231,11 +328,24 @@ function revoke(db, order, actor, why) {
   if (order.status === 'refunded') return;
   db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, ?) WHERE id = ?").run(now(), why, order.id);
   db.prepare("UPDATE entitlements SET status = 'revoked', ends_at = MIN(ends_at, ?) WHERE order_id = ?").run(now(), order.id);
+  if (order.product === 'market') market.releaseBooking(db, targetId(order));
+  if (order.product === 'lease') endPaidLease(db, order);
   audit(db, actor, 'billing.refunded', { kind: 'order', id: order.id }, { cents: order.cents, why });
 }
 
-// The webhook endpoint's work: verify, apply once, then do any refund the event called for.
-export async function receiveWebhook(db, raw, signature, env = process.env, fetchImpl = fetch) {
+// A refunded lease is taken back, if the player still holds the plot: a claim or take-over ends at once (the plot opens to others), a
+// renewal loses the days it added. A lease that was never carried out (refunded because it could not be) changes nothing.
+function endPaidLease(db, order) {
+  const req = JSON.parse(order.request || '{}');
+  const p = db.prepare('SELECT * FROM plots WHERE id = ?').get(targetId(order));
+  if (!req.done || !p || p.owner_account !== order.account_id || !p.lease_end) return;
+  if (req.action === 'renew') db.prepare('UPDATE plots SET lease_end = lease_end - ?, lease_notified = 0 WHERE id = ?').run((req.days ?? p.lease_days ?? 0) * DAY_MS, p.id);
+  else community.setLeaseState(db, p.id, 'open');
+}
+
+// The webhook endpoint's work: verify, apply once, then do any refund the event called for. after(fulfilled) lets the server tell the
+// other players about a plot or stall that just changed hands.
+export async function receiveWebhook(db, raw, signature, env = process.env, fetchImpl = fetch, after = null) {
   if (!env.STRIPE_WEBHOOK_SECRET) fail(503, 'Payments are not set up.', 'billing_off');
   if (!verifySignature(raw, signature, env.STRIPE_WEBHOOK_SECRET)) fail(400, 'Bad signature.', 'bad_signature');
   let event;
@@ -245,7 +355,8 @@ export async function receiveWebhook(db, raw, signature, env = process.env, fetc
     fail(400, 'Not JSON.', 'bad_json');
   }
   const out = handleEvent(db, event);
-  if (out.refund) await refundOrder(db, out.refund, SYSTEM, env, fetchImpl, 'the spot filled before payment completed');
+  if (out.fulfilled) after?.(out.fulfilled);
+  if (out.refund) await refundOrder(db, out.refund, SYSTEM, env, fetchImpl, refundWhy(db, out.refund));
   return { received: true, duplicate: Boolean(out.duplicate) };
 }
 
@@ -295,7 +406,8 @@ export async function cancelPro(db, account, slug, env = process.env, fetchImpl 
 
 // ---- 4. reconciliation ----------------------------------------------------------------------------------------------------------------
 // Asks Stripe about every order still pending after a couple of minutes, and every running Pro plan, and applies what it says.
-export async function reconcile(db, env = process.env, fetchImpl = fetch) {
+const refundWhy = (db, id) => (orderById(db, id)?.product === 'sponsored' ? 'the spot filled before payment completed' : 'it could not be done once paid');
+export async function reconcile(db, env = process.env, fetchImpl = fetch, after = null) {
   if (!billingOn(env)) return { checked: 0 };
   const out = { checked: 0, paid: 0, expired: 0, proExtended: 0, proEnded: 0, refunded: 0 };
   for (const order of db.prepare("SELECT * FROM orders WHERE status = 'pending' AND stripe_session IS NOT NULL AND created_at < ? ORDER BY id LIMIT 100").all(now() - 2 * 60000)) {
@@ -304,9 +416,10 @@ export async function reconcile(db, env = process.env, fetchImpl = fetch) {
     if (s.status === 'complete' && (s.payment_status === 'paid' || s.mode === 'subscription')) {
       const r = transaction(db, () => markPaid(db, orderById(db, order.id), { paymentIntent: s.payment_intent, subscription: s.subscription }));
       out.paid++;
-      if (r?.refund) (await refundOrder(db, r.refund, SYSTEM, env, fetchImpl, 'the spot filled before payment completed'), out.refunded++);
+      if (r?.fulfilled) after?.(r.fulfilled);
+      if (r?.refund) (await refundOrder(db, r.refund, SYSTEM, env, fetchImpl, refundWhy(db, r.refund)), out.refunded++);
     } else if (s.status === 'expired') {
-      db.prepare("UPDATE orders SET status = 'expired', hold_until = NULL WHERE id = ?").run(order.id);
+      transaction(db, () => expire(db, orderById(db, order.id), 'expired'));
       out.expired++;
     }
   }
@@ -324,15 +437,18 @@ export async function reconcile(db, env = process.env, fetchImpl = fetch) {
   return out;
 }
 
+// The paid, not yet refunded order for a stall or plot, if there is one.
+export const paidOrderFor = (db, target) => db.prepare("SELECT * FROM orders WHERE target = ? AND status = 'paid' ORDER BY id DESC LIMIT 1").get(String(target)) ?? null;
+
 // ---- what owners and admins see -----------------------------------------------------------------------------------------------------
-const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, note: o.note });
+const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, target: o.target ?? null, label: o.label ?? null, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, note: o.note });
 export function myOrders(db, account) {
   requireAccount(account);
-  return { orders: db.prepare('SELECT o.*, b.slug, b.name FROM orders o JOIN businesses b ON b.id = o.business_id WHERE o.account_id = ? ORDER BY o.id DESC LIMIT 100').all(account.id).map((o) => ({ ...orderView(o), business: { slug: o.slug, name: o.name } })) };
+  return { orders: db.prepare('SELECT o.*, b.slug, b.name FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.account_id = ? ORDER BY o.id DESC LIMIT 100').all(account.id).map((o) => ({ ...orderView(o), business: o.slug ? { slug: o.slug, name: o.name } : null })) };
 }
 export function adminOrders(db, status) {
-  const rows = status ? db.prepare('SELECT o.*, b.slug FROM orders o JOIN businesses b ON b.id = o.business_id WHERE o.status = ? ORDER BY o.id DESC LIMIT 200').all(String(status)) : db.prepare('SELECT o.*, b.slug FROM orders o JOIN businesses b ON b.id = o.business_id ORDER BY o.id DESC LIMIT 200').all();
-  return { orders: rows.map((o) => ({ ...orderView(o), business: o.slug, accountId: o.account_id })) };
+  const rows = status ? db.prepare('SELECT o.*, b.slug FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.status = ? ORDER BY o.id DESC LIMIT 200').all(String(status)) : db.prepare('SELECT o.*, b.slug FROM orders o LEFT JOIN businesses b ON b.id = o.business_id ORDER BY o.id DESC LIMIT 200').all();
+  return { orders: rows.map((o) => ({ ...orderView(o), business: o.slug ?? null, accountId: o.account_id })) };
 }
 export const orderStatus = (db, account, id) => {
   requireAccount(account);

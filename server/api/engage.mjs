@@ -294,7 +294,7 @@ export const noticeAddress = (db, accountId) => {
 };
 export function notifyTakeover(db, previousAccount, { title, newOwner, paidOut, plotId }) {
   const to = noticeAddress(db, previousAccount);
-  if (to) enqueue(db, { to, kind: 'takeover', subject: `${newOwner} took over ${title}`, body: `${newOwner} took over ${title} (plot #${plotId}) and you were paid out $${paidOut.toLocaleString()}: 25% more than it was worth.\n\nYou can claim another plot at any time. To stop notices, turn them off in your account.` });
+  if (to) enqueue(db, { to, kind: 'takeover', subject: `${newOwner} took over ${title}`, body: `${newOwner} took over ${title} (plot #${plotId}) ${paidOut == null ? 'after your lease ended and its grace week passed' : `and you were paid out $${paidOut.toLocaleString()}: 25% more than it was worth`}.\n\nYou can claim another plot at any time. To stop notices, turn them off in your account.` });
   return Boolean(to);
 }
 export function notifyAdTakeover(db, previousAccount, { slot, newAdvertiser, paidOut }) {

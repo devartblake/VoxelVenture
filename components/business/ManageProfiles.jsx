@@ -321,7 +321,36 @@ function PlanBox({ slug, profile, plan, checkoutOn, buy, onChange, sponsorOpen, 
         <p className="mt-2 text-xs text-sx-muted">Paid plans are not open yet.</p>
       )}
       {checkoutOn && sponsorOpen && <SponsorPicker profile={profile} buy={buy} />}
+      {plan.pro && <OfferEditor slug={slug} offer={profile.offer} onChange={onChange} setMsg={setMsg} />}
     </div>
+  );
+}
+
+// Pro: a one-line offer at the top of the public page, optionally until a date.
+function OfferEditor({ slug, offer, onChange, setMsg }) {
+  const [text, setText] = useState(offer?.text ?? '');
+  const [until, setUntil] = useState(offer?.until ? new Date(offer.until).toISOString().slice(0, 10) : '');
+  const save = async (clear = false) => {
+    try {
+      await request('PUT', `/businesses/${slug}/offer`, clear ? { text: '' } : { text, until: until ? `${until}T23:59:59` : null });
+      if (clear) (setText(''), setUntil(''));
+      setMsg(clear ? 'The offer is off your page.' : 'The offer is on your page.');
+      onChange();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  };
+  return (
+    <form className="mt-4 border-t border-sx-stroke pt-3" onSubmit={(e) => (e.preventDefault(), save())} data-testid="offer-editor">
+      <label htmlFor={`offer-${slug}`} className="text-sm font-semibold text-white">Offer on your page</label>
+      <p className="text-xs text-sx-muted">One line at the top of your public page, like &quot;10% off your first order with VOXEL&quot;.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input id={`offer-${slug}`} value={text} onChange={(e) => setText(e.target.value)} maxLength={100} className="min-w-0 flex-1 rounded-lg border border-sx-stroke bg-sx-panel px-3 py-1.5 text-sm text-white" />
+        <label className="text-xs text-slate-300">Until <input type="date" value={until} onChange={(e) => setUntil(e.target.value)} className="rounded-lg border border-sx-stroke bg-sx-panel px-2 py-1 text-sm text-white" /></label>
+        <button type="submit" disabled={!text.trim()} className={BUY}>Save offer</button>
+        {offer && <button type="button" onClick={() => save(true)} className={QUIET}>Remove</button>}
+      </div>
+    </form>
   );
 }
 const BUY = 'rounded-lg bg-sx-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-400';
@@ -413,8 +442,8 @@ function Orders() {
           {orders.map((o) => (
             <tr key={o.id} className="border-t border-sx-stroke/60">
               <td className="py-1.5 text-slate-300">{new Date(o.createdAt).toLocaleDateString()}</td>
-              <td className="text-slate-200">{o.business.name}</td>
-              <td className="text-slate-200">{PRODUCTS[o.product]?.name}{o.placement ? ` (${placementName(o.placement)})` : ''}</td>
+              <td className="text-slate-200">{o.business?.name ?? 'In the game'}</td>
+              <td className="text-slate-200">{o.label ?? <>{PRODUCTS[o.product]?.name}{o.placement ? ` (${placementName(o.placement)})` : ''}</>}</td>
               <td className="text-slate-200">{o.cents ? dollars(o.cents) : 'free'}</td>
               <td className="text-slate-300">{o.status}</td>
             </tr>

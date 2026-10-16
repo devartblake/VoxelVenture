@@ -64,8 +64,8 @@ export function profileView(row) {
     updatedAt: row.updated_at,
   };
 }
-// What only the owner sees besides the public view: whether they agreed to a welcome post on X.
-export const ownerView = (row) => ({ ...profileView(row), announce: Boolean(row.announce) });
+// What only the owner sees besides the public view: whether they agreed to a welcome post on X, and their offer (Pro).
+export const ownerView = (row) => ({ ...profileView(row), announce: Boolean(row.announce), offer: row.offer ? { text: row.offer, until: row.offer_until ?? null } : null });
 const getRow = (db, slug) => (isSlug(slug) ? db.prepare("SELECT * FROM businesses WHERE slug = ? AND status = 'published'").get(String(slug)) : null) ?? fail(404, 'No such business.', 'no_business');
 const ownRow = (db, account, slug) => {
   requireAccount(account);
@@ -123,8 +123,29 @@ export function linkPlot(db, account, slug, plotId) {
 
 export const getProfile = (db, slug) => {
   const row = getRow(db, slug);
-  return { ...profileView(row), launch: planFor(db, row.id).launch }; // in its launch week: the page shows the Launch badge
+  const plan = planFor(db, row.id);
+  // in its launch week the page shows the Launch badge; with Pro, the owner's offer while it runs
+  return { ...profileView(row), launch: plan.launch, offer: plan.pro ? liveOffer(row) : null };
 };
+
+// ---- offers (Pro) ------------------------------------------------------------------------------------------------------------------
+// A one-line offer at the top of the public page ("10% off your first order with VOXEL"), optionally until a date (at most 90 days ahead).
+// Only Pro shows it: when Pro ends the offer is kept but hidden, and comes back if Pro does.
+const OFFER_MAX_DAYS = 90;
+const liveOffer = (row, at = now()) => (row.offer && (!row.offer_until || row.offer_until > at) ? { text: row.offer, until: row.offer_until ?? null } : null);
+export function setOffer(db, account, slug, input = {}) {
+  const row = ownRow(db, account, slug);
+  if (!planFor(db, row.id).pro) fail(402, `Offers are part of ${PRODUCTS.pro.name}.`, 'needs_pro');
+  const offer = text(input.text, 100) || null;
+  let until = null;
+  if (offer && input.until != null && input.until !== '') {
+    until = Number(new Date(input.until));
+    if (!Number.isFinite(until) || until <= now()) fail(400, 'The end date must be in the future.', 'bad_until');
+    if (until > now() + OFFER_MAX_DAYS * DAY) fail(400, `An offer can run for up to ${OFFER_MAX_DAYS} days.`, 'bad_until');
+  }
+  db.prepare('UPDATE businesses SET offer = ?, offer_until = ?, updated_at = ? WHERE id = ?').run(offer, until, now(), row.id);
+  return ownerView(getRow(db, slug));
+}
 
 // The public list: published profiles, filtered by category, district or words, newest first (or by name).
 export function listProfiles(db, { category = '', district = '', q = '', sort = 'new', limit = 50, offset = 0 } = {}) {
