@@ -48,7 +48,7 @@ Written for: you, to plan the next stage. Status on 2026-10-15: `npm test` passe
 - [x] **The game uses the server** (when `NEXT_PUBLIC_LIVE_API_URL` is set): sign-in appears only when claiming, taking over or buying an ad space [`docs/backend.md`]
 - [x] **Social presence, lead capture, interactive storefronts, quests, email notices**: instant push of changes and spatial chat; double opt-in sign-ups; coupons, feedback board, quests paid from a business's Gold budget; email outbox and newsletter [`docs/backend.md`]
 - [x] **Moderation, owner sign-ups screen, Credits** (the server's quest money is separate from the game's Gold) [`docs/backend.md`]
-- [x] Deprecated `maxLeafSize` -> `targetLeafSize` in the Pascal packages and `three-bvh-csg` (saved as patches)
+- [x] Deprecated `maxLeafSize` -> `targetLeafSize` in the Pascal packages and `three-bvh-csg`: the warning is filtered in `lib/dev/quietWarnings.js` (three-mesh-bvh maps the old name itself); the version-pinned patches that did it broke every Pascal update and were removed with the move to Pascal 1.0.4. The one patch left (`patches/@pascal-app+nodes+1.0.4.patch`) computes missing normals for some furniture models
 - [x] **Backend API** (Node + SQLite, Postgres-portable): accounts, directory, atomic claim and take-over, ledger, events and real statistics, 34 tests [`docs/backend.md`]
 - [x] Live-data layer with one provider switch and `docs/live_data.md` [5x]
 - [x] Feasibility study for a bigger authored world, with a streaming prototype [5v, study doc]
