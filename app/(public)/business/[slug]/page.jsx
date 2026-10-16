@@ -51,8 +51,15 @@ export default async function BusinessPage({ params }) {
             </Link>
           )}
         </p>
+        {p.launch && <p className="mt-3 inline-block rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-300">New this week</p>}
         <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{p.name}</h1>
         {p.tagline && <p className="mt-2 text-lg text-slate-200">{p.tagline}</p>}
+        {p.offer && (
+          <p className="mt-4 rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100" data-testid="offer">
+            <span className="font-semibold text-emerald-300">Offer: </span>{p.offer.text}
+            {p.offer.until && <span className="text-emerald-200/80"> · until {new Date(p.offer.until).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+          </p>
+        )}
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <CtaButton slug={p.slug} cta={p.cta} />
           {p.plotId != null && (

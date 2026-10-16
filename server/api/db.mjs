@@ -20,6 +20,7 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'market_bookings', 'offer', 'TEXT');
   addColumn(db, 'market_bookings', 'website', 'TEXT');
   addColumn(db, 'market_bookings', 'notified_open', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn(db, 'market_bookings', 'hold_until', 'INTEGER'); // a pending booking (waiting for its payment) holds the stall until then
   addColumn(db, 'market_bookings', 'notified_close', 'INTEGER NOT NULL DEFAULT 0');
   addColumn(db, 'events', 'ip_hash', 'TEXT');
   addColumn(db, 'events', 'verified', 'INTEGER NOT NULL DEFAULT 1');
@@ -33,6 +34,8 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'reports', 'evidence', 'TEXT'); // a reported chat message as it was when reported (JSON)
   addColumn(db, 'business_events', 'campaign', 'TEXT'); // utm_campaign of the link the visitor came by (business.mjs)
   addColumn(db, 'businesses', 'x_handle', 'TEXT'); // the owner's X handle, without the @ (optional)
+  addColumn(db, 'businesses', 'offer', 'TEXT'); // Pro: a one-line offer shown on the public page (business.mjs setOffer)
+  addColumn(db, 'businesses', 'offer_until', 'INTEGER'); // when the offer ends, or NULL for no end date
   addColumn(db, 'businesses', 'announce', 'INTEGER NOT NULL DEFAULT 0'); // 1: the owner agreed to a welcome post on VoxelVenture's X account that tags them
   addColumn(db, 'plots', 'exterior', 'TEXT'); // JSON: the outside the owner set up (lib/game/exterior.js), or NULL for the usual one
   addColumn(db, 'ad_events', 'ip_hash', 'TEXT');
@@ -49,6 +52,35 @@ function addColumn(db, table, column, definition) {
 // Re-entrant: a transaction opened inside another joins it, so a route can wrap a change and its audit record (audit.mjs) in one
 // transaction even though the change opens its own. Any error rolls the whole outer transaction back.
 const depth = new WeakMap();
+// Runs fn; if it throws, everything it wrote is undone (also inside a larger transaction, which carries on) and the error is passed on.
+export function attempt(db, fn) {
+  return transaction(db, () => {
+    db.exec('SAVEPOINT attempt');
+    try {
+      const out = fn();
+      db.exec('RELEASE attempt');
+      return out;
+    } catch (e) {
+      db.exec('ROLLBACK TO attempt');
+      db.exec('RELEASE attempt');
+      throw e;
+    }
+  });
+}
+
+// Runs fn to see what it would do (its checks, what it would write), then undoes everything it wrote. Returns fn's result.
+export function dryRun(db, fn) {
+  return transaction(db, () => {
+    db.exec('SAVEPOINT dry_run');
+    try {
+      return fn();
+    } finally {
+      db.exec('ROLLBACK TO dry_run');
+      db.exec('RELEASE dry_run');
+    }
+  });
+}
+
 export function transaction(db, fn) {
   const d = depth.get(db) ?? 0;
   if (d > 0) {

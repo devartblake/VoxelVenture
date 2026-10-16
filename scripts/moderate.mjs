@@ -8,6 +8,10 @@
 //   npm run moderate -- audit verify                                                check the audit trail's hash chain
 //   npm run moderate -- posts [review|queued|posted|failed]                         welcome posts on X (docs/social_posts.md)
 //   npm run moderate -- posts approve|reject 4
+//   npm run moderate -- orders [pending|paid|refunded|expired|failed]             payments (docs/billing.md), newest first
+//   npm run moderate -- refund 12                                                   refund an order in full and take back what it bought
+//   npm run moderate -- grant amys-cafe pro|launch|sponsored [days] [placement] [reason...]   a complimentary week, month or placement
+//   npm run moderate -- reconcile                                                   ask Stripe about pending orders and running Pro plans now
 // With the messaging service (services/messaging), chat reports are its own: set MESSAGING_URL (e.g. http://localhost:3003) and the
 // list shows both queues, and `resolve message|nearby ...` goes there.
 const base = process.env.API_URL || 'http://localhost:3002';
@@ -55,7 +59,20 @@ if (!cmd || cmd === 'list') {
   console.log(`Welcome posts: ${mode}${mode !== 'off' && !configured ? ' (the X keys are not set: nothing can be sent)' : ''}`);
   if (!posts.length) console.log('None.');
   for (const p of posts) console.log(`[${p.id}] ${p.status}${p.error ? ` (${p.error})` : ''}${p.url ? ` ${p.url}` : ''}\n    ${p.text}`);
+} else if (cmd === 'orders') {
+  const { orders } = await call('GET', `/admin/billing/orders${args[0] ? `?status=${encodeURIComponent(args[0])}` : ''}`);
+  if (!orders.length) console.log('No orders.');
+  for (const o of orders) console.log(`[${o.id}] ${new Date(o.createdAt).toISOString().slice(0, 16)}  ${o.status.padEnd(8)} $${(o.cents / 100).toFixed(2).padStart(7)}  ${o.label ?? `${o.product}${o.placement ? ` (${o.placement})` : ''} for ${o.business}`}  account #${o.accountId}${o.note ? `\n    ${o.note}` : ''}`);
+} else if (cmd === 'refund') {
+  await call('POST', `/admin/billing/orders/${Number(args[0])}/refund`);
+  console.log(`Order ${args[0]} is refunded in full, and what it bought is taken back.`);
+} else if (cmd === 'grant') {
+  const [slug, product, days, placement, ...reason] = args;
+  const g = await call('POST', `/admin/billing/grant/${encodeURIComponent(slug ?? '')}`, { product, days: days ? Number(days) : undefined, placement: placement || undefined, reason: reason.join(' ') || undefined });
+  console.log(`Granted: order ${g.orderId}, until ${new Date(g.until).toISOString().slice(0, 10)}.`);
+} else if (cmd === 'reconcile') {
+  console.log(JSON.stringify(await call('POST', '/admin/billing/reconcile')));
 } else {
-  console.error('Commands: list | resolve <feedback|plot|ad|business|message|nearby> <id> <dismiss|remove|ban> | ban <account id> [reason] | unban <account id> | audit [verify | <kind> [id] | action <name> | account <id>] | posts [status | approve <id> | reject <id>]');
+  console.error('Commands: list | resolve <feedback|plot|ad|business|message|nearby> <id> <dismiss|remove|ban> | ban <account id> [reason] | unban <account id> | audit [verify | <kind> [id] | action <name> | account <id>] | posts [status | approve <id> | reject <id>] | orders [status] | refund <order id> | grant <slug> <pro|launch|sponsored> [days] [placement] [reason] | reconcile');
   process.exit(1);
 }

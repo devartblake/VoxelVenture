@@ -74,7 +74,18 @@ try {
   check('a press after a view is', (await cta('visitor-one')).data.verified === true);
   check('a bad event kind is refused', (await call('POST', '/businesses/amys-cafe-bar/events', { body: { kind: 'purchase', visitor: 'visitor-one' } })).status === 400);
 
-  // ---- campaigns (utm_campaign on the link)
+  // ---- campaigns (utm_campaign on the link): a Pro figure, so this profile gets complimentary Pro first (server/api/billing.mjs)
+  check('campaign figures are Pro: the free plan does not see them', (await call('GET', '/me/businesses', { token: bob.token })).data.profiles.find((x) => x.profile.slug === 'amys-cafe-bar-2').stats.campaigns === undefined);
+  check('only an admin can grant Pro', (await call('POST', '/admin/billing/grant/amys-cafe-bar-2', { token: bob.token, body: { product: 'pro' } })).status === 403);
+  await call('POST', '/admin/billing/grant/amys-cafe-bar-2', { token: 'admin-secret', body: { product: 'pro', days: 30, reason: 'test' } });
+  // ---- offers (Pro): one line at the top of the public page
+  check('an offer needs Pro', (await call('PUT', '/businesses/amys-cafe-bar/offer', { token: amy.token, body: { text: '10% off' } })).status === 402);
+  check('only the owner sets an offer', (await call('PUT', '/businesses/amys-cafe-bar-2/offer', { token: amy.token, body: { text: '10% off' } })).status === 403);
+  check('an end date in the past or over 90 days away is refused', (await call('PUT', '/businesses/amys-cafe-bar-2/offer', { token: bob.token, body: { text: '10% off', until: '2020-01-01' } })).status === 400 && (await call('PUT', '/businesses/amys-cafe-bar-2/offer', { token: bob.token, body: { text: '10% off', until: new Date(Date.now() + 120 * 86400000).toISOString() } })).status === 400);
+  const offerSet = await call('PUT', '/businesses/amys-cafe-bar-2/offer', { token: bob.token, body: { text: '10% off your first order with VOXEL', until: new Date(Date.now() + 7 * 86400000).toISOString() } });
+  check('with Pro the offer is saved and shown on the public page', offerSet.status === 200 && (await call('GET', '/businesses/amys-cafe-bar-2')).data.offer?.text === '10% off your first order with VOXEL' && (await call('GET', '/businesses/amys-cafe-bar')).data.offer === null);
+  check('an empty offer takes it off the page', (await call('PUT', '/businesses/amys-cafe-bar-2/offer', { token: bob.token, body: { text: '' } })).data.offer === null && (await call('GET', '/businesses/amys-cafe-bar-2')).data.offer === null);
+  await call('PUT', '/businesses/amys-cafe-bar-2/offer', { token: bob.token, body: { text: 'Free delivery this week' } });
   // (on a profile nobody has viewed yet: this test's network has used its daily views on Amy's)
   await call('POST', '/businesses/amys-cafe-bar-2/events', { body: { kind: 'view', visitor: 'camp-visitor', campaign: 'Spring-Sale' } });
   await call('POST', '/businesses/amys-cafe-bar-2/events', { body: { kind: 'view', visitor: 'camp-visitor-2', campaign: '<script>' } });

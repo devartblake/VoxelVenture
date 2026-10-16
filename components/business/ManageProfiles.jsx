@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { request } from '@/lib/data/api';
+import { apiBase, getToken, request } from '@/lib/data/api';
+import { PLACEMENTS, PRODUCTS, dollars } from '@/lib/business/plans';
 import { CTA_KINDS, categoryOf, districtOf, profileUrl } from '@/lib/business/profile';
 import AuthDialog from '@/components/ui/AuthDialog';
 import ProfileForm from './ProfileForm';
@@ -14,7 +15,7 @@ const POST_STATUS = { review: 'waiting for a quick check before it goes out', qu
 const pct = (x) => `${Math.round((x ?? 0) * 100)}%`;
 
 // "My profiles": every profile the owner has, with its verified figures (never simulated), what to do next, the share link that credits
-// them, and the upgrades their own figures justify.
+// them, its plan (Free, Pro, the Launch Pack, sponsored weeks) with checkout through Stripe, and the upgrades their own figures justify.
 export default function ManageProfiles() {
   const { live, ready, account, logout } = useOwner();
   const [data, setData] = useState(null);
@@ -58,22 +59,25 @@ export default function ManageProfiles() {
         </div>
         <Link href="/business/new" className="rounded-xl bg-sx-purple px-4 py-2 font-semibold text-white hover:bg-violet-400">Add a business</Link>
       </div>
+      <PaymentReturn onPaid={load} />
       {error && <p className="mb-4 text-rose-300" role="alert">{error}</p>}
       {!data && !error && <p className="text-sx-muted">Loading…</p>}
       {data && !data.profiles.length && (
         <p className="rounded-2xl border border-dashed border-sx-stroke p-6 text-center text-slate-300">You have no profiles yet. <Link href="/business/new" className="text-sx-cyan underline">List your business free</Link>.</p>
       )}
       <div className="space-y-6">
-        {data?.profiles.map((row) => <ProfileRow key={row.profile.slug} row={row} code={data.referral.code} origin={origin} plots={mine} onChange={load} />)}
+        {data?.profiles.map((row) => <ProfileRow key={row.profile.slug} row={row} code={data.referral.code} origin={origin} plots={mine} onChange={load} checkoutOn={data.checkout} />)}
       </div>
       {data && <Referrals referral={data.referral} origin={origin} />}
+      {data?.checkout && <Orders />}
       <p className="mt-8 text-xs text-sx-muted">All figures are the last 30 days and count verified visitors only: no bots, no visits of your own, and a daily limit per network.</p>
     </>
   );
 }
 
-function ProfileRow({ row, code, origin, plots, onChange }) {
-  const { profile: p, stats, steps, prompts, welcomePost } = row;
+function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
+  const { profile: p, stats, steps, prompts, welcomePost, plan, launchSummary } = row;
+  const [sponsorOpen, setSponsorOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState('');
@@ -110,7 +114,16 @@ function ProfileRow({ row, code, origin, plots, onChange }) {
   };
   const done = steps.filter((s) => s.done && !s.optional).length;
   const required = steps.filter((s) => !s.optional).length;
-  const maxSource = Math.max(1, ...stats.sources.map((s) => s.views));
+  const maxSource = Math.max(1, ...(stats.sources ?? []).map((s) => s.views));
+  const buy = async (product, placement) => {
+    setMsg('');
+    try {
+      const r = await request('POST', `/businesses/${p.slug}/checkout`, { product, placement });
+      window.location.assign(r.url); // Stripe's own checkout page; it sends the owner back here
+    } catch (e) {
+      setMsg(e.message);
+    }
+  };
 
   return (
     <section className="rounded-2xl border border-sx-stroke bg-sx-panel p-5" aria-labelledby={`h-${p.slug}`}>
@@ -147,7 +160,14 @@ function ProfileRow({ row, code, origin, plots, onChange }) {
               {welcomePost.url && <> · <a href={welcomePost.url} target="_blank" rel="noopener" className="text-sx-cyan underline">see the post</a></>}
             </p>
           )}
-          {stats.views > 0 && (
+          <PlanBox slug={p.slug} profile={p} plan={plan} checkoutOn={checkoutOn} buy={buy} onChange={onChange} sponsorOpen={sponsorOpen} setSponsorOpen={setSponsorOpen} setMsg={setMsg} />
+          {launchSummary && <LaunchSummary s={launchSummary} />}
+          {!plan.pro && (
+            <p className="mt-4 rounded-xl border border-dashed border-sx-stroke p-3 text-sm text-slate-300">
+              <span className="font-semibold text-white">Pro</span> adds where your visitors came from, campaign results, the 30-day chart and CSV export.
+            </p>
+          )}
+          {plan.pro && stats.views > 0 && (
             <div className="mt-4">
               <h3 className="mb-2 text-sm font-semibold text-slate-200">Where visitors came from</h3>
               <ul className="space-y-1">
@@ -223,7 +243,11 @@ function ProfileRow({ row, code, origin, plots, onChange }) {
                   <p className="font-semibold text-white">{plan.name} <span className="font-normal text-slate-300">· {plan.price}</span></p>
                   <p className="mt-1 text-sm text-slate-200">{reason}</p>
                   <p className="mt-1 text-xs text-sx-muted">{plan.pitch}</p>
-                  {requested ? (
+                  {checkoutOn ? (
+                    <button type="button" onClick={() => (plan.id === 'sponsored' ? setSponsorOpen(true) : buy(plan.id))} className="mt-2 rounded-lg bg-sx-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-400">
+                      {plan.id === 'sponsored' ? 'Choose a placement' : `Buy · ${plan.price}`}
+                    </button>
+                  ) : requested ? (
                     <p className="mt-2 text-sm text-emerald-300">Thanks: we will tell you as soon as it is available.</p>
                   ) : (
                     <button type="button" onClick={() => interest(plan.id)} className="mt-2 rounded-lg bg-sx-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-400">Tell me when it is ready</button>
@@ -249,6 +273,184 @@ function Referrals({ referral, origin }) {
           <div key={k} className="rounded-xl bg-sx-alt p-3"><dt className="text-xs text-sx-muted">{k}</dt><dd className="text-xl font-semibold text-white">{v}</dd></div>
         ))}
       </dl>
+    </section>
+  );
+}
+
+// The profile's plan and what can be bought for it (checkout happens on Stripe's page).
+function PlanBox({ slug, profile, plan, checkoutOn, buy, onChange, sponsorOpen, setSponsorOpen, setMsg }) {
+  const day = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const lines = [
+    plan.pro ? `Pro until ${day(plan.proUntil)}` : 'Free plan',
+    plan.launch && `Launch week until ${day(plan.launchUntil)}`,
+    ...plan.sponsored.map((s) => `Sponsored (${placementName(s.placement)}) until ${day(s.until)}`),
+  ].filter(Boolean);
+  const cancel = async () => {
+    if (!window.confirm('Stop Pro? It keeps running until the end of the month you have paid for, then the profile goes back to the free plan.')) return;
+    try {
+      await request('POST', `/businesses/${slug}/pro/cancel`);
+      onChange();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  };
+  const download = async () => {
+    const res = await fetch(`${apiBase()}/businesses/${slug}/export.csv`, { headers: { Authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return setMsg('The figures could not be downloaded.');
+    const url = URL.createObjectURL(await res.blob());
+    Object.assign(document.createElement('a'), { href: url, download: `${slug}-figures.csv` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  return (
+    <div className="mt-4 rounded-xl border border-sx-stroke bg-sx-alt/50 p-4" data-testid="plan-box">
+      <p className="text-sm text-slate-200"><span className="font-semibold text-white">Plan:</span> {lines.join(' · ')}</p>
+      {checkoutOn ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {!plan.launch && <button type="button" onClick={() => buy('launch')} className={BUY}>Launch Pack · {dollars(PRODUCTS.launch.cents)}</button>}
+          {plan.pro ? (
+            <>
+              <button type="button" onClick={download} className={QUIET}>Download figures (CSV)</button>
+              <button type="button" onClick={cancel} className={QUIET}>Stop Pro</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => buy('pro')} className={BUY}>Go Pro · {dollars(PRODUCTS.pro.cents)} a month</button>
+          )}
+          <button type="button" onClick={() => setSponsorOpen((o) => !o)} aria-expanded={sponsorOpen} className={QUIET}>Sponsor a week…</button>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-sx-muted">Paid plans are not open yet.</p>
+      )}
+      {checkoutOn && sponsorOpen && <SponsorPicker profile={profile} buy={buy} />}
+      {plan.pro && <OfferEditor slug={slug} offer={profile.offer} onChange={onChange} setMsg={setMsg} />}
+    </div>
+  );
+}
+
+// Pro: a one-line offer at the top of the public page, optionally until a date.
+function OfferEditor({ slug, offer, onChange, setMsg }) {
+  const [text, setText] = useState(offer?.text ?? '');
+  const [until, setUntil] = useState(offer?.until ? new Date(offer.until).toISOString().slice(0, 10) : '');
+  const save = async (clear = false) => {
+    try {
+      await request('PUT', `/businesses/${slug}/offer`, clear ? { text: '' } : { text, until: until ? `${until}T23:59:59` : null });
+      if (clear) (setText(''), setUntil(''));
+      setMsg(clear ? 'The offer is off your page.' : 'The offer is on your page.');
+      onChange();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  };
+  return (
+    <form className="mt-4 border-t border-sx-stroke pt-3" onSubmit={(e) => (e.preventDefault(), save())} data-testid="offer-editor">
+      <label htmlFor={`offer-${slug}`} className="text-sm font-semibold text-white">Offer on your page</label>
+      <p className="text-xs text-sx-muted">One line at the top of your public page, like &quot;10% off your first order with VOXEL&quot;.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input id={`offer-${slug}`} value={text} onChange={(e) => setText(e.target.value)} maxLength={100} className="min-w-0 flex-1 rounded-lg border border-sx-stroke bg-sx-panel px-3 py-1.5 text-sm text-white" />
+        <label className="text-xs text-slate-300">Until <input type="date" value={until} onChange={(e) => setUntil(e.target.value)} className="rounded-lg border border-sx-stroke bg-sx-panel px-2 py-1 text-sm text-white" /></label>
+        <button type="submit" disabled={!text.trim()} className={BUY}>Save offer</button>
+        {offer && <button type="button" onClick={() => save(true)} className={QUIET}>Remove</button>}
+      </div>
+    </form>
+  );
+}
+const BUY = 'rounded-lg bg-sx-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-400';
+const QUIET = 'rounded-lg border border-sx-stroke px-3 py-1.5 text-sm text-slate-200 hover:bg-sx-alt';
+const placementName = (key) => {
+  const [kind, target] = String(key).split(':');
+  if (kind === 'discover') return PLACEMENTS.discover.label;
+  return kind === 'category' ? categoryOf(target)?.label ?? target : districtOf(target)?.name ?? target;
+};
+
+// Where a sponsored week can go for this profile (Discover, its category, its district), with the price and the free slots right now.
+function SponsorPicker({ profile, buy }) {
+  const keys = ['discover', `category:${profile.category}`, ...(profile.district ? [`district:${profile.district}`] : [])];
+  const [spots, setSpots] = useState(null);
+  useEffect(() => {
+    Promise.all(keys.map((k) => request('GET', `/billing/availability?placement=${encodeURIComponent(k)}`))).then(setSpots, () => setSpots([]));
+  }, [profile.category, profile.district]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!spots) return <p className="mt-3 text-sm text-sx-muted">Checking free spots…</p>;
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-xs text-sx-muted">A week, clearly labelled “Sponsored”. A few spots per page, so it stays worth having.</p>
+      {spots.map((s) => (
+        <div key={s.placement} className="flex flex-wrap items-center gap-3 rounded-lg border border-sx-stroke p-3 text-sm">
+          <span className="mr-auto text-slate-100">{placementName(s.placement)} <span className="text-sx-muted">· {s.free} of {s.slots} free</span></span>
+          <button type="button" disabled={!s.free} onClick={() => buy('sponsored', s.placement)} className={`${BUY} disabled:opacity-40`}>{s.free ? `${dollars(s.cents)} for a week` : 'Full this week'}</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// What the launch week brought, against the week before it.
+function LaunchSummary({ s }) {
+  return (
+    <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-50" data-testid="launch-summary">
+      <p className="font-semibold">{s.running ? 'Your launch week so far' : 'Your launch week'}</p>
+      <p className="mt-1">{s.views} verified views and {s.ctaClicks} presses of your button, against {s.viewsWeekBefore} views and {s.ctaWeekBefore} presses the week before.</p>
+    </div>
+  );
+}
+
+// Back from Stripe: ?paid=<order> waits (briefly) for the webhook to confirm it; ?canceled=<order> says nothing was charged.
+function PaymentReturn({ onPaid }) {
+  const [state, setState] = useState(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const paid = q.get('paid');
+    if (q.get('canceled')) return setState({ tone: 'info', text: 'Checkout cancelled: nothing was charged.' });
+    if (!/^\d+$/.test(paid ?? '')) return undefined;
+    let tries = 0;
+    let stop = false;
+    setState({ tone: 'info', text: 'Payment received by Stripe: confirming it…' });
+    const look = async () => {
+      if (stop) return;
+      try {
+        const o = await request('GET', `/me/orders/${paid}`);
+        if (o.status === 'paid') {
+          setState({ tone: 'ok', text: `Thank you: your ${PRODUCTS[o.product]?.name ?? 'purchase'} is active. Stripe emails your receipt.` });
+          return onPaid();
+        }
+      } catch {
+        /* try again */
+      }
+      if (++tries < 15) setTimeout(look, 2000);
+      else setState({ tone: 'info', text: 'Stripe has your payment; it can take a few minutes to show here. Nothing more to do.' });
+    };
+    look();
+    return () => {
+      stop = true;
+    };
+  }, [onPaid]);
+  if (!state) return null;
+  return <p role="status" className={`mb-4 rounded-xl border p-3 text-sm ${state.tone === 'ok' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100' : 'border-sx-stroke bg-sx-alt text-slate-200'}`}>{state.text}</p>;
+}
+
+// The account's orders: what was bought, when, and its state.
+function Orders() {
+  const [orders, setOrders] = useState(null);
+  useEffect(() => {
+    request('GET', '/me/orders').then((r) => setOrders(r.orders), () => setOrders([]));
+  }, []);
+  if (!orders?.length) return null;
+  return (
+    <section className="mt-6 rounded-2xl border border-sx-stroke bg-sx-panel p-5" aria-labelledby="orders-h">
+      <h2 id="orders-h" className="text-lg font-semibold text-white">Orders</h2>
+      <table className="mt-3 w-full text-sm">
+        <thead><tr className="text-left text-xs text-sx-muted"><th className="font-normal">Date</th><th className="font-normal">Business</th><th className="font-normal">What</th><th className="font-normal">Amount</th><th className="font-normal">State</th></tr></thead>
+        <tbody>
+          {orders.map((o) => (
+            <tr key={o.id} className="border-t border-sx-stroke/60">
+              <td className="py-1.5 text-slate-300">{new Date(o.createdAt).toLocaleDateString()}</td>
+              <td className="text-slate-200">{o.business?.name ?? 'In the game'}</td>
+              <td className="text-slate-200">{o.label ?? <>{PRODUCTS[o.product]?.name}{o.placement ? ` (${placementName(o.placement)})` : ''}</>}</td>
+              <td className="text-slate-200">{o.cents ? dollars(o.cents) : 'free'}</td>
+              <td className="text-slate-300">{o.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-xs text-sx-muted">Stripe emails a receipt for every payment.</p>
     </section>
   );
 }

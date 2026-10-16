@@ -1,6 +1,6 @@
-# Alignment status: phases 1 to 3
+# Alignment status: phases 1 to 4
 
-Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](claimavenue_competitive_alignment_review.md): its phases 1 to 3, the parts of the P0 and P1 backlog that belong to them, and the review's "critical gaps" sections.
+Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](claimavenue_competitive_alignment_review.md): its phases 1 to 4, the parts of the P0 and P1 backlog that belong to them, and the review's "critical gaps" sections.
 
 **Key:**
 
@@ -26,7 +26,7 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 | 4. Clear CTA selection | ✅ | One CTA per profile (5 kinds) |
 | 5. Share and referral attribution | ✅ | Signed `?ref=` codes, `utm_campaign` campaigns, the `x` source |
 | 6. Owner onboarding checklist | ✅ | `/business/manage` |
-| 7. Upgrade prompts tied to measurable value | ✅ | From verified figures only; records interest until checkout exists (phase 4) |
+| 7. Upgrade prompts tied to measurable value | ✅ | From verified figures only; with Stripe set up they lead to checkout (phase 4), otherwise they record interest |
 | 3D building as an optional destination from the profile | ✅ | "Step inside the 3D storefront" on the profile; "Business page" on the building's card |
 | Accessible non-WebGL fallback (gap 4) | ✅ | `components/ui/NoWebGL.jsx` |
 | Fast mobile landing pages (gap 4) | ✅ | Plain server-rendered pages with no multiplayer connection |
@@ -48,6 +48,19 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 | Simulated metrics removed from advertiser interfaces | ✅ | The building card, My businesses, ad counts, the newsletter and the admin HQs (live city panel) |
 | Deploy and verify | 👤 | Choose the host and domain (task 1), then `npm run check:env`, deploy, and `npm run verify:live` |
 
+## Phase 4: low-risk monetisation ([billing.md](billing.md))
+
+| Item | Status | Where |
+| --- | --- | --- |
+| $9 Launch Pack | ✅ | A week in **New this week** on Discover, a highlighted card and badge, a launch share image, and a summary of the week |
+| $19/month Pro | ✅ | Sources, campaigns, the 30-day chart, CSV export, and an offer on the public page |
+| Fixed-term sponsored placements | ✅ | $29 to $99 a week on Discover, category and district pages. Each spot has three slots and is labelled **Sponsored**. |
+| Fixed-price market bookings | ✅ | Paid through Stripe; held while paying; refunded if cancelled before the stall opens |
+| Conventional leases | ✅ | Claims, take-overs and renewals are paid through Stripe. The tenant a take-over replaces is not paid out. |
+| Webhook idempotency, reconciliation, refunds, receipts, audit | ✅ | Signed webhooks applied once; hourly reconciliation; refunds that take back what was bought; receipts from Stripe; every step in the audit trail |
+| Real-money 1.25x take-over payouts | Not done on purpose | Waits for a legal, tax and fraud review |
+| Stripe account, webhook endpoint, terms and refund policy | 👤 | [billing.md](billing.md#setting-it-up-needs-you) |
+
 ## P0 backlog items belonging to phases 1 to 3
 
 | Item | Status | Notes |
@@ -64,13 +77,13 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 | Production smoke tests | ✅ | `npm run verify:live` |
 | Privacy, refund, advertising and placement terms | 👤 | Legal text is for you or your counsel to write. The privacy notice should cover what is collected: accounts and email, presence pings with a country, hashed network addresses for the verification caps, the referral code kept 30 days in the browser, and the X handle (opt-in). |
 | Preview deployments | 👤 | Depends on the host you choose |
-| Stripe Checkout and webhook idempotency | ⏭ | Phase 4 |
+| Stripe Checkout and webhook idempotency | ✅ | [billing.md](billing.md): signed webhooks applied once, idempotency keys, hourly reconciliation. The Stripe account is 👤 |
 
 ## Not done on purpose
 
 These belong to later phases, or wait for the pilot to justify them:
 
-- Checkout and paid tiers (phase 4).
+- Phase 4 is done in code ([billing.md](billing.md)). It needs your Stripe account and terms.
 - Newsletter, meeting and lead CTAs measured as conversions (phase 5).
 - The pilot itself (phase 6).
 - Server-side reservation of the three-minute claim hold.

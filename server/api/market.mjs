@@ -134,8 +134,13 @@ export function setLayout(db, seed, input = {}) {
   });
 }
 
+// A stall counts as taken by a confirmed booking, and by one waiting for its payment while its hold lasts (docs/billing.md).
+const TAKEN = "(status = 'booked' OR (status = 'pending' AND hold_until > ?))";
+
 // A player rents a stall. Everything is checked and written in one transaction, so two people cannot take the same stall at the same time.
-export function book(db, seed, account, input = {}) {
+// With payments on (holdUntil set), the booking is written as pending, holding the stall until then: payStall in billing.mjs sends the player
+// to Stripe, and confirmBooking makes it a booking once they have paid.
+export function book(db, seed, account, input = {}, { holdUntil = null } = {}) {
   requireAccount(account);
   const code = String(input.siteCode ?? '');
   const week = weekOrFail(String(input.week ?? ''));
@@ -148,17 +153,45 @@ export function book(db, seed, account, input = {}) {
     const lay = layoutOf(db, seed, code, week);
     if (!lay.published) fail(409, 'That week\'s market is not open for booking yet.', 'not_open');
     const stall = lay.plan.stalls.find((s) => s.id === String(input.stallId));
-    const existing = db.prepare("SELECT start_at AS start, end_at AS end FROM market_bookings WHERE site_code = ? AND week_start = ? AND stall_id = ? AND status = 'booked'").all(code, week, String(input.stallId));
+    const existing = db.prepare(`SELECT start_at AS start, end_at AS end FROM market_bookings WHERE site_code = ? AND week_start = ? AND stall_id = ? AND ${TAKEN}`).all(code, week, String(input.stallId), Date.now());
     const problem = bookingProblem({ week, stall, startMs, hours, existing });
     if (problem) fail(409, problem, 'unavailable');
-    const mine = db.prepare("SELECT COUNT(*) AS n FROM market_bookings WHERE account_id = ? AND site_code = ? AND week_start = ? AND status = 'booked'").get(account.id, code, week).n;
+    const mine = db.prepare(`SELECT COUNT(*) AS n FROM market_bookings WHERE account_id = ? AND site_code = ? AND week_start = ? AND ${TAKEN}`).get(account.id, code, week, Date.now()).n;
     if (mine >= MAX_ACTIVE_PER_WEEK) fail(409, `One account can hold ${MAX_ACTIVE_PER_WEEK} stalls a week.`, 'limit');
     const shop = cleanShop(input);
-    const id = Number(db.prepare('INSERT INTO market_bookings (site_code, week_start, stall_id, account_id, account_name, brand, product, start_at, end_at, hours, cents, goods, offer, website, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(code, week, stall.id, account.id, account.username, brand, product || null, startMs, bookingEnd(startMs, hours), hours, stall.cents, JSON.stringify(shop.goods), shop.offer, shop.website, Date.now()).lastInsertRowid);
-    const to = noticeAddress(db, account.id);
-    if (to) enqueue(db, { to, kind: 'market_booking', subject: `Your market stall ${stall.id} is booked`, body: `${brand} has stall ${stall.id} at the pop-up market (${code}) from ${new Date(startMs).toUTCString()} for ${hours} hours. The price is $${(stall.cents / 100).toFixed(2)}.\n\nYou will get a reminder an hour before it opens. Set up what you sell in the game: Places > Reserved land > the market > Your stalls.` });
-    return { booking: bookingView(db.prepare('SELECT * FROM market_bookings WHERE id = ?').get(id)), paid: stall.cents, stall: { id: stall.id, tier: stall.tier } };
+    const id = Number(db.prepare('INSERT INTO market_bookings (site_code, week_start, stall_id, account_id, account_name, brand, product, start_at, end_at, hours, cents, goods, offer, website, status, hold_until, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(code, week, stall.id, account.id, account.username, brand, product || null, startMs, bookingEnd(startMs, hours), hours, stall.cents, JSON.stringify(shop.goods), shop.offer, shop.website, holdUntil ? 'pending' : 'booked', holdUntil, Date.now()).lastInsertRowid);
+    const row = db.prepare('SELECT * FROM market_bookings WHERE id = ?').get(id);
+    if (!holdUntil) bookedNotice(db, row);
+    return { booking: bookingView(row), paid: stall.cents, stall: { id: stall.id, tier: stall.tier }, siteCode: code };
   });
+}
+
+function bookedNotice(db, b) {
+  const to = noticeAddress(db, b.account_id);
+  if (to) enqueue(db, { to, kind: 'market_booking', subject: `Your market stall ${b.stall_id} is booked`, body: `${b.brand} has stall ${b.stall_id} at the pop-up market (${b.site_code}) from ${new Date(b.start_at).toUTCString()} for ${b.hours} hours. The price is $${(b.cents / 100).toFixed(2)}.\n\nYou will get a reminder an hour before it opens. Set up what you sell in the game: Places > Reserved land > the market > Your stalls.` });
+}
+
+// The stall is paid for: the pending booking becomes a booking. If its hold ran out during the payment and somebody else has booked the stall
+// since, it cannot be had: { refund: true } (the caller refunds the payment).
+export function confirmBooking(db, id) {
+  return transaction(db, () => {
+    const b = db.prepare('SELECT * FROM market_bookings WHERE id = ?').get(Number(id));
+    if (!b) return { refund: true };
+    if (b.status === 'booked') return { booking: bookingView(b) };
+    const clash = db.prepare(`SELECT 1 FROM market_bookings WHERE id != ? AND site_code = ? AND week_start = ? AND stall_id = ? AND ${TAKEN} AND start_at < ? AND end_at > ?`).get(b.id, b.site_code, b.week_start, b.stall_id, Date.now(), b.end_at, b.start_at);
+    if (clash || b.end_at <= Date.now()) {
+      db.prepare("UPDATE market_bookings SET status = 'cancelled', hold_until = NULL WHERE id = ?").run(b.id);
+      return { refund: true };
+    }
+    db.prepare("UPDATE market_bookings SET status = 'booked', hold_until = NULL WHERE id = ?").run(b.id);
+    const row = db.prepare('SELECT * FROM market_bookings WHERE id = ?').get(b.id);
+    bookedNotice(db, row);
+    return { booking: bookingView(row) };
+  });
+}
+// The checkout was abandoned, failed or refunded: the stall is free again.
+export function releaseBooking(db, id) {
+  db.prepare("UPDATE market_bookings SET status = 'cancelled', hold_until = NULL WHERE id = ? AND status IN ('pending', 'booked')").run(Number(id));
 }
 
 // The player's stalls: coming up, open now, and the ones that closed in the last two weeks, each with how many people stopped by.
@@ -221,7 +254,7 @@ export function sendNotices(db, now = Date.now()) {
   return { opening, closed };
 }
 
-// A booking can be cancelled by its owner until it starts (the price is not paid back in this version: see docs).
+// A booking can be cancelled by its owner until it starts. A paid one is refunded in full (the server does that through billing.mjs first).
 export function cancelBooking(db, account, id) {
   requireAccount(account);
   const b = db.prepare("SELECT * FROM market_bookings WHERE id = ? AND status = 'booked'").get(Number(id));

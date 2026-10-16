@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { BUSINESS_DISTRICTS, CATEGORIES } from '@/lib/business/profile';
-import { isDemo, listBusinesses } from '@/lib/business/source';
-import { BusinessList } from '@/components/business/BusinessCard';
+import { getFeatured, isDemo, listBusinesses } from '@/lib/business/source';
+import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 
 export async function generateMetadata({ searchParams }) {
   const { q } = await searchParams;
@@ -17,7 +17,7 @@ export async function generateMetadata({ searchParams }) {
 export default async function Discover({ searchParams }) {
   const { q: raw } = await searchParams;
   const q = String(raw ?? '').slice(0, 60).trim();
-  const { total, profiles } = await listBusinesses({ q, limit: 30 });
+  const [{ total, profiles }, featured] = await Promise.all([listBusinesses({ q, limit: 30 }), q ? { sponsored: [], launches: [] } : getFeatured('discover')]);
   return (
     <>
       <section className="mb-8">
@@ -29,6 +29,9 @@ export default async function Discover({ searchParams }) {
           <button type="submit" className="rounded-xl bg-sx-cyan px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300">Search</button>
         </form>
       </section>
+
+      <FeaturedList title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
+      <FeaturedList title="New this week" profiles={featured.launches} badge="New this week" />
 
       {!q && (
         <section aria-labelledby="cats" className="mb-8">

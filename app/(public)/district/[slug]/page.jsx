@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { districtOf } from '@/lib/business/profile';
-import { isDemo, listBusinesses } from '@/lib/business/source';
-import { BusinessList } from '@/components/business/BusinessCard';
+import { getFeatured, isDemo, listBusinesses } from '@/lib/business/source';
+import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 
 
 export async function generateMetadata({ params }) {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }) {
 export default async function DistrictPage({ params }) {
   const district = districtOf((await params).slug);
   if (!district) notFound();
-  const { total, profiles } = await listBusinesses({ district: district.id, limit: 60 });
+  const [{ total, profiles }, featured] = await Promise.all([listBusinesses({ district: district.id, limit: 60 }), getFeatured(`district:${district.id}`)]);
   return (
     <>
       <nav aria-label="Breadcrumb" className="mb-3 text-sm text-sx-muted"><Link href="/discover" className="hover:text-white">Discover</Link> / District</nav>
@@ -28,6 +28,7 @@ export default async function DistrictPage({ params }) {
         {district.name}
       </h1>
       <p className="mb-6 mt-1 text-slate-300">{total} business{total === 1 ? '' : 'es'} · <Link href="/" className="underline hover:text-white">walk the district in 3D</Link></p>
+      <FeaturedList title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
       <BusinessList profiles={profiles} empty={`No businesses in ${district.name} yet.`} />
     </>
   );

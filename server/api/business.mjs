@@ -3,6 +3,7 @@ import { transaction } from './db.mjs';
 import { ApiError, fail, requireAccount, text } from './core.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 import { postFor } from './social.mjs';
+import { billingOn, planFor } from './billing.mjs';
 
 // Free business profiles, referral attribution and the owner's figures (docs/business_funnel.md). The rules (categories, districts, calls to
 // action, validation, onboarding steps, upgrade prompts) are lib/business/profile.js, shared with the public pages.
@@ -14,6 +15,8 @@ import { postFor } from './social.mjs';
 //               profiles it brings to that account (never an account referring itself)
 //   interest    an owner asking for a paid plan before checkout exists is recorded: the demand signal for phase 4
 const { cleanProfile, uniqueSlug, isSlug, isRefCode, onboardingSteps, upgradePrompts, profileReady, PLANS } = await imp('business/profile.js');
+const { figuresFor, PRODUCTS } = await imp('business/plans.js');
+const { csvRows } = await imp('data/csv.js');
 
 export const MAX_PROFILES = 5;
 export const SOURCES = ['direct', 'search', 'social', 'referral', 'city', 'x']; // x: a link in VoxelVenture's own X posts (social.mjs)
@@ -61,8 +64,8 @@ export function profileView(row) {
     updatedAt: row.updated_at,
   };
 }
-// What only the owner sees besides the public view: whether they agreed to a welcome post on X.
-export const ownerView = (row) => ({ ...profileView(row), announce: Boolean(row.announce) });
+// What only the owner sees besides the public view: whether they agreed to a welcome post on X, and their offer (Pro).
+export const ownerView = (row) => ({ ...profileView(row), announce: Boolean(row.announce), offer: row.offer ? { text: row.offer, until: row.offer_until ?? null } : null });
 const getRow = (db, slug) => (isSlug(slug) ? db.prepare("SELECT * FROM businesses WHERE slug = ? AND status = 'published'").get(String(slug)) : null) ?? fail(404, 'No such business.', 'no_business');
 const ownRow = (db, account, slug) => {
   requireAccount(account);
@@ -118,7 +121,31 @@ export function linkPlot(db, account, slug, plotId) {
   return profileView(getRow(db, slug));
 }
 
-export const getProfile = (db, slug) => profileView(getRow(db, slug));
+export const getProfile = (db, slug) => {
+  const row = getRow(db, slug);
+  const plan = planFor(db, row.id);
+  // in its launch week the page shows the Launch badge; with Pro, the owner's offer while it runs
+  return { ...profileView(row), launch: plan.launch, offer: plan.pro ? liveOffer(row) : null };
+};
+
+// ---- offers (Pro) ------------------------------------------------------------------------------------------------------------------
+// A one-line offer at the top of the public page ("10% off your first order with VOXEL"), optionally until a date (at most 90 days ahead).
+// Only Pro shows it: when Pro ends the offer is kept but hidden, and comes back if Pro does.
+const OFFER_MAX_DAYS = 90;
+const liveOffer = (row, at = now()) => (row.offer && (!row.offer_until || row.offer_until > at) ? { text: row.offer, until: row.offer_until ?? null } : null);
+export function setOffer(db, account, slug, input = {}) {
+  const row = ownRow(db, account, slug);
+  if (!planFor(db, row.id).pro) fail(402, `Offers are part of ${PRODUCTS.pro.name}.`, 'needs_pro');
+  const offer = text(input.text, 100) || null;
+  let until = null;
+  if (offer && input.until != null && input.until !== '') {
+    until = Number(new Date(input.until));
+    if (!Number.isFinite(until) || until <= now()) fail(400, 'The end date must be in the future.', 'bad_until');
+    if (until > now() + OFFER_MAX_DAYS * DAY) fail(400, `An offer can run for up to ${OFFER_MAX_DAYS} days.`, 'bad_until');
+  }
+  db.prepare('UPDATE businesses SET offer = ?, offer_until = ?, updated_at = ? WHERE id = ?').run(offer, until, now(), row.id);
+  return ownerView(getRow(db, slug));
+}
 
 // The public list: published profiles, filtered by category, district or words, newest first (or by name).
 export function listProfiles(db, { category = '', district = '', q = '', sort = 'new', limit = 50, offset = 0 } = {}) {
@@ -218,11 +245,24 @@ export function myProfiles(db, account, env = process.env) {
   const interest = db.prepare('SELECT plan FROM upgrade_interest WHERE business_id = ?');
   return {
     referral: myReferrals(db, account, env),
+    checkout: billingOn(env), // false: the prompts record interest instead of offering checkout
     profiles: rows.map((row) => {
       const profile = ownerView(row);
       const stats = profileStats(db, row.id);
       const steps = onboardingSteps(profile, stats);
-      return { profile, stats, steps, ready: profileReady(steps), welcomePost: postFor(db, 'business', row.id), prompts: upgradePrompts(profile, stats).map((p) => ({ ...p, requested: interest.all(row.id).some((r) => r.plan === p.plan.id) })) };
+      const plan = planFor(db, row.id);
+      // the prompts never offer what the profile already has
+      const prompts = upgradePrompts(profile, stats).filter((p) => !(p.plan.id === 'pro' && plan.pro) && !(p.plan.id === 'launch' && plan.launch));
+      return {
+        profile,
+        plan,
+        stats: figuresFor(stats, plan), // the free plan sees the totals; Pro adds sources, campaigns and the daily chart
+        launchSummary: launchSummary(db, row.id),
+        steps,
+        ready: profileReady(steps),
+        welcomePost: postFor(db, 'business', row.id),
+        prompts: prompts.map((p) => ({ ...p, requested: interest.all(row.id).some((r) => r.plan === p.plan.id) })),
+      };
     }),
   };
 }
@@ -239,6 +279,29 @@ export function myReferrals(db, account, env = process.env, at = now()) {
     signups: count('SELECT COUNT(*) AS n FROM accounts WHERE referred_by = ? AND created_at >= ?', account.id, since),
     profiles: count('SELECT COUNT(*) AS n FROM businesses WHERE referred_by = ? AND created_at >= ?', account.id, since),
   };
+}
+
+// The Launch Pack's summary: what the launch week brought (verified views and presses, against the week before it), for the latest launch
+// that started in the last 60 days, or null.
+export function launchSummary(db, businessId, at = Date.now()) {
+  const e = db.prepare("SELECT * FROM entitlements WHERE business_id = ? AND kind = 'launch' AND status = 'active' AND starts_at > ? ORDER BY starts_at DESC LIMIT 1").get(businessId, at - 60 * DAY);
+  if (!e) return null;
+  const count = (kind, from, to) => db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE business_id = ? AND kind = ? AND verified = 1 AND at >= ? AND at < ?').get(businessId, kind, from, to).n;
+  const end = Math.min(e.ends_at, at);
+  const week = e.ends_at - e.starts_at;
+  return { from: e.starts_at, until: e.ends_at, running: at < e.ends_at, views: count('view', e.starts_at, end), ctaClicks: count('cta', e.starts_at, end), viewsWeekBefore: count('view', e.starts_at - week, e.starts_at), ctaWeekBefore: count('cta', e.starts_at - week, e.starts_at) };
+}
+
+// Pro: the owner's figures as a spreadsheet (30 days by day, sources, campaigns). Only for the owner of a profile with Pro.
+export function exportCsv(db, account, slug) {
+  requireAccount(account);
+  const row = getRow(db, slug);
+  if (row.account_id !== account.id) fail(403, 'This is not your business.', 'forbidden');
+  if (!planFor(db, row.id).pro) fail(402, `CSV export is part of ${PRODUCTS.pro.name}.`, 'needs_pro');
+  const s = profileStats(db, row.id);
+  const day = (ago) => new Date(Date.now() - ago * DAY).toISOString().slice(0, 10);
+  const rows = [['Date', 'Verified views', 'Call-to-action presses'], ...s.days.map((d) => [day(d.ago), d.views, d.cta]), [], ['Source', 'Views (30 days)'], ...s.sources.map((x) => [x.id, x.views]), [], ['Campaign', 'Views', 'Presses'], ...s.campaigns.map((c) => [c.id, c.views, c.ctaClicks])];
+  return { __raw: { type: 'text/csv; charset=utf-8', filename: `${row.slug}-figures.csv`, body: csvRows(rows) } };
 }
 
 // "Tell me when it is ready": an owner asks for a paid plan before checkout exists (one record per profile and plan).
