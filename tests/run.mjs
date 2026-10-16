@@ -4,6 +4,7 @@
 //   npm run test:browser      the browser test (needs `npm run build` first and Edge or Chrome)
 //   npm run test:all          both
 //   node tests/run.mjs lots   only the tests whose file name contains "lots"
+//   node tests/run.mjs api.test.mjs market-api.test.mjs   exactly these files (a full file name matches only itself; CI picks them, scripts/select-checks.mjs)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,7 +18,7 @@ const filters = args.filter((a) => !a.startsWith('--'));
 
 let files = fs.readdirSync(here).filter((f) => f.endsWith('.test.mjs')).sort();
 files = files.filter((f) => (only ? f.startsWith('browser') : withBrowser || !f.startsWith('browser')));
-if (filters.length) files = files.filter((f) => filters.some((x) => f.includes(x)));
+if (filters.length) files = files.filter((f) => filters.some((x) => (x.endsWith('.test.mjs') ? f === x : f.includes(x))));
 
 const results = [];
 for (const file of files) {

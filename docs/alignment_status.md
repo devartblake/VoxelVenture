@@ -52,7 +52,7 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| GitHub Actions for build, lint and tests | ✅ | `.github/workflows/ci.yml`: lint, freeze check, all tests (including a headless Chrome run and the Python messaging service), production build |
+| GitHub Actions for build, lint and tests | ✅ | `.github/workflows/ci.yml` runs only what a change needs (`scripts/select-checks.mjs`, tested in `tests/select-checks.test.mjs`). Documentation runs nothing. A model runs the model, credits and world tests. A `lib/` file runs the tests of every module built on it. A server file runs the server's tests. Anything unknown runs everything, including the production build in the browser test. |
 | Protect `main` and require passing checks | 👤 | Settings > Branches: protect `main`, require pull requests and the **CI / checks** status. These are repository settings; code cannot change them. |
 | Dependency and secret scanning | Half done (✅ + 👤) | `.github/dependabot.yml` (npm, pip, actions) ✅. Secret scanning and push protection are repository settings (Settings > Code security) 👤. |
 | Deploy the API and authoritative data store | 👤 | The code is ready; the hosting choice is yours |

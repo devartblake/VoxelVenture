@@ -44,7 +44,7 @@ World-freeze-exception: sponsored label on billboards (phase 2 funnel)
 
 The reason is printed by the check, so it shows in CI and in review. For a local run, `WORLD_FREEZE_EXCEPTION="<why>" npm run check:freeze` does the same.
 
-CI runs it on every pull request (`.github/workflows/ci.yml`). The check is a reminder, not a gate on judgement: a frozen feature written into an existing file still breaks the freeze. Reviewers should ask the question in the pull-request template.
+CI runs it on every pull request that changes more than documentation (`.github/workflows/ci.yml`). The check is a reminder, not a gate on judgement: a frozen feature written into an existing file still breaks the freeze. Reviewers should ask the question in the pull-request template.
 
 ## When it lifts
 
