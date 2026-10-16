@@ -1,0 +1,22 @@
+[Unit]
+Description=VoxelVenture messaging service (Python: conversations, chat checks, reports)
+After=network.target voxelventure-api.service
+
+[Service]
+Type=simple
+User=voxel
+WorkingDirectory=/srv/voxelventure/services/messaging
+EnvironmentFile=/etc/voxelventure/messaging.env
+# One process only: the messaging database is SQLite, which has a single writer (and the background jobs must run once).
+ExecStart=/srv/voxelventure/services/messaging/.venv/bin/python -m app
+Restart=always
+RestartSec=3
+# Hardening: the process can write only to its data folder.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/srv/voxelventure/services/messaging/data
+
+[Install]
+WantedBy=multi-user.target

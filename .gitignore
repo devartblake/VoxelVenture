@@ -1,0 +1,15 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+next-env.d.ts
+server/logs/
+
+server/data/
+# the Python messaging service: its environment, its database, Python's caches
+services/messaging/.venv/
+services/messaging/data/
+__pycache__/

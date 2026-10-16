@@ -1,0 +1,36 @@
+diff --git a/node_modules/@react-three/drei/web/Html.js b/node_modules/@react-three/drei/web/Html.js
+index 81d68b7..2bca5ce 100644
+--- a/node_modules/@react-three/drei/web/Html.js
++++ b/node_modules/@react-three/drei/web/Html.js
+@@ -140,7 +140,12 @@ const Html = /* @__PURE__ */React.forwardRef(({
+   }, [occlude]);
+   React.useLayoutEffect(() => {
+     if (group.current) {
+-      const currentRoot = root.current = ReactDOM.createRoot(el);
++      // Patched (see patches/): a fresh container for every run of this effect. `el` is reused, and a root whose unmount is
++      // still queued (below) would otherwise be given a second root: "createRoot() on a container that has already been passed".
++      const host = document.createElement('div');
++      host.style.display = 'contents';
++      el.appendChild(host);
++      const currentRoot = root.current = ReactDOM.createRoot(host);
+       scene.updateMatrixWorld();
+       if (transform) {
+         el.style.cssText = `position:absolute;top:0;left:0;pointer-events:none;overflow:hidden;`;
+@@ -152,8 +157,15 @@ const Html = /* @__PURE__ */React.forwardRef(({
+         if (prepend) target.prepend(el);else target.appendChild(el);
+       }
+       return () => {
+-        if (target) target.removeChild(el);
+-        currentRoot.unmount();
++        // Patched (see patches/): React refuses to unmount a root while another render or commit is
++        // in progress ("Attempted to synchronously unmount a root while React was already
++        // rendering"), and that is exactly when a parent tears this component down. So unmount on
++        // the next microtask, and don't fail if the element has already been removed.
++        if (target && el.parentNode === target) target.removeChild(el);
++        queueMicrotask(() => {
++          currentRoot.unmount();
++          host.remove();
++        });
+       };
+     }
+   }, [target, transform]);

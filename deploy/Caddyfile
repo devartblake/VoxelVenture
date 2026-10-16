@@ -1,0 +1,45 @@
+# Caddy: HTTPS for the three public addresses, and the reverse proxy to the three local processes.
+# Replace example.com with your domain (and point three DNS A records at the server: example.com, api.example.com, play.example.com).
+# Caddy gets and renews the certificates by itself.
+
+# The game (Next.js).
+example.com {
+	encode zstd gzip
+
+	# The presence monitor page has no login of its own: put a password on it.
+	# Make the hash with:  caddy hash-password
+	# /mp-status is the presence server's /status, reached through this protected address (the monitor page reads it:
+	# NEXT_PUBLIC_MP_HTTP in web.env).
+	@monitor path /admin /admin/* /mp-status
+	basicauth @monitor {
+		admin REPLACE_WITH_A_CADDY_HASH
+	}
+
+	handle /mp-status {
+		rewrite * /status
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
+
+# The API.
+api.example.com {
+	encode zstd gzip
+	# The API reads the visitor's address from X-Forwarded-For (TRUST_PROXY=1 in api.env), which Caddy sets.
+	# /internal/* is for the other processes on this machine (the presence server, the messaging service): never from outside.
+	@internal path /internal /internal/*
+	respond @internal 404
+	reverse_proxy 127.0.0.1:3002
+}
+
+# Presence (WebSockets). Only the game's connection and the health check are public: /status lists every
+# connected player, and /notify and /notify-accounts are for the API on this machine, so none is reachable from outside.
+play.example.com {
+	@private path /status /status/* /notify /notify/* /notify-accounts /notify-accounts/*
+	respond @private 404
+
+	reverse_proxy 127.0.0.1:3001
+}

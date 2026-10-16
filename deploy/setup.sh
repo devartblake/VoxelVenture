@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# First-time setup of a fresh Ubuntu 24.04 server (a Linode): run as root, from the project folder you copied to /srv/voxelventure.
+#   sudo bash deploy/setup.sh
+# It installs Node 22, Caddy, Python (for the messaging service) and the SQLite tools, makes the `voxel` user, installs the systemd units
+# and the firewall rules.
+# It does not start anything: fill in /etc/voxelventure/*.env and the Caddyfile first (see deploy/README.md).
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then echo "Run this as root (sudo bash deploy/setup.sh)"; exit 1; fi
+APP=/srv/voxelventure
+if [ ! -f "$APP/package.json" ]; then echo "Copy the project to $APP first"; exit 1; fi
+
+apt-get update
+apt-get install -y curl ca-certificates gnupg ufw sqlite3 debian-keyring debian-archive-keyring apt-transport-https python3 python3-venv
+
+# Node 22 (LTS)
+if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 22 ]; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+fi
+
+# Caddy
+if ! command -v caddy >/dev/null; then
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+  apt-get update
+  apt-get install -y caddy
+fi
+
+# The user that runs the game, and the places it writes to
+id voxel >/dev/null 2>&1 || useradd --system --home-dir "$APP" --shell /usr/sbin/nologin voxel
+mkdir -p "$APP/server/data" "$APP/server/logs" "$APP/.next/cache" "$APP/services/messaging/data" /etc/voxelventure /var/backups/voxelventure
+chown -R voxel:voxel "$APP/server/data" "$APP/server/logs" "$APP/.next" "$APP/services/messaging/data" /var/backups/voxelventure
+
+# The Python messaging service's environment, with the pinned packages (it is installed but not started: see deploy/README.md)
+[ -x "$APP/services/messaging/.venv/bin/python" ] || python3 -m venv "$APP/services/messaging/.venv"
+"$APP/services/messaging/.venv/bin/pip" install --disable-pip-version-check -r "$APP/services/messaging/requirements.txt"
+
+# The settings files (only copied if they are not there yet: your edits are never overwritten)
+for f in api presence web messaging; do
+  [ -f "/etc/voxelventure/$f.env" ] || cp "$APP/deploy/env/$f.env.example" "/etc/voxelventure/$f.env"
+done
+chown root:voxel /etc/voxelventure/*.env
+chmod 640 /etc/voxelventure/*.env
+
+# The services
+cp "$APP"/deploy/systemd/*.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable voxelventure-api voxelventure-presence voxelventure-web
+# voxelventure-messaging is enabled only at the switch-over (deploy/README.md, "Moving messaging to the Python service")
+
+# Firewall: web and SSH only. (Linode's Cloud Firewall in the dashboard is a second layer: allow 80 and 443 to everyone, 22 from your own address.)
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw --force enable
+
+# Nightly database backup
+install -m 755 "$APP/deploy/backup.sh" /usr/local/bin/voxelventure-backup
+cat >/etc/cron.d/voxelventure-backup <<'CRON'
+# every night at 03:15, as the voxel user
+15 3 * * * voxel /usr/local/bin/voxelventure-backup
+CRON
+
+echo
+echo "Done. Next:"
+echo "  1. edit /etc/voxelventure/api.env, presence.env and web.env (secrets, your domain)"
+echo "  2. cd $APP && sudo -u voxel npm ci && set -a && . /etc/voxelventure/web.env && set +a && sudo -E -u voxel npm run build"
+echo "  3. put your domain in deploy/Caddyfile, copy it to /etc/caddy/Caddyfile, then: systemctl reload caddy"
+echo "  4. systemctl start voxelventure-api voxelventure-presence voxelventure-web"

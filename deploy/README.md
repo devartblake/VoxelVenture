@@ -1,0 +1,73 @@
+# Deploying VoxelVenture to a Linode
+
+A runbook for one server running everything: the web app, the API and the presence server, with Caddy in front for HTTPS. The reasoning behind the choices is in [../docs/hosting_stack_payments.md](../docs/hosting_stack_payments.md). These files have not been run on a real server yet: do the first deployment on a throwaway Linode and read each step before you run it.
+
+| File | What it is |
+| :--- | :--- |
+| `setup.sh` | First-time setup of a fresh Ubuntu 24.04 server: Node 22, Caddy, SQLite tools, Python with the messaging service's environment, the `voxel` user, the services, the firewall, nightly backups |
+| `Caddyfile` | HTTPS and the reverse proxy for the three addresses |
+| `systemd/*.service` | The three processes, restarted automatically, and the messaging service (installed, not enabled until the switch-over below) |
+| `env/*.env.example` | The settings for each process (copied to `/etc/voxelventure/`) |
+| `backup.sh` | A consistent copy of the database (and the messaging service's, once it has one), kept for 14 days, optionally uploaded with rclone |
+
+## What you need first
+- A Linode (Shared CPU 4 GB to start) running Ubuntu 24.04, with your SSH key.
+- A domain with three DNS A records pointing at the server: `example.com` (the game), `api.example.com` and `play.example.com` (presence).
+- A Cloud Firewall in the Linode dashboard: allow 80 and 443 to everyone and SSH (22) from your own address only.
+
+## First deployment
+1. **Copy the project** to `/srv/voxelventure` (without `node_modules`, `.next` or `server/data`), e.g. `rsync -a --exclude node_modules --exclude .next --exclude server/data ./ root@SERVER:/srv/voxelventure/`.
+2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`.
+3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env`: your domain, and a long random value for `ADMIN_TOKEN`, `IP_SALT` and `MP_NOTIFY_SECRET` (`openssl rand -hex 32`; the notify secret must be the same in `api.env` and `presence.env`). `API_SEED` must match the game's seed. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
+4. **Install and build**, with the web settings loaded (the `NEXT_PUBLIC_` addresses are fixed into the build):
+   ```
+   cd /srv/voxelventure
+   sudo -u voxel npm ci
+   set -a; . /etc/voxelventure/web.env; set +a
+   sudo -E -u voxel npm run build
+   ```
+   `npm ci` also runs `patch-package`, which applies the fixes in `patches/`: copy that folder with the rest.
+5. **Caddy:** put your domain in `deploy/Caddyfile`, make a password hash with `caddy hash-password` for the monitor page, copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`.
+6. **Start everything:** `systemctl start voxelventure-api voxelventure-presence voxelventure-web`.
+7. **Check it:**
+   - `curl https://api.example.com/health` returns `{"ok":true,...}`
+   - `curl https://play.example.com/health` returns `{"ok":true,...}`
+   - Open `https://example.com`: you should be able to look around without signing in, and sign-in appears only when you claim something.
+   - `journalctl -u voxelventure-api -f` (and `-presence`, `-web`) show the logs.
+
+## Updating
+```
+cd /srv/voxelventure
+# copy the new files over (rsync as above), then:
+sudo -u voxel npm ci
+set -a; . /etc/voxelventure/web.env; set +a
+sudo -E -u voxel npm run build
+systemctl restart voxelventure-api voxelventure-presence voxelventure-web
+```
+The API upgrades the database in place when it starts (new columns are added). Take a backup first: `sudo -u voxel voxelventure-backup`.
+
+## Backups and restoring
+- Nightly at 03:15 (`/etc/cron.d/voxelventure-backup`): a compressed copy in `/var/backups/voxelventure`, kept 14 days. For off-machine copies, install `rclone`, run `rclone config` once for your Linode Object Storage, and put `RCLONE_REMOTE=linode:your-bucket` in `/etc/voxelventure/backup.env`. Also switch on Linode's own Backups.
+- **Restore:** `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/server/data/voxelventure.db`, make sure the `voxel` user owns it, then `systemctl start voxelventure-api`.
+- Do a restore on a spare machine once, before you rely on it.
+
+## Things to know
+- **One API process, one machine.** The database is SQLite with a single writer (that is what makes a claim atomic). Do not run two copies of the API.
+- **Node version.** `setup.sh` installs Node 22 (it leaves a newer Node in place). The API uses Node's built-in SQLite (`node:sqlite`); the service file passes `--experimental-sqlite --no-warnings`, as `npm run api` does. Older Node 22 releases need the flag; Node 24, which the development machine runs, works without it, and the flag does no harm. I tried switching to `better-sqlite3` for production, but its native build crashed on the development machine, so it was not adopted: if you want it, install it on the Linode itself, run the API tests (`node tests/run.mjs api engage community stats`), and change only `server/api/db.mjs`.
+- **What is public.** Caddy serves the game, the API and the presence connection; `/status` and `/notify` on the presence server are hidden from outside, and the `/admin` monitor page (which reads `/status` through `/mp-status`) is behind a password. Without the monitor, set `ADMIN_TOKEN` and use the admin endpoints only from your machine. `/notify-accounts` on the presence server and everything under `/internal/` on the API are for the processes on this machine to call each other: they refuse anything without their secret (`MP_NOTIFY_SECRET`, or `INTERNAL_SECRET` for the messaging service), and the `Caddyfile` also answers 404 to them from outside.
+- **Email.** Until `MAIL_WEBHOOK_URL` is set, notices are only written to files in `server/data/outbox`: nothing is delivered.
+- **Payments** are not connected yet (a claim records its price but charges nothing).
+- **Watch bandwidth.** Presence sends nearby players about ten times a second. Check `/admin` (through the password) and the Linode transfer graph during the first busy days.
+
+## Moving messaging to the Python service (not done yet)
+Plan: [../docs/node_fastapi_architecture_plan.md](../docs/node_fastapi_architecture_plan.md). The service is in `services/messaging` and `setup.sh` installs it, but until these steps the Node API serves messaging itself. They have been rehearsed by `tests/messaging-migrate.test.mjs`, not on a real server.
+1. **Settings.** Fill in `/etc/voxelventure/messaging.env`; give `api.env` the same `INTERNAL_SECRET` (long and random) but leave `MESSAGING_SERVICE_URL` out for now.
+2. **Pause messaging writes.** Set `MESSAGING_READONLY=1` in `api.env` and `systemctl restart voxelventure-api`: nothing about messages is written (sending, reading positions, requests, blocks, reports and nearby chat answer "read-only for a few minutes"), while the city, claims and every business feature keep working and messages can still be read. Wait a minute for pending notices to go out.
+3. **Back up and copy.** `sudo -u voxel voxelventure-backup`, then copy the newest backup's database out (`gunzip -c`) and run, as `voxel`, in `services/messaging`: `.venv/bin/python -m app.migrate_from_node --node-db <that copy> --messaging-db data/messaging.db`. It must print no problems and exit 0; otherwise stop here and undo step 2.
+4. **Switch.** Add `MESSAGING_SERVICE_URL=http://127.0.0.1:3003` to `api.env` and take `MESSAGING_READONLY=1` out again; `systemctl enable --now voxelventure-messaging` and `systemctl restart voxelventure-api`. The Node API now forwards the messaging routes and runs no messaging jobs; the Caddyfile does not change. Check `curl -s localhost:3003/health`, send yourself a message, and use `npm run moderate` with `MESSAGING_URL=http://127.0.0.1:3003` for chat reports.
+5. **Watch** for a few days: errors in `journalctl -u voxelventure-messaging`, the outbox counts in `/health` (dead notices mean the presence server is not taking them), and the size of `services/messaging/data/messaging.db`.
+
+**Rolling back.** Before step 4, undo step 2. After it, new messages exist only in the messaging database: do not just remove `MESSAGING_SERVICE_URL` (they would vanish). Pause writes as in step 2, copy the new rows back (there is no script for that direction yet), then switch. While unsure, prefer pausing messaging over running two message stores.
+
+## Moving up
+Bigger plan when CPU or memory runs hot; presence on its own Linode when it is the busiest part (change `NEXT_PUBLIC_MP_URL`, `MP_NOTIFY_URL` and `MP_API_URL`, and rebuild; the two machines then call each other's private routes over the private network); Postgres only if you ever need two API machines (the API would have to become asynchronous first).

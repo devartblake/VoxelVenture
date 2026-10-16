@@ -1,0 +1,22 @@
+[Unit]
+Description=VoxelVenture presence server (WebSockets)
+After=network.target
+
+[Service]
+Type=simple
+User=voxel
+WorkingDirectory=/srv/voxelventure
+EnvironmentFile=/etc/voxelventure/presence.env
+ExecStart=/usr/bin/node server/multiplayer.mjs
+Restart=always
+RestartSec=3
+# one open file for every connected player, and a few more
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/srv/voxelventure/server/logs
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,363 @@
+// The VoxelVenture API: accounts, plots, claiming, events and statistics (see docs/backend.md).
+//
+//   node --experimental-sqlite server/api/server.mjs            (npm run api)
+//
+//   API_PORT      port to listen on                     (default 3002)
+//   API_HOST      address to listen on                  (default: every interface; use 127.0.0.1 behind a reverse proxy)
+//   API_DB        database file, or :memory:            (default server/data/voxelventure.db)
+//   API_SEED      the world's seed                      (default 20260101)
+//   API_ORIGIN    the web app's origin for CORS         (default *: set it in production)
+//   PUBLIC_API_URL  the address in email links          (default http://localhost:<port>)
+//   MAIL_WEBHOOK_URL / MAIL_WEBHOOK_TOKEN / MAIL_FROM   send email through a mail API; without it, messages are written to MAIL_DIR
+//   MP_NOTIFY_URL / MP_NOTIFY_SECRET   tell the presence server to push changes to every player instantly
+//   ADMIN_TOKEN   lets POST /admin/newsletter send the Plot of the Day newsletter
+//   HUMAN_MIN_AGE_MS / HUMAN_VISIT_CAP / HUMAN_CLICK_CAP / IP_SALT / TRUST_PROXY   the proof-of-human rules for visits and clicks (defaults: 3000 ms of presence first, 3 visits and 1 click per network per building per day)
+//   STATS_TZ_OFFSET_MIN   the time zone of "yesterday" in the statistics, in minutes from UTC (default 0)
+//   MESSAGING_*   chat and messages: switches and limits (see server/api/messaging.mjs). The presence server reaches the /internal/messaging
+//                 routes with MP_NOTIFY_SECRET, the secret the two servers already share.
+//   MESSAGING_SERVICE_URL   the Python messaging service (services/messaging, docs/node_fastapi_architecture_plan.md). When set, this API
+//                 forwards the messaging routes there and stops writing, notifying and pruning messages itself; accounts, sessions,
+//                 tickets and plots stay here, and the service asks about them through /internal/identity and /internal/plots.
+//   INTERNAL_SECRET  the credential the messaging service and this API use with each other (needed with MESSAGING_SERVICE_URL)
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { openDb } from './db.mjs';
+import * as core from './core.mjs';
+import * as engage from './engage.mjs';
+import * as mod from './moderation.mjs';
+import * as market from './market.mjs';
+import * as stats from './stats.mjs';
+import * as community from './community.mjs';
+import * as messaging from './messaging.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env } = {}) {
+  const db = openDb(dbFile);
+  const seeded = core.seedWorld(db, seed);
+  const adsSeeded = core.seedAds(db, seed);
+  const brandsSeeded = engage.seedBrands(db, seed);
+  const mail = transport ?? engage.createTransport(env);
+  const deliver = () => engage.deliverOutbox(db, mail).catch(() => {});
+  const noticeTimer = deliverEveryMs > 0 ? setInterval(() => { try { market.sendNotices(db); community.sendLeaseNotices(db); } catch { /* the next minute tries again */ } }, 60000) : null;
+  noticeTimer?.unref();
+  const chat = messaging.settingsFrom(env);
+  // With the messaging service set up, messages are its business alone: this API forwards the routes and runs none of the jobs,
+  // so the two never both send the same notice or prune the same data.
+  const messagingService = (env.MESSAGING_SERVICE_URL || '').replace(/\/+$/, '');
+  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
+  pruneTimer?.unref();
+  // "your inbox changed" notices go to the presence server as soon as they are written, and again every two seconds for any that failed
+  const notices = () => (messagingService ? Promise.resolve() : messaging.deliverNotices(db, env)).catch(() => {});
+  const noticeTimer2 = deliverEveryMs > 0 && !messagingService ? setInterval(notices, 2000) : null;
+  noticeTimer2?.unref();
+  const mailTimer = deliverEveryMs > 0 ? setInterval(deliver, deliverEveryMs) : null;
+  mailTimer?.unref();
+  // tell the presence server something changed, so every player's game refreshes at once (fire and forget)
+  const push = (kind, ids = []) => {
+    if (!env.MP_NOTIFY_URL) return;
+    fetch(env.MP_NOTIFY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': env.MP_NOTIFY_SECRET || '' }, body: JSON.stringify({ kind, ids }) }).catch(() => {});
+  };
+  const hits = new Map(); // ip -> { start, n, auth }
+
+  const limited = (ip, auth) => {
+    const t = Date.now();
+    let h = hits.get(ip);
+    if (!h || t - h.start > 60000) hits.set(ip, (h = { start: t, n: 0, auth: 0 }));
+    h.n++;
+    if (auth) h.auth++;
+    return h.n > rate.perMinute || h.auth > rate.authPerMinute;
+  };
+  setInterval(() => { for (const [ip, h] of hits) if (Date.now() - h.start > 60000) hits.delete(ip); }, 60000).unref();
+
+  const body = (req) =>
+    new Promise((resolve, reject) => {
+      let size = 0;
+      const chunks = [];
+      req.on('data', (c) => {
+        size += c.length;
+        if (size > 150_000) {
+          reject(new core.ApiError(413, 'That is too large.', 'too_large'));
+          req.destroy();
+        } else chunks.push(c);
+      });
+      req.on('end', () => {
+        try {
+          resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {});
+        } catch {
+          reject(new core.ApiError(400, 'The body is not valid JSON.', 'bad_json'));
+        }
+      });
+      req.on('error', reject);
+    });
+
+  const page = (ok, good, bad) => ({ __html: `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>VoxelVenture</title><body style="font-family:system-ui;background:#050816;color:#f8fafc;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h1>${ok ? good : 'Something is wrong'}</h1>${ok ? '' : `<p>${bad}</p>`}<p style="color:#94a3b8">You can close this tab.</p></div>` });
+
+  // Everything a player writes is checked before it is saved: the word filter, then (if one is set up) the outside moderation service.
+  async function screened(req, spec) {
+    const b = await body(req);
+    mod.screen(b, spec);
+    await mod.screenWithService(b, env);
+    return b;
+  }
+  const BUSINESS = { title: 0, description: 1, website: 1 };
+  const adminOnly = (token) => {
+    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
+  };
+  // the presence server's own calls (redeeming a ticket, a nearby line, checking sign-ins): only with the shared secret
+  const internalOnly = (req) => {
+    if (!env.MP_NOTIFY_SECRET || req.headers['x-internal-secret'] !== env.MP_NOTIFY_SECRET) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
+  };
+  const written = (out) => (setImmediate(notices), out);
+  // the messaging service's own calls (who is signed in, who owns a building, a ban): only with INTERNAL_SECRET
+  const serviceOnly = (req) => {
+    if (!env.INTERNAL_SECRET || req.headers['x-internal-secret'] !== env.INTERNAL_SECRET) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
+  };
+  const identityView = (a) => ({ id: a.id, username: a.username, banned: Boolean(a.banned), emailVerified: Boolean(a.email_verified) });
+
+  // Routes that belong to the messaging service when there is one. /messaging/ticket stays here: tickets are part of signing in.
+  const MESSAGING_ROUTE = /^\/(conversations(\/.*)?|messaging\/(?!ticket$).+|plots\/\d+\/inquiries|internal\/messaging\/nearby)$/;
+  // Passes a request on to the messaging service unchanged (the caller's own sign-in goes with it; the service checks it with us).
+  async function forward(req, res, url, headers) {
+    const internal = url.pathname.startsWith('/internal/');
+    if (internal && (!env.MP_NOTIFY_SECRET || req.headers['x-internal-secret'] !== env.MP_NOTIFY_SECRET)) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+    let out;
+    try {
+      out = await fetch(messagingService + url.pathname + url.search, {
+        method: req.method,
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip, 'X-Internal-Secret': env.INTERNAL_SECRET || '', ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}) },
+        body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks),
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Messages are not available right now. Try again in a moment.', code: 'unavailable' }));
+    }
+    res.writeHead(out.status, headers);
+    res.end(await out.text());
+  }
+
+  async function route(req, url) {
+    const m = req.method;
+    const p = url.pathname.replace(/\/+$/, '') || '/';
+    const token = (req.headers.authorization ?? '').replace(/^Bearer /i, '');
+    const account = core.accountFromToken(db, token);
+    let r;
+
+    if (m === 'GET' && p === '/health') return { ok: true, now: Date.now(), plots: db.prepare('SELECT COUNT(*) AS n FROM plots').get().n, adSlots: db.prepare('SELECT COUNT(*) AS n FROM ad_slots').get().n };
+    if (m === 'POST' && p === '/auth/signup') {
+      const b = await body(req);
+      const out = core.signup(db, b);
+      if (b.email) {
+        try {
+          out.account = engage.setEmail(db, out.account, { email: b.email }).account;
+        } catch {
+          /* a bad email must not stop the account: they can add one later */
+        }
+      }
+      return out;
+    }
+    if (m === 'POST' && p === '/auth/login') return core.login(db, await body(req));
+    if (m === 'POST' && p === '/auth/logout') return core.logout(db, token), { ok: true };
+    if (m === 'GET' && p === '/me') return { account: core.requireAccount(account) };
+    if (m === 'GET' && p === '/plots') {
+      const q = url.searchParams;
+      return core.directory(db, { sort: q.get('sort') ?? 'value', q: q.get('q') ?? '', limit: Math.min(1000, Number(q.get('limit')) || 1000), offset: Math.max(0, Number(q.get('offset')) || 0) });
+    }
+    if (m === 'GET' && p === '/plots/state') return { ...core.worldState(db), botw: community.buildingOfTheWeek(db) };
+    if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'GET') return core.plotView(db, core.getPlot(db, r[1]));
+    if ((r = p.match(/^\/plots\/(\d+)\/stats$/)) && m === 'GET') return core.plotStats(db, r[1]) ?? { empty: true };
+    if ((r = p.match(/^\/plots\/(\d+)\/history$/)) && m === 'GET') return core.history(db, r[1]);
+    if ((r = p.match(/^\/plots\/(\d+)\/claim$/)) && m === 'POST') {
+      const out = core.claimPlot(db, account, r[1], await screened(req, BUSINESS));
+      push('plot', [Number(r[1])]);
+      return out;
+    }
+    if ((r = p.match(/^\/plots\/(\d+)\/takeover$/)) && m === 'POST') {
+      const out = core.takeOverPlot(db, account, r[1], await screened(req, BUSINESS));
+      engage.notifyTakeover(db, out.previousAccount, { title: out.plot.title, newOwner: out.plot.owner, paidOut: out.paidOut, plotId: out.plot.id });
+      delete out.previousAccount;
+      push('plot', [Number(r[1])]);
+      deliver();
+      return out;
+    }
+    if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'PATCH') return core.updateBusiness(db, account, r[1], await screened(req, { description: 1 }));
+    if (m === 'POST' && p === '/events') {
+      const b = await body(req);
+      // the network the request came from (the first address in X-Forwarded-For when a trusted proxy sets it), only ever kept hashed
+      const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+      return core.recordEvent(db, account, b, { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, minAgeMs: env.HUMAN_MIN_AGE_MS != null ? Number(env.HUMAN_MIN_AGE_MS) : undefined, visitCap: env.HUMAN_VISIT_CAP ? Number(env.HUMAN_VISIT_CAP) : undefined, clickCap: env.HUMAN_CLICK_CAP ? Number(env.HUMAN_CLICK_CAP) : undefined });
+    }
+    if ((r = p.match(/^\/plots\/(\d+)\/storefront$/)) && m === 'GET') return engage.storefront(db, account, r[1], { visitor: url.searchParams.get('visitor') });
+    if ((r = p.match(/^\/plots\/(\d+)\/storefront$/)) && m === 'PUT') {
+      const out = engage.setBrand(db, account, r[1], await screened(req, { couponText: 0 }));
+      push('plot', [Number(r[1])]);
+      return out;
+    }
+    if ((r = p.match(/^\/plots\/(\d+)\/coupon$/)) && m === 'POST') return engage.claimCoupon(db, account, r[1], await body(req));
+    if ((r = p.match(/^\/plots\/(\d+)\/quest\/(start|complete|fund)$/)) && m === 'POST') {
+      if (r[2] === 'start') return engage.startQuest(db, account, r[1]);
+      if (r[2] === 'complete') return engage.completeQuest(db, account, r[1]);
+      return engage.fundQuest(db, account, r[1], (await body(req)).gold);
+    }
+    if ((r = p.match(/^\/plots\/(\d+)\/feedback$/)) && m === 'POST') return engage.postFeedback(db, account, r[1], await screened(req, { message: 1 }));
+    if ((r = p.match(/^\/plots\/(\d+)\/feedback\/(\d+)\/(hide|show)$/)) && m === 'POST') return engage.hideFeedback(db, account, r[1], r[2], r[3] === 'hide');
+    if ((r = p.match(/^\/plots\/(\d+)\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'plot', r[1]);
+    if ((r = p.match(/^\/ads\/([\w-]+)\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'ad', r[1]);
+    if (m === 'POST' && p === '/leads') return engage.subscribe(db, await body(req));
+    if (m === 'GET' && p === '/leads/confirm') return page(engage.confirmLead(db, url.searchParams.get('token')), 'You are signed up', 'That link is not valid or has expired.');
+    if (m === 'GET' && p === '/leads/unsubscribe') return page(engage.unsubscribeLead(db, url.searchParams.get('token')), 'You are unsubscribed', 'That link is not valid.');
+    if (m === 'GET' && p === '/me/verify') return page(engage.verifyEmail(db, url.searchParams.get('token')), 'Email confirmed', 'That link is not valid or was already used.');
+    if (m === 'PATCH' && p === '/me') return engage.setEmail(db, account, await body(req));
+    if (m === 'GET' && p === '/me/leads') return engage.myLeads(db, account);
+    if (m === 'POST' && p === '/reports') return mod.report(db, account, await body(req));
+    if (m === 'GET' && p === '/admin/reports') return (adminOnly(token), { reports: mod.queue(db, url.searchParams.get('status') ?? 'open') });
+    if (m === 'GET' && p === '/admin/reports/ids') return (adminOnly(token), { id: mod.firstReportId(db, url.searchParams.get('kind'), url.searchParams.get('id')) });
+    if ((r = p.match(/^\/admin\/reports\/(\d+)\/resolve$/)) && m === 'POST') return (adminOnly(token), mod.resolve(db, r[1], (await body(req)).action));
+    if ((r = p.match(/^\/admin\/accounts\/(\d+)\/(ban|unban)$/)) && m === 'POST') return (adminOnly(token), r[2] === 'ban' ? mod.ban(db, Number(r[1]), (await body(req)).reason) : mod.unban(db, Number(r[1])), { ok: true });
+    if (m === 'GET' && p === '/me/wallet') return engage.wallet(db, account);
+    if (m === 'POST' && p === '/admin/newsletter') {
+      if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
+      const out = engage.sendNewsletter(db, new Date());
+      deliver();
+      return out;
+    }
+    // leases, and Building of the Week
+    if ((r = p.match(/^\/plots\/(\d+)\/renew$/)) && m === 'POST') {
+      const out = community.renewLease(db, account, r[1], await body(req));
+      push('plot', [Number(r[1])]);
+      return out;
+    }
+    if ((r = p.match(/^\/admin\/plots\/(\d+)\/lease$/)) && m === 'POST') return (adminOnly(token), community.setLeaseState(db, r[1], (await body(req)).state));
+    if (m === 'POST' && p === '/admin/leases/notices') return (adminOnly(token), community.sendLeaseNotices(db, Number((await body(req)).now) || Date.now()));
+    if (m === 'GET' && p === '/votes') return community.votesView(db, account);
+    if (m === 'POST' && p === '/hunt/complete') return community.completeHunt(db, account, await body(req));
+    if (m === 'POST' && p === '/vote') return community.castVote(db, account, (await body(req)).plotId);
+    // presence and analytics
+    if (m === 'POST' && p === '/presence/ping') return stats.ping(db, { visitor: (await body(req)).visitor, headers: req.headers, account });
+    if (m === 'GET' && p === '/stats/overview') return stats.overview(db, { offsetMin: Number(env.STATS_TZ_OFFSET_MIN) || 0 });
+    // the pop-up market
+    if (m === 'GET' && p === '/market') return market.marketSummary(db, seed);
+    if (m === 'GET' && p === '/market/mine') return market.myBookings(db, account);
+    if (m === 'POST' && p === '/market/book') {
+      const out = market.book(db, seed, account, await screened(req, { brand: 0, product: 1 }));
+      push('market', [out.stall.id]);
+      return out;
+    }
+    if ((r = p.match(/^\/market\/bookings\/(\d+)$/)) && m === 'PATCH') return market.updateStall(db, account, r[1], await screened(req, { brand: 0, product: 1, offer: 1 }));
+    if ((r = p.match(/^\/market\/bookings\/(\d+)\/visit$/)) && m === 'POST') return market.visit(db, account, r[1], (await body(req)).visitor);
+    if (m === 'POST' && p === '/admin/market/notices') return (adminOnly(token), market.sendNotices(db, Number((await body(req)).now) || Date.now()));
+    if ((r = p.match(/^\/market\/bookings\/(\d+)\/cancel$/)) && m === 'POST') return market.cancelBooking(db, account, r[1]);
+    if ((r = p.match(/^\/market\/(SD-\d{4})(?:\/(\d{4}-\d{2}-\d{2}))?$/)) && m === 'GET') return market.marketWeek(db, seed, r[1], r[2]);
+    if (m === 'POST' && p === '/admin/market/layout') return (adminOnly(token), market.setLayout(db, seed, await body(req)));
+    if (m === 'GET' && p === '/admin/market') return (adminOnly(token), market.adminWeek(db, seed, url.searchParams.get('week') || undefined));
+    if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db) };
+    if ((r = p.match(/^\/ads\/([\w-]+)$/)) && m === 'GET') return core.getAdSlot(db, r[1]);
+    if ((r = p.match(/^\/ads\/([\w-]+)\/history$/)) && m === 'GET') return { events: core.slotHistory(db, r[1]) };
+    if ((r = p.match(/^\/ads\/([\w-]+)\/buy$/)) && m === 'POST') {
+      const out = core.buySlot(db, account, r[1], await screened(req, { advertiser: 0, headline: 0, tagline: 1, url: 1 }));
+      if (out.previousAdvertiser) engage.notifyAdTakeover(db, out.previousAccount, { slot: out.slot.label, newAdvertiser: out.slot.ad.advertiser, paidOut: out.paidOut });
+      delete out.previousAccount;
+      push('ad', [r[1]]);
+      deliver();
+      return out;
+    }
+    if (m === 'POST' && p === '/ad-events') return core.recordAdEvent(db, account, await body(req));
+    if (m === 'GET' && p === '/world/stats') return core.worldStats(db, 0);
+    // what the messaging service asks (docs/node_fastapi_architecture_plan.md): this API stays the authority on accounts and plots
+    if (m === 'POST' && p === '/internal/identity/session') {
+      serviceOnly(req);
+      const who = core.accountFromToken(db, String((await body(req)).token ?? '')); // null when signed out, expired or banned
+      if (!who) throw new core.ApiError(401, 'Sign in first.', 'unauthorized');
+      return { account: identityView(db.prepare('SELECT * FROM accounts WHERE id = ?').get(who.id)) };
+    }
+    if (m === 'POST' && p === '/internal/identity/binding') {
+      serviceOnly(req);
+      const who = messaging.bindingAccount(db, (await body(req)).binding);
+      if (!who) throw new core.ApiError(401, 'Sign in again.', 'unauthenticated');
+      return { account: identityView(db.prepare('SELECT * FROM accounts WHERE id = ?').get(who.id)) };
+    }
+    if (m === 'POST' && p === '/internal/identity/accounts') {
+      serviceOnly(req);
+      const b = await body(req);
+      const ids = (Array.isArray(b.ids) ? b.ids : []).slice(0, 500).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      const rows = ids.length ? db.prepare(`SELECT * FROM accounts WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids) : [];
+      if (typeof b.username === 'string' && b.username.trim()) rows.push(...db.prepare('SELECT * FROM accounts WHERE username = ?').all(b.username.trim().slice(0, 20)));
+      return { accounts: rows.map(identityView) };
+    }
+    if ((r = p.match(/^\/internal\/identity\/accounts\/(\d+)\/ban$/)) && m === 'POST') return (serviceOnly(req), mod.ban(db, Number(r[1]), (await body(req)).reason), { ok: true });
+    if ((r = p.match(/^\/internal\/plots\/(\d+)\/owner$/)) && m === 'GET') {
+      serviceOnly(req);
+      const plot = core.getPlot(db, r[1]);
+      // the version changes whenever the plot changes hands (a claim or a take-over writes the ledger): an inquiry checks it again just before it is saved
+      const version = db.prepare('SELECT MAX(id) AS v FROM ledger WHERE plot_id = ?').get(plot.id).v ?? 0;
+      return { plotId: plot.id, title: plot.title, ownerAccount: plot.owner_account ?? null, version };
+    }
+    // chat and messages (server/api/messaging.mjs)
+    if (m === 'POST' && p === '/messaging/ticket') return messaging.issueTicket(db, account, token);
+    if (m === 'POST' && p === '/internal/messaging/redeem') return (internalOnly(req), messaging.redeemTicket(db, (await body(req)).ticket));
+    if (m === 'POST' && p === '/internal/messaging/bindings') return (internalOnly(req), messaging.checkBindings(db, (await body(req)).bindings));
+    if (m === 'POST' && p === '/internal/messaging/nearby') return (internalOnly(req), await messaging.acceptNearby(db, await body(req), chat, env));
+    if (m === 'GET' && p === '/messaging/summary') return messaging.summary(db, account);
+    if (m === 'GET' && p === '/messaging/settings') return messaging.getSettings(db, account);
+    if (m === 'PATCH' && p === '/messaging/settings') return messaging.setSettings(db, account, await body(req));
+    if (m === 'POST' && p === '/messaging/blocks') return messaging.block(db, account, await body(req));
+    if ((r = p.match(/^\/messaging\/blocks\/(\d+)$/)) && m === 'DELETE') return messaging.unblock(db, account, r[1]);
+    if (m === 'POST' && p === '/messaging/reports') return messaging.reportMessage(db, account, await body(req));
+    if (m === 'GET' && p === '/conversations') return messaging.listConversations(db, account, { box: url.searchParams.get('box') ?? 'inbox', cursor: url.searchParams.get('cursor'), limit: url.searchParams.get('limit') });
+    if (m === 'POST' && p === '/conversations') return written(await messaging.startDirect(db, account, await body(req), chat, env));
+    if ((r = p.match(/^\/conversations\/([\w-]{6,40})$/)) && m === 'GET') return messaging.getConversation(db, account, r[1]);
+    if ((r = p.match(/^\/conversations\/([\w-]{6,40})\/messages$/)) && m === 'GET') {
+      const q = url.searchParams;
+      return messaging.listMessages(db, account, r[1], { before: q.get('before') ?? undefined, after: q.get('after') ?? undefined, limit: q.get('limit') });
+    }
+    if ((r = p.match(/^\/conversations\/([\w-]{6,40})\/messages$/)) && m === 'POST') return written(await messaging.sendMessage(db, account, r[1], await body(req), chat, env));
+    if ((r = p.match(/^\/conversations\/([\w-]{6,40})\/request$/)) && m === 'POST') return written(messaging.respond(db, account, r[1], (await body(req)).action));
+    if ((r = p.match(/^\/conversations\/([\w-]{6,40})\/read$/)) && m === 'POST') return written(messaging.markRead(db, account, r[1], (await body(req)).upTo));
+    if ((r = p.match(/^\/conversations\/([\w-]{6,40})\/preferences$/)) && m === 'PATCH') return messaging.setPreferences(db, account, r[1], await body(req));
+    if ((r = p.match(/^\/plots\/(\d+)\/inquiries$/)) && m === 'POST') return written(await messaging.startInquiry(db, account, r[1], await body(req), chat, env));
+    throw new core.ApiError(404, 'Not found.', 'not_found');
+  }
+
+  const server = http.createServer(async (req, res) => {
+    const headers = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS', 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+    const send = (status, data) => {
+      res.writeHead(status, headers);
+      res.end(JSON.stringify(data));
+    };
+    if (req.method === 'OPTIONS') return send(204, {});
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      // the presence server speaks for every player at once, so its own calls (with the shared secret) are not counted against one address
+      const secret = req.headers['x-internal-secret'];
+      const internal = url.pathname.startsWith('/internal/') && secret && (secret === env.MP_NOTIFY_SECRET || secret === env.INTERNAL_SECRET);
+      if (!internal && limited(req.socket.remoteAddress ?? '?', url.pathname.startsWith('/auth/'))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
+      // MESSAGING_READONLY=1: a pause for moving messages (deploy/README.md): everything can be read, nothing about messages is written
+      if (env.MESSAGING_READONLY === '1' && req.method !== 'GET' && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) throw new core.ApiError(503, 'Messages are read-only for a few minutes while we do maintenance.', 'unavailable');
+      if (messagingService && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) return await forward(req, res, url, headers);
+      const out = await route(req, url);
+      if (out && out.__html) {
+        res.writeHead(200, { ...headers, 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(out.__html);
+      }
+      send(200, out);
+    } catch (e) {
+      if (e instanceof core.ApiError) return send(e.status, { error: e.message, code: e.code, ...(e.errors ? { errors: e.errors } : {}), ...(e.retryAfterMs ? { retryAfterMs: Math.ceil(e.retryAfterMs) } : {}) });
+      console.error('api error:', e);
+      send(500, { error: 'Something went wrong.', code: 'server_error' });
+    }
+  });
+  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), db.close(), r()))) };
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+  const port = Number(process.env.API_PORT || 3002);
+  const api = createApi({ dbFile: process.env.API_DB || path.join(here, '..', 'data', 'voxelventure.db'), seed: Number(process.env.API_SEED || 20260101), origin: process.env.API_ORIGIN || '*' });
+  const host = process.env.API_HOST || undefined;
+  api.server.listen(port, host, () => console.log(`VoxelVenture API on ${host ?? ''}:${port} (${api.seeded.seeded ? `seeded ${api.seeded.plots} plots` : 'existing world'})`));
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => api.close().then(() => process.exit(0))); // systemd stops a service with SIGTERM
+}
