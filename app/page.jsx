@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import CityCanvas from '@/components/city/CityCanvas';
 import Header from '@/components/ui/Header';
 import { MiniMapButton } from '@/components/ui/Legend';
@@ -25,8 +25,11 @@ import WorldMap from '@/components/ui/WorldMap';
 import DeepLink from '@/components/DeepLink';
 import SoundEngine from '@/components/SoundEngine';
 import AmbientControls from '@/components/ui/AmbientControls';
+import NoWebGL, { canDrawCity } from '@/components/ui/NoWebGL';
 
 export default function Home() {
+  const [drawable, setDrawable] = useState(true); // checked after mount (the server cannot know); false shows the plain fallback
+  useEffect(() => setDrawable(canDrawCity()), []);
   // The save is loaded after mount (so the first render matches the server's), then today's date is
   // set, which unlocks the daily chest and Plot of the Day. The date is re-checked every minute so
   // a tab left open past midnight rolls over.
@@ -52,6 +55,7 @@ export default function Home() {
     };
   }, []);
 
+  if (!drawable) return <NoWebGL />;
   return (
     <main className="relative h-dvh w-screen overflow-hidden bg-[#090d16]">
       <Header />

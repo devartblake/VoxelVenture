@@ -94,6 +94,10 @@ try {
     check('approved, it is posted with a valid signature', approved.status === 200 && x.posts.length === 1 && x.badSignatures === 0 && x.posts[0] === queue.posts[0].text);
     const mine = (await call('GET', '/me/businesses', { token: maya.token })).data.profiles[0].welcomePost;
     check("the owner sees it was posted, with a link to the post", mine.status === 'posted' && mine.url === 'https://x.com/i/status/1001');
+    // an owner who opts in after creating their profile is welcomed then, once
+    await call('PATCH', '/businesses/shy-studio', { token: noConsent.token, body: { announce: true } });
+    await call('PATCH', '/businesses/shy-studio', { token: noConsent.token, body: { tagline: 'Still shy' } });
+    check('opting in later queues the welcome then, and only once', (await call('GET', '/admin/social', { token: 'admin' })).data.posts.filter((p) => p.text.includes('@shystudio')).length === 1);
     check('a decision cannot be made twice', (await call('POST', `/admin/social/${queue.posts[0].id}/reject`, { token: 'admin' })).status === 409);
     check('the approval is in the audit trail', (await call('GET', '/admin/audit?action=social.approve', { token: 'admin' })).data.entries.length === 1);
     // a claimed building is welcomed too, for an owner who opted in, tagging the same handle

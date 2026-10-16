@@ -74,6 +74,14 @@ try {
   check('a press after a view is', (await cta('visitor-one')).data.verified === true);
   check('a bad event kind is refused', (await call('POST', '/businesses/amys-cafe-bar/events', { body: { kind: 'purchase', visitor: 'visitor-one' } })).status === 400);
 
+  // ---- campaigns (utm_campaign on the link)
+  // (on a profile nobody has viewed yet: this test's network has used its daily views on Amy's)
+  await call('POST', '/businesses/amys-cafe-bar-2/events', { body: { kind: 'view', visitor: 'camp-visitor', campaign: 'Spring-Sale' } });
+  await call('POST', '/businesses/amys-cafe-bar-2/events', { body: { kind: 'view', visitor: 'camp-visitor-2', campaign: '<script>' } });
+  const camp = (await call('GET', '/me/businesses', { token: bob.token })).data.profiles.find((x) => x.profile.slug === 'amys-cafe-bar-2').stats.campaigns;
+  check('a tagged campaign is counted under its (lower-cased) name; a malformed tag is no campaign', camp.length === 1 && camp[0].id === 'spring-sale' && camp[0].views === 1, JSON.stringify(camp));
+  check('a linked building carries its profile address in the world state', (await call('GET', '/plots/state')).data.plots.find((p) => p.id === empty.id).profileSlug === 'amys-cafe-bar');
+
   // ---- sign-ups and profiles through a link
   const carol = await signup('Carol', { ref: ref.code });
   await signup('Dave', { ref: forged });

@@ -27,7 +27,7 @@ flowchart LR
 
 Owners can also add their X handle and opt in to a welcome post on VoxelVenture's X account that tags them; see [social_posts.md](social_posts.md).
 
-The 3D city stays one link away. The header has "Explore the 3D city", and a profile with a linked building shows "Step inside the 3D storefront", which goes to `/b/<plot>`.
+The 3D city stays one link away, and the other way round: the game's header has **Businesses** and **List your business free**, a building's card links to its **Business page** (its owner's profile with a server; its demo page without one), and a browser that cannot draw the city (no WebGL) gets a plain page pointing to Discover instead of a broken canvas (`components/ui/NoWebGL.jsx`; try `/?webgl=0`). The business pages do not open the multiplayer connection, so they stay light on a phone. The header has "Explore the 3D city", and a profile with a linked building shows "Step inside the 3D storefront", which goes to `/b/<plot>`.
 
 ## Verified figures only
 
@@ -42,6 +42,10 @@ An event is **verified** only if all of the following hold:
 - For a press, the same visitor viewed the profile in the last day.
 
 A view is sent only after the page has been visible for 2 seconds. Every event is stored, but only verified ones are counted.
+
+## Campaigns
+
+A link tagged `?utm_campaign=<name>` (letters, digits, `-` and `_`, up to 40) has its views and presses counted per campaign; the owner's page lists the ten campaigns with the most views. Links in VoxelVenture's own X posts carry `utm_source=x` and count as their own source ([social_posts.md](social_posts.md)).
 
 ## Referral links
 

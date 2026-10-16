@@ -152,10 +152,12 @@ export function worldState(db) {
       .map((r) => [r.plot_id, { uniques: r.uniques, views: r.views ?? 0, clicks: r.clicks ?? 0, avgSeconds: r.avg ?? 0 }])
   );
   const rows = db.prepare('SELECT * FROM plots').all();
+  // the public page of a building whose owner linked it to their business profile (business.mjs)
+  const profiles = Object.fromEntries(db.prepare("SELECT plot_id, slug FROM businesses WHERE plot_id IS NOT NULL AND status = 'published'").all().map((r) => [r.plot_id, r.slug]));
   return {
     at: now(),
     ads: adSlots(db),
-    plots: rows.map((r) => ({ id: r.id, owner: r.owner_name, ownerAccount: r.owner_account, title: r.title, website: r.website, buildingType: r.building_type, variant: r.variant, logo: r.logo ? JSON.parse(r.logo) : null, description: r.description, value: r.value, visits: visits[r.id] ?? 0, takeovers: r.takeovers, updatedAt: r.updated_at, skyline: eng[r.id] ? skylineFor(eng[r.id]) : null, lease: r.lease_end ? { days: r.lease_days, end: r.lease_end } : null, exterior: r.exterior ? JSON.parse(r.exterior) : null })),
+    plots: rows.map((r) => ({ id: r.id, owner: r.owner_name, ownerAccount: r.owner_account, title: r.title, website: r.website, buildingType: r.building_type, variant: r.variant, logo: r.logo ? JSON.parse(r.logo) : null, description: r.description, value: r.value, visits: visits[r.id] ?? 0, takeovers: r.takeovers, updatedAt: r.updated_at, skyline: eng[r.id] ? skylineFor(eng[r.id]) : null, lease: r.lease_end ? { days: r.lease_days, end: r.lease_end } : null, exterior: r.exterior ? JSON.parse(r.exterior) : null, profileSlug: profiles[r.id] ?? null })),
   };
 }
 export function getPlot(db, id) {

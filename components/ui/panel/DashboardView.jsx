@@ -4,7 +4,7 @@ import React, { useEffect, useMemo } from 'react';
 import { CheckCircle2, Circle, Download, Eye, MousePointerClick, Paintbrush, Search, Users } from 'lucide-react';
 import { dashboardCsv, dashboardRows, dashboardTotals, ownedAdSlots, ownedBusinesses } from '@/lib/game/dashboard';
 import { isLive, liveDataProvider } from '@/lib/data/liveData';
-import { useLiveStats, wantFigures } from '@/lib/data/liveStats';
+import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { FIXTURE_PRICES } from '@/lib/content/fixturePrices';
 import { businessWorth, pricesConfigured } from '@/lib/content/fixturePricing';
 import { describeLease } from '@/lib/game/leases';
@@ -66,6 +66,8 @@ export default function DashboardView() {
     [mine, activity, designs, liveFigures] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const totals = dashboardTotals(rows);
+  // with a server, the export waits for every building's verified figures (a zero still loading is not a real zero)
+  const figuresLoading = isLive() && mine.some((p) => typeof p.id === 'number' && figuresState(p.id, liveFigures) === 'loading');
   const slots = useMemo(() => ownedAdSlots(billboards), [billboards]);
   const byId = new Map(mine.map((p) => [p.id, p]));
 
@@ -169,7 +171,7 @@ export default function DashboardView() {
         </section>
       )}
 
-      <button onClick={download} className="flex items-center gap-1.5 rounded-full border border-sx-stroke px-3 py-1 text-[11px] text-slate-200 hover:border-sx-line" data-testid="dashboard-csv"><Download className="h-3 w-3" /> Download figures as CSV</button>
+      <button onClick={download} disabled={figuresLoading} title={figuresLoading ? 'Waiting for the verified figures from the server' : undefined} className="flex items-center gap-1.5 rounded-full border border-sx-stroke px-3 py-1 text-[11px] text-slate-200 hover:border-sx-line disabled:opacity-40" data-testid="dashboard-csv"><Download className="h-3 w-3" /> {figuresLoading ? 'Loading figures…' : 'Download figures as CSV'}</button>
     </div>
   );
 }

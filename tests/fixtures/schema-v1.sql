@@ -1,0 +1,351 @@
+-- The database as the first release (commit 9301b4c) left it: server/api/schema.sql plus the columns its db.mjs added.
+-- Used by tests/migration.test.mjs to check that today's code upgrades such a database in place.
+-- VoxelVenture API schema. Written to be portable to Postgres (types are plain; JSON is stored as text; ids are integers).
+CREATE TABLE IF NOT EXISTS accounts (
+  id INTEGER PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  pass_salt TEXT NOT NULL,
+  pass_hash TEXT NOT NULL,
+  gold INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  expires_at INTEGER NOT NULL
+);
+-- One row per plot of the world (seeded from the generator). The generated facts never change; the business columns do.
+CREATE TABLE IF NOT EXISTS plots (
+  id INTEGER PRIMARY KEY,
+  district TEXT NOT NULL,
+  building_type TEXT,
+  owner_account INTEGER REFERENCES accounts(id), -- NULL for the city's own businesses and for empty lots
+  owner_name TEXT,                               -- NULL = empty lot, for sale
+  title TEXT NOT NULL,
+  website TEXT,
+  variant TEXT,
+  logo TEXT,                                     -- JSON { kind, ... } or NULL (a generated logo)
+  description TEXT,
+  value INTEGER NOT NULL,
+  base_visits INTEGER NOT NULL DEFAULT 0,
+  takeovers INTEGER NOT NULL DEFAULT 0,
+  claimable INTEGER NOT NULL DEFAULT 1,          -- 0 for Old Town houses and the like
+  facts TEXT NOT NULL,                           -- JSON of the generated plot (position, size, tier, interior)
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS plots_value ON plots(value DESC);
+-- Every change of hands, newest last. kind: open | claim | takeover
+CREATE TABLE IF NOT EXISTS ledger (
+  id INTEGER PRIMARY KEY,
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  kind TEXT NOT NULL,
+  account_id INTEGER REFERENCES accounts(id),
+  owner_name TEXT,
+  title TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  paid_to TEXT,                                  -- the previous owner who was paid out (take-over)
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ledger_plot ON ledger(plot_id, id);
+-- Visitor events. kind: visit (entered the building) | click (pressed Visit website). source: street|billboard|banner|search|friends
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY,
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  kind TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'street',
+  visitor TEXT NOT NULL,                         -- an account id, or an anonymous id from the client
+  seconds INTEGER,                               -- time spent (visits)
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS events_plot ON events(plot_id, at);
+
+-- Ad slots: the billboards and the two aerial banners. One row per slot (seeded from the generator); the ad on it changes when bought out.
+CREATE TABLE IF NOT EXISTS ad_slots (
+  id TEXT PRIMARY KEY,                           -- billboard-avenue-1-saas, banner-1, ...
+  kind TEXT NOT NULL,                            -- billboard | banner
+  label TEXT NOT NULL,                           -- the road or the airline
+  facts TEXT NOT NULL,                           -- JSON: position, size
+  ad TEXT,                                       -- JSON { advertiser, headline, tagline, url, color } or NULL (open)
+  owner_account INTEGER REFERENCES accounts(id),
+  value INTEGER NOT NULL,
+  base_views INTEGER NOT NULL DEFAULT 0,
+  base_clicks INTEGER NOT NULL DEFAULT 0,
+  takeovers INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ad_ledger (
+  id INTEGER PRIMARY KEY,
+  slot_id TEXT NOT NULL REFERENCES ad_slots(id),
+  account_id INTEGER REFERENCES accounts(id),
+  advertiser TEXT NOT NULL,
+  headline TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  paid_to TEXT,                                  -- the advertiser who was bought out
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ad_ledger_slot ON ad_ledger(slot_id, id);
+CREATE TABLE IF NOT EXISTS ad_events (
+  id INTEGER PRIMARY KEY,
+  slot_id TEXT NOT NULL REFERENCES ad_slots(id),
+  kind TEXT NOT NULL,                            -- view | click
+  visitor TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ad_events_slot ON ad_events(slot_id, at);
+
+-- ---- engagement: storefront offers, leads, feedback, quests, wallet, email ---------------------------------------------
+-- Coupons a visitor has claimed (one per visitor per business; the code is the business's).
+CREATE TABLE IF NOT EXISTS coupon_claims (
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  visitor TEXT NOT NULL,                         -- a<account id> or x<anonymous id>
+  code TEXT NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (plot_id, visitor)
+);
+-- Email sign-ups from a business, an ad space, or the world newsletter. Double opt-in: only 'confirmed' addresses are ever used.
+CREATE TABLE IF NOT EXISTS leads (
+  id INTEGER PRIMARY KEY,
+  target_kind TEXT NOT NULL,                     -- plot | ad | world
+  target_id TEXT NOT NULL,                       -- the plot id, the ad slot id, or 'world'
+  email TEXT NOT NULL COLLATE NOCASE,
+  status TEXT NOT NULL DEFAULT 'pending',        -- pending | confirmed | unsubscribed
+  token TEXT NOT NULL,                           -- confirms and unsubscribes (random, unguessable)
+  source TEXT,
+  created_at INTEGER NOT NULL,
+  confirmed_at INTEGER,
+  UNIQUE (target_kind, target_id, email)
+);
+CREATE INDEX IF NOT EXISTS leads_target ON leads(target_kind, target_id, status);
+-- The feedback board of a business.
+CREATE TABLE IF NOT EXISTS feedback (
+  id INTEGER PRIMARY KEY,
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  author TEXT NOT NULL,
+  message TEXT NOT NULL,
+  hidden INTEGER NOT NULL DEFAULT 0,             -- the owner can hide a message
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feedback_plot ON feedback(plot_id, id);
+-- Visit quests: a started visit (to check the time spent) and the payouts.
+CREATE TABLE IF NOT EXISTS quest_sessions (
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  started_at INTEGER NOT NULL,
+  PRIMARY KEY (plot_id, account_id)
+);
+CREATE TABLE IF NOT EXISTS quest_claims (
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  gold INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (plot_id, account_id)
+);
+-- Every movement of Gold in an account's wallet.
+CREATE TABLE IF NOT EXISTS gold_ledger (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  delta INTEGER NOT NULL,
+  reason TEXT NOT NULL,                          -- starter | quest | quest_budget | budget_refund
+  ref TEXT,
+  at INTEGER NOT NULL
+);
+-- Emails waiting to go out (and a record of what went).
+CREATE TABLE IF NOT EXISTS outbox (
+  id INTEGER PRIMARY KEY,
+  to_email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  kind TEXT NOT NULL,                            -- confirm | verify | takeover | ad_takeover | newsletter
+  status TEXT NOT NULL DEFAULT 'pending',        -- pending | sent | failed
+  attempts INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  created_at INTEGER NOT NULL,
+  sent_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS outbox_status ON outbox(status, id);
+
+-- Reports from players about feedback, a business or an ad. Several people may report the same thing, once each.
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL,                            -- feedback | plot | ad
+  target_id TEXT NOT NULL,
+  reporter INTEGER NOT NULL REFERENCES accounts(id),
+  reason TEXT NOT NULL,                          -- spam | offensive | misleading | other
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'open',           -- open | resolved
+  action TEXT,                                   -- dismiss | remove | ban
+  created_at INTEGER NOT NULL,
+  resolved_at INTEGER,
+  UNIQUE (kind, target_id, reporter)
+);
+CREATE INDEX IF NOT EXISTS reports_open ON reports(status, kind, target_id);
+
+-- The pop-up market: the layout an admin sets for each market site each week, and the stalls people rent in it.
+-- site_code is the site's ID code (SD-0004); week_start is the Monday of the week (UTC) as YYYY-MM-DD.
+CREATE TABLE IF NOT EXISTS market_layouts (
+  id INTEGER PRIMARY KEY,
+  site_code TEXT NOT NULL,
+  week_start TEXT NOT NULL,
+  params TEXT NOT NULL,                          -- JSON: style, entrances, stall sizes, booth share, seed
+  rates TEXT,                                    -- JSON { prime, busy, standard, quiet } in cents, or NULL for the standard prices
+  note TEXT,
+  published INTEGER NOT NULL DEFAULT 0,          -- 0 = a draft: not open for booking
+  updated_at INTEGER NOT NULL,
+  UNIQUE (site_code, week_start)
+);
+CREATE TABLE IF NOT EXISTS market_bookings (
+  id INTEGER PRIMARY KEY,
+  site_code TEXT NOT NULL,
+  week_start TEXT NOT NULL,
+  stall_id TEXT NOT NULL,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  account_name TEXT NOT NULL,
+  brand TEXT,
+  product TEXT,
+  start_at INTEGER NOT NULL,
+  end_at INTEGER NOT NULL,
+  hours INTEGER NOT NULL,
+  cents INTEGER NOT NULL,                        -- the flat price paid for the booking
+  goods TEXT,                                    -- JSON [{ name, cents }]: what the stall sells (shown to visitors)
+  offer TEXT,                                    -- a one-line offer for visitors
+  website TEXT,
+  notified_open INTEGER NOT NULL DEFAULT 0,      -- the "opens soon" email has been queued
+  notified_close INTEGER NOT NULL DEFAULT 0,     -- the "closed" summary has been queued
+  status TEXT NOT NULL DEFAULT 'booked',         -- booked | cancelled
+  created_at INTEGER NOT NULL
+);
+-- Visitors who looked at a stall while it was open: one row per visitor per hour.
+CREATE TABLE IF NOT EXISTS market_visits (
+  booking_id INTEGER NOT NULL REFERENCES market_bookings(id),
+  visitor TEXT NOT NULL,
+  hour INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (booking_id, visitor, hour)
+);
+CREATE INDEX IF NOT EXISTS market_bookings_stall ON market_bookings(site_code, week_start, stall_id, status);
+CREATE INDEX IF NOT EXISTS market_bookings_account ON market_bookings(account_id, status, start_at);
+
+-- Presence and arrivals (see server/api/stats.mjs): who is on the site right now, and every visit to it.
+CREATE TABLE IF NOT EXISTS presence (
+  visitor TEXT PRIMARY KEY,                      -- an account (a<id>) or an anonymous browser (v<id>)
+  country TEXT,                                  -- two-letter code; never an address
+  account_id INTEGER REFERENCES accounts(id),
+  first_at INTEGER NOT NULL,
+  last_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS presence_last ON presence(last_at);
+CREATE TABLE IF NOT EXISTS arrivals (
+  id INTEGER PRIMARY KEY,
+  visitor TEXT NOT NULL,
+  country TEXT,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS arrivals_at ON arrivals(at);
+
+-- Building of the Week: finding all three daily collectibles earns a vote for the week; one vote a week per account.
+CREATE TABLE IF NOT EXISTS hunt_wins (
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  day TEXT NOT NULL,                             -- YYYY-MM-DD
+  at INTEGER NOT NULL,
+  PRIMARY KEY (account_id, day)
+);
+CREATE TABLE IF NOT EXISTS votes (
+  week TEXT NOT NULL,                            -- the Monday of the week, YYYY-MM-DD (UTC)
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  at INTEGER NOT NULL,
+  PRIMARY KEY (week, account_id)
+);
+CREATE INDEX IF NOT EXISTS votes_plot ON votes(week, plot_id);
+
+-- Messaging (docs/chat_messaging_plan.md, server/api/messaging.mjs): nearby chat evidence, private conversations, blocks, and the
+-- account-targeted notices the presence server delivers.
+-- A one-use ticket that binds a presence connection to an account (60 seconds; only its hash is kept, like sessions).
+CREATE TABLE IF NOT EXISTS messaging_tickets (
+  ticket_hash TEXT PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  session_hash TEXT NOT NULL,                    -- the sign-in it came from: signing out or a ban ends the binding
+  expires_at INTEGER NOT NULL
+);
+-- Every nearby line an account said, kept a short while (MESSAGING_NEARBY_DAYS) so a report has evidence. No endpoint lists them.
+CREATE TABLE IF NOT EXISTS nearby_messages (
+  id INTEGER PRIMARY KEY,                        -- sent to clients as "n<id>"
+  sender INTEGER NOT NULL REFERENCES accounts(id),
+  room TEXT NOT NULL,
+  body TEXT,                                     -- NULL once removed or expired
+  recipients TEXT NOT NULL,                      -- JSON: the account ids it was delivered to (at most 200)
+  state TEXT NOT NULL DEFAULT 'ok',              -- ok | removed | expired
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS nearby_messages_at ON nearby_messages(at);
+CREATE TABLE IF NOT EXISTS conversations (
+  id TEXT PRIMARY KEY,                           -- random, not a count
+  kind TEXT NOT NULL,                            -- direct | business_inquiry
+  pair_key TEXT UNIQUE,                          -- direct only: "<lower account id>:<higher>", so two people have one conversation
+  plot_id INTEGER REFERENCES plots(id),          -- business_inquiry: the building, its name and its owner when it was made
+  plot_title TEXT,
+  owner_account INTEGER REFERENCES accounts(id),
+  created_by INTEGER NOT NULL REFERENCES accounts(id),
+  created_at INTEGER NOT NULL,
+  last_message_id INTEGER NOT NULL DEFAULT 0,
+  last_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS conversations_inquiry ON conversations(created_by, plot_id, owner_account);
+CREATE TABLE IF NOT EXISTS conversation_members (
+  conversation_id TEXT NOT NULL REFERENCES conversations(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  status TEXT NOT NULL,                          -- accepted | pending (a request waiting for this member) | declined
+  muted INTEGER NOT NULL DEFAULT 0,              -- no alerts; the messages still arrive
+  last_read INTEGER NOT NULL DEFAULT 0,          -- the id of the newest message this member has seen
+  PRIMARY KEY (conversation_id, account_id)
+);
+CREATE INDEX IF NOT EXISTS conversation_members_account ON conversation_members(account_id, status);
+-- The id is the order: pages and read cursors use it; `at` is only for showing.
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id),
+  sender INTEGER NOT NULL REFERENCES accounts(id),
+  client_id TEXT NOT NULL,                       -- the sender's own id for it: a retry finds the first copy instead of making a second
+  body TEXT,                                     -- NULL once removed or expired
+  state TEXT NOT NULL DEFAULT 'ok',              -- ok | removed | expired
+  at INTEGER NOT NULL,
+  UNIQUE (sender, client_id)
+);
+CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id, id);
+CREATE INDEX IF NOT EXISTS messages_sender ON messages(sender, at);
+CREATE INDEX IF NOT EXISTS messages_at ON messages(at);
+CREATE TABLE IF NOT EXISTS account_blocks (
+  blocker INTEGER NOT NULL REFERENCES accounts(id),
+  blocked INTEGER NOT NULL REFERENCES accounts(id),
+  at INTEGER NOT NULL,
+  PRIMARY KEY (blocker, blocked)
+);
+CREATE INDEX IF NOT EXISTS account_blocks_blocked ON account_blocks(blocked);
+-- "Your inbox changed" notices for one account, written with the message (same transaction) and handed to the presence server.
+CREATE TABLE IF NOT EXISTS messaging_outbox (
+  id INTEGER PRIMARY KEY,                        -- the event id
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  event TEXT NOT NULL,                           -- JSON: { type: 'inbox.changed', conversationId }, never the message itself
+  status TEXT NOT NULL DEFAULT 'pending',        -- pending | sent | dead
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS messaging_outbox_due ON messaging_outbox(status, next_at);
+ALTER TABLE accounts ADD COLUMN email TEXT;
+ALTER TABLE accounts ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN email_token TEXT;
+ALTER TABLE accounts ADD COLUMN notify INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE accounts ADD COLUMN banned INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN ban_reason TEXT;
+ALTER TABLE events ADD COLUMN ip_hash TEXT;
+ALTER TABLE events ADD COLUMN verified INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE plots ADD COLUMN lease_days INTEGER;
+ALTER TABLE plots ADD COLUMN lease_start INTEGER;
+ALTER TABLE plots ADD COLUMN lease_end INTEGER;
+ALTER TABLE plots ADD COLUMN lease_notified INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plots ADD COLUMN brand TEXT;
+ALTER TABLE plots ADD COLUMN quest_budget INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN dm_requests INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE reports ADD COLUMN evidence TEXT;

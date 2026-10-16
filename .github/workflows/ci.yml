@@ -1,0 +1,58 @@
+# Build, lint and test every push to main and every pull request (P0 of docs/claimavenue_competitive_alignment_review.md).
+# Make "CI / checks" a required status check on main (Settings > Branches) so nothing merges red.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the world-freeze check compares with the base branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: npm ci
+
+      - name: Python messaging service (its tests and the Node tests that run against it)
+        run: |
+          python -m venv services/messaging/.venv
+          services/messaging/.venv/bin/pip install -r services/messaging/requirements.txt
+
+      - name: Lint
+        run: npm run lint
+
+      - name: World-expansion freeze (docs/world_freeze.md)
+        if: github.event_name == 'pull_request'
+        run: npm run check:freeze -- --base origin/${{ github.base_ref }}
+
+      - name: Tests (includes a production build and a headless Chrome run)
+        run: npm test
+
+      - name: Messaging service unit tests
+        working-directory: services/messaging
+        run: .venv/bin/python -m unittest discover -s tests -t .
+
+      - name: Production build
+        run: npm run build

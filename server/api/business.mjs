@@ -158,6 +158,7 @@ export function recordProfileEvent(db, account, slug, input, ctx = {}) {
   let ref = referrerOf(db, input.ref, ctx.secret ?? referralSecret());
   if (ref && account && ref === account.id) ref = null; // nobody is credited for their own visits
   const source = ref ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
+  const campaign = campaignOf(input.campaign);
   const ipHash = ctx.ip ? crypto.createHash('sha256').update(`${ctx.salt ?? 'voxelventure'}|${ctx.ip}`).digest('hex').slice(0, 16) : null;
   let verified = (account || wellFormed) && !BOT_UA.test(String(ctx.userAgent ?? '')) && !(account && account.id === row.account_id);
   if (verified && kind === 'cta') verified = Boolean(db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND visitor = ? AND kind = 'view' AND at >= ?").get(row.id, visitor, now() - DAY));
@@ -166,15 +167,21 @@ export function recordProfileEvent(db, account, slug, input, ctx = {}) {
     const used = db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE business_id = ? AND kind = ? AND ip_hash = ? AND verified = 1 AND at >= ?').get(row.id, kind, ipHash, now() - DAY).n;
     if (used >= cap) verified = false;
   }
-  db.prepare('INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at) VALUES (?,?,?,?,?,?,?,?)').run(row.id, kind, source, ref, visitor, ipHash, verified ? 1 : 0, now());
+  db.prepare('INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at, campaign) VALUES (?,?,?,?,?,?,?,?,?)').run(row.id, kind, source, ref, visitor, ipHash, verified ? 1 : 0, now(), campaign);
   return { counted: true, verified: Boolean(verified) };
 }
+
+// The campaign a link was tagged with (utm_campaign): lower case letters, digits, - and _, at most 40; anything else is no campaign.
+export const campaignOf = (v) => {
+  const c = String(v ?? '').trim().toLowerCase();
+  return /^[a-z0-9_-]{1,40}$/.test(c) ? c : null;
+};
 
 // ---- the owner's view ---------------------------------------------------------------------------------------------------------
 // Thirty days of verified figures for one profile. Never simulated: a profile with no visitors shows zeros.
 export function profileStats(db, businessId, at = now()) {
   const since = at - 30 * DAY;
-  const ev = db.prepare('SELECT kind, source, ref_account, visitor, at FROM business_events WHERE business_id = ? AND verified = 1 AND at >= ?').all(businessId, since);
+  const ev = db.prepare('SELECT kind, source, ref_account, visitor, at, campaign FROM business_events WHERE business_id = ? AND verified = 1 AND at >= ?').all(businessId, since);
   const views = ev.filter((e) => e.kind === 'view');
   const cta = ev.filter((e) => e.kind === 'cta');
   const days = Array.from({ length: 30 }, (_, k) => ({ ago: 29 - k, views: 0, cta: 0 }));
@@ -182,6 +189,13 @@ export function profileStats(db, businessId, at = now()) {
   const bySource = Object.fromEntries(SOURCES.map((s) => [s, 0]));
   for (const e of views) bySource[e.source] = (bySource[e.source] ?? 0) + 1;
   const signups = db.prepare("SELECT COUNT(*) AS n FROM leads WHERE target_kind = 'business' AND target_id = ? AND status = 'confirmed'").get(String(businessId)).n;
+  // each tagged campaign's views and presses (the ten with most views)
+  const byCampaign = new Map();
+  for (const e of ev.filter((x) => x.campaign)) {
+    const c = byCampaign.get(e.campaign) ?? { id: e.campaign, views: 0, ctaClicks: 0 };
+    c[e.kind === 'view' ? 'views' : 'ctaClicks']++;
+    byCampaign.set(e.campaign, c);
+  }
   return {
     simulated: false,
     verified: true,
@@ -192,6 +206,7 @@ export function profileStats(db, businessId, at = now()) {
     referralVisits: views.filter((e) => e.ref_account != null).length,
     newsletterSignups: signups,
     sources: SOURCES.map((id) => ({ id, views: bySource[id] })),
+    campaigns: [...byCampaign.values()].sort((a, b) => b.views - a.views || a.id.localeCompare(b.id)).slice(0, 10),
     days,
   };
 }

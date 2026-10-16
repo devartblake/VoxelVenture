@@ -337,7 +337,9 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'GET') return business.getProfile(db, r[1]);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'PATCH') {
       const b = await screened(req, PROFILE);
-      return logged(A.byAccount(account), 'business.update', { kind: 'business', id: r[1] }, () => business.updateProfile(db, account, r[1], b), () => ({ fields: Object.keys(b).slice(0, 12) }));
+      const out = logged(A.byAccount(account), 'business.update', { kind: 'business', id: r[1] }, () => business.updateProfile(db, account, r[1], b), () => ({ fields: Object.keys(b).slice(0, 12) }));
+      if (social.welcomeBusiness(db, out.slug, env)) setImmediate(postSocial); // an owner who opts in later is welcomed then (still only once)
+      return out;
     }
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/plot$/)) && m === 'PUT') {
       const plotId = (await body(req)).plotId ?? null;

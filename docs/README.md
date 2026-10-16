@@ -6,6 +6,7 @@
 | [overview.md](overview.md) | **Start here.** What the project is, how to run and test it, how the city, game and multiplayer work, and what is next |
 | [project_status.md](project_status.md) | The detailed record: everything built, section by section (5 to 5z), known issues, progress against the blueprint |
 | [claimavenue_competitive_alignment_review.md](claimavenue_competitive_alignment_review.md) | **The current plan.** How the project compares with the recommended commercial strategy, the critical gaps, and the six-phase implementation sequence |
+| [alignment_status.md](alignment_status.md) | **Where phases 1 to 3 stand** against the review, item by item, and what still needs you |
 | [authoritative_data.md](authoritative_data.md) | Phase 3: verified figures only (nothing simulated with a server), the building's outside kept by the server, the audit trail, the production settings check and `npm run verify:live` |
 | [social_posts.md](social_posts.md) | Welcome posts on VoxelVenture's X account for owners who opt in: the text, the review queue, the settings and how visits from a post are counted |
 | [business_funnel.md](business_funnel.md) | Phase 2: free business profiles, the public pages (`/discover`, `/business/[slug]`, categories, districts), calls to action, referral links, owner onboarding and upgrade prompts |

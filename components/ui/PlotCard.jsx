@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, Footprints, Globe, Home, Image as ImageIcon, MessageCircle, Repeat, Star } from 'lucide-react';
+import { Eye, FileText, Footprints, Globe, Home, Image as ImageIcon, MessageCircle, Repeat, Star } from 'lucide-react';
 import { usePanel } from '@/lib/state/panelStore';
 import { shareImage } from '@/lib/game/shareImage';
 import ShareBox from './ShareBox';
@@ -22,6 +22,7 @@ import { useWorld } from '@/lib/state/worldStore';
 import { interiorSummaryFor } from '@/lib/content/interiorScenes';
 import { addressOf, describeBusiness, rankByValue } from '@/lib/game/plotInfo';
 import { liveDataProvider } from '@/lib/data/liveData';
+import { slugify } from '@/lib/business/profile';
 import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { apiOn } from '@/lib/data/api';
 import { claimRemote, renewRemote, takeOverRemote, updateRemote } from '@/lib/data/sync';
@@ -491,6 +492,8 @@ export default function PlotCard() {
   const history = info.history;
   // the admin headquarters never show invented figures: with a server they are real like every building, without one they show none
   const hqOffline = Boolean(p.admin) && !apiOn();
+  // its plain public page: the profile its owner linked (with a server), or the demo page of a business the city started with (without one)
+  const businessPage = p.profileSlug ? `/business/${p.profileSlug}` : !apiOn() && p.generated && p.owner && p.buildingType && p.buildingType !== 'house' && p.height > 0.2 ? `/business/${slugify(p.title)}-${p.id}` : null;
   const daysOpen = history.length ? history[history.length - 1].daysAgo : 0;
 
   const handleClaim = (e) => {
@@ -550,6 +553,11 @@ export default function PlotCard() {
       {p.website && isClaimed && (
         <a href={p.website} target="_blank" rel="noreferrer" onClick={() => recordSiteClick(p.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-cyan/50 bg-sx-cyan/10 py-2.5 text-sm font-bold text-sx-cyan transition hover:bg-sx-cyan/20">
           <Globe className="h-4 w-4" /> Visit website
+        </a>
+      )}
+      {businessPage && (
+        <a href={businessPage} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-stroke bg-sx-alt/60 py-2 text-xs font-semibold text-slate-100 hover:border-sx-line" data-testid="business-page-link">
+          <FileText className="h-3.5 w-3.5 text-sx-cyan" /> Business page
         </a>
       )}
       <div className="grid grid-cols-2 gap-2">

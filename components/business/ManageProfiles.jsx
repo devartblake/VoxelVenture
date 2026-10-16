@@ -162,6 +162,20 @@ function ProfileRow({ row, code, origin, plots, onChange }) {
             </div>
           )}
 
+          {stats.campaigns?.length > 0 && (
+            <div className="mt-4">
+              <h3 className="mb-2 text-sm font-semibold text-slate-200">Campaigns</h3>
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-xs text-sx-muted"><th className="font-normal">Campaign</th><th className="font-normal">Views</th><th className="font-normal">Presses</th></tr></thead>
+                <tbody>
+                  {stats.campaigns.map((c) => (
+                    <tr key={c.id} className="border-t border-sx-stroke/60"><td className="py-1 text-slate-200">{c.id}</td><td className="text-slate-300">{c.views}</td><td className="text-slate-300">{c.ctaClicks}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <div className="mt-5 grid gap-5 lg:grid-cols-2">
             <div>
               <h3 className="mb-2 text-sm font-semibold text-slate-200">Getting started · {done} of {required}</h3>
@@ -181,7 +195,7 @@ function ProfileRow({ row, code, origin, plots, onChange }) {
             <div className="space-y-4">
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-slate-200">Your share link</h3>
-                <p className="mb-2 text-xs text-sx-muted">Visits, presses and sign-ups through this link are credited to you.</p>
+                <p className="mb-2 text-xs text-sx-muted">Visits, presses and sign-ups through this link are credited to you. To compare campaigns, add <code className="text-slate-300">&amp;utm_campaign=spring-sale</code> (any name) to the link you post in each place.</p>
                 <div className="flex gap-2">
                   <input readOnly value={link} aria-label="Your share link" className="min-w-0 flex-1 rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-xs text-slate-200" onFocus={(e) => e.target.select()} />
                   <button type="button" onClick={copy} className="rounded-lg bg-sx-cyan px-3 py-2 text-sm font-semibold text-slate-950">{copied ? 'Copied' : 'Copy'}</button>

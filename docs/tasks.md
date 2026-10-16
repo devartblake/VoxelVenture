@@ -182,4 +182,4 @@ Re-ordered on 2026-10-16 to follow the [competitive alignment review](claimavenu
 4. **Phase 4, low-risk monetisation:** Stripe Checkout with webhook idempotency for a $9 Launch Pack, $19/month Pro, fixed-term sponsored placements, market bookings and leases (task 6, without the real-money 1.25x payout until legal, tax and fraud review).
 5. **Phase 5, conversion measurement:** newsletter, meeting and lead CTAs (priority A3, task 36) and conversion events in the dashboard.
 6. **Phase 6, constrained pilot:** 10-20 businesses in two districts for four weeks; the freeze lifts if it meets the criteria in [world_freeze.md](world_freeze.md#when-it-lifts).
-7. Alongside all of these: CI (build, lint, tests, `check:freeze`), a protected `main`, and privacy, refund, advertising and placement terms (the review's P0 list).
+7. Alongside all of these (the review's P0 list): ✅ CI (`.github/workflows/ci.yml`: build, lint, tests, `check:freeze`) and Dependabot; **needs you:** a protected `main` with the CI check required, secret scanning, and privacy, refund, advertising and placement terms. Item-by-item status: [alignment_status.md](alignment_status.md).

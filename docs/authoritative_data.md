@@ -87,6 +87,24 @@ It also warns when `TRUST_PROXY`, `MP_NOTIFY_URL` or mail delivery is not set.
 
 [deploy/README.md](../deploy/README.md) now includes both commands.
 
+## Admin tools
+
+`npm run moderate` (with `API_URL` and `ADMIN_TOKEN`) now covers the audit trail and the X posts as well as reports: `audit` (newest first), `audit plot 12`, `audit action plot.takeover`, `audit account 7`, `audit verify`, `posts`, `posts approve 4`, `posts reject 4`.
+
+## Upgrading an existing database
+
+`tests/migration.test.mjs` builds a database as the first release left it (`tests/fixtures/schema-v1.sql`), fills it, and opens it with today's code. It checks the following:
+
+- Every new table, column and trigger appears.
+- No data is lost.
+- A second open changes nothing.
+- The API runs on it.
+
+Two things about upgraded data:
+
+- **Old ad events** were recorded before ad events were verified, so they are kept but not counted.
+- **Old building visits** were verified when they were recorded, so they still count.
+
 ## Tests
 
 - `tests/authoritative.test.mjs` covers:

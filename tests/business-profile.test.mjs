@@ -54,6 +54,7 @@ check('JSON-LD cannot close its script tag', !ld.includes('<') && !ld.includes('
 check('JSON-LD uses the category type and the district', JSON.parse(ld)['@type'] === 'FoodEstablishment' && JSON.parse(ld).areaServed === 'The Bazaar' && JSON.parse(ld).sameAs[0] === 'https://e.test');
 
 // ---- sources
+check("a link from VoxelVenture's own X posts counts as 'x' whatever the referrer", P.sourceOf('https://t.co/abc', 'vv.test', '?utm_source=x&utm_campaign=welcome') === 'x' && P.sourceOf('', 'vv.test', '?utm_source=newsletter') === 'direct');
 check('search engines, social sites, the city and everything else', P.sourceOf('https://www.google.com/search?q=x', 'vv.test') === 'search' && P.sourceOf('https://t.co/abc', 'vv.test') === 'social' && P.sourceOf('https://www.linkedin.com/feed', 'vv.test') === 'social' && P.sourceOf('https://vv.test/?plot=3', 'vv.test') === 'city' && P.sourceOf('', 'vv.test') === 'direct' && P.sourceOf('https://someblog.test/', 'vv.test') === 'direct');
 
 // ---- the demo city
