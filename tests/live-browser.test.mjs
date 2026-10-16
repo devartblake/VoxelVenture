@@ -30,7 +30,12 @@ const children = [];
 const type2 = (pg, selector, value) => pg.eval(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set; set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
 try {
   const build = spawnSync(process.execPath, [next, 'build'], { cwd: root, env, encoding: 'utf8' });
-  if (build.status !== 0) throw new Error('build failed');
+  if (build.status !== 0) {
+    // show why, so a failure in CI can be read from the log (the end of the output has Next's error list)
+    const lines = `${build.stdout ?? ''}\n${build.stderr ?? ''}`.trim().split('\n');
+    console.log(`--- next build failed (status ${build.status}); the last ${Math.min(80, lines.length)} lines:\n${lines.slice(-80).join('\n')}\n---`);
+    throw new Error('build failed');
+  }
   children.push(spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { cwd: root, env: { ...env, API_PORT: String(apiPort), API_DB: ':memory:', MP_NOTIFY_URL: `http://localhost:${mpPort}/notify`, ...(FASTAPI ? { MESSAGING_SERVICE_URL: `http://localhost:${msgPort}` } : {}) }, stdio: 'ignore' }));
   if (FASTAPI) children.push(spawn(python, ['-m', 'app'], { cwd: msgDir, env: { ...env, MESSAGING_PORT: String(msgPort), MESSAGING_DB: ':memory:', NODE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_URL: `http://localhost:${mpPort}/notify` }, stdio: 'ignore' }));
   console.log(`messaging served by ${FASTAPI ? 'the FastAPI service' : 'the Node API'}`);

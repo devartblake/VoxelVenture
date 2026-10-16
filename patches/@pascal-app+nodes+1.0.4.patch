@@ -1,21 +1,8 @@
-diff --git a/node_modules/@pascal-app/nodes/dist/chimney/roof-trim.js b/node_modules/@pascal-app/nodes/dist/chimney/roof-trim.js
-index 3e67add..ae1dea9 100644
---- a/node_modules/@pascal-app/nodes/dist/chimney/roof-trim.js
-+++ b/node_modules/@pascal-app/nodes/dist/chimney/roof-trim.js
-@@ -44,7 +44,7 @@ export function trimChimneyBodyAgainstRoof(body, segment, node, segBrushes) {
-     indexed.clearGroups();
-     if (indexCount > 0)
-         indexed.addGroup(0, indexCount, 0);
--    indexed.computeBoundsTree?.({ maxLeafSize: 10 });
-+    indexed.computeBoundsTree?.({ targetLeafSize: 10 });
-     const chimneyBrush = new Brush(indexed, visibleMat);
-     chimneyBrush.updateMatrixWorld();
-     prepareBrushForCSG(chimneyBrush);
 diff --git a/node_modules/@pascal-app/nodes/dist/item/renderer.js b/node_modules/@pascal-app/nodes/dist/item/renderer.js
-index e466fc1..cc47788 100644
+index 1393569..6550951 100644
 --- a/node_modules/@pascal-app/nodes/dist/item/renderer.js
 +++ b/node_modules/@pascal-app/nodes/dist/item/renderer.js
-@@ -193,6 +193,12 @@ const useItemGltf = (url) => {
+@@ -192,6 +192,12 @@ const useItemGltf = (url) => {
      const gltf = useLoader(ItemGLTFLoader, url, (loader) => configureItemModelLoader(loader, renderer));
      return useMemo(() => {
          stampItemTextureReferences(gltf, url);
