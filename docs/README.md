@@ -19,6 +19,7 @@
 | [market.md](market.md) | The pop-up market: spots, tiers, weekly layouts, booking, shops, notices |
 | [community.md](community.md) | The five strategy features built: proof-of-human traffic, leaseholds, skyline, Building of the Week, The Bazaar |
 | [hosting_stack_payments.md](hosting_stack_payments.md) | Going live: why the server stays on Node, the Linode setup, Stripe vs PayPal, and the owner dashboard |
+| [takeover_payouts.md](takeover_payouts.md) | Why the 1.25x take-over rule stays in Gold and real-money take-overs are conventional leases: the legal, tax, fraud and economic reasons |
 | [billing.md](billing.md) | Phase 4 payments: the Launch Pack, Pro and sponsored placements through Stripe Checkout, webhooks, reconciliation, refunds |
 | [../deploy/README.md](../deploy/README.md) | The deployment runbook and files (Caddy, systemd, settings, backups) for a Linode |
 | [presence_scale.md](presence_scale.md) | The presence server at scale: protocol 2, what a crowd costs (measured), and how to grow past one server |

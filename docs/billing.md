@@ -20,7 +20,7 @@ The prices are only ever read from `lib/business/plans.js`. The server charges t
 **Not sold, on purpose:**
 
 - **Gold.** The game's currency stays a game reward; nobody can buy it with money.
-- **Real-money take-over payouts** (the 1.25x rule). These need a legal, tax and fraud review first.
+- **Real-money take-over payouts** (the 1.25x rule). The rule stays a Gold-only game mechanic; [takeover_payouts.md](takeover_payouts.md) explains why.
 - **Payouts to a replaced tenant.** A take-over is charged like any new lease, and the tenant it replaces is paid nothing.
 
 ## How a payment works
