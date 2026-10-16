@@ -67,7 +67,7 @@ Building it would take roughly 2 to 4 weeks of engineering, plus legal review an
 
 These rules keep the 1.25x mechanic a game and not a payout:
 
-1. **Gold is never sold for money.** This is already a rule in [billing.md](billing.md) and the [business funnel](business_funnel.md).
+1. **Gold is never sold for money.** This is already a rule in [billing.md](billing.md) and `lib/business/plans.js`.
 2. **Gold never turns back into money,** and it can't be transferred between accounts outside the game's own rules.
 3. **Gold can't buy anything paid for with money.** A take-over paid for with Gold changes who runs the plot in the game. It never grants a Pro plan, a placement or a paid lease.
 4. **Gold balances live on the server** before take-overs pay out in Gold, so balances can't be edited in the browser. Gold is still kept in the browser today; see "Gold on the server" in [tasks.md](tasks.md).
