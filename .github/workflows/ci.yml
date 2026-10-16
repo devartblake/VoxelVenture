@@ -1,0 +1,71 @@
+# Checks every push to main and every pull request (P0 of docs/claimavenue_competitive_alignment_review.md), running only what the change
+# needs: scripts/select-checks.mjs reads the changed files and picks the checks (a documentation edit runs none; a new model runs the
+# model, credits and world tests; a lib/ change runs the tests of every module built on it; anything it does not know runs everything).
+# It is one job that always reports, so "CI / checks" can be a required status on main (Settings > Branches) without ever waiting on a
+# skipped job.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # to compare with the base branch or the previous commit
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Choose the checks this change needs
+        id: pick
+        run: node scripts/select-checks.mjs --base "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}"
+
+      - name: Install
+        if: steps.pick.outputs.install == 'true'
+        run: npm ci
+
+      - uses: actions/setup-python@v5
+        if: steps.pick.outputs.python == 'true'
+        with:
+          python-version: '3.12'
+
+      - name: Python messaging service (its tests and the Node tests that run against it)
+        if: steps.pick.outputs.python == 'true'
+        run: |
+          python -m venv services/messaging/.venv
+          services/messaging/.venv/bin/pip install -r services/messaging/requirements.txt
+
+      - name: Lint
+        if: steps.pick.outputs.lint == 'true'
+        run: npm run lint
+
+      - name: World-expansion freeze (docs/world_freeze.md)
+        if: github.event_name == 'pull_request' && steps.pick.outputs.freeze == 'true'
+        run: node scripts/check-world-freeze.mjs --base origin/${{ github.base_ref }}
+
+      - name: All tests (includes a production build and a headless Chrome run)
+        if: steps.pick.outputs.tests == 'all'
+        run: npm test
+
+      - name: The tests this change needs
+        if: steps.pick.outputs.tests != 'all' && steps.pick.outputs.tests != ''
+        run: node tests/run.mjs ${{ steps.pick.outputs.tests }}
+
+      - name: Messaging service unit tests
+        if: steps.pick.outputs.python == 'true'
+        working-directory: services/messaging
+        run: .venv/bin/python -m unittest discover -s tests -t .

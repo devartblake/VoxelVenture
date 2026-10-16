@@ -9,6 +9,7 @@ const { cleanLogo } = await imp('game/logos.js');
 const { toEmbedUrl } = await imp('content/embeds.js');
 const { DEFAULT_TERM, leasePrice, takeoverAllowed, termOf, DAY_MS: LEASE_DAY, describeLease, renewalPrice } = await imp('game/leases.js');
 const { skylineFor } = await imp('game/skyline.js');
+const { cleanExterior } = await imp('game/exterior.js');
 export { TAKEOVER_MULTIPLIER };
 
 export const SOURCES = ['street', 'billboard', 'banner', 'search', 'friends'];
@@ -95,7 +96,9 @@ export function logout(db, token) {
 export const requireAccount = (account) => account ?? fail(401, 'Sign in first.', 'unauthorized');
 
 // ---- plots -----------------------------------------------------------------------------------------------------------
-const visitsOf = (db, id, base) => base + db.prepare("SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND kind = 'visit'").get(id).n;
+// Every count the API serves is verified events only (docs/authoritative_data.md). The generator's starting figures (base_visits,
+// base_views, base_clicks) are kept in the database as the seed's history but never added to a count: nobody sees an invented number as real.
+const visitsOf = (db, id) => db.prepare("SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND kind = 'visit' AND verified = 1").get(id).n;
 export function plotView(db, row) {
   const facts = JSON.parse(row.facts);
   return {
@@ -109,13 +112,14 @@ export function plotView(db, row) {
     logo: row.logo ? JSON.parse(row.logo) : { kind: 'generated' },
     description: row.description ?? null,
     value: row.value,
-    visits: visitsOf(db, row.id, row.base_visits),
+    visits: visitsOf(db, row.id),
     district: facts.district,
     districtId: row.district,
     takeovers: row.takeovers,
     claimable: Boolean(row.claimable),
     lease: leaseView(row),
     ...facts,
+    exterior: row.exterior ? JSON.parse(row.exterior) : null,
   };
 }
 // The lease of a plot as a client needs it: the term, the end, the state and what a renewal costs. null for a business the city started with.
@@ -148,10 +152,12 @@ export function worldState(db) {
       .map((r) => [r.plot_id, { uniques: r.uniques, views: r.views ?? 0, clicks: r.clicks ?? 0, avgSeconds: r.avg ?? 0 }])
   );
   const rows = db.prepare('SELECT * FROM plots').all();
+  // the public page of a building whose owner linked it to their business profile (business.mjs)
+  const profiles = Object.fromEntries(db.prepare("SELECT plot_id, slug FROM businesses WHERE plot_id IS NOT NULL AND status = 'published'").all().map((r) => [r.plot_id, r.slug]));
   return {
     at: now(),
     ads: adSlots(db),
-    plots: rows.map((r) => ({ id: r.id, owner: r.owner_name, ownerAccount: r.owner_account, title: r.title, website: r.website, buildingType: r.building_type, variant: r.variant, logo: r.logo ? JSON.parse(r.logo) : null, description: r.description, value: r.value, visits: r.base_visits + (visits[r.id] ?? 0), takeovers: r.takeovers, updatedAt: r.updated_at, skyline: eng[r.id] ? skylineFor(eng[r.id]) : null, lease: r.lease_end ? { days: r.lease_days, end: r.lease_end } : null })),
+    plots: rows.map((r) => ({ id: r.id, owner: r.owner_name, ownerAccount: r.owner_account, title: r.title, website: r.website, buildingType: r.building_type, variant: r.variant, logo: r.logo ? JSON.parse(r.logo) : null, description: r.description, value: r.value, visits: visits[r.id] ?? 0, takeovers: r.takeovers, updatedAt: r.updated_at, skyline: eng[r.id] ? skylineFor(eng[r.id]) : null, lease: r.lease_end ? { days: r.lease_days, end: r.lease_end } : null, exterior: r.exterior ? JSON.parse(r.exterior) : null, profileSlug: profiles[r.id] ?? null })),
   };
 }
 export function getPlot(db, id) {
@@ -187,8 +193,8 @@ export function claimPlot(db, account, id, input) {
     if (p.owner_name) fail(409, 'Someone claimed this plot first.', 'already_owned');
     const term = leaseTerm(input);
     const price = leasePrice(p.value, term);
-    db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=? AND owner_name IS NULL')
-      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, Math.round(p.value * 1.25), term, now(), now() + term * LEASE_DAY, now(), p.id);
+    db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=? AND owner_name IS NULL')
+      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exteriorOf(input, p, b.buildingType), Math.round(p.value * 1.25), term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'claim', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, now());
     return plotView(db, getPlot(db, p.id));
   });
@@ -214,13 +220,20 @@ export function takeOverPlot(db, account, id, input) {
       db.prepare('UPDATE accounts SET gold = gold + ? WHERE id = ?').run(p.quest_budget, p.owner_account);
       db.prepare("INSERT INTO gold_ledger (account_id, delta, reason, ref, at) VALUES (?, ?, 'budget_refund', ?, ?)").run(p.owner_account, p.quest_budget, String(p.id), now());
     }
-    db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, takeovers=takeovers+1, brand=NULL, quest_budget=0, updated_at=? WHERE id=?')
-      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, Math.round(p.value * TAKEOVER_MULTIPLIER), term, now(), now() + term * LEASE_DAY, now(), p.id);
+    db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, takeovers=takeovers+1, brand=NULL, quest_budget=0, updated_at=? WHERE id=?')
+      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exteriorOf(input, p, b.buildingType), Math.round(p.value * TAKEOVER_MULTIPLIER), term, now(), now() + term * LEASE_DAY, now(), p.id);
     return { plot: plotView(db, getPlot(db, p.id)), paidOut: price, previousOwner: p.owner_name, previousAccount: p.owner_account };
   });
 }
 
-// The owner changes their logo and description (nothing else: the price and the owner are not editable).
+// The outside a request sets up, cleaned against the plot's own limits (floors by tier and type), as stored JSON; null for the usual one.
+function exteriorOf(input, row, buildingType) {
+  if (input.exterior == null) return null;
+  if (typeof input.exterior !== 'object') fail(400, 'That building setup is not valid.', 'bad_exterior');
+  return JSON.stringify(cleanExterior(input.exterior, JSON.parse(row.facts), buildingType ?? row.building_type ?? 'shop'));
+}
+
+// The owner changes their logo, description and the outside of the building (nothing else: the price and the owner are not editable).
 export function updateBusiness(db, account, id, input) {
   requireAccount(account);
   return transaction(db, () => {
@@ -230,7 +243,8 @@ export function updateBusiness(db, account, id, input) {
     const description = input.description === undefined ? p.description : text(input.description, 160) || null;
     const video = input.videoUrl ? toEmbedUrl('video', input.videoUrl) : { ok: true };
     if (!video.ok) fail(400, video.error, 'bad_video');
-    db.prepare('UPDATE plots SET logo=?, description=?, updated_at=? WHERE id=?').run(logo, description, now(), p.id);
+    const exterior = input.exterior === undefined ? p.exterior : exteriorOf(input, p, p.building_type);
+    db.prepare('UPDATE plots SET logo=?, description=?, exterior=?, updated_at=? WHERE id=?').run(logo, description, exterior, now(), p.id);
     return plotView(db, getPlot(db, p.id));
   });
 }
@@ -262,7 +276,8 @@ export function recordEvent(db, account, input, ctx = {}) {
   const ipHash = ctx.ip ? crypto.createHash('sha256').update(`${ctx.salt ?? 'voxelventure'}|${ctx.ip}`).digest('hex').slice(0, 16) : null;
   const presenceKey = account ? `a${account.id}` : `v${text(input.visitor, 40)}`;
   const seen = db.prepare('SELECT first_at FROM presence WHERE visitor = ?').get(presenceKey);
-  let verified = Boolean(seen) && now() - seen.first_at >= (ctx.minAgeMs ?? 3000) && !BOT_UA.test(String(ctx.userAgent ?? ''));
+  // the owner walking round their own building is not a visitor
+  let verified = Boolean(seen) && now() - seen.first_at >= (ctx.minAgeMs ?? 3000) && !BOT_UA.test(String(ctx.userAgent ?? '')) && !(account && account.id === p.owner_account);
   if (verified && ipHash) {
     const cap = kind === 'click' ? ctx.clickCap ?? 1 : ctx.visitCap ?? 3;
     const used = db.prepare('SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND kind = ? AND ip_hash = ? AND verified = 1 AND at >= ?').get(p.id, kind, ipHash, now() - DAY).n;
@@ -283,7 +298,7 @@ export function plotStats(db, id) {
   const clicks = ev.filter((e) => e.kind === 'click');
   const days = Array.from({ length: 30 }, (_, k) => ({ ago: 29 - k, views: 0 }));
   for (const e of visits) days[29 - Math.min(29, Math.floor((now() - e.at) / DAY))].views++;
-  const views = visits.length + p.base_visits * 0; // real events only; the city's own starting visits are history, not events
+  const views = visits.length; // real events only; the city's own starting visits are history, not events
   const byHour = new Array(24).fill(0);
   const byWeekday = new Array(7).fill(0);
   for (const e of visits) {
@@ -315,7 +330,7 @@ export function plotStats(db, id) {
 }
 
 export function worldStats(db, online = 0) {
-  const t = db.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'visit' AND verified = 1").get().n + db.prepare('SELECT COALESCE(SUM(base_visits),0) AS n FROM plots').get().n;
+  const t = db.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'visit' AND verified = 1").get().n;
   const built = db.prepare("SELECT COUNT(*) AS n FROM plots WHERE owner_name IS NOT NULL AND building_type != 'house'").get().n;
   return { online, totalVisits: t, buildings: built, accounts: db.prepare('SELECT COUNT(*) AS n FROM accounts').get().n };
 }
@@ -333,9 +348,9 @@ export function seedAds(db, seed = 20260101) {
 }
 
 export function slotView(db, row) {
-  const ev = db.prepare('SELECT kind, COUNT(*) AS n FROM ad_events WHERE slot_id = ? GROUP BY kind').all(row.id);
+  const ev = db.prepare('SELECT kind, COUNT(*) AS n FROM ad_events WHERE slot_id = ? AND verified = 1 GROUP BY kind').all(row.id);
   const n = (k) => ev.find((e) => e.kind === k)?.n ?? 0;
-  return { id: row.id, kind: row.kind, label: row.label, ...JSON.parse(row.facts), ad: row.ad ? JSON.parse(row.ad) : null, ownerAccount: row.owner_account, value: row.value, views: row.base_views + n('view'), clicks: row.base_clicks + n('click'), takeovers: row.takeovers, price: Math.round(row.value * 1.25), open: !row.ad };
+  return { id: row.id, kind: row.kind, label: row.label, ...JSON.parse(row.facts), ad: row.ad ? JSON.parse(row.ad) : null, ownerAccount: row.owner_account, value: row.value, views: n('view'), clicks: n('click'), takeovers: row.takeovers, price: Math.round(row.value * 1.25), open: !row.ad };
 }
 export function adSlots(db) {
   return db.prepare('SELECT * FROM ad_slots ORDER BY kind, id').all().map((r) => slotView(db, r));
@@ -375,14 +390,23 @@ export function slotHistory(db, id) {
   getSlot(db, id);
   return db.prepare('SELECT advertiser, headline, price, paid_to AS paidTo, at FROM ad_ledger WHERE slot_id = ? ORDER BY id DESC').all(String(id)).map((r) => ({ ...r, daysAgo: Math.floor((now() - r.at) / DAY) }));
 }
-// A view or a click on an ad (a visitor's repeat within a minute is one).
-export function recordAdEvent(db, account, input) {
+// A view or a click on an ad (a visitor's repeat within a minute is one). Verified by the same rules as a building visit (recordEvent):
+// a running page, not a known bot, not the advertiser's own, and within the per-network daily cap (views like visits, clicks like clicks).
+// Only verified events count in what an advertiser sees.
+export function recordAdEvent(db, account, input, ctx = {}) {
   const s = getSlot(db, input.slotId);
   if (!s.ad) fail(400, 'This ad space is empty.', 'empty_slot');
   const kind = ['view', 'click'].includes(input.kind) ? input.kind : fail(400, 'kind must be view or click.', 'bad_kind');
   const visitor = account ? `a${account.id}` : `x${text(input.visitor, 40) || 'anonymous'}`;
   const last = db.prepare('SELECT at FROM ad_events WHERE slot_id=? AND visitor=? AND kind=? ORDER BY id DESC LIMIT 1').get(s.id, visitor, kind);
   if (last && now() - last.at < 60000) return { counted: false };
-  db.prepare('INSERT INTO ad_events (slot_id, kind, visitor, at) VALUES (?,?,?,?)').run(s.id, kind, visitor, now());
-  return { counted: true };
+  const ipHash = ctx.ip ? crypto.createHash('sha256').update(`${ctx.salt ?? 'voxelventure'}|${ctx.ip}`).digest('hex').slice(0, 16) : null;
+  const seen = db.prepare('SELECT first_at FROM presence WHERE visitor = ?').get(account ? `a${account.id}` : `v${text(input.visitor, 40)}`);
+  let verified = Boolean(seen) && now() - seen.first_at >= (ctx.minAgeMs ?? 3000) && !BOT_UA.test(String(ctx.userAgent ?? '')) && !(account && account.id === s.owner_account);
+  if (verified && ipHash) {
+    const cap = kind === 'click' ? ctx.clickCap ?? 1 : ctx.visitCap ?? 3;
+    if (db.prepare('SELECT COUNT(*) AS n FROM ad_events WHERE slot_id = ? AND kind = ? AND ip_hash = ? AND verified = 1 AND at >= ?').get(s.id, kind, ipHash, now() - DAY).n >= cap) verified = false;
+  }
+  db.prepare('INSERT INTO ad_events (slot_id, kind, visitor, at, ip_hash, verified) VALUES (?,?,?,?,?,?)').run(s.id, kind, visitor, now(), ipHash, verified ? 1 : 0);
+  return { counted: true, verified };
 }

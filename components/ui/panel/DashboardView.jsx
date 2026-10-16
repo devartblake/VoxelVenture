@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { CheckCircle2, Circle, Download, Eye, MousePointerClick, Paintbrush, Search, Users } from 'lucide-react';
 import { dashboardCsv, dashboardRows, dashboardTotals, ownedAdSlots, ownedBusinesses } from '@/lib/game/dashboard';
-import { liveDataProvider } from '@/lib/data/liveData';
+import { isLive, liveDataProvider } from '@/lib/data/liveData';
+import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { FIXTURE_PRICES } from '@/lib/content/fixturePrices';
 import { businessWorth, pricesConfigured } from '@/lib/content/fixturePricing';
 import { describeLease } from '@/lib/game/leases';
@@ -38,7 +39,7 @@ function Bars({ days }) {
 }
 
 // "My businesses": everything you own, how each is doing over the last 30 days, and what to do next to make it better.
-// (Figures are the live ones with a game server and simulated ones without; the card says which.)
+// (With a game server the figures are the server's verified ones, and nothing simulated is ever shown; without one they are simulated and say so.)
 export default function DashboardView() {
   const plots = useCityStore((s) => s.plots);
   const layout = useCityStore((s) => s.layout);
@@ -50,6 +51,10 @@ export default function DashboardView() {
   const openInterior = useCityStore((s) => s.openInterior);
 
   const mine = useMemo(() => ownedBusinesses(plots, layout), [plots, layout]);
+  const liveFigures = useLiveStats();
+  useEffect(() => {
+    if (isLive()) for (const p of mine) wantFigures(p.id);
+  }, [mine]);
   const rows = useMemo(
     () =>
       dashboardRows(mine, {
@@ -58,9 +63,11 @@ export default function DashboardView() {
         leaseOf: (p) => (p.lease?.end ? describeLease(p.lease.end, p.lease.days) : null),
         worthOf: (p) => businessWorth(p, designs[p.id]),
       }),
-    [mine, activity, designs]
+    [mine, activity, designs, liveFigures] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const totals = dashboardTotals(rows);
+  // with a server, the export waits for every building's verified figures (a zero still loading is not a real zero)
+  const figuresLoading = isLive() && mine.some((p) => typeof p.id === 'number' && figuresState(p.id, liveFigures) === 'loading');
   const slots = useMemo(() => ownedAdSlots(billboards), [billboards]);
   const byId = new Map(mine.map((p) => [p.id, p]));
 
@@ -93,7 +100,7 @@ export default function DashboardView() {
       </div>
       <p className="text-[11px] text-slate-400">
         Worth {money(totals.value)} in all · you have {gold.toLocaleString()} Gold.{' '}
-        {rows[0]?.simulated ? 'Visitor figures are simulated until the game server is connected.' : 'Visitor figures count verified human visits only.'}
+        {isLive() ? 'Visitor figures count verified human visits only.' : 'Visitor figures are simulated: this copy of the game has no server.'}
       </p>
 
       {rows.map((r) => {
@@ -164,7 +171,7 @@ export default function DashboardView() {
         </section>
       )}
 
-      <button onClick={download} className="flex items-center gap-1.5 rounded-full border border-sx-stroke px-3 py-1 text-[11px] text-slate-200 hover:border-sx-line" data-testid="dashboard-csv"><Download className="h-3 w-3" /> Download figures as CSV</button>
+      <button onClick={download} disabled={figuresLoading} title={figuresLoading ? 'Waiting for the verified figures from the server' : undefined} className="flex items-center gap-1.5 rounded-full border border-sx-stroke px-3 py-1 text-[11px] text-slate-200 hover:border-sx-line disabled:opacity-40" data-testid="dashboard-csv"><Download className="h-3 w-3" /> {figuresLoading ? 'Loading figures…' : 'Download figures as CSV'}</button>
     </div>
   );
 }

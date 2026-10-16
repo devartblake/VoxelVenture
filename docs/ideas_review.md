@@ -12,7 +12,7 @@ Built: leaseholds, skyline, districts (The Bazaar), proof-of-human, pop-up marke
 2. *Time-lapse city history*: not built (the server's ledger already records every claim and take-over).
 3. *Embeddable "Shop window" badge with a deep link that glides the camera to the building*: built (`/?plot=ID` and `/b/ID` links, a share box with a copy-paste badge: `lib/game/shareLink.js`, `components/ui/ShareBox.jsx`).
 4. *AI clerk NPCs* grounded on the owner's own docs: not built.
-5. *Automated social posts on every claim*: not built (a manual "Create image" and a copy-link share box exist).
+5. *Automated social posts on every claim*: built as opt-in welcome posts on X with an admin review queue ([social_posts.md](social_posts.md)); a manual "Create image" and a copy-link share box exist too.
 6. *Soundscapes and spatial audio*: built, all synthesised with no sound files: ambience by the hour and place-based sound and music near the ground ([day_night_sound.md](day_night_sound.md)).
 
 **Idea 03: Python or .NET, OSM street names.** Answered: stay on Node ([hosting_stack_payments.md](hosting_stack_payments.md)). The one useful piece is the offline OpenStreetMap street-name script (a Python job; tasks.md item 13, ODbL attribution needed). Postgres/PostGIS is only worth it if the API ever needs a second machine.

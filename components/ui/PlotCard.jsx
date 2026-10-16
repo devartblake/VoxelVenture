@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, Footprints, Globe, Home, Image as ImageIcon, MessageCircle, Repeat, Star } from 'lucide-react';
+import { Eye, FileText, Footprints, Globe, Home, Image as ImageIcon, MessageCircle, Repeat, Star } from 'lucide-react';
 import { usePanel } from '@/lib/state/panelStore';
 import { shareImage } from '@/lib/game/shareImage';
 import ShareBox from './ShareBox';
@@ -22,8 +22,10 @@ import { useWorld } from '@/lib/state/worldStore';
 import { interiorSummaryFor } from '@/lib/content/interiorScenes';
 import { addressOf, describeBusiness, rankByValue } from '@/lib/game/plotInfo';
 import { liveDataProvider } from '@/lib/data/liveData';
+import { slugify } from '@/lib/business/profile';
+import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { apiOn } from '@/lib/data/api';
-import { claimRemote, renewRemote, takeOverRemote } from '@/lib/data/sync';
+import { claimRemote, renewRemote, takeOverRemote, updateRemote } from '@/lib/data/sync';
 import { DEFAULT_TERM, TERMS, describeLease, leaseState, renewalPrice, termOf, takeoverAllowed } from '@/lib/game/leases';
 import { useCommunity } from '@/lib/state/communityStore';
 import ReportButton from './ReportButton';
@@ -45,7 +47,7 @@ function MessageOwner({ plot }) {
     </button>
   );
 }
-import { AddressCard, BuildingHistory, Chip, LogoBadge, SiteVisits, StatGrid, StepInside } from './PlotInfoCards';
+import { AddressCard, BuildingHistory, Chip, HqLive, LogoBadge, SiteVisits, StatGrid, StepInside } from './PlotInfoCards';
 
 const INPUT = 'w-full px-3 py-1.5 text-xs bg-sx-alt border border-sx-stroke rounded text-white focus:outline-none focus:border-sx-cyan';
 
@@ -191,13 +193,21 @@ function LogoPicker({ value, onChange, title = '', type = 'shop' }) {
 
 // The owner of a plot can change its roof banner at any time.
 // The owner's editor for the outside of their building: every change is saved at once and shows in the city.
+// With a game server the change is saved there (a moment after the last change, so dragging a slider sends one request), so every player sees it.
+const saveTimers = new Map();
 function OwnerOutside({ plot }) {
   const setPlotExterior = useCityStore((s) => s.setPlotExterior);
   const type = plot.buildingType ?? 'shop';
   const value = { floors: floorsForHeight(plot.height), wallColor: plot.wallColor, ...(plot.exterior ?? {}) };
+  const change = (c) => {
+    setPlotExterior(plot.id, c);
+    if (!apiOn() || typeof plot.id !== 'number') return;
+    clearTimeout(saveTimers.get(plot.id));
+    saveTimers.set(plot.id, setTimeout(() => updateRemote(plot.id, { exterior: cleanExterior(c, plot, type) }).catch((e) => useCityStore.getState().notify(`Not saved: ${e.message}`)), 700));
+  };
   return (
     <div className="space-y-1.5">
-      <ExteriorBuilder plot={plot} type={type} value={value} onChange={(c) => setPlotExterior(plot.id, c)} />
+      <ExteriorBuilder plot={plot} type={type} value={value} onChange={change} />
       <p className="text-[10px] text-slate-500">Changes show in the city straight away. More floors mean a bigger building on the map and more rooms to design inside.</p>
     </div>
   );
@@ -210,7 +220,7 @@ function ChangeLogo({ plot }) {
   return (
     <div className="space-y-2 border-t border-sx-alt pt-3">
       <LogoPicker value={logo} onChange={setLogo} title={plot.title} type={plot.buildingType} />
-      <button type="button" disabled={!changed} onClick={() => setPlotLogo(plot.id, logo)} className="w-full rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:opacity-40">
+      <button type="button" disabled={!changed} onClick={() => (apiOn() && typeof plot.id === 'number' ? updateRemote(plot.id, { logo: cleanLogo(logo) }).then(() => setPlotLogo(plot.id, logo), (e) => useCityStore.getState().notify(`Not saved: ${e.message}`)) : setPlotLogo(plot.id, logo))} className="w-full rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 disabled:opacity-40">
         Update the roof banner
       </button>
     </div>
@@ -405,6 +415,10 @@ export default function PlotCard() {
   const potdPaid = useCityStore((state) => state.daily.potdDay === state.day);
 
   const p = selectedPlot;
+  const liveFigures = useLiveStats(); // with a server: the building's real figures, re-rendered when they arrive
+  useEffect(() => {
+    if (apiOn() && p?.owner) wantFigures(p.id);
+  }, [p?.id, p?.owner]);
   const info = useMemo(() => {
     if (!p) return null;
     const act = activity[p.id] ?? {};
@@ -420,7 +434,7 @@ export default function PlotCard() {
       visits: data.visits(p, act),
       room: p.owner ? interiorSummaryFor(p) : null,
     };
-  }, [p, plots, layout, activity]);
+  }, [p, plots, layout, activity, liveFigures]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the building being set up shows on the empty lot while the claim form is in use, and goes when it is not
   const forClaim = Boolean(p && !p.owner && p.districtId !== SUBURB_ID);
@@ -476,6 +490,10 @@ export default function PlotCard() {
   const people = info.room ? Math.max(4, Math.round((info.room.width * info.room.depth * info.room.floors) / 3.2)) : 0;
   const floors = p.interiorData?.floors ?? floorsForHeight(p.height);
   const history = info.history;
+  // the admin headquarters never show invented figures: with a server they are real like every building, without one they show none
+  const hqOffline = Boolean(p.admin) && !apiOn();
+  // its plain public page: the profile its owner linked (with a server), or the demo page of a business the city started with (without one)
+  const businessPage = p.profileSlug ? `/business/${p.profileSlug}` : !apiOn() && p.generated && p.owner && p.buildingType && p.buildingType !== 'house' && p.height > 0.2 ? `/business/${slugify(p.title)}-${p.id}` : null;
   const daysOpen = history.length ? history[history.length - 1].daysAgo : 0;
 
   const handleClaim = (e) => {
@@ -502,7 +520,7 @@ export default function PlotCard() {
 
   return (
     <div className="space-y-3 text-slate-100">
-      {isClaimed && !isSuburb && <StepInside plot={p} people={people} visits={info.visits} onClick={() => openInterior(p)} />}
+      {isClaimed && !isSuburb && <StepInside plot={p} people={people} visits={hqOffline ? null : info.visits} onClick={() => openInterior(p)} />}
 
       {/* who it is */}
       <div className="flex items-start gap-3">
@@ -513,8 +531,9 @@ export default function PlotCard() {
         </div>
       </div>
 
-      <StatGrid height={floors} visits={info.visits} price={price} priceLabel={isClaimed ? (canTakeOver ? 'Take over for' : 'Value') : 'Buy from'} owners={isClaimed ? info.owners : 0} />
+      <StatGrid height={floors} visits={hqOffline ? null : info.visits} price={price} priceLabel={isClaimed ? (canTakeOver ? 'Take over for' : 'Value') : 'Buy from'} owners={isClaimed ? info.owners : 0} />
 
+      {p.admin && <HqLive company={p.owner} />}
       {apiOn() && isClaimed && p.ownerAccount && !p.userClaimed && <MessageOwner plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && <VoteBox plot={p} />}
@@ -534,6 +553,11 @@ export default function PlotCard() {
       {p.website && isClaimed && (
         <a href={p.website} target="_blank" rel="noreferrer" onClick={() => recordSiteClick(p.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-cyan/50 bg-sx-cyan/10 py-2.5 text-sm font-bold text-sx-cyan transition hover:bg-sx-cyan/20">
           <Globe className="h-4 w-4" /> Visit website
+        </a>
+      )}
+      {businessPage && (
+        <a href={businessPage} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-stroke bg-sx-alt/60 py-2 text-xs font-semibold text-slate-100 hover:border-sx-line" data-testid="business-page-link">
+          <FileText className="h-3.5 w-3.5 text-sx-cyan" /> Business page
         </a>
       )}
       <div className="grid grid-cols-2 gap-2">
@@ -657,8 +681,13 @@ export default function PlotCard() {
         </Fold>
       )}
 
-      {isClaimed && !isSuburb && <SiteVisits stats={info.stats} own={p.userClaimed} />}
-      {isClaimed && !isSuburb && <BuildingHistory events={history} clicks={info.stats?.clicks ?? 0} days={daysOpen} />}
+      {isClaimed && !isSuburb && !hqOffline && <SiteVisits stats={info.stats} own={p.userClaimed} />}
+      {isClaimed && !isSuburb && apiOn() && !info.stats && typeof p.id === 'number' && (
+        <p className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3 text-[11px] text-slate-400" role="status">
+          {figuresState(p.id, liveFigures) === 'error' ? 'Visitor figures could not be loaded from the server. Try again in a moment.' : 'Loading verified visitor figures…'}
+        </p>
+      )}
+      {isClaimed && !isSuburb && !hqOffline && <BuildingHistory events={history} clicks={info.stats?.clicks ?? 0} days={daysOpen} />}
     </div>
   );
 }

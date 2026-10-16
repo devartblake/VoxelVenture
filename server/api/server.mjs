@@ -18,7 +18,11 @@
 //   MESSAGING_SERVICE_URL   the Python messaging service (services/messaging, docs/node_fastapi_architecture_plan.md). When set, this API
 //                 forwards the messaging routes there and stops writing, notifying and pruning messages itself; accounts, sessions,
 //                 tickets and plots stay here, and the service asks about them through /internal/identity and /internal/plots.
+//   NODE_ENV=production (or API_STRICT=1)  refuse to start with unsafe settings (server/api/config.mjs)
 //   INTERNAL_SECRET  the credential the messaging service and this API use with each other (needed with MESSAGING_SERVICE_URL)
+//   SOCIAL_POSTS / X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_SECRET / PUBLIC_SITE_URL   welcome posts on X (server/api/social.mjs)
+//   REFERRAL_SECRET  signs referral codes (?ref= links, server/api/business.mjs). Set it in production; changing it voids every shared link
+//   PROFILE_VIEW_CAP / PROFILE_CTA_CAP   verified profile views and call-to-action presses per network per profile per day (defaults 3 and 1)
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +34,11 @@ import * as market from './market.mjs';
 import * as stats from './stats.mjs';
 import * as community from './community.mjs';
 import * as messaging from './messaging.mjs';
+import * as business from './business.mjs';
+import * as auditLog from './audit.mjs';
+import * as social from './social.mjs';
+import { transaction } from './db.mjs';
+import { checkApiEnv, isProduction } from './config.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,6 +63,10 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   noticeTimer2?.unref();
   const mailTimer = deliverEveryMs > 0 ? setInterval(deliver, deliverEveryMs) : null;
   mailTimer?.unref();
+  // welcome posts on X (social.mjs): sent once a minute, and at once after one is queued or approved
+  const postSocial = () => social.deliver(db, env).catch((e) => console.error('social posts:', e.message));
+  const socialTimer = deliverEveryMs > 0 ? setInterval(postSocial, 60000) : null;
+  socialTimer?.unref();
   // tell the presence server something changed, so every player's game refreshes at once (fire and forget)
   const push = (kind, ids = []) => {
     if (!env.MP_NOTIFY_URL) return;
@@ -102,6 +115,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     return b;
   }
   const BUSINESS = { title: 0, description: 1, website: 1 };
+  const PROFILE = { name: 0, tagline: 0, description: 1 };
   const adminOnly = (token) => {
     if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
   };
@@ -114,6 +128,14 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   const serviceOnly = (req) => {
     if (!env.INTERNAL_SECRET || req.headers['x-internal-secret'] !== env.INTERNAL_SECRET) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
   };
+  // A change and its audit record in one transaction (audit.mjs): if either fails, neither happens.
+  const A = auditLog;
+  const logged = (actor, action, target, fn, detail = null) =>
+    transaction(db, () => {
+      const out = fn();
+      A.audit(db, typeof actor === 'function' ? actor(out) : actor, action, typeof target === 'function' ? target(out) : target, detail ? detail(out) : null);
+      return out;
+    });
   const identityView = (a) => ({ id: a.id, username: a.username, banned: Boolean(a.banned), emailVerified: Boolean(a.email_verified) });
 
   // Routes that belong to the messaging service when there is one. /messaging/ticket stays here: tickets are part of signing in.
@@ -151,7 +173,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/health') return { ok: true, now: Date.now(), plots: db.prepare('SELECT COUNT(*) AS n FROM plots').get().n, adSlots: db.prepare('SELECT COUNT(*) AS n FROM ad_slots').get().n };
     if (m === 'POST' && p === '/auth/signup') {
       const b = await body(req);
-      const out = core.signup(db, b);
+      const out = logged((o) => A.byAccount(o.account), 'account.create', (o) => ({ kind: 'account', id: o.account.id }), () => core.signup(db, b), (o) => ({ username: o.account.username }));
+      if (b.ref) business.attributeSignup(db, out.account.id, String(b.ref), business.referralSecret(env));
       if (b.email) {
         try {
           out.account = engage.setEmail(db, out.account, { email: b.email }).account;
@@ -173,19 +196,27 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/plots\/(\d+)\/stats$/)) && m === 'GET') return core.plotStats(db, r[1]) ?? { empty: true };
     if ((r = p.match(/^\/plots\/(\d+)\/history$/)) && m === 'GET') return core.history(db, r[1]);
     if ((r = p.match(/^\/plots\/(\d+)\/claim$/)) && m === 'POST') {
-      const out = core.claimPlot(db, account, r[1], await screened(req, BUSINESS));
+      const b = await screened(req, BUSINESS);
+      const out = logged(A.byAccount(account), 'plot.claim', { kind: 'plot', id: r[1] }, () => core.claimPlot(db, account, r[1], b), (o) => ({ title: o.title, value: o.value, leaseDays: o.lease?.days ?? null }));
       push('plot', [Number(r[1])]);
+      if (social.welcomePlot(db, r[1], account.id, env)) setImmediate(postSocial);
       return out;
     }
     if ((r = p.match(/^\/plots\/(\d+)\/takeover$/)) && m === 'POST') {
-      const out = core.takeOverPlot(db, account, r[1], await screened(req, BUSINESS));
+      const b = await screened(req, BUSINESS);
+      const out = logged(A.byAccount(account), 'plot.takeover', { kind: 'plot', id: r[1] }, () => core.takeOverPlot(db, account, r[1], b), (o) => ({ title: o.plot.title, paidOut: o.paidOut, previousOwner: o.previousOwner, previousAccount: o.previousAccount ?? null }));
       engage.notifyTakeover(db, out.previousAccount, { title: out.plot.title, newOwner: out.plot.owner, paidOut: out.paidOut, plotId: out.plot.id });
       delete out.previousAccount;
       push('plot', [Number(r[1])]);
       deliver();
       return out;
     }
-    if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'PATCH') return core.updateBusiness(db, account, r[1], await screened(req, { description: 1 }));
+    if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'PATCH') {
+      const b = await screened(req, { description: 1 });
+      const out = logged(A.byAccount(account), 'plot.update', { kind: 'plot', id: r[1] }, () => core.updateBusiness(db, account, r[1], b), () => ({ fields: ['logo', 'description', 'exterior'].filter((k) => b[k] !== undefined) }));
+      push('plot', [Number(r[1])]); // everyone sees the new logo or outside at once
+      return out;
+    }
     if (m === 'POST' && p === '/events') {
       const b = await body(req);
       // the network the request came from (the first address in X-Forwarded-For when a trusted proxy sets it), only ever kept hashed
@@ -214,25 +245,56 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/me/verify') return page(engage.verifyEmail(db, url.searchParams.get('token')), 'Email confirmed', 'That link is not valid or was already used.');
     if (m === 'PATCH' && p === '/me') return engage.setEmail(db, account, await body(req));
     if (m === 'GET' && p === '/me/leads') return engage.myLeads(db, account);
-    if (m === 'POST' && p === '/reports') return mod.report(db, account, await body(req));
+    if (m === 'POST' && p === '/reports') {
+      const b = await body(req);
+      return logged(A.byAccount(account), 'report.create', { kind: String(b.kind ?? ''), id: b.id }, () => mod.report(db, account, b), (o) => ({ reason: b.reason ?? 'other', already: o.already, hidden: o.hidden ?? false }));
+    }
     if (m === 'GET' && p === '/admin/reports') return (adminOnly(token), { reports: mod.queue(db, url.searchParams.get('status') ?? 'open') });
     if (m === 'GET' && p === '/admin/reports/ids') return (adminOnly(token), { id: mod.firstReportId(db, url.searchParams.get('kind'), url.searchParams.get('id')) });
-    if ((r = p.match(/^\/admin\/reports\/(\d+)\/resolve$/)) && m === 'POST') return (adminOnly(token), mod.resolve(db, r[1], (await body(req)).action));
-    if ((r = p.match(/^\/admin\/accounts\/(\d+)\/(ban|unban)$/)) && m === 'POST') return (adminOnly(token), r[2] === 'ban' ? mod.ban(db, Number(r[1]), (await body(req)).reason) : mod.unban(db, Number(r[1])), { ok: true });
+    if ((r = p.match(/^\/admin\/reports\/(\d+)\/resolve$/)) && m === 'POST') {
+      adminOnly(token);
+      const action = (await body(req)).action;
+      const rep = db.prepare('SELECT kind, target_id FROM reports WHERE id = ?').get(Number(r[1]));
+      return logged(A.ADMIN, 'report.resolve', { kind: rep?.kind ?? 'report', id: rep?.target_id ?? r[1] }, () => mod.resolve(db, r[1], action), (o) => ({ report: Number(r[1]), action: o.action, reports: o.resolved, banned: o.banned }));
+    }
+    if ((r = p.match(/^\/admin\/accounts\/(\d+)\/(ban|unban)$/)) && m === 'POST') {
+      adminOnly(token);
+      const reason = r[2] === 'ban' ? (await body(req)).reason : null;
+      logged(A.ADMIN, `account.${r[2]}`, { kind: 'account', id: r[1] }, () => (r[2] === 'ban' ? mod.ban(db, Number(r[1]), reason) : mod.unban(db, Number(r[1]))), () => (reason ? { reason: String(reason).slice(0, 200) } : null));
+      return { ok: true };
+    }
+    if (m === 'GET' && p === '/admin/audit') {
+      adminOnly(token);
+      const q = url.searchParams;
+      return A.list(db, { targetKind: q.get('target_kind'), targetId: q.get('target_id'), action: q.get('action'), actorId: q.get('actor'), before: q.get('before'), limit: q.get('limit') });
+    }
+    if (m === 'GET' && p === '/admin/social') return (adminOnly(token), social.list(db, url.searchParams.get('status') ?? 'review', env));
+    if ((r = p.match(/^\/admin\/social\/(\d+)\/(approve|reject)$/)) && m === 'POST') {
+      adminOnly(token);
+      const out = logged(A.ADMIN, `social.${r[2]}`, { kind: 'social_post', id: r[1] }, () => social.decide(db, r[1], r[2]), (o) => ({ text: o.text }));
+      if (r[2] === 'approve') setImmediate(postSocial);
+      return out;
+    }
+    if (m === 'GET' && p === '/admin/audit/verify') return (adminOnly(token), A.verifyChain(db));
     if (m === 'GET' && p === '/me/wallet') return engage.wallet(db, account);
     if (m === 'POST' && p === '/admin/newsletter') {
       if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
-      const out = engage.sendNewsletter(db, new Date());
+      const out = logged(A.ADMIN, 'newsletter.send', { kind: 'newsletter', id: new Date().toISOString().slice(0, 10) }, () => engage.sendNewsletter(db, new Date()), (o) => ({ queued: o.queued, already: Boolean(o.already) }));
       deliver();
       return out;
     }
     // leases, and Building of the Week
     if ((r = p.match(/^\/plots\/(\d+)\/renew$/)) && m === 'POST') {
-      const out = community.renewLease(db, account, r[1], await body(req));
+      const b = await body(req);
+      const out = logged(A.byAccount(account), 'plot.renew', { kind: 'plot', id: r[1] }, () => community.renewLease(db, account, r[1], b), (o) => ({ paid: o.paid, leaseDays: o.plot?.lease?.days ?? null }));
       push('plot', [Number(r[1])]);
       return out;
     }
-    if ((r = p.match(/^\/admin\/plots\/(\d+)\/lease$/)) && m === 'POST') return (adminOnly(token), community.setLeaseState(db, r[1], (await body(req)).state));
+    if ((r = p.match(/^\/admin\/plots\/(\d+)\/lease$/)) && m === 'POST') {
+      adminOnly(token);
+      const state = (await body(req)).state;
+      return logged(A.ADMIN, 'plot.lease_state', { kind: 'plot', id: r[1] }, () => community.setLeaseState(db, r[1], state), () => ({ state }));
+    }
     if (m === 'POST' && p === '/admin/leases/notices') return (adminOnly(token), community.sendLeaseNotices(db, Number((await body(req)).now) || Date.now()));
     if (m === 'GET' && p === '/votes') return community.votesView(db, account);
     if (m === 'POST' && p === '/hunt/complete') return community.completeHunt(db, account, await body(req));
@@ -244,30 +306,74 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/market') return market.marketSummary(db, seed);
     if (m === 'GET' && p === '/market/mine') return market.myBookings(db, account);
     if (m === 'POST' && p === '/market/book') {
-      const out = market.book(db, seed, account, await screened(req, { brand: 0, product: 1 }));
+      const b = await screened(req, { brand: 0, product: 1 });
+      const out = logged(A.byAccount(account), 'market.book', (o) => ({ kind: 'booking', id: o.booking.id }), () => market.book(db, seed, account, b), (o) => ({ stall: o.stall.id, site: b.siteCode ?? null, week: b.week ?? null, cents: o.paid }));
       push('market', [out.stall.id]);
       return out;
     }
     if ((r = p.match(/^\/market\/bookings\/(\d+)$/)) && m === 'PATCH') return market.updateStall(db, account, r[1], await screened(req, { brand: 0, product: 1, offer: 1 }));
     if ((r = p.match(/^\/market\/bookings\/(\d+)\/visit$/)) && m === 'POST') return market.visit(db, account, r[1], (await body(req)).visitor);
     if (m === 'POST' && p === '/admin/market/notices') return (adminOnly(token), market.sendNotices(db, Number((await body(req)).now) || Date.now()));
-    if ((r = p.match(/^\/market\/bookings\/(\d+)\/cancel$/)) && m === 'POST') return market.cancelBooking(db, account, r[1]);
+    if ((r = p.match(/^\/market\/bookings\/(\d+)\/cancel$/)) && m === 'POST') return logged(A.byAccount(account), 'market.cancel', { kind: 'booking', id: r[1] }, () => market.cancelBooking(db, account, r[1]));
     if ((r = p.match(/^\/market\/(SD-\d{4})(?:\/(\d{4}-\d{2}-\d{2}))?$/)) && m === 'GET') return market.marketWeek(db, seed, r[1], r[2]);
-    if (m === 'POST' && p === '/admin/market/layout') return (adminOnly(token), market.setLayout(db, seed, await body(req)));
+    if (m === 'POST' && p === '/admin/market/layout') {
+      adminOnly(token);
+      const b = await body(req);
+      return logged(A.ADMIN, 'market.layout', { kind: 'market', id: `${b.siteCode ?? b.site ?? ''}/${b.week ?? b.weekStart ?? ''}` }, () => market.setLayout(db, seed, b), () => ({ published: b.published ?? null }));
+    }
     if (m === 'GET' && p === '/admin/market') return (adminOnly(token), market.adminWeek(db, seed, url.searchParams.get('week') || undefined));
+    // free business profiles and referral links (server/api/business.mjs)
+    if (m === 'GET' && p === '/businesses') {
+      const q = url.searchParams;
+      return business.listProfiles(db, { category: q.get('category') ?? '', district: q.get('district') ?? '', q: q.get('q') ?? '', sort: q.get('sort') ?? 'new', limit: q.get('limit'), offset: q.get('offset') });
+    }
+    if (m === 'POST' && p === '/businesses') {
+      const b = await screened(req, PROFILE);
+      const out = logged(A.byAccount(account), 'business.create', (o) => ({ kind: 'business', id: o.slug }), () => business.createProfile(db, account, b), (o) => ({ name: o.name, category: o.category, announce: o.announce }));
+      if (social.welcomeBusiness(db, out.slug, env)) setImmediate(postSocial);
+      return out;
+    }
+    if (m === 'GET' && p === '/businesses/sitemap') return { entries: business.sitemapEntries(db) };
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'GET') return business.getProfile(db, r[1]);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'PATCH') {
+      const b = await screened(req, PROFILE);
+      const out = logged(A.byAccount(account), 'business.update', { kind: 'business', id: r[1] }, () => business.updateProfile(db, account, r[1], b), () => ({ fields: Object.keys(b).slice(0, 12) }));
+      if (social.welcomeBusiness(db, out.slug, env)) setImmediate(postSocial); // an owner who opts in later is welcomed then (still only once)
+      return out;
+    }
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/plot$/)) && m === 'PUT') {
+      const plotId = (await body(req)).plotId ?? null;
+      return logged(A.byAccount(account), 'business.link_plot', { kind: 'business', id: r[1] }, () => business.linkPlot(db, account, r[1], plotId), () => ({ plotId }));
+    }
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/interest$/)) && m === 'POST') {
+      const plan = (await body(req)).plan;
+      return logged(A.byAccount(account), 'business.upgrade_interest', { kind: 'business', id: r[1] }, () => business.requestUpgrade(db, account, r[1], plan), () => ({ plan }));
+    }
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/events$/)) && m === 'POST') {
+      const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+      return business.recordProfileEvent(db, account, r[1], await body(req), { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, secret: business.referralSecret(env), viewCap: env.PROFILE_VIEW_CAP ? Number(env.PROFILE_VIEW_CAP) : undefined, ctaCap: env.PROFILE_CTA_CAP ? Number(env.PROFILE_CTA_CAP) : undefined });
+    }
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'business', r[1]);
+    if (m === 'GET' && p === '/me/businesses') return business.myProfiles(db, account, env);
+    if (m === 'GET' && p === '/me/referrals') return business.myReferrals(db, account, env);
     if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db) };
     if ((r = p.match(/^\/ads\/([\w-]+)$/)) && m === 'GET') return core.getAdSlot(db, r[1]);
     if ((r = p.match(/^\/ads\/([\w-]+)\/history$/)) && m === 'GET') return { events: core.slotHistory(db, r[1]) };
     if ((r = p.match(/^\/ads\/([\w-]+)\/buy$/)) && m === 'POST') {
-      const out = core.buySlot(db, account, r[1], await screened(req, { advertiser: 0, headline: 0, tagline: 1, url: 1 }));
+      const b = await screened(req, { advertiser: 0, headline: 0, tagline: 1, url: 1 });
+      const out = logged(A.byAccount(account), 'ad.buy', { kind: 'ad', id: r[1] }, () => core.buySlot(db, account, r[1], b), (o) => ({ advertiser: o.slot.ad.advertiser, value: o.slot.value, paidOut: o.paidOut, previousAdvertiser: o.previousAdvertiser }));
       if (out.previousAdvertiser) engage.notifyAdTakeover(db, out.previousAccount, { slot: out.slot.label, newAdvertiser: out.slot.ad.advertiser, paidOut: out.paidOut });
       delete out.previousAccount;
       push('ad', [r[1]]);
       deliver();
       return out;
     }
-    if (m === 'POST' && p === '/ad-events') return core.recordAdEvent(db, account, await body(req));
+    if (m === 'POST' && p === '/ad-events') {
+      const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+      return core.recordAdEvent(db, account, await body(req), { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, minAgeMs: env.HUMAN_MIN_AGE_MS != null ? Number(env.HUMAN_MIN_AGE_MS) : undefined, visitCap: env.HUMAN_VISIT_CAP ? Number(env.HUMAN_VISIT_CAP) : undefined, clickCap: env.HUMAN_CLICK_CAP ? Number(env.HUMAN_CLICK_CAP) : undefined });
+    }
     if (m === 'GET' && p === '/world/stats') return core.worldStats(db, 0);
+    if (m === 'GET' && p === '/world/live') return stats.liveCity(db); // the admin headquarters' live panel (totals only)
     // what the messaging service asks (docs/node_fastapi_architecture_plan.md): this API stays the authority on accounts and plots
     if (m === 'POST' && p === '/internal/identity/session') {
       serviceOnly(req);
@@ -289,7 +395,12 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       if (typeof b.username === 'string' && b.username.trim()) rows.push(...db.prepare('SELECT * FROM accounts WHERE username = ?').all(b.username.trim().slice(0, 20)));
       return { accounts: rows.map(identityView) };
     }
-    if ((r = p.match(/^\/internal\/identity\/accounts\/(\d+)\/ban$/)) && m === 'POST') return (serviceOnly(req), mod.ban(db, Number(r[1]), (await body(req)).reason), { ok: true });
+    if ((r = p.match(/^\/internal\/identity\/accounts\/(\d+)\/ban$/)) && m === 'POST') {
+      serviceOnly(req);
+      const reason = (await body(req)).reason;
+      logged(A.SERVICE, 'account.ban', { kind: 'account', id: r[1] }, () => mod.ban(db, Number(r[1]), reason), () => ({ reason: String(reason ?? '').slice(0, 200), by: 'messaging service' }));
+      return { ok: true };
+    }
     if ((r = p.match(/^\/internal\/plots\/(\d+)\/owner$/)) && m === 'GET') {
       serviceOnly(req);
       const plot = core.getPlot(db, r[1]);
@@ -351,10 +462,18 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       send(500, { error: 'Something went wrong.', code: 'server_error' });
     }
   });
-  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), db.close(), r()))) };
+  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), db.close(), r()))) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+  // in production, unsafe or missing settings stop the start (server/api/config.mjs): better down than serving with test rules or no secrets
+  const settings = checkApiEnv(process.env);
+  for (const w of settings.warnings) console.warn(`settings: ${w}`);
+  if (isProduction(process.env) && settings.errors.length) {
+    for (const e of settings.errors) console.error(`settings: ${e}`);
+    console.error('The API will not start in production until these are fixed (see deploy/README.md; check a file with npm run check:env -- <file>).');
+    process.exit(1);
+  }
   const port = Number(process.env.API_PORT || 3002);
   const api = createApi({ dbFile: process.env.API_DB || path.join(here, '..', 'data', 'voxelventure.db'), seed: Number(process.env.API_SEED || 20260101), origin: process.env.API_ORIGIN || '*' });
   const host = process.env.API_HOST || undefined;

@@ -1,7 +1,8 @@
 "use client";
 
-import React from 'react';
-import { Building2, ChevronRight, Clock, Eye, Footprints, History, LogIn, MapPin, MousePointerClick, Tag, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Activity, Building2, ChevronRight, Clock, Eye, Footprints, History, LogIn, MapPin, MousePointerClick, Tag, Users } from 'lucide-react';
+import { apiOn, request } from '@/lib/data/api';
 import { generatedSpec, kindOf, LOGO_ICONS, boardColor, logoOf } from '@/lib/game/logos';
 import { formatDaysAgo, formatHour, formatSeconds } from '@/lib/game/plotInfo';
 
@@ -46,7 +47,7 @@ export function StepInside({ plot, people, visits, onClick }) {
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15"><LogIn className="h-5 w-5 text-white" /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold text-white">{plot.mall ? 'Go inside the store' : 'Step inside'}</span>
-        <span className="block text-[11px] text-violet-100/80">{people} people fit · {visits.toLocaleString()} visits</span>
+        <span className="block text-[11px] text-violet-100/80">{people} people fit{visits == null ? '' : ` · ${visits.toLocaleString()} visits`}</span>
       </span>
       <ChevronRight className="h-5 w-5 text-white/80 transition group-hover:translate-x-0.5" />
     </button>
@@ -68,9 +69,9 @@ export function StatGrid({ height, visits, price, priceLabel, owners }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       <Tile icon={Building2} label="Height" value={height} sub={height === 1 ? 'floor' : 'floors'} />
-      <Tile icon={Eye} label="Visits" value={visits.toLocaleString()} tint="bg-violet-500/15 text-violet-300" />
+      <Tile icon={Eye} label="Visits" value={visits == null ? '–' : visits.toLocaleString()} tint="bg-violet-500/15 text-violet-300" />
       <Tile icon={Tag} label={priceLabel} value={`$${price.toLocaleString()}`} accent="text-sx-cyan" tint="bg-sky-500/15 text-sky-300" />
-      <Tile icon={Users} label="Owners" value={owners} tint="bg-amber-500/15 text-amber-300" />
+      <Tile icon={Users} label="Owners" value={owners ?? '…'} tint="bg-amber-500/15 text-amber-300" />
     </div>
   );
 }
@@ -165,17 +166,19 @@ export function SiteVisits({ stats, own }) {
         </div>
         <div className="rounded-xl bg-sx-panel/80 p-2">
           <span className="text-[10px] text-slate-400">Busiest hour</span>
-          <span className="block font-semibold text-white">{formatHour(stats.busiestHour)}</span>
+          <span className="block font-semibold text-white">{stats.busiestHour == null ? '–' : formatHour(stats.busiestHour)}</span>
         </div>
         <div className="rounded-xl bg-sx-panel/80 p-2">
           <span className="text-[10px] text-slate-400">Busiest day</span>
-          <span className="block font-semibold text-white">{stats.busiestDay}</span>
+          <span className="block font-semibold text-white">{stats.busiestDay ?? '–'}</span>
         </div>
       </div>
       <h4 className="mb-1.5 mt-3 text-[11px] font-semibold text-slate-300">Where visitors come from</h4>
       <Sources sources={stats.sources} />
       <p className="mt-2.5 text-[10px] leading-snug text-slate-500">
-        {own ? 'Your own visits and website clicks are counted in these figures. ' : ''}These figures are simulated from the building's size and spot until accounts and a server can count real visitors.
+        {stats.simulated
+          ? `${own ? 'Your own visits and website clicks are counted in these figures. ' : ''}These figures are simulated from the building's size and spot: this copy of the game has no server to count real visitors.`
+          : `Counted by the game server: verified visitors only${own ? ', not your own visits' : ''}.`}
       </p>
     </section>
   );
@@ -206,3 +209,73 @@ export function BuildingHistory({ events, clicks, days }) {
   );
 }
 
+
+// The admin headquarters' live panel: what is happening in the whole city right now and this week, from the game server's real events
+// (GET /world/live), refreshed every 15 seconds while the card is open. Without a server there is nothing real to show, so it says so
+// instead of showing invented figures.
+const LIVE_EVERY_MS = 15000;
+export function HqLive({ company }) {
+  const [live, setLive] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!apiOn()) return undefined;
+    let stop = false;
+    const load = () =>
+      request('GET', '/world/live').then(
+        (d) => !stop && (setLive({ ...d, receivedAt: Date.now() }), setFailed(false)), // "updated" counts from when it arrived here, not the server's clock
+        () => !stop && setFailed(true)
+      );
+    load();
+    const t = setInterval(load, LIVE_EVERY_MS);
+    const clock = setInterval(() => setTick((n) => n + 1), 1000); // "updated 4 s ago"
+    return () => {
+      stop = true;
+      clearInterval(t);
+      clearInterval(clock);
+    };
+  }, []);
+  if (!apiOn())
+    return (
+      <section className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-3 text-[11px] text-cyan-100" data-testid="hq-live">
+        Live city figures for {company} appear when the game is connected to its server. This copy of the game runs on its own, so it shows none rather than made-up ones.
+      </section>
+    );
+  const ago = live ? Math.max(0, Math.round((Date.now() - live.receivedAt) / 1000)) : null;
+  const rows = live
+    ? [
+        ['Players online now', live.online],
+        ['Visitors, last 24 h', live.visitors24h],
+        ['City visits, 7 days', live.cityVisits7d],
+        ['Building visits, 7 days', live.buildingViews7d],
+        ['Website clicks, 7 days', live.websiteClicks7d],
+        ['Profile views, 7 days', live.profileViews7d],
+        ['Call-to-action presses, 7 days', live.ctaPresses7d],
+        ['Player businesses', live.playerBusinesses],
+        ['Business profiles', `${live.profiles}${live.newProfiles7d ? ` (+${live.newProfiles7d} this week)` : ''}`],
+        ['Accounts', `${live.accounts}${live.newAccounts7d ? ` (+${live.newAccounts7d} this week)` : ''}`],
+      ]
+    : [];
+  return (
+    <section className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-3" data-testid="hq-live" aria-live="polite">
+      <h3 className="mb-2 flex items-center justify-between text-xs font-bold text-white">
+        <span className="flex items-center gap-1.5"><Activity className="h-3.5 w-3.5 text-sx-cyan" /> The city, live</span>
+        <span className="flex items-center gap-1.5 font-normal text-slate-400">
+          <span className={`h-1.5 w-1.5 rounded-full ${failed ? 'bg-amber-400' : 'animate-pulse bg-emerald-400'}`} aria-hidden="true" />
+          {failed ? 'cannot reach the server' : ago == null ? 'loading…' : `updated ${ago} s ago`}
+        </span>
+      </h3>
+      {live && (
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-2 border-b border-sx-stroke/50 pb-1">
+              <dt className="text-slate-400">{k}</dt>
+              <dd className="font-semibold text-white">{typeof v === 'number' ? v.toLocaleString() : v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <p className="mt-2 text-[10px] text-slate-500">Real events counted by the game server: verified visits and clicks only.</p>
+    </section>
+  );
+}

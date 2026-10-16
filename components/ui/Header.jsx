@@ -1,7 +1,8 @@
 "use client";
 
 import React from 'react';
-import { Shirt, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Shirt, Sparkles, Store } from 'lucide-react';
 import { useCityStore } from '@/lib/state/store';
 import { usePanel } from '@/lib/state/panelStore';
 import { useAccount } from '@/lib/state/accountStore';
@@ -40,6 +41,13 @@ export default function Header() {
         >
           <Shirt className="h-3.5 w-3.5 text-violet-400" /> <span className="max-sm:sr-only">Wardrobe</span>
         </button>
+        {/* the business-first pages: every business's plain page, and listing one for free (no plot needed) */}
+        <Link href="/discover" title="Find businesses on their own pages" className="flex items-center gap-1.5 rounded-lg border border-sx-stroke bg-sx-alt px-3 py-1.5 text-xs font-medium text-slate-100 transition hover:bg-sx-stroke">
+          <Store className="h-3.5 w-3.5 text-sx-cyan" /> <span className="max-sm:sr-only">Businesses</span>
+        </Link>
+        <Link href="/business/new" className="hidden rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 text-xs font-bold text-white hover:brightness-110 lg:block">
+          List your business free
+        </Link>
         <div className="hidden text-right md:block">
           <span className="block text-[10px] tracking-wider text-slate-400 uppercase font-semibold">City Market Cap</span>
           <span className="font-mono text-sm font-bold text-green-400">${totalValuation.toLocaleString()}</span>

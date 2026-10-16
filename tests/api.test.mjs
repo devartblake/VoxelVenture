@@ -91,7 +91,7 @@ try {
   check('three visits, three visitors, one click', st.views === 3 && st.uniques === 3 && st.clicks === 1 && Math.abs(st.ctr - 1 / 3) < 1e-9, JSON.stringify({ v: st.views, u: st.uniques, c: st.clicks }));
   check('average time inside and the sources add up', st.avgSeconds === 60 && Math.abs(st.sources.reduce((a, s) => a + s.share, 0) - 1) < 1e-9 && st.sources.find((s) => s.id === 'billboard').share > 0.3);
   check('today has the visits, with thirty days', st.days.length === 30 && st.days[29].views === 3 && st.busiestHour !== null);
-  check('the visit count on the plot rises', (await call('GET', `/plots/${mine.id}`)).data.visits === built.find((p) => p.id === mine.id).visits + 3);
+  check('the visit count on the plot is the verified visits only (no generated starting figure)', (await call('GET', `/plots/${mine.id}`)).data.visits === 3);
   check('events on an empty lot or with a bad kind are refused', (await call('POST', '/events', { body: { plotId: empties[5].id, kind: 'visit' } })).status === 400 && (await call('POST', '/events', { body: { plotId: mine.id, kind: 'hack' } })).status === 400);
   const ws = (await call('GET', '/world/stats')).data;
   check('world statistics', ws.buildings === built.length + 2 + 0 || ws.buildings >= built.length, JSON.stringify(ws));
@@ -113,12 +113,17 @@ try {
   const raceSlot = ads.find((x) => x.open && x.id !== open.id) ?? ads.find((x) => !x.open && x.id !== open.id);
   const raceRes = await Promise.all(racers.map((r, i) => call('POST', `/ads/${raceSlot.id}/buy`, { token: r.token, body: { ...adBody, advertiser: `Racer ${i}`, expectedPrice: raceSlot.price } })));
   check('ten players race for one ad space: exactly one wins', raceRes.filter((r) => r.status === 200).length === 1 && raceRes.filter((r) => r.status === 409).length === 9, raceRes.map((r) => r.status).join());
+  const viewer = racers[0];
+  await call('POST', '/presence/ping', { token: viewer.token, body: { visitor: 'ad-viewer' } }); // a running page
   await call('POST', '/ad-events', { token: amy.token, body: { slotId: open.id, kind: 'view' } });
-  await call('POST', '/ad-events', { token: bob.token, body: { slotId: open.id, kind: 'view' } });
-  await call('POST', '/ad-events', { token: bob.token, body: { slotId: open.id, kind: 'click' } });
-  const dupAd = await call('POST', '/ad-events', { token: bob.token, body: { slotId: open.id, kind: 'click' } });
+  await call('POST', '/ad-events', { token: viewer.token, body: { slotId: open.id, kind: 'view' } });
+  await call('POST', '/ad-events', { token: viewer.token, body: { slotId: open.id, kind: 'click' } });
+  const dupAd = await call('POST', '/ad-events', { token: viewer.token, body: { slotId: open.id, kind: 'click' } });
+  const ownAd = await call('POST', '/ad-events', { token: bob.token, body: { slotId: open.id, kind: 'view' } });
+  const botAd = await call('POST', '/ad-events', { body: { slotId: open.id, kind: 'view', visitor: 'never-pinged' } });
   const after = (await call('GET', `/ads/${open.id}`)).data;
-  check('views and clicks on an ad are counted (a repeat within a minute is not)', after.views === 2 && after.clicks === 1 && dupAd.data.counted === false);
+  check('verified views and clicks on an ad are counted (a repeat within a minute is not)', after.views === 2 && after.clicks === 1 && dupAd.data.counted === false, JSON.stringify({ v: after.views, c: after.clicks }));
+  check("the advertiser's own view and a visitor with no running page are recorded but not counted", ownAd.data.verified === false && botAd.data.verified === false);
   const openSlot2 = ads.find((x) => x.open && x.id !== open.id && x.id !== raceSlot.id);
   check('events on an empty slot or of a bad kind are refused', (openSlot2 ? (await call('POST', '/ad-events', { body: { slotId: openSlot2.id, kind: 'view' } })).status === 400 : true) && (await call('POST', '/ad-events', { body: { slotId: open.id, kind: 'x' } })).status === 400);
   const state = (await call('GET', '/plots/state')).data;

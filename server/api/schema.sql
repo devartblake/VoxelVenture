@@ -331,3 +331,85 @@ CREATE TABLE IF NOT EXISTS messaging_outbox (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS messaging_outbox_due ON messaging_outbox(status, next_at);
+-- Free business profiles (server/api/business.mjs, docs/business_funnel.md): a public page per business, no plot needed.
+CREATE TABLE IF NOT EXISTS businesses (
+  id INTEGER PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,                     -- the public address: /business/<slug>
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,                        -- lib/business/profile.js CATEGORIES
+  district TEXT,                                 -- lib/business/profile.js BUSINESS_DISTRICTS, or NULL
+  tagline TEXT,
+  description TEXT,
+  website TEXT,
+  cta TEXT NOT NULL,                             -- JSON { kind, url, label }
+  plot_id INTEGER UNIQUE REFERENCES plots(id),   -- the owner's 3D building, if linked
+  referred_by INTEGER REFERENCES accounts(id),   -- the account whose referral link brought the owner here
+  status TEXT NOT NULL DEFAULT 'published',      -- published | removed (by moderation)
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS businesses_account ON businesses(account_id);
+CREATE INDEX IF NOT EXISTS businesses_list ON businesses(status, category, district);
+-- What visitors did on a profile. kind: view | cta. Only verified rows count in an owner's figures (see recordProfileEvent).
+CREATE TABLE IF NOT EXISTS business_events (
+  id INTEGER PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  kind TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'direct',         -- direct | search | social | referral | city
+  ref_account INTEGER REFERENCES accounts(id),   -- the account whose referral link the visitor came through
+  visitor TEXT NOT NULL,
+  ip_hash TEXT,
+  verified INTEGER NOT NULL DEFAULT 0,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS business_events_business ON business_events(business_id, at);
+CREATE INDEX IF NOT EXISTS business_events_ref ON business_events(ref_account, at);
+-- An owner asked for a paid upgrade before checkout exists (phase 4): the demand signal for the pricing ladder.
+CREATE TABLE IF NOT EXISTS upgrade_interest (
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  plan TEXT NOT NULL,                            -- launch | pro | sponsored
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  at INTEGER NOT NULL,
+  PRIMARY KEY (business_id, plan)
+);
+
+-- The audit trail (server/api/audit.mjs, docs/authoritative_data.md): who did what to whom, for every change of ownership, purchase,
+-- booking, moderation decision and admin action. Append-only: the triggers refuse any change or deletion, and each row carries the hash
+-- of the row before it, so a row edited outside the API (straight in the file) breaks the chain that GET /admin/audit/verify checks.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY,
+  at INTEGER NOT NULL,
+  actor_kind TEXT NOT NULL,                      -- account | admin | service | system
+  actor_id INTEGER,                              -- the account, for actor_kind account
+  action TEXT NOT NULL,                          -- plot.claim, plot.takeover, ad.buy, report.resolve, account.ban, ...
+  target_kind TEXT NOT NULL,                     -- plot | ad | business | booking | account | report | market | newsletter
+  target_id TEXT,
+  detail TEXT,                                   -- JSON: the facts of the change (price, previous owner, decision, ...)
+  prev_hash TEXT NOT NULL,
+  hash TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS audit_target ON audit_log(target_kind, target_id, id);
+CREATE INDEX IF NOT EXISTS audit_action ON audit_log(action, id);
+CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+
+-- Welcome posts on VoxelVenture's X account (server/api/social.mjs, docs/social_posts.md): one per business that opted in, tagging its handle.
+CREATE TABLE IF NOT EXISTS social_posts (
+  id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL,                            -- welcome
+  target_kind TEXT NOT NULL,                     -- business | plot
+  target_id TEXT NOT NULL,
+  account_id INTEGER REFERENCES accounts(id),    -- the owner it welcomes
+  text TEXT NOT NULL,                            -- exactly what will be posted
+  status TEXT NOT NULL,                          -- review | queued | posted | failed | rejected | skipped
+  post_id TEXT,                                  -- X's id for the post, once posted
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_at INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  created_at INTEGER NOT NULL,
+  decided_at INTEGER,
+  posted_at INTEGER,
+  UNIQUE (kind, target_kind, target_id)          -- a business is welcomed once
+);
+CREATE INDEX IF NOT EXISTS social_posts_due ON social_posts(status, next_at);

@@ -40,13 +40,13 @@ export async function screenWithService(body, env = process.env) {
 }
 
 // ---- reports ------------------------------------------------------------------------------------------------------------------
-const KINDS = ['feedback', 'plot', 'ad'];
+const KINDS = ['feedback', 'plot', 'ad', 'business'];
 const REASONS = ['spam', 'offensive', 'misleading', 'other'];
 export const AUTO_HIDE_AT = 3;
 
 export function report(db, account, input) {
   requireAccount(account);
-  const kind = KINDS.includes(input.kind) ? input.kind : fail(400, 'kind must be feedback, plot or ad.', 'bad_kind');
+  const kind = KINDS.includes(input.kind) ? input.kind : fail(400, 'kind must be feedback, plot, ad or business.', 'bad_kind');
   const reason = REASONS.includes(input.reason) ? input.reason : 'other';
   const id = String(input.id ?? '');
   const author = target(db, kind, id).account;
@@ -76,6 +76,10 @@ function target(db, kind, id) {
   if (kind === 'feedback') {
     const f = db.prepare('SELECT id, account_id, plot_id FROM feedback WHERE id = ?').get(Number(id)) ?? fail(404, 'No such message.', 'no_target');
     return { account: f.account_id, plot: f.plot_id };
+  }
+  if (kind === 'business') {
+    const b = db.prepare("SELECT account_id FROM businesses WHERE slug = ? AND status = 'published'").get(id) ?? fail(404, 'No such business.', 'no_target');
+    return { account: b.account_id };
   }
   if (kind === 'plot') {
     const p = getPlot(db, id);
@@ -113,6 +117,10 @@ function preview(db, kind, id) {
     const f = db.prepare('SELECT f.message, f.author, f.hidden, f.plot_id, a.banned FROM feedback f JOIN accounts a ON a.id = f.account_id WHERE f.id = ?').get(Number(id));
     return f ? { text: f.message, author: f.author, plotId: f.plot_id, hidden: f.hidden > 0, authorBanned: Boolean(f.banned) } : { gone: true };
   }
+  if (kind === 'business') {
+    const b = db.prepare('SELECT b.name, b.tagline, b.description, b.website, b.status, a.username FROM businesses b JOIN accounts a ON a.id = b.account_id WHERE b.slug = ?').get(id);
+    return b ? { text: `${b.name}: ${b.tagline ?? ''} ${b.description ?? ''} (${b.website ?? 'no website'})`, author: b.username, hidden: b.status !== 'published' } : { gone: true };
+  }
   if (kind === 'plot') {
     const p = db.prepare('SELECT title, description, website, owner_name FROM plots WHERE id = ?').get(Number(id));
     return p ? { text: `${p.title}: ${p.description ?? ''} (${p.website})`, author: p.owner_name } : { gone: true };
@@ -137,6 +145,7 @@ export function resolve(db, reportId, action) {
     if (action !== 'dismiss') {
       if (r.kind === 'message' || r.kind === 'nearby') db.prepare(`UPDATE ${r.kind === 'message' ? 'messages' : 'nearby_messages'} SET body = NULL, state = 'removed' WHERE id = ?`).run(Number(r.target_id));
       else if (r.kind === 'feedback') db.prepare('UPDATE feedback SET hidden = 2 WHERE id = ?').run(Number(r.target_id));
+      else if (r.kind === 'business') db.prepare("UPDATE businesses SET status = 'removed', updated_at = ? WHERE slug = ?").run(now(), r.target_id);
       else if (r.kind === 'plot') db.prepare("UPDATE plots SET description = NULL, logo = NULL, title = ?, website = 'https://example.com', brand = NULL, updated_at = ? WHERE id = ?").run(`Building #${r.target_id}`, now(), Number(r.target_id));
       else db.prepare('UPDATE ad_slots SET ad = NULL, owner_account = NULL, updated_at = ? WHERE id = ?').run(now(), r.target_id);
     }
