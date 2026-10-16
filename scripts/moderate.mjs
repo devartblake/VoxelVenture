@@ -1,7 +1,7 @@
 // The moderator's command line: see what players have reported and decide.
 //   API_URL=http://localhost:3002 ADMIN_TOKEN=... npm run moderate                      list the open reports
 //   npm run moderate -- resolve feedback 12 dismiss|remove|ban                          decide one (all reports on it close)
-//                       (kinds: feedback, plot, ad, message (a private message), nearby (a nearby chat line))
+//                       (kinds: feedback, plot, ad, business (a profile, by its slug), message (a private message), nearby (a nearby chat line))
 //   npm run moderate -- ban 7 "spam"                                                    ban an account by id
 //   npm run moderate -- unban 7
 // With the messaging service (services/messaging), chat reports are its own: set MESSAGING_URL (e.g. http://localhost:3003) and the

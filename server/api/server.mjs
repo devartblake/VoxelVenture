@@ -19,6 +19,8 @@
 //                 forwards the messaging routes there and stops writing, notifying and pruning messages itself; accounts, sessions,
 //                 tickets and plots stay here, and the service asks about them through /internal/identity and /internal/plots.
 //   INTERNAL_SECRET  the credential the messaging service and this API use with each other (needed with MESSAGING_SERVICE_URL)
+//   REFERRAL_SECRET  signs referral codes (?ref= links, server/api/business.mjs). Set it in production; changing it voids every shared link
+//   PROFILE_VIEW_CAP / PROFILE_CTA_CAP   verified profile views and call-to-action presses per network per profile per day (defaults 3 and 1)
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +32,7 @@ import * as market from './market.mjs';
 import * as stats from './stats.mjs';
 import * as community from './community.mjs';
 import * as messaging from './messaging.mjs';
+import * as business from './business.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -102,6 +105,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     return b;
   }
   const BUSINESS = { title: 0, description: 1, website: 1 };
+  const PROFILE = { name: 0, tagline: 0, description: 1 };
   const adminOnly = (token) => {
     if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
   };
@@ -152,6 +156,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/auth/signup') {
       const b = await body(req);
       const out = core.signup(db, b);
+      if (b.ref) business.attributeSignup(db, out.account.id, String(b.ref), business.referralSecret(env));
       if (b.email) {
         try {
           out.account = engage.setEmail(db, out.account, { email: b.email }).account;
@@ -255,6 +260,24 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/market\/(SD-\d{4})(?:\/(\d{4}-\d{2}-\d{2}))?$/)) && m === 'GET') return market.marketWeek(db, seed, r[1], r[2]);
     if (m === 'POST' && p === '/admin/market/layout') return (adminOnly(token), market.setLayout(db, seed, await body(req)));
     if (m === 'GET' && p === '/admin/market') return (adminOnly(token), market.adminWeek(db, seed, url.searchParams.get('week') || undefined));
+    // free business profiles and referral links (server/api/business.mjs)
+    if (m === 'GET' && p === '/businesses') {
+      const q = url.searchParams;
+      return business.listProfiles(db, { category: q.get('category') ?? '', district: q.get('district') ?? '', q: q.get('q') ?? '', sort: q.get('sort') ?? 'new', limit: q.get('limit'), offset: q.get('offset') });
+    }
+    if (m === 'POST' && p === '/businesses') return business.createProfile(db, account, await screened(req, PROFILE));
+    if (m === 'GET' && p === '/businesses/sitemap') return { entries: business.sitemapEntries(db) };
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'GET') return business.getProfile(db, r[1]);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'PATCH') return business.updateProfile(db, account, r[1], await screened(req, PROFILE));
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/plot$/)) && m === 'PUT') return business.linkPlot(db, account, r[1], (await body(req)).plotId ?? null);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/interest$/)) && m === 'POST') return business.requestUpgrade(db, account, r[1], (await body(req)).plan);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/events$/)) && m === 'POST') {
+      const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+      return business.recordProfileEvent(db, account, r[1], await body(req), { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, secret: business.referralSecret(env), viewCap: env.PROFILE_VIEW_CAP ? Number(env.PROFILE_VIEW_CAP) : undefined, ctaCap: env.PROFILE_CTA_CAP ? Number(env.PROFILE_CTA_CAP) : undefined });
+    }
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'business', r[1]);
+    if (m === 'GET' && p === '/me/businesses') return business.myProfiles(db, account, env);
+    if (m === 'GET' && p === '/me/referrals') return business.myReferrals(db, account, env);
     if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db) };
     if ((r = p.match(/^\/ads\/([\w-]+)$/)) && m === 'GET') return core.getAdSlot(db, r[1]);
     if ((r = p.match(/^\/ads\/([\w-]+)\/history$/)) && m === 'GET') return { events: core.slotHistory(db, r[1]) };

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { apiOn } from '@/lib/data/api';
 import { findBuilding, parseDeepLink } from '@/lib/game/shareLink';
+import { captureRef } from '@/lib/business/referral';
 import { usePanel } from '@/lib/state/panelStore';
 import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
@@ -12,6 +13,7 @@ import { useWorld } from '@/lib/state/worldStore';
 // instead of regenerating the city, which would throw away the player's own buildings. Renders nothing.
 export default function DeepLink() {
   useEffect(() => {
+    captureRef(); // a shared link's ?ref= credits whoever shared it if this visitor signs up (lib/business/referral.js)
     const { plot: id, city } = parseDeepLink(window.location.search);
     if (!id) return undefined;
     let cancelled = false;

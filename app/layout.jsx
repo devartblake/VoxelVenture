@@ -9,6 +9,8 @@ export const viewport = {
 };
 
 export const metadata = {
+  // the site's own address, so share links and images in the business pages are absolute (NEXT_PUBLIC_SITE_URL in production)
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   // iOS Safari turns anything that looks like a phone number (the city number, scores, prices) into a link
   // before the page loads, which breaks hydration. Nothing in the app is a phone number, so switch it off.
   formatDetection: { telephone: false, email: false, address: false },

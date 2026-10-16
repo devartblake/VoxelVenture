@@ -4,6 +4,7 @@ import path from 'node:path';
 import { transaction } from './db.mjs';
 import { ApiError, fail, getPlot, publicAccount, requireAccount, text } from './core.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
+import { leadTarget } from './business.mjs';
 
 // Everything that turns visitors into leads and customers: a business's offers (coupon, visit quest with a Gold budget, video, game demo),
 // the email sign-ups it collects (double opt-in), its feedback board, and the email the server sends (confirmations, take-over notices,
@@ -202,10 +203,17 @@ export function hideFeedback(db, account, plotId, feedbackId, hidden = true) {
 const base = () => process.env.PUBLIC_API_URL || `http://localhost:${process.env.API_PORT || 3002}`;
 export function subscribe(db, input) {
   const email = cleanEmail(input.email);
-  const kind = ['plot', 'ad', 'world'].includes(input.targetKind) ? input.targetKind : fail(400, 'targetKind must be plot, ad or world.', 'bad_target');
-  const id = kind === 'world' ? 'world' : String(input.targetId ?? '');
+  const kind = ['plot', 'ad', 'world', 'business'].includes(input.targetKind) ? input.targetKind : fail(400, 'targetKind must be plot, ad, business or world.', 'bad_target');
+  let id = kind === 'world' ? 'world' : String(input.targetId ?? '');
   let label = 'the VoxelVenture newsletter';
   if (kind === 'plot') label = getPlot(db, id).title;
+  if (kind === 'business') {
+    // a free profile whose call to action is its newsletter (targetId is its slug; the lead is kept under its id, which never changes)
+    const b = leadTarget(db, id);
+    if (!b.newsletter) fail(400, 'This business does not take newsletter sign-ups.', 'no_newsletter');
+    id = String(b.id);
+    label = b.name;
+  }
   if (kind === 'ad') {
     const slot = db.prepare('SELECT ad FROM ad_slots WHERE id = ?').get(id) ?? fail(404, 'No such ad space.', 'no_slot');
     if (!slot.ad) fail(400, 'That ad space is empty.', 'empty_slot');
@@ -230,7 +238,12 @@ export function unsubscribeLead(db, tok) {
 // The owner of a business or an ad space sees how many people signed up, and the confirmed addresses (never the pending ones).
 export function leadsFor(db, account, kind, id) {
   requireAccount(account);
-  const owner = kind === 'plot' ? getPlot(db, id).owner_account : (db.prepare('SELECT owner_account FROM ad_slots WHERE id = ?').get(String(id)) ?? fail(404, 'No such ad space.', 'no_slot')).owner_account;
+  let owner;
+  if (kind === 'business') {
+    const b = leadTarget(db, id); // a profile's leads are kept under its id; the route names it by slug
+    id = String(b.id);
+    owner = b.account;
+  } else owner = kind === 'plot' ? getPlot(db, id).owner_account : (db.prepare('SELECT owner_account FROM ad_slots WHERE id = ?').get(String(id)) ?? fail(404, 'No such ad space.', 'no_slot')).owner_account;
   if (owner !== account.id) fail(403, 'These sign-ups are not yours.', 'forbidden');
   const rows = db.prepare('SELECT email, status, confirmed_at FROM leads WHERE target_kind = ? AND target_id = ?').all(kind, String(id));
   return { confirmed: rows.filter((r) => r.status === 'confirmed').map((r) => ({ email: r.email, at: r.confirmed_at })), pending: rows.filter((r) => r.status === 'pending').length, unsubscribed: rows.filter((r) => r.status === 'unsubscribed').length };
@@ -245,7 +258,8 @@ export function myLeads(db, account) {
   };
   const plots = db.prepare('SELECT id, title FROM plots WHERE owner_account = ?').all(account.id).map((p) => one('plot', p.id, p.title));
   const ads = db.prepare('SELECT id, ad, label FROM ad_slots WHERE owner_account = ? AND ad IS NOT NULL').all(account.id).map((a) => one('ad', a.id, `${JSON.parse(a.ad).headline} (${a.label})`));
-  const items = [...plots, ...ads];
+  const businesses = db.prepare("SELECT id, name FROM businesses WHERE account_id = ? AND status = 'published'").all(account.id).map((b) => one('business', b.id, b.name));
+  const items = [...plots, ...ads, ...businesses];
   return { items, totals: { confirmed: items.reduce((n, i) => n + i.confirmed.length, 0), pending: items.reduce((n, i) => n + i.pending, 0) } };
 }
 

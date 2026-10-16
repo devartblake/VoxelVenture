@@ -331,3 +331,45 @@ CREATE TABLE IF NOT EXISTS messaging_outbox (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS messaging_outbox_due ON messaging_outbox(status, next_at);
+-- Free business profiles (server/api/business.mjs, docs/business_funnel.md): a public page per business, no plot needed.
+CREATE TABLE IF NOT EXISTS businesses (
+  id INTEGER PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,                     -- the public address: /business/<slug>
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,                        -- lib/business/profile.js CATEGORIES
+  district TEXT,                                 -- lib/business/profile.js BUSINESS_DISTRICTS, or NULL
+  tagline TEXT,
+  description TEXT,
+  website TEXT,
+  cta TEXT NOT NULL,                             -- JSON { kind, url, label }
+  plot_id INTEGER UNIQUE REFERENCES plots(id),   -- the owner's 3D building, if linked
+  referred_by INTEGER REFERENCES accounts(id),   -- the account whose referral link brought the owner here
+  status TEXT NOT NULL DEFAULT 'published',      -- published | removed (by moderation)
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS businesses_account ON businesses(account_id);
+CREATE INDEX IF NOT EXISTS businesses_list ON businesses(status, category, district);
+-- What visitors did on a profile. kind: view | cta. Only verified rows count in an owner's figures (see recordProfileEvent).
+CREATE TABLE IF NOT EXISTS business_events (
+  id INTEGER PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  kind TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'direct',         -- direct | search | social | referral | city
+  ref_account INTEGER REFERENCES accounts(id),   -- the account whose referral link the visitor came through
+  visitor TEXT NOT NULL,
+  ip_hash TEXT,
+  verified INTEGER NOT NULL DEFAULT 0,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS business_events_business ON business_events(business_id, at);
+CREATE INDEX IF NOT EXISTS business_events_ref ON business_events(ref_account, at);
+-- An owner asked for a paid upgrade before checkout exists (phase 4): the demand signal for the pricing ladder.
+CREATE TABLE IF NOT EXISTS upgrade_interest (
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  plan TEXT NOT NULL,                            -- launch | pro | sponsored
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  at INTEGER NOT NULL,
+  PRIMARY KEY (business_id, plan)
+);

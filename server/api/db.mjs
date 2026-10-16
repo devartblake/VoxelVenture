@@ -31,6 +31,7 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'plots', 'quest_budget', 'INTEGER NOT NULL DEFAULT 0');
   addColumn(db, 'accounts', 'dm_requests', 'INTEGER NOT NULL DEFAULT 1'); // 0: nobody new can send this account a message request
   addColumn(db, 'reports', 'evidence', 'TEXT'); // a reported chat message as it was when reported (JSON)
+  addColumn(db, 'accounts', 'referred_by', 'INTEGER REFERENCES accounts(id)'); // the account whose referral link brought this one (business.mjs)
   return db;
 }
 
