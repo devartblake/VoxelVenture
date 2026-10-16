@@ -1,13 +1,18 @@
 # Billing: phase 4, low-risk monetisation
 
-Phase 4 of the [competitive alignment review](claimavenue_competitive_alignment_review.md#recommended-implementation-sequence). Owners pay for three things, all tied to one business profile, through Stripe Checkout. The code is in `server/api/billing.mjs`, the catalogue is in `lib/business/plans.js`, and the tests are in `tests/billing.test.mjs`. The tests run against a fake Stripe server.
+Phase 4 of the [competitive alignment review](claimavenue_competitive_alignment_review.md#recommended-implementation-sequence). Everything is paid through Stripe Checkout:
+
+- **Business profiles:** the Launch Pack, Pro and sponsored placements.
+- **The game:** leases (claiming, taking over or renewing a plot) and market stalls ([below](#in-the-game-leases-and-market-stalls)).
+
+The code is in `server/api/billing.mjs`, and the catalogue is in `lib/business/plans.js`. The tests are `tests/billing.test.mjs` and `tests/billing-game.test.mjs`, which run against a fake Stripe server.
 
 ## What is sold
 
 | Product | Price | What the owner gets |
 | --- | --- | --- |
 | Launch Pack | $9 once | A week in **New this week** at the top of Discover, a highlighted card, a **New this week** badge on the profile page, a share image with a gold frame and a "New this week" label for that week, and a summary of the week on `/business/manage` |
-| Pro | $19 a month | Where visitors came from, campaign results, the 30-day chart, and CSV export of the figures. Cancelling stops renewal at the end of the paid month. |
+| Pro | $19 a month | Where visitors came from, campaign results, the 30-day chart, CSV export of the figures, and an **offer**: one line at the top of the public page, optionally until a date up to 90 days ahead. When Pro ends the offer is hidden; it is kept, and comes back with Pro. Cancelling stops renewal at the end of the paid month. |
 | Sponsored placement | A week: $99 top of Discover, $49 a district page, $29 a category page | A card labelled **Sponsored** at the top of that page. Each spot has three slots, so sponsored cards never fill the page. |
 
 The prices are only ever read from `lib/business/plans.js`. The server charges the catalogue price whatever a browser sends.
@@ -16,7 +21,7 @@ The prices are only ever read from `lib/business/plans.js`. The server charges t
 
 - **Gold.** The game's currency stays a game reward; nobody can buy it with money.
 - **Real-money take-over payouts** (the 1.25x rule). These need a legal, tax and fraud review first.
-- **Market bookings and lease payments.** These come in a second step (phase 4b), on the same order and webhook machinery.
+- **Payouts to a replaced tenant.** A take-over is charged like any new lease, and the tenant it replaces is paid nothing.
 
 ## How a payment works
 
@@ -37,13 +42,44 @@ The webhook handles these events:
 
 If a slot was oversold anyway (two payments land at the same moment), the later payment is refunded automatically.
 
+## In the game: leases and market stalls
+
+With payments on, these game actions return `{ checkout: { orderId, url, cents } }` instead of happening at once:
+
+| Action | Endpoint | Price |
+| --- | --- | --- |
+| Claim an empty plot | `POST /plots/<id>/claim` | The lease price for the chosen term (`lib/game/leases.js`) |
+| Take over an ended lease | `POST /plots/<id>/takeover` | The take-over price |
+| Renew a lease | `POST /plots/<id>/renew` | The renewal price |
+| Book a market stall | `POST /market/book` | The stall's price for its slot ($2 to $5) |
+
+Plot prices are in dollars, and the order charges them in cents. The game sends the player to Stripe and back to `/?paid=<order>`, then tells them how it went.
+
+- **Checked before paying.** Everything the action checks is checked before the player pays: the server runs the action and then undoes it. The price charged is the one the action would write in the ledger.
+- **Held while paying.** The plot or stall is held for the player for the 30 minutes the checkout lives:
+  - For a plot, the pending order is the hold. Nobody else can claim it or take it over, and they get 409 `held`.
+  - For a stall, a pending booking holds it. That booking shows up nowhere until it is paid.
+- **Carried out once paid.** The action runs only when the payment is confirmed, by the webhook or by reconciliation. It is written to the ledger and the audit trail as before. The other players are told, and a take-over still emails the tenant it replaced.
+- **Too late.** The hold can run out while the player is still paying, and somebody else may claim the plot or book the stall in the meantime. Then the later payment is refunded automatically and the player is told so.
+- **Abandoned.** An abandoned or failed checkout frees the plot or stall.
+
+Refunding a game order takes back what it bought:
+
+- **Claim or take-over.** The lease ends at once and the plot opens to others.
+- **Renewal.** The lease loses the days the renewal added.
+- **Stall.** The booking is cancelled.
+- **Cancelling a paid stall.** A stallholder can cancel before the stall opens, and gets a full refund.
+
+Without Stripe settings, all of these work as before: at once, and free.
+
 ## Refunds and support
 
 - An admin refunds with `POST /admin/billing/orders/<id>/refund`, which uses the idempotency key `vv-refund-<id>`. For Pro, the server cancels the subscription and then refunds the latest invoice. The entitlement is revoked straight away.
 - A refund made in the Stripe dashboard arrives as `charge.refunded` and has the same effect.
 - `POST /admin/billing/grant/<slug>` with `{ product, placement?, days? }` gives a complimentary entitlement. It creates a zero-cent order that is audited like everything else, for support cases and pilots.
 - `GET /admin/billing/orders` lists every order.
-- Owners see their own orders with `GET /me/orders` and on `/business/manage`.
+- Owners see their own orders, game orders included, with `GET /me/orders` and on `/business/manage`.
+- The same from the command line: `npm run moderate -- orders [status]`, `refund <order>`, `grant <slug> <product> [days] [placement] [reason]` and `reconcile`.
 
 Every checkout, payment, refund, grant and revocation is written to the hash-chained `audit_log` ([authoritative_data.md](authoritative_data.md)).
 

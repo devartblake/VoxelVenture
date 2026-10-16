@@ -74,7 +74,7 @@ Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The
 - **`MESSAGING_READONLY=1`** pauses every messaging write (sending, read positions, requests, blocks, reports, nearby lines) with `503`, while reading and the rest of the game carry on: used while moving messages.
 
 ## What it does not do yet
-- **Payments and Gold on the server** (task 6): a claim records its price in the ledger but charges nothing. The server's Credits move only through visit quests and their budgets; nothing is bought with money, and the game's own Gold stays local.
+- **Payments and Gold on the server** (task 6): with Stripe set up, claims, take-overs, renewals and market stalls are paid through Stripe Checkout ([billing.md](billing.md)). Without Stripe, a claim records its price in the ledger but charges nothing. The server's Credits move only through visit quests and their budgets; nothing is bought with money, and the game's own Gold stays local.
 - **Realtime:** done for ownership and ad changes (push from the API through the presence server). The building card's statistics and history still come from the simulated provider, not the server's `/stats` and `/history` (the fetch functions exist in `liveData.js`).
 - Automatic image moderation needs an outside service (the hook is there); until one is set up, pictures are caught by reports. Production needs HTTPS, a real `API_ORIGIN`, backups of the database file (or Postgres), and a longer-lived session store.
 

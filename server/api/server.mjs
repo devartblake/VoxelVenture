@@ -39,7 +39,7 @@ import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
 import * as social from './social.mjs';
 import * as billing from './billing.mjs';
-import { transaction } from './db.mjs';
+import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -70,14 +70,24 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   const socialTimer = deliverEveryMs > 0 ? setInterval(postSocial, 60000) : null;
   socialTimer?.unref();
   // billing (billing.mjs): ask Stripe about pending orders and running Pro plans every hour, so a lost webhook is caught
-  const reconcileBilling = () => billing.reconcile(db, env).catch((e) => console.error('billing reconcile:', e.message));
+  const reconcileBilling = () => billing.reconcile(db, env, fetch, afterPaid).catch((e) => console.error('billing reconcile:', e.message));
   const billingTimer = deliverEveryMs > 0 && billing.billingOn(env) ? setInterval(reconcileBilling, 3600000) : null;
   billingTimer?.unref();
   // tell the presence server something changed, so every player's game refreshes at once (fire and forget)
   const push = (kind, ids = []) => {
     if (!env.MP_NOTIFY_URL) return;
     fetch(env.MP_NOTIFY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': env.MP_NOTIFY_SECRET || '' }, body: JSON.stringify({ kind, ids }) }).catch(() => {});
+  };  // a paid lease or stall has just been carried out (billing.mjs): tell the other players, and send what the free version sends at once
+  const afterPaid = (f) => {
+    if (f.kind === 'market') push('market', [f.stallId]);
+    else {
+      push('plot', [f.plotId]);
+      if (f.action === 'claim' && social.welcomePlot(db, f.plotId, f.accountId, env)) setImmediate(postSocial);
+      if (f.action === 'takeover') engage.notifyTakeover(db, f.out.previousAccount, { title: f.out.plot.title, newOwner: f.out.plot.owner, paidOut: null, plotId: f.out.plot.id });
+    }
+    deliver();
   };
+
   const hits = new Map(); // ip -> { start, n, auth }
 
   const limited = (ip, auth) => {
@@ -203,6 +213,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/plots\/(\d+)\/history$/)) && m === 'GET') return core.history(db, r[1]);
     if ((r = p.match(/^\/plots\/(\d+)\/claim$/)) && m === 'POST') {
       const b = await screened(req, BUSINESS);
+      if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'claim', b, env); // paid: the claim happens once the payment arrives
       const out = logged(A.byAccount(account), 'plot.claim', { kind: 'plot', id: r[1] }, () => core.claimPlot(db, account, r[1], b), (o) => ({ title: o.title, value: o.value, leaseDays: o.lease?.days ?? null }));
       push('plot', [Number(r[1])]);
       if (social.welcomePlot(db, r[1], account.id, env)) setImmediate(postSocial);
@@ -210,6 +221,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     }
     if ((r = p.match(/^\/plots\/(\d+)\/takeover$/)) && m === 'POST') {
       const b = await screened(req, BUSINESS);
+      if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'takeover', b, env);
       const out = logged(A.byAccount(account), 'plot.takeover', { kind: 'plot', id: r[1] }, () => core.takeOverPlot(db, account, r[1], b), (o) => ({ title: o.plot.title, paidOut: o.paidOut, previousOwner: o.previousOwner, previousAccount: o.previousAccount ?? null }));
       engage.notifyTakeover(db, out.previousAccount, { title: out.plot.title, newOwner: out.plot.owner, paidOut: out.paidOut, plotId: out.plot.id });
       delete out.previousAccount;
@@ -292,6 +304,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     // leases, and Building of the Week
     if ((r = p.match(/^\/plots\/(\d+)\/renew$/)) && m === 'POST') {
       const b = await body(req);
+      if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'renew', b, env);
       const out = logged(A.byAccount(account), 'plot.renew', { kind: 'plot', id: r[1] }, () => community.renewLease(db, account, r[1], b), (o) => ({ paid: o.paid, leaseDays: o.plot?.lease?.days ?? null }));
       push('plot', [Number(r[1])]);
       return out;
@@ -313,6 +326,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/market/mine') return market.myBookings(db, account);
     if (m === 'POST' && p === '/market/book') {
       const b = await screened(req, { brand: 0, product: 1 });
+      if (billing.billingOn(env)) return billing.payStall(db, seed, account, b, env); // paid: a pending booking holds the stall until the payment arrives
       const out = logged(A.byAccount(account), 'market.book', (o) => ({ kind: 'booking', id: o.booking.id }), () => market.book(db, seed, account, b), (o) => ({ stall: o.stall.id, site: b.siteCode ?? null, week: b.week ?? null, cents: o.paid }));
       push('market', [out.stall.id]);
       return out;
@@ -320,7 +334,15 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/market\/bookings\/(\d+)$/)) && m === 'PATCH') return market.updateStall(db, account, r[1], await screened(req, { brand: 0, product: 1, offer: 1 }));
     if ((r = p.match(/^\/market\/bookings\/(\d+)\/visit$/)) && m === 'POST') return market.visit(db, account, r[1], (await body(req)).visitor);
     if (m === 'POST' && p === '/admin/market/notices') return (adminOnly(token), market.sendNotices(db, Number((await body(req)).now) || Date.now()));
-    if ((r = p.match(/^\/market\/bookings\/(\d+)\/cancel$/)) && m === 'POST') return logged(A.byAccount(account), 'market.cancel', { kind: 'booking', id: r[1] }, () => market.cancelBooking(db, account, r[1]));
+    if ((r = p.match(/^\/market\/bookings\/(\d+)\/cancel$/)) && m === 'POST') {
+      // a paid booking is refunded in full first (which also cancels it); the checks (yours, not started) come first either way
+      const refundable = billing.paidOrderFor(db, `booking:${Number(r[1])}`);
+      if (refundable) {
+        dryRun(db, () => market.cancelBooking(db, account, r[1]));
+        await billing.refundOrder(db, refundable.id, A.byAccount(account), env, fetch, 'cancelled by the stallholder before it opened');
+      }
+      return logged(A.byAccount(account), 'market.cancel', { kind: 'booking', id: r[1] }, () => (refundable ? { ok: true, refunded: refundable.cents } : market.cancelBooking(db, account, r[1])));
+    }
     if ((r = p.match(/^\/market\/(SD-\d{4})(?:\/(\d{4}-\d{2}-\d{2}))?$/)) && m === 'GET') return market.marketWeek(db, seed, r[1], r[2]);
     if (m === 'POST' && p === '/admin/market/layout') {
       adminOnly(token);
@@ -368,12 +390,13 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/checkout$/)) && m === 'POST') return billing.createCheckout(db, account, r[1], await body(req), env);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/pro\/cancel$/)) && m === 'POST') return billing.cancelPro(db, account, r[1], env);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/export\.csv$/)) && m === 'GET') return business.exportCsv(db, account, r[1]);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/offer$/)) && m === 'PUT') { const b = await screened(req, { text: 0 }); return logged(A.byAccount(account), 'business.offer', { kind: 'business', id: r[1] }, () => business.setOffer(db, account, r[1], b), (o) => ({ offer: o.offer })); }
     if (m === 'GET' && p === '/me/orders') return billing.myOrders(db, account);
     if ((r = p.match(/^\/me\/orders\/(\d+)$/)) && m === 'GET') return billing.orderStatus(db, account, r[1]);
     if (m === 'GET' && p === '/admin/billing/orders') return (adminOnly(token), billing.adminOrders(db, url.searchParams.get('status')));
     if ((r = p.match(/^\/admin\/billing\/orders\/(\d+)\/refund$/)) && m === 'POST') return (adminOnly(token), billing.refundOrder(db, r[1], A.ADMIN, env));
     if ((r = p.match(/^\/admin\/billing\/grant\/([a-z0-9-]{1,48})$/)) && m === 'POST') return (adminOnly(token), billing.grant(db, r[1], await body(req)));
-    if (m === 'POST' && p === '/admin/billing/reconcile') return (adminOnly(token), billing.reconcile(db, env));
+    if (m === 'POST' && p === '/admin/billing/reconcile') return (adminOnly(token), billing.reconcile(db, env, fetch, afterPaid));
     if (m === 'GET' && p === '/me/referrals') return business.myReferrals(db, account, env);
     if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db) };
     if ((r = p.match(/^\/ads\/([\w-]+)$/)) && m === 'GET') return core.getAdSlot(db, r[1]);
@@ -473,7 +496,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
           if (size > 1_000_000) throw new core.ApiError(413, 'That is too large.', 'too_large');
           chunks.push(c);
         }
-        return send(200, await billing.receiveWebhook(db, Buffer.concat(chunks).toString('utf8'), req.headers['stripe-signature'], env));
+        return send(200, await billing.receiveWebhook(db, Buffer.concat(chunks).toString('utf8'), req.headers['stripe-signature'], env, fetch, afterPaid));
       }
       const internal = url.pathname.startsWith('/internal/') && secret && (secret === env.MP_NOTIFY_SECRET || secret === env.INTERNAL_SECRET);
       if (!internal && limited(req.socket.remoteAddress ?? '?', url.pathname.startsWith('/auth/'))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');

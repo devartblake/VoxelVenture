@@ -34,8 +34,8 @@ without a server the browser is its own admin and keeps its own market (`lib/mar
 
 ## Booking
 Pick a spot on the plan (or click a stall in 3D), choose 24, 48 or 72 hours and a start (every 12 hours, inside the week), name the stall and book. Sign-in is asked for only
-at that point. One account can hold four stalls a week. Bookings can be cancelled until they start. **Payment is not wired up**: a booking is recorded at its price (`cents`)
-but nothing is charged, and a cancelled booking is not refunded. Payments are the same open item as for the rest of the game.
+at that point. One account can hold four stalls a week. Bookings can be cancelled until they start. With payments on, booking sends the player to Stripe. The stall is held while they pay, and it is
+booked once the payment is confirmed. Cancelling a paid booking before it opens refunds it in full. Without payments, a booking is recorded at its price (`cents`) and nothing is charged. See [billing.md](billing.md#in-the-game-leases-and-market-stalls).
 
 ## Code
 - `lib/market/layout.js`: the plan (`planMarket`), tiers, prices. `lib/market/weeks.js`: weeks and booking rules. `lib/market/local.js`: the same rules in the browser.

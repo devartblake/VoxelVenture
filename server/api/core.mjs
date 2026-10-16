@@ -183,6 +183,13 @@ function leaseTerm(input) {
   return termOf(input.leaseDays)?.days ?? fail(400, 'A lease is 30, 90 or 365 days.', 'bad_term');
 }
 
+// With payments on, a player paying for a plot holds it while they pay (an order waiting for its payment, billing.mjs): nobody else may
+// claim it or take it over until the hold ends.
+export function plotHeldByOther(db, plotId, accountId, at = now()) {
+  return Boolean(db.prepare("SELECT 1 FROM orders WHERE target = ? AND status = 'pending' AND hold_until > ? AND account_id != ?").get(`plot:${Number(plotId)}`, at, accountId ?? 0));
+}
+const HELD = 'Someone is paying for this plot right now. Try again in half an hour, or pick another.';
+
 // Claim an empty lot. Atomic: if two players race for it, exactly one wins and the other gets 409.
 export function claimPlot(db, account, id, input) {
   requireAccount(account);
@@ -191,6 +198,7 @@ export function claimPlot(db, account, id, input) {
     const p = getPlot(db, id);
     if (!p.claimable) fail(409, 'This lot cannot be claimed.', 'not_claimable');
     if (p.owner_name) fail(409, 'Someone claimed this plot first.', 'already_owned');
+    if (plotHeldByOther(db, p.id, account.id)) fail(409, HELD, 'held');
     const term = leaseTerm(input);
     const price = leasePrice(p.value, term);
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=? AND owner_name IS NULL')
@@ -210,6 +218,7 @@ export function takeOverPlot(db, account, id, input) {
     if (p.owner_account === account.id) fail(409, 'This is already your business.', 'own_plot');
     // a lease protects its tenant: nobody can take the business over until it has ended and the tenant's week of first refusal has passed
     if (!takeoverAllowed(p.lease_end)) fail(409, describeLease(p.lease_end, p.lease_days).text, 'leased');
+    if (plotHeldByOther(db, p.id, account.id)) fail(409, HELD, 'held');
     // the price the caller saw must still be the price (somebody may have taken it over in the meantime)
     const term = leaseTerm(input);
     const price = Math.round(leasePrice(p.value, term, TAKEOVER_MULTIPLIER));
