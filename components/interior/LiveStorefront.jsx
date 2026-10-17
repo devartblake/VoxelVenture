@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Check, Coins, EyeOff, Film, Gamepad2, Gift, Mail, MessageSquare, Pencil, Timer } from 'lucide-react';
 import { EMBED_SANDBOX } from '@/lib/content/embeds';
 import { ApiFailure } from '@/lib/data/api';
-import { claimCouponRemote, completeQuestRemote, fetchStorefront, fundQuestRemote, hideFeedbackRemote, postFeedbackRemote, saveStorefront, startQuestRemote, subscribeRemote } from '@/lib/data/sync';
+import { claimCouponRemote, redeemCouponRemote, completeQuestRemote, fetchStorefront, fundQuestRemote, hideFeedbackRemote, postFeedbackRemote, saveStorefront, startQuestRemote, subscribeRemote } from '@/lib/data/sync';
 import { useAccount } from '@/lib/state/accountStore';
 import { useCityStore } from '@/lib/state/store';
 import ReportButton from '@/components/ui/ReportButton';
@@ -43,21 +43,28 @@ function Embed({ kind, embed }) {
   );
 }
 
-// The coupon: one per visitor, limited stock, the code is only shown once it is yours.
+// The coupon: one per visitor, limited stock, the code is only shown once it is yours, with a ticket the owner marks redeemed at the till.
 function Coupon({ data, reload }) {
   const [code, setCode] = useState(data.myCoupon);
+  const [ticket, setTicket] = useState(data.myTicket);
   const [msg, setMsg] = useState('');
   const c = data.brand.coupon;
   const left = c.total - c.claimed;
-  const claim = () => claimCouponRemote(data.plotId).then((r) => { setCode(r.code); reload(); }).catch((e) => setMsg(e.message));
+  const claim = () => claimCouponRemote(data.plotId).then((r) => { setCode(r.code); setTicket(r.ticket); reload(); }).catch((e) => setMsg(e.message));
   return (
     <Section icon={Gift} title="Offer" tone="text-amber-300">
       <p className="text-sm text-white">{c.text}</p>
       <p className="mb-2 text-[11px] text-slate-500">{c.claimed} of {c.total} claimed</p>
       {data.own ? (
-        <p className="text-[11px] text-slate-400">This is your coupon (code <span className="font-mono text-slate-200">{c.code}</span>). Visitors claim it here.</p>
+        <>
+          <p className="text-[11px] text-slate-400">This is your coupon (code <span className="font-mono text-slate-200">{c.code}</span>). Visitors claim it here.</p>
+          <RedeemTicket plotId={data.plotId} />
+        </>
       ) : code ? (
-        <div className="rounded border border-dashed border-amber-500/60 bg-amber-950/30 px-3 py-1.5 text-center font-mono text-sm text-amber-300">{code}</div>
+        <div className="rounded border border-dashed border-amber-500/60 bg-amber-950/30 px-3 py-1.5 text-center font-mono text-sm text-amber-300">
+          {code}
+          {ticket && <span className="block text-[10px] text-amber-200/80">Ticket #{ticket}{data.myCouponRedeemed ? ' · used' : ''}: show it when you use the coupon</span>}
+        </div>
       ) : left > 0 ? (
         <button onClick={claim} className="w-full rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500">Claim coupon</button>
       ) : (
@@ -65,6 +72,23 @@ function Coupon({ data, reload }) {
       )}
       <Err>{msg}</Err>
     </Section>
+  );
+}
+
+// The owner marks a claimed coupon used, by the ticket the visitor shows (it counts as a redemption in the business's figures).
+function RedeemTicket({ plotId }) {
+  const [ticket, setTicket] = useState('');
+  const [msg, setMsg] = useState('');
+  const redeem = (e) => {
+    e.preventDefault();
+    redeemCouponRemote(plotId, ticket).then(() => (setMsg(`Ticket #${ticket.toUpperCase()} marked used.`), setTicket(''))).catch((err) => setMsg(err.message));
+  };
+  return (
+    <form onSubmit={redeem} className="mt-2 flex flex-wrap gap-1.5">
+      <input value={ticket} onChange={(e) => setTicket(e.target.value)} placeholder="Ticket, e.g. 7KQ2A9" aria-label="Coupon ticket" maxLength={9} className="min-w-0 flex-1 rounded border border-sx-stroke bg-sx-alt px-2 py-1 font-mono text-xs text-white" />
+      <button type="submit" disabled={!ticket.trim()} className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-500 disabled:opacity-40">Mark used</button>
+      {msg && <p className="basis-full text-[11px] text-slate-300" role="status">{msg}</p>}
+    </form>
   );
 }
 

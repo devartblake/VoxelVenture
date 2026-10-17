@@ -18,16 +18,16 @@ flowchart LR
 | Review item | What was built | Where |
 | --- | --- | --- |
 | 1. Free business profile | Name, category, optional district, tagline, description, website and one call to action. No plot or payment needed. Up to 5 per account. | `POST /businesses`, `/business/new` |
-| 2. Public SEO page | `/business/<slug>`: server-rendered HTML that works without WebGL. It has a canonical link, Open Graph and Twitter tags, a generated share image (`opengraph-image.jsx`) and schema.org JSON-LD. | `app/(public)/business/[slug]` |
-| 3. Category and district pages | `/discover` (search, categories, districts, newest), `/category/<id>` (8 categories) and `/district/<id>` (the 4 themed districts). There is also a `sitemap.xml` and a `robots.txt`. | `app/(public)`, `app/sitemap.js`, `app/robots.js` |
-| 4. Clear CTA selection | Each page has exactly one primary button: Visit website, Join the newsletter (double opt-in, through the existing leads system), Book a meeting, Order online or Request a demo. | `CTA_KINDS` in `lib/business/profile.js` |
+| 2. Public SEO page | `/business/<slug>`: server-rendered HTML that works without WebGL. It has a canonical link, Open Graph and Twitter tags, a generated share image (`opengraph-image.jsx`, gold during a launch week), and schema.org JSON-LD: the business type with its running offer, plus a breadcrumb. | `app/(public)/business/[slug]` |
+| 3. Category and district pages | `/discover` (search, categories, districts, sponsored, new this week, newest), `/category/<id>` (8 categories) and `/district/<id>` (the 4 themed districts). Each list page has its own share image and a `CollectionPage` with an `ItemList` of its businesses in JSON-LD. There is also a `sitemap.xml` and a `robots.txt`. | `app/(public)`, `app/sitemap.js`, `app/robots.js` |
+| 4. Clear CTA selection | Each page has exactly one primary button. Links: Visit website, Book a meeting, Order online and Request a demo. Answered on the page: Join the newsletter (double opt-in) and Request a meeting or a quote (phase 5, [conversions.md](conversions.md)). | `CTA_KINDS` in `lib/business/profile.js` |
 | 5. Share and referral attribution | Every account has a signed referral code (`?ref=`). Views, CTA presses, sign-ups and new profiles that come through it are credited to that account. | `server/api/business.mjs` |
 | 6. Owner onboarding checklist | Name and category, district, description, CTA, share. Linking a 3D building is listed as optional. | `onboardingSteps`, `/business/manage` |
-| 7. Value-linked upgrade prompts | The Launch Pack, Pro and sponsored placements are offered only on the strength of the owner's own **verified** figures. "Tell me when it is ready" records the demand, because checkout comes in phase 4. | `upgradePrompts`, `upgrade_interest` table |
+| 7. Value-linked upgrade prompts | The Launch Pack, Pro and sponsored placements are offered only on the strength of the owner's own **verified** figures. With Stripe set up they lead to checkout ([billing.md](billing.md)); without it, "Tell me when it is ready" records the demand. | `upgradePrompts`, `upgrade_interest` table |
 
 Owners can also add their X handle and opt in to a welcome post on VoxelVenture's X account that tags them; see [social_posts.md](social_posts.md).
 
-The 3D city stays one link away, and the other way round: the game's header has **Businesses** and **List your business free**, a building's card links to its **Business page** (its owner's profile with a server; its demo page without one), and a browser that cannot draw the city (no WebGL) gets a plain page pointing to Discover instead of a broken canvas (`components/ui/NoWebGL.jsx`; try `/?webgl=0`). The business pages do not open the multiplayer connection, so they stay light on a phone. The header has "Explore the 3D city", and a profile with a linked building shows "Step inside the 3D storefront", which goes to `/b/<plot>`.
+The 3D city stays one link away, and the other way round: the game's header has **Businesses** and **List your business free**, a building's card links to its **Business page** (its owner's profile with a server; its demo page without one), and a browser that cannot draw the city (no WebGL) gets a plain page instead of a broken canvas (`components/ui/NoWebGL.jsx`; try `/?webgl=0`). That page points to Discover, and to the business's page when the link was to a building that has one. The business pages load no game code, so they stay light on a phone: about 178 KB of compressed JavaScript, against 689 KB for the city. A building linked to a business page shares that page. The header has "Explore the 3D city", and a profile with a linked building shows "Step inside the 3D storefront", which goes to `/b/<plot>`.
 
 ## Verified figures only
 
@@ -38,7 +38,7 @@ An event is **verified** only if all of the following hold:
 - It is not from a known bot or headless browser.
 - The visitor id is well formed.
 - It is not the owner's own visit.
-- The network is under its daily cap per profile: 3 views and 1 press by default (`PROFILE_VIEW_CAP`, `PROFILE_CTA_CAP`).
+- The network is under its daily cap per profile: 3 views and 1 press by default (`PROFILE_VIEW_CAP`, `PROFILE_CTA_CAP`). Phase 5 adds impressions, qualified visits, store entries, requests and purchases, verified the same way: see [conversions.md](conversions.md).
 - For a press, the same visitor viewed the profile in the last day.
 
 A view is sent only after the page has been visible for 2 seconds. Every event is stored, but only verified ones are counted.
@@ -56,7 +56,7 @@ A link tagged `?utm_campaign=<name>` (letters, digits, `-` and `_`, up to 40) ha
   - A sign-up made with the code (`accounts.referred_by`).
   - Any profile later made by that new account (`businesses.referred_by`).
 - **No self-referral.** A signed-in visitor's own link is never credited to them.
-- **Rewards:** none yet. Attribution is recorded so that reward rules (and fraud checks on them) can be decided with the payment work in phase 4.
+- **Rewards:** none yet. Attribution is recorded so that reward rules (and fraud checks on them) can be decided later; payments (phase 4) did not need them.
 
 ## Demo mode
 
@@ -93,8 +93,7 @@ Profiles are screened like every other text a player writes: the word filter, pl
 
 ## Not done yet
 
-- **Checkout** (phase 4): the Launch Pack, Pro and sponsored placements are prompts that record interest; nothing is sold yet.
-- **The 3D game's own card** still shows its simulated figures without an API (phase 3 makes production data authoritative). The business pages never show simulated figures.
-- **Rewards** for referrals, the Launch Pack's branded share image and campaign summary, and Pro's CSV export and campaign history.
+- **The 3D game's own card** shows simulated figures only without an API. With one, its figures are the server's verified ones (phase 3). The business pages never show simulated figures.
+- **Rewards** for referrals. (Checkout, the Launch Pack's share image and summary, and Pro's CSV export and campaign history were done in phases 4 and 5: [billing.md](billing.md), [conversions.md](conversions.md).)
 - **Logos and photos** on profiles, and a "claimed by the business" verification badge.
 - **Sitemap refresh:** the sitemap is rebuilt at most every 10 minutes, and list pages refresh their data at most once a minute.

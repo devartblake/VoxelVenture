@@ -25,7 +25,7 @@ import { liveDataProvider } from '@/lib/data/liveData';
 import { slugify } from '@/lib/business/profile';
 import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { apiOn } from '@/lib/data/api';
-import { claimRemote, renewRemote, takeOverRemote, updateRemote } from '@/lib/data/sync';
+import { claimRemote, openSiteLink, renewRemote, takeOverRemote, updateRemote } from '@/lib/data/sync';
 import { DEFAULT_TERM, TERMS, describeLease, leaseState, renewalPrice, termOf, takeoverAllowed } from '@/lib/game/leases';
 import { useCommunity } from '@/lib/state/communityStore';
 import ReportButton from './ReportButton';
@@ -398,7 +398,6 @@ export default function PlotCard() {
   const activity = useCityStore((s) => s.activity);
   const openInterior = useCityStore((s) => s.openInterior);
   const claimPlot = useCityStore((s) => s.claimPlot);
-  const recordSiteClick = useCityStore((s) => s.recordSiteClick);
   const [claimantName, setClaimantName] = useState('');
   const [plotTitle, setPlotTitle] = useState('');
   const [plotLink, setPlotLink] = useState('');
@@ -551,7 +550,7 @@ export default function PlotCard() {
       </div>
 
       {p.website && isClaimed && (
-        <a href={p.website} target="_blank" rel="noreferrer" onClick={() => recordSiteClick(p.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-cyan/50 bg-sx-cyan/10 py-2.5 text-sm font-bold text-sx-cyan transition hover:bg-sx-cyan/20">
+        <a href={p.website} target="_blank" rel="noreferrer" onClick={(e) => openSiteLink(e, p)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-cyan/50 bg-sx-cyan/10 py-2.5 text-sm font-bold text-sx-cyan transition hover:bg-sx-cyan/20">
           <Globe className="h-4 w-4" /> Visit website
         </a>
       )}

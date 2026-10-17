@@ -69,6 +69,13 @@ Written, in [../deploy/](../deploy/README.md): a `Caddyfile`, systemd units for 
 
 ## 3. Payments: Stripe or PayPal
 
+**Decided and built:** Stripe Checkout, without a PayPal button for now ([billing.md](billing.md)). The comparison below is kept for the record. Two of its suggestions were not taken:
+
+- Gold and Credits are never sold for money.
+- Nobody is paid out on a take-over, so Stripe Connect is not needed ([takeover_payouts.md](takeover_payouts.md)).
+
+Market stalls ($2 to $5) are charged one by one; Stripe's fixed fee is the price of keeping money out of the game's currency.
+
 US rates as I know them (check both sites for your country):
 | | Typical card payment | Micropayments (under $10) |
 | :--- | :--- | :--- |
@@ -77,7 +84,7 @@ US rates as I know them (check both sites for your country):
 
 - For normal sales the rates are close.
 - For the **$2 to $5 pop-up stalls** the fixed fee dominates. On a $3 stall Stripe takes about 12.9% and PayPal's micropayment rate about 6.7%. The best fix for either is to **sell Gold or Credits in $5 to $10 bundles** and let people spend them on stalls, so no per-stall fee applies.
-- **Recommendation: Stripe as the main processor.** Stripe Connect fits paying the previous owner their 1.25x on a take-over. Add a PayPal button as a second option if your audience asks for it.
+- **Recommendation: Stripe as the main processor.** Add a PayPal button as a second option if your audience asks for it. (Stripe Connect would fit paying the previous owner their 1.25x on a take-over, but that payout was decided against.)
 - **Taxes and VAT** add complexity with either. A merchant-of-record service (Lemon Squeezy or Paddle) handles that for a slightly higher fee.
 - Stripe also has a Node SDK, so payments do not change the stack decision.
 

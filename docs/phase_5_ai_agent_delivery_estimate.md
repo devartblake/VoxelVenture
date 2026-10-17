@@ -1,5 +1,7 @@
 # Phase 5 Delivery Estimate with an AI-Agent Team
 
+> **Historical estimate.** By 2026-10-17, phases 1 to 5 were done in code, well ahead of this estimate ([alignment_status.md](alignment_status.md)). What it lists as outside the code still applies: hosting, the Stripe account, the terms, real mail delivery and the pilot.
+
 **Project:** VoxelVenture  
 **Prepared:** October 16, 2026  
 **Planning horizon:** Phase 1 through Phase 5 of the Claim Avenue competitive-alignment roadmap  

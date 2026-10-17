@@ -6,6 +6,7 @@ import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
 import { DIRECTORY_SORTS, buildDirectory, isLive, liveDataProvider } from '@/lib/data/liveData';
 import { describeBusiness } from '@/lib/game/plotInfo';
+import { openSiteLink } from '@/lib/data/sync';
 import { LogoBadge } from '../PlotInfoCards';
 
 // The directory: every plot with a building, numbered from 1 to the last, newest ideas first (by value by default). It is the first
@@ -14,7 +15,6 @@ export default function DirectoryView() {
   const plots = useCityStore((s) => s.plots);
   const activity = useCityStore((s) => s.activity);
   const setSelectedPlot = useCityStore((s) => s.setSelectedPlot);
-  const recordSiteClick = useCityStore((s) => s.recordSiteClick);
   const [sort, setSort] = useState('value');
   const [query, setQuery] = useState('');
   const provider = liveDataProvider();
@@ -67,7 +67,7 @@ export default function DirectoryView() {
               </button>
               <div className="flex border-t border-sx-stroke text-[11px]">
                 {p.website ? (
-                  <a href={p.website} target="_blank" rel="noreferrer" onClick={() => recordSiteClick(p.id)} className="flex flex-1 items-center justify-center gap-1.5 py-2 font-semibold text-slate-300 hover:bg-sx-panel hover:text-sx-cyan">
+                  <a href={p.website} target="_blank" rel="noreferrer" onClick={(e) => openSiteLink(e, p)} className="flex flex-1 items-center justify-center gap-1.5 py-2 font-semibold text-slate-300 hover:bg-sx-panel hover:text-sx-cyan">
                     <Globe className="h-3.5 w-3.5" /> Visit website
                   </a>
                 ) : (

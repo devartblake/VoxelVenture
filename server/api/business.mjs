@@ -9,20 +9,22 @@ import { billingOn, planFor } from './billing.mjs';
 // action, validation, onboarding steps, upgrade prompts) are lib/business/profile.js, shared with the public pages.
 //
 //   profiles    any account can list up to MAX_PROFILES businesses for free; each gets a public page /business/<slug>
-//   events      a profile view or a press of its call to action, verified like building visits (no bots, a per-network daily cap,
-//               not the owner's own traffic, a call to action only after a view)
+//   events      a profile view, a qualified visit (15 s on the page), a store entry from the 3D city or a press of its call to action,
+//               verified like building visits (no bots, a per-network daily cap, not the owner's own traffic, a qualified visit and a
+//               press only after a view). Impressions, purchases and meeting or quote requests are in conversions.mjs.
 //   referrals   every account has a signed referral code; a link with ?ref=<code> credits the visits, presses, sign-ups and new
 //               profiles it brings to that account (never an account referring itself)
 //   interest    an owner asking for a paid plan before checkout exists is recorded: the demand signal for phase 4
 const { cleanProfile, uniqueSlug, isSlug, isRefCode, onboardingSteps, upgradePrompts, profileReady, PLANS } = await imp('business/profile.js');
 const { figuresFor, PRODUCTS } = await imp('business/plans.js');
+const { conversionsOf, costPerResult, isClickId } = await imp('business/conversions.js');
 const { csvRows } = await imp('data/csv.js');
 
 export const MAX_PROFILES = 5;
 export const SOURCES = ['direct', 'search', 'social', 'referral', 'city', 'x']; // x: a link in VoxelVenture's own X posts (social.mjs)
 const DAY = 86400000;
 const now = () => Date.now();
-const BOT_UA = /bot|crawl|spider|slurp|headless|lighthouse|curl|wget|python-requests|preview|facebookexternalhit/i;
+export const BOT_UA = /bot|crawl|spider|slurp|headless|lighthouse|curl|wget|python-requests|preview|facebookexternalhit/i;
 
 // ---- referral codes -------------------------------------------------------------------------------------------------------------
 // "<account id in base 36>.<signature>": anyone can read whose it is, nobody can make one for another account without the secret.
@@ -66,8 +68,8 @@ export function profileView(row) {
 }
 // What only the owner sees besides the public view: whether they agreed to a welcome post on X, and their offer (Pro).
 export const ownerView = (row) => ({ ...profileView(row), announce: Boolean(row.announce), offer: row.offer ? { text: row.offer, until: row.offer_until ?? null } : null });
-const getRow = (db, slug) => (isSlug(slug) ? db.prepare("SELECT * FROM businesses WHERE slug = ? AND status = 'published'").get(String(slug)) : null) ?? fail(404, 'No such business.', 'no_business');
-const ownRow = (db, account, slug) => {
+export const getRow = (db, slug) => (isSlug(slug) ? db.prepare("SELECT * FROM businesses WHERE slug = ? AND status = 'published'").get(String(slug)) : null) ?? fail(404, 'No such business.', 'no_business');
+export const ownRow = (db, account, slug) => {
   requireAccount(account);
   const row = getRow(db, slug);
   if (row.account_id !== account.id) fail(403, 'This is not your business.', 'forbidden');
@@ -170,31 +172,39 @@ export function listProfiles(db, { category = '', district = '', q = '', sort = 
 export const sitemapEntries = (db) => db.prepare("SELECT slug, updated_at AS updatedAt FROM businesses WHERE status = 'published' ORDER BY id").all();
 
 // ---- events -----------------------------------------------------------------------------------------------------------------
-// A visitor viewed a profile (sent after the page has been visible for a couple of seconds) or pressed its call to action.
+// A visitor viewed a profile (sent after the page has been visible for a couple of seconds), stayed 15 seconds (a qualified visit, `engaged`),
+// walked into its 3D storefront in the city (`store`) or pressed its call to action (`cta`, with the click id added to its link).
 // It is VERIFIED (counted) when: it is not a known bot; the visitor id is well formed; it is not the owner's own visit; the network has not
-// already made `cap` of that kind for this profile today; and, for a press, the same visitor viewed the profile in the last day.
-// Everything is kept for the record; a visitor repeating the same thing within a minute is one event.
+// already made `cap` of that kind for this profile today; and, for a qualified visit or a press, the same visitor viewed the profile in the
+// last day. Everything is kept for the record; a visitor repeating the same thing within a minute is one event.
+export const EVENT_KINDS = ['view', 'engaged', 'store', 'cta'];
+const NEEDS_VIEW = ['engaged', 'cta'];
+export const ipHashOf = (ctx) => (ctx.ip ? crypto.createHash('sha256').update(`${ctx.salt ?? 'voxelventure'}|${ctx.ip}`).digest('hex').slice(0, 16) : null);
+export const visitorOf = (account, id) => (account ? `a${account.id}` : `x${/^[A-Za-z0-9_-]{4,40}$/.test(id) ? id : 'anonymous'}`);
 export function recordProfileEvent(db, account, slug, input, ctx = {}) {
   const row = getRow(db, slug);
-  const kind = ['view', 'cta'].includes(input.kind) ? input.kind : fail(400, 'kind must be view or cta.', 'bad_kind');
+  const kind = EVENT_KINDS.includes(input.kind) ? input.kind : fail(400, `kind must be ${EVENT_KINDS.join(', ')}.`, 'bad_kind');
   const id = text(input.visitor, 40);
   const wellFormed = /^[A-Za-z0-9_-]{4,40}$/.test(id);
-  const visitor = account ? `a${account.id}` : `x${wellFormed ? id : 'anonymous'}`;
+  const visitor = visitorOf(account, id);
   const last = db.prepare('SELECT at FROM business_events WHERE business_id = ? AND visitor = ? AND kind = ? ORDER BY id DESC LIMIT 1').get(row.id, visitor, kind);
   if (last && now() - last.at < 60000) return { counted: false };
   let ref = referrerOf(db, input.ref, ctx.secret ?? referralSecret());
   if (ref && account && ref === account.id) ref = null; // nobody is credited for their own visits
-  const source = ref ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
+  const source = kind === 'store' || (kind === 'cta' && input.source === 'city') ? 'city' : ref ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
   const campaign = campaignOf(input.campaign);
-  const ipHash = ctx.ip ? crypto.createHash('sha256').update(`${ctx.salt ?? 'voxelventure'}|${ctx.ip}`).digest('hex').slice(0, 16) : null;
+  const clickId = kind === 'cta' && isClickId(input.clickId) ? String(input.clickId) : null;
+  const ipHash = ipHashOf(ctx);
   let verified = (account || wellFormed) && !BOT_UA.test(String(ctx.userAgent ?? '')) && !(account && account.id === row.account_id);
-  if (verified && kind === 'cta') verified = Boolean(db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND visitor = ? AND kind = 'view' AND at >= ?").get(row.id, visitor, now() - DAY));
+  // a press needs a look at the business first: its profile, or (a press in the 3D city) walking into its storefront
+  const looked = kind === 'cta' ? "kind IN ('view', 'store')" : "kind = 'view'";
+  if (verified && NEEDS_VIEW.includes(kind)) verified = Boolean(db.prepare(`SELECT 1 FROM business_events WHERE business_id = ? AND visitor = ? AND ${looked} AND at >= ?`).get(row.id, visitor, now() - DAY));
   if (verified && ipHash) {
     const cap = kind === 'cta' ? ctx.ctaCap ?? 1 : ctx.viewCap ?? 3;
     const used = db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE business_id = ? AND kind = ? AND ip_hash = ? AND verified = 1 AND at >= ?').get(row.id, kind, ipHash, now() - DAY).n;
     if (used >= cap) verified = false;
   }
-  db.prepare('INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at, campaign) VALUES (?,?,?,?,?,?,?,?,?)').run(row.id, kind, source, ref, visitor, ipHash, verified ? 1 : 0, now(), campaign);
+  db.prepare('INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at, campaign, click_id) VALUES (?,?,?,?,?,?,?,?,?,?)').run(row.id, kind, source, ref, visitor, ipHash, verified ? 1 : 0, now(), campaign, clickId);
   return { counted: true, verified: Boolean(verified) };
 }
 
@@ -208,31 +218,60 @@ export const campaignOf = (v) => {
 // Thirty days of verified figures for one profile. Never simulated: a profile with no visitors shows zeros.
 export function profileStats(db, businessId, at = now()) {
   const since = at - 30 * DAY;
-  const ev = db.prepare('SELECT kind, source, ref_account, visitor, at, campaign FROM business_events WHERE business_id = ? AND verified = 1 AND at >= ?').all(businessId, since);
-  const views = ev.filter((e) => e.kind === 'view');
-  const cta = ev.filter((e) => e.kind === 'cta');
-  const days = Array.from({ length: 30 }, (_, k) => ({ ago: 29 - k, views: 0, cta: 0 }));
-  for (const e of ev) days[29 - Math.min(29, Math.floor((at - e.at) / DAY))][e.kind === 'view' ? 'views' : 'cta']++;
-  const bySource = Object.fromEntries(SOURCES.map((s) => [s, 0]));
-  for (const e of views) bySource[e.source] = (bySource[e.source] ?? 0) + 1;
-  const signups = db.prepare("SELECT COUNT(*) AS n FROM leads WHERE target_kind = 'business' AND target_id = ? AND status = 'confirmed'").get(String(businessId)).n;
-  // each tagged campaign's views and presses (the ten with most views)
-  const byCampaign = new Map();
-  for (const e of ev.filter((x) => x.campaign)) {
-    const c = byCampaign.get(e.campaign) ?? { id: e.campaign, views: 0, ctaClicks: 0 };
-    c[e.kind === 'view' ? 'views' : 'ctaClicks']++;
-    byCampaign.set(e.campaign, c);
+  const ev = db.prepare('SELECT kind, source, ref_account, visitor, at, campaign, value_cents FROM business_events WHERE business_id = ? AND verified = 1 AND at >= ?').all(businessId, since);
+  const of = (kind) => ev.filter((e) => e.kind === kind);
+  const views = of('view');
+  const cta = of('cta');
+  const purchases = of('purchase');
+  const count = (sql, ...a) => db.prepare(sql).get(...a).n;
+  const inquiries = db.prepare('SELECT kind, source, campaign, created_at AS at FROM business_inquiries WHERE business_id = ? AND verified = 1 AND created_at >= ?').all(businessId, since);
+  const plotId = db.prepare('SELECT plot_id FROM businesses WHERE id = ?').get(businessId)?.plot_id ?? null;
+  const results = {
+    newsletterSignups: count("SELECT COUNT(*) AS n FROM leads WHERE target_kind = 'business' AND target_id = ? AND status = 'confirmed' AND confirmed_at >= ?", String(businessId), since),
+    meetingRequests: inquiries.filter((q) => q.kind === 'meeting').length,
+    quoteRequests: inquiries.filter((q) => q.kind === 'quote').length,
+    // the coupon of the linked 3D storefront (claims are one per visitor and never the owner's own: engage.mjs)
+    couponClaims: plotId ? count('SELECT COUNT(*) AS n FROM coupon_claims WHERE plot_id = ? AND at >= ?', plotId, since) : 0,
+    couponRedemptions: plotId ? count('SELECT COUNT(*) AS n FROM coupon_claims WHERE plot_id = ? AND redeemed_at >= ?', plotId, since) : 0,
+    purchases: purchases.length,
+  };
+  const conversions = conversionsOf(results);
+  // what the owner paid for this profile in the period (Launch Pack, Pro, placements: billing.mjs) and what each result cost
+  const spendCents = db.prepare("SELECT COALESCE(SUM(cents), 0) AS n FROM orders WHERE business_id = ? AND status = 'paid' AND paid_at >= ?").get(businessId, since).n;
+  const days = Array.from({ length: 30 }, (_, k) => ({ ago: 29 - k, views: 0, cta: 0, results: 0 }));
+  const dayOf = (t) => days[29 - Math.min(29, Math.floor((at - t) / DAY))];
+  for (const e of ev) {
+    if (e.kind === 'view') dayOf(e.at).views++;
+    else if (e.kind === 'cta') dayOf(e.at).cta++;
+    else if (e.kind === 'purchase') dayOf(e.at).results++;
   }
+  for (const q of inquiries) dayOf(q.at).results++;
+  const bySource = Object.fromEntries(SOURCES.map((s) => [s, { id: s, views: 0, ctaClicks: 0, results: 0 }]));
+  for (const e of [...views, ...cta, ...purchases]) if (bySource[e.source]) bySource[e.source][e.kind === 'view' ? 'views' : e.kind === 'cta' ? 'ctaClicks' : 'results']++;
+  for (const q of inquiries) if (bySource[q.source]) bySource[q.source].results++;
+  // each tagged campaign's views, presses and results (the ten with most views)
+  const byCampaign = new Map();
+  const campaign = (id) => byCampaign.get(id) ?? byCampaign.set(id, { id, views: 0, ctaClicks: 0, results: 0 }).get(id);
+  for (const e of [...views, ...cta, ...purchases].filter((x) => x.campaign)) campaign(e.campaign)[e.kind === 'view' ? 'views' : e.kind === 'cta' ? 'ctaClicks' : 'results']++;
+  for (const q of inquiries.filter((x) => x.campaign)) campaign(q.campaign).results++;
   return {
     simulated: false,
     verified: true,
+    impressions: of('impression').length,
     views: views.length,
     uniques: new Set(views.map((e) => e.visitor)).size,
+    qualified: of('engaged').length,
+    storeEntries: of('store').length,
     ctaClicks: cta.length,
     ctr: views.length ? cta.length / views.length : 0,
     referralVisits: views.filter((e) => e.ref_account != null).length,
-    newsletterSignups: signups,
-    sources: SOURCES.map((id) => ({ id, views: bySource[id] })),
+    ...results,
+    revenueCents: purchases.reduce((n, e) => n + (e.value_cents ?? 0), 0),
+    conversions,
+    conversionRate: views.length ? conversions / views.length : 0,
+    spendCents,
+    costPerResultCents: costPerResult(spendCents, conversions),
+    sources: Object.values(bySource),
     campaigns: [...byCampaign.values()].sort((a, b) => b.views - a.views || a.id.localeCompare(b.id)).slice(0, 10),
     days,
   };
@@ -300,7 +339,14 @@ export function exportCsv(db, account, slug) {
   if (!planFor(db, row.id).pro) fail(402, `CSV export is part of ${PRODUCTS.pro.name}.`, 'needs_pro');
   const s = profileStats(db, row.id);
   const day = (ago) => new Date(Date.now() - ago * DAY).toISOString().slice(0, 10);
-  const rows = [['Date', 'Verified views', 'Call-to-action presses'], ...s.days.map((d) => [day(d.ago), d.views, d.cta]), [], ['Source', 'Views (30 days)'], ...s.sources.map((x) => [x.id, x.views]), [], ['Campaign', 'Views', 'Presses'], ...s.campaigns.map((c) => [c.id, c.views, c.ctaClicks])];
+  const rows = [
+    ['Date', 'Verified views', 'Call-to-action presses', 'Results'], ...s.days.map((d) => [day(d.ago), d.views, d.cta, d.results]),
+    [], ['Funnel (30 days)', 'Count'], ['Seen in lists', s.impressions], ['Profile visits', s.views], ['Qualified visits', s.qualified], ['Store entries', s.storeEntries], ['Button presses', s.ctaClicks],
+    ['Newsletter sign-ups', s.newsletterSignups], ['Meeting requests', s.meetingRequests], ['Quote requests', s.quoteRequests], ['Coupons claimed', s.couponClaims], ['Coupons redeemed', s.couponRedemptions], ['Purchases', s.purchases],
+    ['Purchase value (USD)', (s.revenueCents / 100).toFixed(2)], ['Spent on VoxelVenture (USD)', (s.spendCents / 100).toFixed(2)], ['Cost per result (USD)', s.costPerResultCents == null ? '' : (s.costPerResultCents / 100).toFixed(2)],
+    [], ['Source', 'Views', 'Presses', 'Results'], ...s.sources.map((x) => [x.id, x.views, x.ctaClicks, x.results]),
+    [], ['Campaign', 'Views', 'Presses', 'Results'], ...s.campaigns.map((c) => [c.id, c.views, c.ctaClicks, c.results]),
+  ];
   return { __raw: { type: 'text/csv; charset=utf-8', filename: `${row.slug}-figures.csv`, body: csvRows(rows) } };
 }
 

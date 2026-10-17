@@ -120,6 +120,8 @@ export function plotView(db, row) {
     lease: leaseView(row),
     ...facts,
     exterior: row.exterior ? JSON.parse(row.exterior) : null,
+    // its public business page, if the owner linked one (business.mjs linkPlot): the page to share, and where a browser without 3D goes
+    profileSlug: db.prepare("SELECT slug FROM businesses WHERE plot_id = ? AND status = 'published'").get(row.id)?.slug ?? null,
   };
 }
 // The lease of a plot as a client needs it: the term, the end, the state and what a renewal costs. null for a business the city started with.

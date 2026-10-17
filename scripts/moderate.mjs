@@ -11,6 +11,7 @@
 //   npm run moderate -- orders [pending|paid|refunded|expired|failed]             payments (docs/billing.md), newest first
 //   npm run moderate -- refund 12                                                   refund an order in full and take back what it bought
 //   npm run moderate -- grant amys-cafe pro|launch|sponsored [days] [placement] [reason...]   a complimentary week, month or placement
+//   npm run moderate -- renewals                                                    Pro renewals and repeat purchases (docs/conversions.md)
 //   npm run moderate -- reconcile                                                   ask Stripe about pending orders and running Pro plans now
 // With the messaging service (services/messaging), chat reports are its own: set MESSAGING_URL (e.g. http://localhost:3003) and the
 // list shows both queues, and `resolve message|nearby ...` goes there.
@@ -70,9 +71,15 @@ if (!cmd || cmd === 'list') {
   const [slug, product, days, placement, ...reason] = args;
   const g = await call('POST', `/admin/billing/grant/${encodeURIComponent(slug ?? '')}`, { product, days: days ? Number(days) : undefined, placement: placement || undefined, reason: reason.join(' ') || undefined });
   console.log(`Granted: order ${g.orderId}, until ${new Date(g.until).toISOString().slice(0, 10)}.`);
+} else if (cmd === 'renewals') {
+  const r = await call('GET', '/admin/metrics/renewals');
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  console.log(`Pro: ${r.pro.renewed} of ${r.pro.plans} paid plans renewed at least once (${pct(r.pro.rate)})`);
+  console.log(`Launch Pack: ${r.launch.again} of ${r.launch.buyers} buyers bought again (${pct(r.launch.rate)})`);
+  console.log(`Sponsored placements: ${r.sponsored.again} of ${r.sponsored.buyers} buyers bought again (${pct(r.sponsored.rate)})`);
 } else if (cmd === 'reconcile') {
   console.log(JSON.stringify(await call('POST', '/admin/billing/reconcile')));
 } else {
-  console.error('Commands: list | resolve <feedback|plot|ad|business|message|nearby> <id> <dismiss|remove|ban> | ban <account id> [reason] | unban <account id> | audit [verify | <kind> [id] | action <name> | account <id>] | posts [status | approve <id> | reject <id>] | orders [status] | refund <order id> | grant <slug> <pro|launch|sponsored> [days] [placement] [reason] | reconcile');
+  console.error('Commands: list | resolve <feedback|plot|ad|business|message|nearby> <id> <dismiss|remove|ban> | ban <account id> [reason] | unban <account id> | audit [verify | <kind> [id] | action <name> | account <id>] | posts [status | approve <id> | reject <id>] | orders [status] | refund <order id> | grant <slug> <pro|launch|sponsored> [days] [placement] [reason] | renewals | reconcile');
   process.exit(1);
 }

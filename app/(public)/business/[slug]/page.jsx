@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { categoryOf, districtOf, isSlug, profileJsonLd } from '@/lib/business/profile';
+import { breadcrumbJsonLd, categoryOf, districtOf, isSlug, profileJsonLd } from '@/lib/business/profile';
 import { getBusiness, isDemo, siteUrl } from '@/lib/business/source';
 import CtaButton from '@/components/business/CtaButton';
 import ProfileTracker from '@/components/business/ProfileTracker';
@@ -36,6 +36,7 @@ export default async function BusinessPage({ params }) {
   return (
     <article>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: profileJsonLd(p, url) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd([{ name: 'Discover', url: `${siteUrl()}/discover` }, ...(category ? [{ name: category.label, url: `${siteUrl()}/category/${category.id}` }] : []), { name: p.name, url }]) }} />
       <ProfileTracker slug={p.slug} />
       <nav aria-label="Breadcrumb" className="mb-4 text-sm text-sx-muted">
         <Link href="/discover" className="hover:text-white">Discover</Link>

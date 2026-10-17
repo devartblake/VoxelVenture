@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiBase, getToken, request } from '@/lib/data/api';
 import { PLACEMENTS, PRODUCTS, dollars } from '@/lib/business/plans';
 import { CTA_KINDS, categoryOf, districtOf, profileUrl } from '@/lib/business/profile';
+import { FUNNEL, RESULTS, CLICK_PARAM } from '@/lib/business/conversions';
 import AuthDialog from '@/components/ui/AuthDialog';
 import ProfileForm from './ProfileForm';
 import NotLive from './NotLive';
@@ -139,21 +140,8 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
         <div className="mt-4"><ProfileForm initial={p} submitLabel="Save changes" onSubmit={save} onCancel={() => setEditing(false)} /></div>
       ) : (
         <>
-          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {[
-              ['Profile views', stats.views],
-              ['Unique visitors', stats.uniques],
-              [`“${p.cta.label}” presses`, stats.ctaClicks],
-              ['Press rate', pct(stats.ctr)],
-              ['Via your link', stats.referralVisits],
-              ['Newsletter sign-ups', stats.newsletterSignups],
-            ].map(([k, val]) => (
-              <div key={k} className="rounded-xl bg-sx-alt p-3">
-                <dt className="text-xs text-sx-muted">{k}</dt>
-                <dd className="mt-1 text-2xl font-semibold text-white">{val}</dd>
-              </div>
-            ))}
-          </dl>
+          <Funnel stats={stats} ctaLabel={p.cta.label} />
+          <Results stats={stats} />
           {welcomePost && (
             <p className="mt-3 text-sm text-slate-300">
               Welcome post on X: {POST_STATUS[welcomePost.status] ?? welcomePost.status}
@@ -162,6 +150,8 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
           )}
           <PlanBox slug={p.slug} profile={p} plan={plan} checkoutOn={checkoutOn} buy={buy} onChange={onChange} sponsorOpen={sponsorOpen} setSponsorOpen={setSponsorOpen} setMsg={setMsg} />
           {launchSummary && <LaunchSummary s={launchSummary} />}
+          {['meeting', 'quote'].includes(p.cta.kind) && <Inquiries slug={p.slug} />}
+          {CTA_KINDS.find((k) => k.id === p.cta.kind)?.needsUrl && <PurchaseTracking slug={p.slug} />}
           {!plan.pro && (
             <p className="mt-4 rounded-xl border border-dashed border-sx-stroke p-3 text-sm text-slate-300">
               <span className="font-semibold text-white">Pro</span> adds where your visitors came from, campaign results, the 30-day chart and CSV export.
@@ -186,10 +176,10 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
             <div className="mt-4">
               <h3 className="mb-2 text-sm font-semibold text-slate-200">Campaigns</h3>
               <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-sx-muted"><th className="font-normal">Campaign</th><th className="font-normal">Views</th><th className="font-normal">Presses</th></tr></thead>
+                <thead><tr className="text-left text-xs text-sx-muted"><th className="font-normal">Campaign</th><th className="font-normal">Views</th><th className="font-normal">Presses</th><th className="font-normal">Results</th></tr></thead>
                 <tbody>
                   {stats.campaigns.map((c) => (
-                    <tr key={c.id} className="border-t border-sx-stroke/60"><td className="py-1 text-slate-200">{c.id}</td><td className="text-slate-300">{c.views}</td><td className="text-slate-300">{c.ctaClicks}</td></tr>
+                    <tr key={c.id} className="border-t border-sx-stroke/60"><td className="py-1 text-slate-200">{c.id}</td><td className="text-slate-300">{c.views}</td><td className="text-slate-300">{c.ctaClicks}</td><td className="text-slate-300">{c.results ?? 0}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -452,5 +442,116 @@ function Orders() {
       </table>
       <p className="mt-2 text-xs text-sx-muted">Stripe emails a receipt for every payment.</p>
     </section>
+  );
+}
+
+// The journey from being seen to a result, verified, for 30 days (lib/business/conversions.js), each step with its share of the step it
+// follows from (visits, for everything after a visit).
+function Funnel({ stats, ctaLabel }) {
+  const steps = FUNNEL.map((f) => ({ ...f, hint: f.id === 'ctaClicks' ? `Presses of “${ctaLabel}”.` : f.hint, value: stats[f.id] ?? 0 }));
+  const top = Math.max(1, ...steps.map((x) => x.value));
+  return (
+    <div className="mt-4" data-testid="funnel">
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Last 30 days, verified</h3>
+      <ol className="space-y-1.5">
+        {steps.map((x) => {
+          const before = x.of ? stats[x.of] ?? 0 : null;
+          return (
+            <li key={x.id} className="grid grid-cols-[8.5rem_1fr_9.5rem] items-center gap-2 text-sm" title={x.hint}>
+              <span className="text-slate-300">{x.label}</span>
+              <span className="h-2.5 rounded bg-gradient-to-r from-sx-purple to-sx-cyan" style={{ width: `${Math.max(2, (x.value / top) * 100)}%` }} aria-hidden="true" />
+              <span className="text-right text-slate-100">
+                {x.value.toLocaleString()}
+                {before ? <span className="ml-1 text-xs text-sx-muted">({pct(x.value / before)} of {x.of === 'views' ? 'visits' : 'seen'})</span> : null}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-1 text-xs text-sx-muted">{stats.uniques} unique visitors · {stats.referralVisits} via your link · store entries count people who walked into your 3D storefront</p>
+    </div>
+  );
+}
+
+// What came of it: each kind of result, the purchases' value, what the profile cost and what one result cost.
+function Results({ stats }) {
+  const cents = (c) => (c == null ? '–' : `$${(c / 100).toFixed(2)}`);
+  const tiles = [
+    ...RESULTS.filter((r) => r.id !== 'couponRedemptions' || stats.couponClaims > 0).map((r) => [r.label, stats[r.id] ?? 0]),
+    ...(stats.purchases ? [['Purchase value', cents(stats.revenueCents)]] : []),
+    ['Spent here', cents(stats.spendCents)],
+    ['Cost per result', cents(stats.costPerResultCents)],
+  ];
+  return (
+    <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5" data-testid="results">
+      {tiles.map(([k, val]) => (
+        <div key={k} className="rounded-xl bg-sx-alt p-3">
+          <dt className="text-xs text-sx-muted">{k}</dt>
+          <dd className="mt-1 text-xl font-semibold text-white">{val}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// Meeting and quote requests sent from the profile: who, what, and whether the owner has answered.
+function Inquiries({ slug }) {
+  const [list, setList] = useState(null);
+  const load = useCallback(() => request('GET', `/businesses/${slug}/inquiries`).then((r) => setList(r.inquiries), () => setList([])), [slug]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const mark = (id, status) => request('PATCH', `/businesses/${slug}/inquiries/${id}`, { status }).then(load, () => {});
+  if (!list) return null;
+  return (
+    <div className="mt-4" data-testid="inquiries">
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Requests · {list.filter((q) => q.status === 'new').length} to answer</h3>
+      {!list.length && <p className="text-sm text-sx-muted">No requests yet. Each one is also emailed to you.</p>}
+      <ul className="space-y-2">
+        {list.slice(0, 20).map((q) => (
+          <li key={q.id} className={`rounded-xl border p-3 text-sm ${q.status === 'new' ? 'border-sx-cyan/40' : 'border-sx-stroke opacity-70'}`}>
+            <p className="text-slate-100">
+              <span className="font-semibold">{q.name}</span> · <a href={`mailto:${q.email}`} className="text-sx-cyan underline">{q.email}</a>{q.phone ? ` · ${q.phone}` : ''}
+              <span className="ml-2 text-xs text-sx-muted">{q.kind === 'meeting' ? 'Meeting' : 'Quote'} · {new Date(q.at).toLocaleDateString()}{q.verified ? '' : ' · not verified'}</span>
+            </p>
+            {q.preferred && <p className="text-slate-300">When: {q.preferred}</p>}
+            {q.message && <p className="whitespace-pre-line text-slate-300">{q.message}</p>}
+            <div className="mt-1 flex gap-2 text-xs">
+              {q.status !== 'handled' && <button type="button" onClick={() => mark(q.id, 'handled')} className="text-emerald-300 hover:underline">Mark answered</button>}
+              {q.status !== 'new' && <button type="button" onClick={() => mark(q.id, 'new')} className="text-slate-300 hover:underline">Mark to answer</button>}
+              {q.status !== 'spam' && <button type="button" onClick={() => mark(q.id, 'spam')} className="text-rose-300 hover:underline">Spam</button>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Counting purchases on the owner's own site: the button's link carries a click id; their site reports the sale with it.
+function PurchaseTracking({ slug }) {
+  const [open, setOpen] = useState(false);
+  const [t, setT] = useState(null);
+  useEffect(() => {
+    if (open && !t) request('GET', `/businesses/${slug}/tracking`).then(setT, () => {});
+  }, [open, t, slug]);
+  return (
+    <details className="mt-4 rounded-xl border border-sx-stroke p-3 text-sm" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className="cursor-pointer font-semibold text-slate-200">Count purchases on your own site</summary>
+      <p className="mt-2 text-slate-300">
+        Your button&apos;s link carries <code className="text-sx-cyan">{CLICK_PARAM}</code>. Keep it with the order, and when the order is paid, report it with one of these.
+        A purchase counts as a result when it comes from a press of your button in the 30 days before.
+      </p>
+      {t ? (
+        <div className="mt-2 space-y-2 text-xs">
+          <p className="text-slate-400">Your key (keep it private): <code className="break-all text-slate-200">{t.key}</code></p>
+          <p className="text-slate-400">From your server:</p>
+          <pre className="overflow-x-auto rounded bg-sx-alt p-2 text-slate-200">{`curl -X POST ${t.postback} -H 'Content-Type: application/json' \\
+  -d '{"business":"${slug}","key":"${t.key}","click":"<vv_click>","value":<cents>,"order":"<order number>"}'`}</pre>
+          <p className="text-slate-400">Or on your thank-you page:</p>
+          <pre className="overflow-x-auto rounded bg-sx-alt p-2 text-slate-200">{`<img src="${t.pixel}" width="1" height="1" alt="">`}</pre>
+        </div>
+      ) : open ? <p className="mt-2 text-xs text-sx-muted">Loading…</p> : null}
+    </details>
   );
 }

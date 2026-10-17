@@ -365,6 +365,27 @@ CREATE TABLE IF NOT EXISTS business_events (
 );
 CREATE INDEX IF NOT EXISTS business_events_business ON business_events(business_id, at);
 CREATE INDEX IF NOT EXISTS business_events_ref ON business_events(ref_account, at);
+-- A meeting or quote request a visitor sent from a profile (phase 5, docs/conversions.md). Emailed to the owner and listed for them;
+-- only verified ones (not a bot, the visitor viewed the profile first, within the per-network cap) count as results.
+CREATE TABLE IF NOT EXISTS business_inquiries (
+  id INTEGER PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  kind TEXT NOT NULL,                            -- meeting | quote
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  message TEXT,
+  preferred TEXT,                                -- meeting: when suits them, in their words
+  visitor TEXT NOT NULL,
+  ip_hash TEXT,
+  source TEXT NOT NULL DEFAULT 'direct',
+  campaign TEXT,
+  verified INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'new',            -- new | handled | spam
+  created_at INTEGER NOT NULL,
+  handled_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS business_inquiries_business ON business_inquiries(business_id, created_at);
 -- An owner asked for a paid upgrade before checkout exists (phase 4): the demand signal for the pricing ladder.
 CREATE TABLE IF NOT EXISTS upgrade_interest (
   business_id INTEGER NOT NULL REFERENCES businesses(id),

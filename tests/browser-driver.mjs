@@ -23,7 +23,8 @@ let nextPort = 9300 + Math.floor(Math.random() * 400);
 
 // Each page gets its own temporary profile and debugging port, so it never touches (or hands off to)
 // a browser you already have open.
-export async function openPage(url, { width = 1200, height = 800, mobile = false } = {}) {
+// `userAgent`: browse as an ordinary browser (headless Chrome names itself, and the server rightly does not count its visits as human).
+export async function openPage(url, { width = 1200, height = 800, mobile = false, userAgent = null } = {}) {
   const exe = findBrowser();
   if (!exe) throw new Error('no browser found (set BROWSER_PATH)');
   const port = nextPort++;
@@ -81,6 +82,7 @@ export async function openPage(url, { width = 1200, height = 800, mobile = false
   } else {
     await call('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
   }
+  if (userAgent) await call('Emulation.setUserAgentOverride', { userAgent });
   await call('Page.navigate', { url });
 
   return {
