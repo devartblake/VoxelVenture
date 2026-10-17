@@ -1,9 +1,10 @@
 # Caddy: HTTPS for the three public addresses, and the reverse proxy to the three local processes.
-# Replace example.com with your domain (and point three DNS A records at the server: example.com, api.example.com, play.example.com).
-# Caddy gets and renews the certificates by itself.
+# Set up for voxelventure.app. DNS A records (at GoDaddy) point at the Linode: @, api and play under voxelventure.app, and www
+# under both voxelventure.app and voxelventure.net plus @ under voxelventure.net for the redirects at the end.
+# Caddy gets and renews the certificates by itself. .app is HTTPS-only in every browser, which Caddy handles.
 
 # The game (Next.js).
-example.com {
+voxelventure.app {
 	encode zstd gzip
 
 	# The presence monitor page has no login of its own: put a password on it.
@@ -26,7 +27,7 @@ example.com {
 }
 
 # The API.
-api.example.com {
+api.voxelventure.app {
 	encode zstd gzip
 	# The API reads the visitor's address from X-Forwarded-For (TRUST_PROXY=1 in api.env), which Caddy sets.
 	# /internal/* is for the other processes on this machine (the presence server, the messaging service): never from outside.
@@ -37,9 +38,15 @@ api.example.com {
 
 # Presence (WebSockets). Only the game's connection and the health check are public: /status lists every
 # connected player, and /notify and /notify-accounts are for the API on this machine, so none is reachable from outside.
-play.example.com {
+play.voxelventure.app {
 	@private path /status /status/* /notify /notify/* /notify-accounts /notify-accounts/*
 	respond @private 404
 
 	reverse_proxy 127.0.0.1:3001
+}
+
+# The other names send visitors to the one address (a permanent redirect keeps search engines on voxelventure.app).
+# Remove a name here if it has no A record, or Caddy keeps retrying its certificate.
+www.voxelventure.app, voxelventure.net, www.voxelventure.net {
+	redir https://voxelventure.app{uri} permanent
 }
