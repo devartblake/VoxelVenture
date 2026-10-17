@@ -1,0 +1,70 @@
+{
+ "scenario": "merchant-onboarding",
+ "title": "A merchant lists a business, links a building, sets an offer and a coupon, sees the figures and answers the pilot check-in",
+ "seed": 20260101,
+ "startedAt": "2026-10-17T18:48:06.471Z",
+ "result": "pass",
+ "milestones": [
+  {
+   "id": "sign-up",
+   "title": "The merchant creates an account",
+   "status": "pass",
+   "ms": 30
+  },
+  {
+   "id": "create-profile",
+   "title": "A free business profile is created and public",
+   "status": "pass",
+   "ms": 5
+  },
+  {
+   "id": "claim-building",
+   "title": "A lot is claimed for it in the city",
+   "status": "pass",
+   "ms": 178
+  },
+  {
+   "id": "link-building",
+   "title": "The building is linked to the profile",
+   "status": "pass",
+   "ms": 9
+  },
+  {
+   "id": "set-cta",
+   "title": "The call to action is changed and published",
+   "status": "pass",
+   "ms": 6
+  },
+  {
+   "id": "set-offer-and-coupon",
+   "title": "A coupon is set in the storefront; an offer on the free plan asks for Pro",
+   "status": "pass",
+   "ms": 13
+  },
+  {
+   "id": "dashboard-figures",
+   "title": "The dashboard shows the profile, its set-up steps and its figures",
+   "status": "pass",
+   "ms": 3800
+  },
+  {
+   "id": "join-pilot",
+   "title": "The operator adds the business to the pilot",
+   "status": "pass",
+   "ms": 5
+  },
+  {
+   "id": "pilot-check-in",
+   "title": "The merchant sends the weekly check-in from the dashboard",
+   "status": "pass",
+   "ms": 630
+  },
+  {
+   "id": "check-in-recorded",
+   "title": "The pilot dashboard has the check-in",
+   "status": "pass",
+   "ms": 3
+  }
+ ],
+ "endedAt": "2026-10-17T18:48:42.315Z"
+}

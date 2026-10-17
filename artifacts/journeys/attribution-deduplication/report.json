@@ -1,0 +1,52 @@
+{
+ "scenario": "attribution-deduplication",
+ "title": "One visitor's press and purchase are counted once, however many times the page, the pixel and the business's server report them",
+ "seed": 20260101,
+ "startedAt": "2026-10-17T18:48:05.436Z",
+ "result": "pass",
+ "milestones": [
+  {
+   "id": "view-once",
+   "title": "The same visitor viewing twice in an hour is one view",
+   "status": "pass",
+   "ms": 9
+  },
+  {
+   "id": "press-once",
+   "title": "Pressing twice within a minute is one press, with one click id",
+   "status": "pass",
+   "ms": 8
+  },
+  {
+   "id": "pixel-reported",
+   "title": "The thank-you page's pixel reports the purchase (unverified)",
+   "status": "pass",
+   "ms": 6
+  },
+  {
+   "id": "postback-reconciles",
+   "title": "The business's server reports the same order: it replaces the pixel's, now verified",
+   "status": "pass",
+   "ms": 5
+  },
+  {
+   "id": "postback-repeat",
+   "title": "The same order reported again is a duplicate",
+   "status": "pass",
+   "ms": 3
+  },
+  {
+   "id": "pixel-after-postback",
+   "title": "The pixel firing again after the postback changes nothing",
+   "status": "pass",
+   "ms": 5
+  },
+  {
+   "id": "figures-once",
+   "title": "The owner's figures count one press, one purchase and its revenue once",
+   "status": "pass",
+   "ms": 2
+  }
+ ],
+ "endedAt": "2026-10-17T18:48:06.358Z"
+}

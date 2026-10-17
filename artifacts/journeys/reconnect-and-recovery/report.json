@@ -1,0 +1,100 @@
+{
+ "scenario": "reconnect-and-recovery",
+ "title": "Two signed-in players meet, talk, lose their connection and come back; and the presence server holds against malformed, stale and abusive clients",
+ "seed": 20260101,
+ "startedAt": "2026-10-17T18:48:42.426Z",
+ "result": "pass",
+ "milestones": [
+  {
+   "id": "both-connect",
+   "title": "Both players connect to the same city and are welcomed",
+   "status": "pass",
+   "ms": 408
+  },
+  {
+   "id": "signed-in",
+   "title": "Both sign in with one-use tickets and are verified",
+   "status": "pass",
+   "ms": 162
+  },
+  {
+   "id": "see-each-other",
+   "title": "Each sees the other come into view, once",
+   "status": "pass",
+   "ms": 801
+  },
+  {
+   "id": "chat-heard-once",
+   "title": "A nearby line is heard once, and its retry is answered, not said again",
+   "status": "pass",
+   "ms": 701
+  },
+  {
+   "id": "out-of-view",
+   "title": "Walking out of view is seen as leaving, and back as coming in",
+   "status": "pass",
+   "ms": 554
+  },
+  {
+   "id": "forced-disconnect",
+   "title": "A dropped connection is seen to leave",
+   "status": "pass",
+   "ms": 1201
+  },
+  {
+   "id": "reconnect",
+   "title": "Reconnecting signs in again and is seen once, not twice",
+   "status": "pass",
+   "ms": 1055
+  },
+  {
+   "id": "retry-after-reconnect",
+   "title": "A line retried after a reconnect is answered, not said twice",
+   "status": "pass",
+   "ms": 752
+  },
+  {
+   "id": "stale-protocol",
+   "title": "A game speaking another protocol is told so and closed",
+   "status": "pass",
+   "ms": 201
+  },
+  {
+   "id": "spent-ticket",
+   "title": "A ticket already used cannot sign in again",
+   "status": "pass",
+   "ms": 254
+  },
+  {
+   "id": "malformed-input",
+   "title": "Malformed and out-of-range messages change nothing they should not",
+   "status": "pass",
+   "ms": 805
+  },
+  {
+   "id": "rate-limited",
+   "title": "A flood of messages is cut, and the server stays up for everyone",
+   "status": "pass",
+   "ms": 1464
+  },
+  {
+   "id": "slow-receiver",
+   "title": "A client that stops reading is skipped, not waited for, and recovers",
+   "status": "pass",
+   "ms": 3273
+  },
+  {
+   "id": "no-outcomes-from-presence",
+   "title": "Presence messages cannot create visits, presses or purchases",
+   "status": "pass",
+   "ms": 817
+  },
+  {
+   "id": "every-message-in-contract",
+   "title": "Every message the server sent fits the protocol's contracts",
+   "status": "pass",
+   "ms": 0
+  }
+ ],
+ "endedAt": "2026-10-17T18:48:55.979Z"
+}
