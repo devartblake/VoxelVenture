@@ -34,6 +34,7 @@
 | [behind_the_building.md](behind_the_building.md) | The "Behind the building" option in the plot menu: car park, garden, patio, storage, pool |
 | [street_names.md](street_names.md) | The offline OpenStreetMap street-name script and its output |
 | [chat_messaging_plan.md](chat_messaging_plan.md) | Nearby chat and private messages: the plan, what is built (phases 0-3) and the launch checks and decisions still open |
+| [legal/policy_review.md](legal/policy_review.md) | The draft policies at `/legal`: what to fill in, what to decide, and where the product does not yet match them, before a lawyer's review and approval |
 | [node_fastapi_architecture_plan.md](node_fastapi_architecture_plan.md) | Moving messaging into a Python (FastAPI) service beside Node: who owns what, the internal boundaries, and what is built (steps 1-5) and left (the switch-over) |
 | [../services/messaging/README.md](../services/messaging/README.md) | The Python messaging service: running it, its settings, how it talks to Node, moving the data, its tests |
 | [day_night_sound.md](day_night_sound.md) | The shared day and night, street and window lights, ambient sound: what is built and what is next |

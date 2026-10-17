@@ -20,7 +20,14 @@ export default function PublicLayout({ children }) {
       )}
       <main id="main" className="mx-auto max-w-5xl px-4 py-8">{children}</main>
       <footer className="border-t border-sx-stroke px-4 py-6 text-center text-xs text-sx-muted">
-        Figures shown to business owners are verified visits only. <Link href="/discover" className="underline hover:text-white">Discover businesses</Link>
+        <p>Figures shown to business owners are verified visits only. <Link href="/discover" className="underline hover:text-white">Discover businesses</Link></p>
+        <nav aria-label="Policies" className="mt-2">
+          <ul className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            {[['terms', 'Terms'], ['privacy', 'Privacy'], ['refunds', 'Refunds'], ['advertising', 'Advertising'], ['retention', 'Data retention'], ['merchants', 'For businesses']].map(([slug, label]) => (
+              <li key={slug}><Link href={`/legal/${slug}`} className="underline hover:text-white">{label}</Link></li>
+            ))}
+          </ul>
+        </nav>
       </footer>
     </div>
   );

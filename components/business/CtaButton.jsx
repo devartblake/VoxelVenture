@@ -5,6 +5,7 @@ import { apiOn, request } from '@/lib/data/api';
 import { visitorId } from '@/lib/data/visitor';
 import { newClickId, withClickId } from '@/lib/business/conversions';
 import { trackCta } from './ProfileTracker';
+import { RETENTION } from '@/lib/legal/retention';
 
 const BUTTON = 'inline-flex items-center justify-center gap-2 rounded-xl bg-sx-cyan px-5 py-3 text-base font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-white';
 const FIELD = 'w-full rounded-xl border border-sx-stroke bg-sx-alt px-4 py-2.5 text-white placeholder:text-slate-500 focus:border-sx-cyan focus:outline-none';
@@ -100,7 +101,9 @@ function Inquiry({ slug, cta }) {
       {field('message', meeting ? 'What would you like to talk about? (optional)' : 'What would you like a quote for?', { textarea: true, required: !meeting })}
       {/* left empty by people; robots fill it in */}
       <input type="text" name="website" value={form.website} onChange={set('website')} tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
-      <p className="text-xs text-sx-muted">Your details go only to this business, so it can reply.</p>
+      <p className="text-xs text-sx-muted">
+        Your details go only to this business, so it can reply, and are wiped from VoxelVenture after {RETENTION.inquiryDays} days. <a href="/legal/privacy" target="_blank" rel="noopener" className="underline hover:text-white">Privacy</a>
+      </p>
       <div className="flex gap-2">
         <button type="submit" disabled={state.busy} className={BUTTON}>Send</button>
         <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-sx-stroke px-4 text-sm text-slate-300 hover:bg-sx-alt">Cancel</button>

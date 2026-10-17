@@ -52,6 +52,11 @@ export default function AuthDialog() {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name (3-20 letters or numbers)" autoComplete="username" required className={INPUT} aria-label="Name" />
         <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password (8 or more characters)" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={8} className={INPUT} aria-label="Password" />
         {mode === 'signup' && <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email (optional): for notices about your plots" autoComplete="email" className={INPUT} aria-label="Email" />}
+        {mode === 'signup' && (
+          <p className="text-[11px] text-slate-400">
+            By creating an account you agree to the <a href="/legal/terms" target="_blank" rel="noopener" className="underline hover:text-white">terms</a> and the <a href="/legal/privacy" target="_blank" rel="noopener" className="underline hover:text-white">privacy policy</a>.
+          </p>
+        )}
         {error && <p className="rounded-md border border-red-700/50 bg-red-950/40 px-2.5 py-1.5 text-xs text-red-200" role="alert">{error}</p>}
         <button type="submit" disabled={busy} className="w-full rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue py-2 text-sm font-bold text-white hover:brightness-110 disabled:opacity-50">
           {busy ? 'One moment…' : mode === 'signup' ? 'Create the account and continue' : 'Sign in and continue'}

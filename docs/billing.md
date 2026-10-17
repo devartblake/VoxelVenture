@@ -106,6 +106,6 @@ The API refuses to start in production with an unsafe combination; `npm run chec
 
 1. Create the Stripe account and finish its business verification.
 2. In **Developers > Webhooks**, add the endpoint `https://<api host>/billing/webhook` and select the events listed above. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
-3. Write the terms, the refund policy, and the advertising and placement terms (the review's P0 list). Publish them and set `TERMS_URL` and `REFUND_POLICY_URL`.
+3. Write the terms, the refund policy, and the advertising and placement terms (the review's P0 list). Publish them and set `TERMS_URL` and `REFUND_POLICY_URL`. *Drafted at `/legal/terms`, `/legal/refunds` and `/legal/advertising`; see `docs/legal/policy_review.md` for what is left before they can be approved.*
 4. Turn on customer emails for receipts (see [Receipts](#receipts)).
 5. Try the whole loop with a test key and Stripe's test cards (`4242 4242 4242 4242`): buy, check `/business/manage`, refund, and check that the entitlement goes away. Then switch to the live key.
