@@ -85,8 +85,7 @@ if ($Target -eq 'staging') {
     'cd /srv/voxelventure',
     'sudo -u voxel voxelventure-backup',
     'sudo -u voxel npm ci --no-audit --no-fund',
-    'set -a; . /etc/voxelventure/web.env; set +a',
-    'sudo -E -u voxel npm run build',
+    'bash deploy/build-web.sh /etc/voxelventure/web.env',
     'systemctl restart voxelventure-api voxelventure-presence voxelventure-web',
     'for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3002/health >/dev/null 2>&1 && curl -fsS -o /dev/null http://127.0.0.1:3000/legal 2>/dev/null && break; sleep 2; done',
     'curl -fsS http://127.0.0.1:3002/health >/dev/null && echo "the API and the site are answering"'

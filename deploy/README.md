@@ -59,9 +59,9 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
    ```
    cd /srv/voxelventure
    sudo -u voxel npm ci
-   set -a; . /etc/voxelventure/web.env; set +a
-   sudo -E -u voxel npm run build
+   bash deploy/build-web.sh /etc/voxelventure/web.env
    ```
+   `build-web.sh` builds as the `voxel` user with `web.env` loaded, then checks that the API address is really in the build. Don't use `sudo -E -u voxel npm run build`: newer Ubuntu's sudo ignores `-E`, and the site then builds as a demo without any error.
    `npm ci` also runs `patch-package`, which applies the fixes in `patches/`: copy that folder with the rest.
 5. **Caddy:** the domain is already in `deploy/Caddyfile`; make a password hash with `caddy hash-password` for the monitor page, copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`.
 6. **Start everything:** `systemctl start voxelventure-api voxelventure-presence voxelventure-web`.
@@ -98,8 +98,7 @@ By hand, on the server (after copying the files, as in step 1 or with `push.ps1 
 cd /srv/voxelventure
 sudo -u voxel voxelventure-backup
 sudo -u voxel npm ci
-set -a; . /etc/voxelventure/web.env; set +a
-sudo -E -u voxel npm run build
+bash deploy/build-web.sh /etc/voxelventure/web.env
 systemctl restart voxelventure-api voxelventure-presence voxelventure-web
 VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
   npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app

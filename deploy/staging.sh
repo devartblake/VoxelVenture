@@ -152,8 +152,7 @@ cmd_deploy() {
   (
     cd "$rel"
     sudo -u voxel npm ci --no-audit --no-fund
-    set -a; . "$ETC/web.env"; set +a
-    sudo -E -u voxel npm run build
+    bash deploy/build-web.sh "$ETC/web.env" # with staging's addresses, checked to be in the build
   )
   mkdir -p "$rel/apps/web/.next/cache"
   chown -R voxel:voxel "$rel/apps/web/.next"

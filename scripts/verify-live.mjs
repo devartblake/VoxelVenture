@@ -79,7 +79,9 @@ if (site) {
   const newPage = await get(`${site}/business/new`);
   check('the site was built with the API address (owner pages are live)', newPage.status === 200 && !/Profiles need the API server/.test(newPage.body));
   const robots = await get(`${site}/robots.txt`);
-  check('robots.txt points at the sitemap on this site', robots.status === 200 && robots.body.includes(`${site}/sitemap.xml`));
+  // staging (deploy/STAGING.md) keeps search engines out on purpose; anywhere else, a site that does so would vanish from search
+  if (/^https?:\/\/staging\./.test(site)) check('robots.txt keeps search engines out of staging', robots.status === 200 && /^Disallow: \/\s*$/m.test(robots.body));
+  else check('robots.txt points at the sitemap on this site', robots.status === 200 && robots.body.includes(`${site}/sitemap.xml`));
   const sitemap = await get(`${site}/sitemap.xml`);
   check('the sitemap is served', sitemap.status === 200 && sitemap.body.includes('<urlset'));
   const first = profiles.json?.profiles?.[0];
