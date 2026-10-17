@@ -20,6 +20,7 @@ Phase A of the [migration plan](architecture/modular_monorepo_migration_plan.md)
 | Document | Read it for |
 | :--- | :--- |
 | [tasks.md](roadmap/tasks.md) | **What is done and what is left**, with sizes and dependencies |
+| [external_voxel_repositories_adoption_plan.md](architecture/external_voxel_repositories_adoption_plan.md) | Selective adoption plan for Mykonos Island Voxels, Voxelize, and Tiny World Builder, including implementation tracks, folder changes, licensing boundaries, and GAP analysis |
 | [overview.md](product/overview.md) | **Start here.** What the project is, how to run and test it, how the city, game and multiplayer work, and what is next |
 | [project_status.md](roadmap/project_status.md) | The detailed record: everything built, section by section (5 to 5z), known issues, progress against the blueprint |
 | [claimavenue_competitive_alignment_review.md](competitive-research/claimavenue_competitive_alignment_review.md) | **The current plan.** How the project compares with the recommended commercial strategy, the critical gaps, and the six-phase implementation sequence |
