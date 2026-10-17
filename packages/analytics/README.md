@@ -10,10 +10,12 @@ Conversion measurement: the journey from being seen to a verified result, what c
 | `QUALIFIED_AFTER_MS`, `ATTRIBUTION_DAYS` | 15 s on the page makes a visit qualified; a sale is credited to a press up to 30 days before |
 | `CLICK_PARAM`, `isClickId`, `newClickId`, `withClickId(url, id)` | The click id added to an https call-to-action link, so a purchase can be credited to the press that led to it |
 | `isTicket` | A coupon claim's ticket code |
+| `PILOT_CRITERIA`, `pilotVerdict`, `returnedWeekly`, `hadInteraction`, `PILOT_WEEKS` | The pilot's criteria that lift the world freeze, and how each business counts ([pilot.md](../../docs/monetization/pilot.md)) |
 
 **Used by:**
 
 - `server/api/business.mjs`, `server/api/conversions.mjs`;
+- `server/api/pilot.mjs`, which imports the package directly;
 - `components/business/{CtaButton,ManageProfiles,ProfileTracker}.jsx`;
 - `lib/data/sync.js`.
 

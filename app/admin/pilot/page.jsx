@@ -6,7 +6,7 @@ import { apiBase } from '@/lib/data/api';
 // The pilot dashboard (server/api/pilot.mjs, docs/monetization/pilot.md): each pilot business week by week, the merchants' feedback, and
 // whether the criteria that lift the world-expansion freeze are met. Needs the API (NEXT_PUBLIC_LIVE_API_URL) and its ADMIN_TOKEN, which is
 // kept for this browser tab only.
-const TOKEN_KEY = 'voxelventure-admin-token';
+const TOKEN_KEY = 'voxelventure-admin'; // the same key as the market's admin tools (lib/state/marketStore.js): one sign-in for both
 const readToken = () => {
   try {
     return sessionStorage.getItem(TOKEN_KEY) || '';

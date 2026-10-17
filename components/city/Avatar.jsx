@@ -8,6 +8,8 @@ import { avatarState } from '@/lib/sim/avatarState';
 import { surfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
 import { buildingHalf, buildCollisionMap, findSpawn, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
+import { CORNER_REACHED, findWalkPath, prepareWalkMap } from '@/lib/sim/pathfind';
+import { graphFor } from '@/lib/city/routing';
 import { COSMETIC_BY_ID } from '@/lib/game/cosmetics';
 import { dailyChest, scavengerHunt } from '@/lib/game/daily';
 import { useCityStore } from '@/lib/state/store';
@@ -120,14 +122,18 @@ export default function Avatar() {
   const armR = useRef(null);
   const marker = useRef(null);
   const keys = useRef(new Set());
-  const anim = useRef({ phase: 0, amp: 0, stuck: 0 });
+  // goal: the click target the route was planned for; path: the corners still to walk (lib/sim/pathfind.js); replanned: planned again
+  // once after getting stuck
+  const anim = useRef({ phase: 0, amp: 0, stuck: 0, goal: null, path: null, replanned: false });
   const lastPromptId = useRef(null);
 
   // the market's stalls are solid (you walk the aisles); they change with the week, so the map is rebuilt when its layout does
   const marketStalls = useMarket((s) => s.data?.stalls);
   const collision = useMemo(() => {
     const { billboards } = useCityStore.getState(); // posts never move; no need to rebuild when ads change
-    return buildCollisionMap({ plots, layout, billboards, extra: (marketStalls ?? []).map((s) => ({ x: s.x, z: s.z, w: s.w * 0.92, d: s.d * 0.92 })) });
+    const map = buildCollisionMap({ plots, layout, billboards, extra: (marketStalls ?? []).map((s) => ({ x: s.x, z: s.z, w: s.w * 0.92, d: s.d * 0.92 })) });
+    prepareWalkMap(map); // so the first click's route is planned at once
+    return map;
   }, [plots, layout, marketStalls]);
   const collisionRef = useRef(collision);
   collisionRef.current = collision;
@@ -277,12 +283,25 @@ export default function Avatar() {
         avatarState.target = null;
       }
       if (!ix && !iz && avatarState.target) {
-        const tx = avatarState.target.x - avatarState.x;
-        const tz = avatarState.target.z - avatarState.z;
-        if (Math.hypot(tx, tz) < 0.12) avatarState.target = null;
-        else {
-          ix = tx;
-          iz = tz;
+        // a new click target: plan the way round whatever is in between (straight at it if no way is found, as before)
+        if (a.goal !== avatarState.target) {
+          a.goal = avatarState.target;
+          a.replanned = false;
+          a.stuck = 0;
+          a.path = findWalkPath(avatarState, avatarState.target, collisionRef.current, { graph: graphFor(layout) }) ?? [avatarState.target];
+        }
+        // the next corner; the last one is where the walk ends (beside a building when the click was on one)
+        let next = a.path[0];
+        while (next && Math.hypot(next.x - avatarState.x, next.z - avatarState.z) < (a.path.length > 1 ? CORNER_REACHED : 0.12)) {
+          a.path.shift();
+          next = a.path[0];
+        }
+        if (!next) {
+          avatarState.target = null;
+          a.goal = null;
+        } else {
+          ix = next.x - avatarState.x;
+          iz = next.z - avatarState.z;
         }
       }
     }
@@ -298,12 +317,19 @@ export default function Avatar() {
       avatarState.x = next.x;
       avatarState.z = next.z;
 
-      // Give up on a click target we can't get closer to (a building in the way).
+      // Stuck on the way to a click target (something moved into the way, or there was no route): plan again once from here, then give up.
       if (avatarState.target && !keys.current.size) {
         a.stuck = moved < speed * dt * 0.25 ? a.stuck + dt : 0;
         if (a.stuck > 0.4) {
-          avatarState.target = null;
           a.stuck = 0;
+          const again = !a.replanned && findWalkPath(avatarState, avatarState.target, collisionRef.current, { graph: graphFor(layout) });
+          if (again) {
+            a.path = again;
+            a.replanned = true;
+          } else {
+            avatarState.target = null;
+            a.goal = null;
+          }
         }
       }
 
@@ -354,7 +380,9 @@ export default function Avatar() {
     // --- tap-to-move marker
     if (marker.current) {
       marker.current.visible = Boolean(avatarState.target);
-      if (avatarState.target) marker.current.position.set(avatarState.target.x, surfaceHeight(layout, avatarState.target.x, avatarState.target.z, plots) + 0.01, avatarState.target.z);
+      // where the walk will end: beside a building when the click was on one
+      const end = (a.goal === avatarState.target && a.path?.at(-1)) || avatarState.target;
+      if (avatarState.target) marker.current.position.set(end.x, surfaceHeight(layout, end.x, end.z, plots) + 0.01, end.z);
     }
 
     // --- the camera follows while we walk, and can still be panned away when we stand still

@@ -77,6 +77,89 @@ Written for: you, to plan the next stage. Status on 2026-10-16:
   - six versioned contracts in `packages/shared-types` (profile events, purchase reports, owner figures, the weekly vote), with a validator;
   - `tests/packages.test.mjs` checks boundaries, purity and parity; `tests/contracts.test.mjs` checks the contracts against the live API;
   - the CI selector and the lib-loader know about `packages/`
+- [x] **Policy gaps 1 and 3** ([policy_review.md](../monetization/policy_review.md)):
+  - the presence server keeps network addresses only as the same salted hash as the API, and honours `TRUST_PROXY` behind Caddy;
+  - take-over emails call the payout game value, with no `# Tasks: what is done and what is left
+
+Written for: you, to plan the next stage. Status on 2026-10-16:
+
+- `npm test` passes all 79 of its suites, including:
+  - `live-browser`, which does a production build and follows a visitor from Discover into the 3D storefront;
+  - the new `packages` and `contracts` suites of Phase B.
+- The 80th, the real-browser test (`npm run test:browser`), needs a machine with a GPU. In a software-rendered container its fixed waits time out.
+- Lint is clean. Details of each item are in [project_status.md](project_status.md) (section numbers in brackets).
+
+> **World-expansion freeze (from 2026-10-16).** New world content and simulation systems are on hold until the commercial pilot is validated; fixes, performance, accessibility and commercial work continue. Items marked ⏸ are deferred. See [world_freeze.md](world_freeze.md) and the [competitive alignment review](../competitive-research/claimavenue_competitive_alignment_review.md); `npm run check:freeze` flags new files in the world's folders.
+
+## Done
+
+### City and world
+- [x] Seeded city: 8 avenues, 5-7 streets, signals / stops / circles by road class, diagonal avenue with two circles, about 720 plots [5, 5f, 5h, 5q]
+- [x] Districts, Old Town suburb for bought-out owners, river with bridges (11-14 wide), 1-3 lakes with loop roads [5e, 5f, 5p]
+- [x] Plot tiers: ordinary, prime, luxury (grid and waterfront), grand estates; four reserved sites flush to busy roads [5l, 5q]
+- [x] Two parks (block park and a large one that fills its block), flush edges, landscaping, ground textures and patches [5n, 5r]
+- [x] Two airports, one **international** (116 runway, four hangars, parked airliners), with two banner planes [5m, 5v]
+- [x] Two mega malls at the ends of the streets, ten stores each with their own interiors [5u]
+- [x] Boats on the lakes and river [5t]
+- [x] Bigger-map switch `NEXT_PUBLIC_MAP_SCALE` and numbered street names [5v]
+
+### Gameplay
+- [x] Avatar, saves, daily chest, Plot of the Day, scavenger hunt, Gold, Wardrobe [5b, 5l]
+- [x] Cars and walkers with signals, circles and contact tests; take-over (1.25x) and Hall of Fame [5c, 5l]
+- [x] **Drive any car; sail a boat and fish** (rare fish, 120 Gold a day cap) [5t]
+- [x] Billboards and **aerial banners you can buy** [5m]
+- [x] Roof banners with a logo: generated from the business, an icon, or an uploaded picture [5s]
+- [x] Interiors with offers, coupons, visit rewards, embeds [5b]
+
+### Interface
+- [x] One movable side panel with a toolbar (back, expand, close) [5o]; wider panel, SynaptixPlay palette [5w]
+- [x] **Directory** of every building, numbered 1 to N, the opening view [5x]
+- [x] **Building card**: Step inside, figures, address, rank and exposure, 30-day site visits, history, claim / take over / manage [5w]
+- [x] Camera menu: Action, Third-person, Tactical, Overview, Top-down and the **original isometric view** [5s]
+- [x] Statistics, Search, Places, Today, Online, Wardrobe, city guide, mini-map [5o]
+- [x] Reserved-site designer (development only), with compass controls and linking to neighbouring streets [5r]
+- [x] **Credits panel** (City map & guide > Credits & licences) from `lib/content/credits.js`, with `CREDITS.md` at the root and a test that they agree [5z]
+
+### Later additions (see [project_status.md](project_status.md) 5y)
+- [x] **World map (M):** overlay with pan, zoom, waypoints, labels, road-following routes, culled and cached for stable frame rate; never pauses the world [world_map.md]
+- [x] Pop-up market with weekly layouts and booking [market.md]; admin headquarters; hills; animals; statistics with real presence; compass; Pascal interior editor with grouped furniture [scope_assets_and_wasm.md]
+- [x] Strategy features: proof-of-human traffic, leaseholds, activity skyline, Building of the Week, The Bazaar [community.md]
+
+- [x] Mall hall and renting, shared vehicles, ad rotation with contrast check, interior hotspots (tasks 18-21)
+- [x] **First-person view** (camera menu or V): eye height, right-drag or one finger to look, Q / E turn, R / F look up and down; the avatar is hidden [project_status.md 5y]
+
+### Engineering
+- [x] Rendering: about 480 draw calls on desktop, 170 on a phone [5j]
+- [x] LAN multiplayer with a view radius, back-pressure, a client monitor and an error log [5i, 5p]
+- [x] `lib/` in folders; tests in the repo; lint clean [5k, 5s]
+- [x] **The game uses the server** (when `NEXT_PUBLIC_LIVE_API_URL` is set): sign-in appears only when claiming, taking over or buying an ad space [`docs/architecture/backend.md`]
+- [x] **Social presence, lead capture, interactive storefronts, quests, email notices**: instant push of changes and spatial chat; double opt-in sign-ups; coupons, feedback board, quests paid from a business's Gold budget; email outbox and newsletter [`docs/architecture/backend.md`]
+- [x] **Moderation, owner sign-ups screen, Credits** (the server's quest money is separate from the game's Gold) [`docs/architecture/backend.md`]
+- [x] Deprecated `maxLeafSize` -> `targetLeafSize` in the Pascal packages and `three-bvh-csg`: the warning is filtered in `lib/dev/quietWarnings.js` (three-mesh-bvh maps the old name itself); the version-pinned patches that did it broke every Pascal update and were removed with the move to Pascal 1.0.4. The one patch left (`patches/@pascal-app+nodes+1.0.4.patch`) computes missing normals for some furniture models
+- [x] **Backend API** (Node + SQLite, Postgres-portable): accounts, directory, atomic claim and take-over, ledger, events and real statistics, 34 tests [`docs/architecture/backend.md`]
+- [x] Live-data layer with one provider switch and `docs/architecture/live_data.md` [5x]
+- [x] Feasibility study for a bigger authored world, with a streaming prototype [5v, study doc]
+- [x] Fixes: refCleanup crash, Play-view crash, bridge flicker, white water, unreachable park gates, stale road batch, the `<Html>` double-root warning
+- [x] `npm run dev:all` runs both servers with the same Node binary, no shell (no DEP0190 warning on Windows) [5z]
+- [x] **Reassessment (2026-10-17) fixes:** each business has its own random conversion key (hash stored, shown once, rotatable, audited), sent only in the `Authorization` header; the pixel needs no key and counts only as browser-reported; revenue is split into verified, unattributed and browser-reported; outcomes are reported as separate families (leads, claims, redemptions, purchases) each with its own cost, with return on spend from verified revenue only; `.github/CODEOWNERS` for billing, auth, attribution, schema, messaging and deployment [`docs/monetization/conversions.md`]
+- [x] **Building of the Week, the weekly vote** made visible and easier: one vote a week for everyone, a bonus for the three gold stars, a panel in the game, a section on Discover, badges and a Vote button on business pages, and a demo that works without the server [`docs/product/community.md`]
+- [x] **ESLint 10** (10.12.0, from the unsupported 9.39): `eslint-plugin-react` removed (it does not support ESLint 10, and ESLint now sees names used in JSX itself); the 8 places the new `no-useless-assignment` rule found are fixed
+- [x] **Python messaging service** (steps 1-5 of `../architecture/node_fastapi_architecture_plan.md`): `services/messaging` (FastAPI) passes the same messaging contract as the Node API, Node's identity and ownership endpoints for it, the data copy with reconciliation, a read-only pause, the systemd unit and backups; not switched on yet [`services/messaging/README.md`]
+- [x] **Chat and private messages** (phases 0-3 of `../architecture/chat_messaging_plan.md`): a Chat panel with Nearby and Inbox; signed-in identity on the presence server; sent / failed / Retry; blocks, reports, bans; requests, read positions, mute; "Message the owner" on a building's card [`docs/architecture/backend.md`, `server/README.md`]
+- [x] **Business pages' menu on phones:** Discover, 3D city and My profiles become a full-width row of 44 px tabs under the name and *List your business*; the current page is marked [`docs/product/business_funnel.md`]
+- [x] **Draft policies at `/legal`:**
+  - terms, privacy, refunds, advertising and placements, retention, and merchant responsibilities;
+  - numbers drawn from the code (`lib/legal/facts.js`, `lib/legal/retention.js`), checked by `tests/legal.test.mjs`;
+  - consent lines at sign-up and on request forms, and footer links;
+  - marked *draft* until approved (task 45) [`docs/monetization/policy_review.md`]
+- [x] **Documentation by topic** (Phase A of the [migration plan](../architecture/modular_monorepo_migration_plan.md)): `docs/` split into `product`, `architecture`, `monetization`, `competitive-research`, `roadmap` and `operations`, each with an index, plus a [path map](../architecture/documentation_path_map.md) from the old paths
+- [x] **Shared packages, first slices** (Phase B, [ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)) [`packages/README.md`]:
+  - prices and plans moved to `packages/business-core`, and the conversion funnel and attribution to `packages/analytics`, each behind an adapter at its old `lib/` path;
+  - six versioned contracts in `packages/shared-types` (profile events, purchase reports, owner figures, the weekly vote), with a validator;
+  - `tests/packages.test.mjs` checks boundaries, purity and parity; `tests/contracts.test.mjs` checks the contracts against the live API;
+  - the CI selector and the lib-loader know about `packages/`
+.
+- [x] **Pilot dashboard** and the merchants' weekly check-in (task 47) [`docs/monetization/pilot.md`]
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
 
 ## To do
@@ -151,7 +234,13 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | 44 | Reassessment: repository settings on GitHub: protect `main` (passing CI, a review, Code Owners review, no force pushes or deletion), secret scanning with push protection, Dependabot security alerts and updates (`CODEOWNERS` is in place) | needs you (GitHub settings) |
 | 45 | Reassessment: published policies. **Drafted** at `/legal` (terms, privacy, refunds, advertising, retention, merchant responsibilities; consent lines at sign-up and on request forms; footer links). Left: fill in the placeholders, make the decisions and fix the product gaps in `docs/monetization/policy_review.md`, legal review, then approve (`POLICY_STATUS`) | needs you and a lawyer |
 | 46 | Reassessment: staging with Stripe test mode, mail, migrations, backups with a restore test, error reporting, uptime and alerts; certify checkout, webhooks, refunds and reconciliation end to end | 3-5 days, needs accounts |
-| 47 | Reassessment: pilot dashboard (activation, qualified visits, leads, redemptions, purchases, verified revenue, renewals, retention per business) and a merchant feedback form, then the 10-20 business pilot | 2-3 days, then the pilot (needs you) |
+| 47 | 🟡 Reassessment: the pilot. **Done:**
+
+- the pilot dashboard (`/admin/pilot`, `npm run moderate -- pilot`), with activation, qualified visits, leads, redemptions, purchases, verified revenue, payments, renewals and weekly retention per business;
+- the criteria that lift the freeze;
+- a weekly merchant check-in on the owner's dashboard ([pilot.md](../monetization/pilot.md)).
+
+**Left:** recruit 10-20 businesses in two districts and run it for four weeks | the pilot (needs you) |
 | 48 | Phase B, next slices ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)): profile validation (separate it from the district lookup first) and referral signing (separate it from `localStorage` first) into `business-core`; more contracts (inquiries, coupon claims, the pixel) as they are needed. Phase C (workspaces, moving the app and the API) waits for staging and Stripe certification | 1-2 days each slice |
 | 39 | ✅ Outside music: 16 CC0 recordings from OpenGameArt (city, night, arcade, cafe and driving playlists), with the procedural tunes as fallback ([day_night_sound.md](../architecture/day_night_sound.md), `docs/licences/music/`). Left: a listening check on real speakers, loop points for the tracks that have none | listening check needs you |
 
@@ -208,5 +297,5 @@ Re-ordered on 2026-10-16 to follow the [competitive alignment review](../competi
 3. 🟡 **Phase 3, authoritative production data** ([authoritative_data.md](../architecture/authoritative_data.md); the code is done, the deploy and its verification need you): decide task 1 (stack, host, sign-in; **needs you**), deploy the API (priority A1), server-owned claims and leases, verified statistics only (no simulated figures in owner dashboards), ads, market bookings, moderation and audit records.
 4. ✅ **Phase 4, low-risk monetisation** ([billing.md](../monetization/billing.md); done in code; the Stripe account and terms need you): Stripe Checkout with webhook idempotency for a $9 Launch Pack, $19/month Pro, fixed-term sponsored placements, market bookings and leases (task 6, without the real-money 1.25x payout until legal, tax and fraud review).
 5. ✅ **Phase 5, conversion measurement** ([conversions.md](../monetization/conversions.md)): meeting and quote requests on the profile, impressions, qualified visits, store entries, coupon redemptions and purchases credited by click id, the funnel with cost per result on the dashboard, and the renewal rate.
-6. **Phase 6, constrained pilot:** 10-20 businesses in two districts for four weeks; the freeze lifts if it meets the criteria in [world_freeze.md](world_freeze.md#when-it-lifts).
+6. 🟡 **Phase 6, constrained pilot** (the dashboard and check-in are built: [pilot.md](../monetization/pilot.md)): 10-20 businesses in two districts for four weeks; the freeze lifts if it meets the criteria in [world_freeze.md](world_freeze.md#when-it-lifts).
 7. Alongside all of these (the review's P0 list): ✅ CI (`.github/workflows/ci.yml`: build, lint, tests, `check:freeze`) and Dependabot; **needs you:** a protected `main` with the CI check required, secret scanning, and privacy, refund, advertising and placement terms. Item-by-item status: [alignment_status.md](alignment_status.md).

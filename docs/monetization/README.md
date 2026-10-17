@@ -10,6 +10,7 @@ Documents are stored in their primary topic directories. Related service and dep
 | --- |
 | [billing.md](billing.md) |
 | [conversions.md](conversions.md) |
-| [legal/policy_review.md](policy_review.md) |
+| [pilot.md](pilot.md): the pilot dashboard, its figures and the criteria that lift the freeze |
+| [policy_review.md](policy_review.md) |
 | [pricing_analysis.md](pricing_analysis.md) |
 | [takeover_payouts.md](takeover_payouts.md) |

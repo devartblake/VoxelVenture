@@ -116,6 +116,7 @@ Still to check once the site is live: a Lighthouse run on a real phone and netwo
 
 These belong to later phases, or wait for the pilot to justify them:
 
+- The pilot dashboard and the merchants' weekly check-in are built ([pilot.md](../monetization/pilot.md)). The pilot itself needs businesses.
 - Phase 4 is done in code ([billing.md](../monetization/billing.md)). It needs your Stripe account and terms.
 - The pilot itself (phase 6).
 - Server-side reservation of the three-minute claim hold.

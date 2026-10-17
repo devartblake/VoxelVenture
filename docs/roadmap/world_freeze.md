@@ -58,6 +58,8 @@ The freeze ends when the constrained pilot (phase 6 of the review) meets its suc
 - At least two renew or request another campaign.
 - No simulated advertiser metrics are shown.
 
+The pilot dashboard checks these criteria on verified figures: `/admin/pilot`, or `npm run moderate -- pilot` ([pilot.md](../monetization/pilot.md)).
+
 At that point the deferred tasks above return to the backlog in the review's P2 order (authored world content, then vehicles and environmental systems, the creator marketplace, multiplayer scale, and advanced resale or takeover mechanics after legal review). Remove the folder list from `lib/dev/worldFreeze.js` (or delete the check) in the same change that records the decision here.
 
 ## What comes next
