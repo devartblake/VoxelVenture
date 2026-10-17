@@ -1,10 +1,10 @@
-// Payments in the game (server/api/billing.mjs, docs/monetization/billing.md), against a stand-in for the Stripe API: with payments on, claiming, taking
+// Payments in the game (services/api/billing.mjs, docs/monetization/billing.md), against a stand-in for the Stripe API: with payments on, claiming, taking
 // over and renewing a plot, and booking a market stall, send the player to Stripe and only happen once the payment is confirmed. The plot or
 // stall is held while they pay; a payment that arrives too late is refunded; refunds take back what was bought; cancelling a paid stall
 // before it opens refunds it.
 import http from 'node:http';
-import { createApi } from '../server/api/server.mjs';
-import { signPayload } from '../server/api/billing.mjs';
+import { createApi } from '../services/api/server.mjs';
+import { signPayload } from '../services/api/billing.mjs';
 import { imp } from '../scripts/lib-loader.mjs';
 
 let fails = 0;

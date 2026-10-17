@@ -40,7 +40,7 @@ for (const [name, data] of [['not a vox file', new Uint8Array(40)], ['cut short'
 }
 
 // the shipped landmark
-const file = path.join(root, 'public', 'models', 'vox', 'monument.vox');
+const file = path.join(root, 'apps', 'web', 'public', 'models', 'vox', 'monument.vox');
 if (!fs.existsSync(file)) bad('the sample monument exists', file);
 else {
   const v = parseVox(new Uint8Array(fs.readFileSync(file)));

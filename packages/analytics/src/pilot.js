@@ -1,5 +1,5 @@
 // The constrained pilot (phase 6, docs/roadmap/world_freeze.md "When it lifts"): what counts for each business, and whether the pilot met
-// the criteria that lift the world-expansion freeze. Pure, shared by the API (server/api/pilot.mjs), the admin page and the tests.
+// the criteria that lift the world-expansion freeze. Pure, shared by the API (services/api/pilot.mjs), the admin page and the tests.
 
 export const PILOT_WEEKS = 4; // the review's pilot: four weeks
 export const RETURN_SHARE_OF_WEEKS = 0.75; // "returns weekly": the owner was back in at least 3 of every 4 completed weeks

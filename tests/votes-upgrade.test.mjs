@@ -17,7 +17,7 @@ try {
   old.exec('CREATE TABLE plots (id INTEGER PRIMARY KEY, district TEXT NOT NULL, building_type TEXT, owner_account INTEGER, owner_name TEXT, title TEXT NOT NULL, website TEXT, variant TEXT, logo TEXT, description TEXT, value INTEGER NOT NULL, base_visits INTEGER NOT NULL DEFAULT 0, takeovers INTEGER NOT NULL DEFAULT 0, claimable INTEGER NOT NULL DEFAULT 1, facts TEXT NOT NULL, updated_at INTEGER NOT NULL); INSERT INTO plots (id, district, title, value, facts, updated_at) VALUES (5, \'d\', \'Shop\', 1, \'{}\', 0);');
   old.exec("CREATE TABLE votes (week TEXT NOT NULL, account_id INTEGER NOT NULL REFERENCES accounts(id), plot_id INTEGER NOT NULL REFERENCES plots(id), at INTEGER NOT NULL, PRIMARY KEY (week, account_id)); INSERT INTO votes VALUES ('2026-10-12', 1, 5, 123);");
   old.close();
-  const { openDb } = await import(new URL('../server/api/db.mjs', import.meta.url).href);
+  const { openDb } = await import(new URL('../services/api/db.mjs', import.meta.url).href);
   const db = openDb(file);
   const key = db.prepare('PRAGMA table_info(votes)').all().filter((c) => c.pk > 0).map((c) => c.name).join();
   check('the old votes table is rebuilt with the new key', key === 'week,account_id,plot_id', key);

@@ -8,7 +8,7 @@ const free = () => new Promise((resolve) => { const s = net.createServer(); s.li
 const port = await free();
 const ADMIN = 'admin-secret';
 // the default human rules (3 visits and 1 click per network per building per day), no minimum presence age; X-Forwarded-For stands in for different networks
-const proc = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { cwd: root, env: { ...process.env, API_PORT: String(port), API_DB: ':memory:', ADMIN_TOKEN: ADMIN, HUMAN_MIN_AGE_MS: '0', TRUST_PROXY: '1' }, stdio: 'ignore' });
+const proc = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], { cwd: root, env: { ...process.env, API_PORT: String(port), API_DB: ':memory:', ADMIN_TOKEN: ADMIN, HUMAN_MIN_AGE_MS: '0', TRUST_PROXY: '1' }, stdio: 'ignore' });
 const base = `http://localhost:${port}`;
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
@@ -119,13 +119,13 @@ try {
   check('anyone can see the leaders, most votes first, with when voting closes and no winner until a week has ended', pub.leaders[0].plotId === built[2].id && pub.leaders[0].votes === 2 && pub.winner === null && pub.canVote === false && pub.signedIn === false && pub.endsAt > Date.now(), JSON.stringify(pub).slice(0, 200));
   check('the state list carries the Building of the Week (none yet)', (await call('GET', '/plots/state')).data.botw === null);
   // last week's top becomes this week's Building of the Week (the votes are moved back a week here, as if the week had ended)
-  const { createApi } = await import(new URL('../server/api/server.mjs', import.meta.url).href);
+  const { createApi } = await import(new URL('../services/api/server.mjs', import.meta.url).href);
   const local = createApi({ deliverEveryMs: 0, env: {} });
   const lastWeek = (await imp('market/weeks.js')).addWeeks(weekStartOf(), -1);
   const a1 = local.db.prepare("INSERT INTO accounts (username, pass_salt, pass_hash, created_at) VALUES ('v1','s','h',0)").run().lastInsertRowid;
   const a2 = local.db.prepare("INSERT INTO accounts (username, pass_salt, pass_hash, created_at) VALUES ('v2','s','h',0)").run().lastInsertRowid;
   for (const [a, p, at] of [[a1, built[5].id, 1], [a2, built[5].id, 2], [a1, built[6].id, 3]]) local.db.prepare('INSERT INTO votes (week, account_id, plot_id, at) VALUES (?,?,?,?)').run(lastWeek, a, p, at);
-  const { buildingOfTheWeek } = await import(new URL('../server/api/community.mjs', import.meta.url).href);
+  const { buildingOfTheWeek } = await import(new URL('../services/api/community.mjs', import.meta.url).href);
   const w = buildingOfTheWeek(local.db);
   check('last week\'s most-voted building is this week\'s Building of the Week', w?.plotId === built[5].id && w.votes === 2 && w.week === lastWeek, JSON.stringify(w));
   await local.close();

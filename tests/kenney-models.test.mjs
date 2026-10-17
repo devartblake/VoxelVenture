@@ -8,7 +8,7 @@ const bm = await imp('content/boatModels.js');
 const { bad, total } = problemTally();
 
 const byId = new Map(PROP_CATALOG.map((m) => [m.id, m]));
-const pub = (url) => path.join(root, 'public', url);
+const pub = (url) => path.join(root, 'apps', 'web', 'public', url);
 
 // the catalog itself
 for (const m of PROP_CATALOG) {
@@ -21,7 +21,7 @@ for (const k of ['nature', 'cars', 'watercraft', 'pirate', 'coaster']) if (!kits
 
 // the files the code names
 const named = new Set();
-for (const f of ['components/city/AmusementPark.jsx', 'components/city/Piers.jsx', 'components/city/Vehicles.jsx', 'lib/content/boatModels.js']) {
+for (const f of ['apps/web/components/city/AmusementPark.jsx', 'apps/web/components/city/Piers.jsx', 'apps/web/components/city/Vehicles.jsx', 'lib/content/boatModels.js']) {
   const src = fs.readFileSync(path.join(root, f), 'utf8');
   for (const m of src.matchAll(/['"`]((?:watercraft|pirate|coaster)\/[a-z0-9-]+)['"`]/g)) named.add(m[1]);
 }
@@ -55,7 +55,7 @@ const slab = byId.get('pirate/platform');
 if (slab && !(Math.abs(slab.w - 2.5) < 0.05 && Math.abs(slab.d - 2.51) < 0.05 && Math.abs(slab.h - 0.23) < 0.02)) bad('the pier slab is the size the pier assumes (2.5 x 0.23 x 2.51)', JSON.stringify(slab));
 
 // credits
-const credits = fs.readFileSync(path.join(root, 'public/models/CREDITS.md'), 'utf8');
+const credits = fs.readFileSync(path.join(root, 'apps/web/public/models/CREDITS.md'), 'utf8');
 for (const k of ['Watercraft Kit', 'Pirate Kit', 'Coaster Kit', 'CC0']) if (!credits.includes(k)) bad('the credits name the kit', k);
 
 console.log(`${PROP_CATALOG.length} models; ${named.size} used by the boats, piers and park`);

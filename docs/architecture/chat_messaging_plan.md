@@ -9,10 +9,10 @@ Built (verified by `tests/messaging.test.mjs`, about 70 checks across the API an
 
 | Phase | What is in place | Where |
 | --- | --- | --- |
-| 0: Foundation | One-use tickets bind a presence connection to an account (redeemed by the presence server with the shared secret; re-checked every 30 s, so sign-out and bans end a binding within a minute); names and the verified mark come from the account; `features` in the welcome; text checks extracted to `server/api/textcheck.mjs`; new tables created on start-up (existing databases upgrade in place); switches `MESSAGING_*`, `MP_CHAT`, `MP_CHAT_GUESTS`; `MP_ORIGINS` allowlist | `server/api/messaging.mjs`, `server/multiplayer.mjs`, `server/api/schema.sql` |
-| 1: Nearby | Chat panel (toolbar button with badge); `chat.send` with accepted / rejected answers and Retry on the same id; drafts kept; per-connection and per-account limits; the API screens and keeps a 7-day copy before fan-out (refused, not let through, if it is down); blocks both ways enforced by the server; report, hide (this visit), block, message from a line's menu; cleared on a city change; IME-safe Enter; typing never moves the avatar | `components/ui/chat/`, `lib/state/chatStore.js`, `lib/net/multiplayer.js` |
+| 0: Foundation | One-use tickets bind a presence connection to an account (redeemed by the presence server with the shared secret; re-checked every 30 s, so sign-out and bans end a binding within a minute); names and the verified mark come from the account; `features` in the welcome; text checks extracted to `services/api/textcheck.mjs`; new tables created on start-up (existing databases upgrade in place); switches `MESSAGING_*`, `MP_CHAT`, `MP_CHAT_GUESTS`; `MP_ORIGINS` allowlist | `services/api/messaging.mjs`, `services/multiplayer/server.mjs`, `services/api/schema.sql` |
+| 1: Nearby | Chat panel (toolbar button with badge); `chat.send` with accepted / rejected answers and Retry on the same id; drafts kept; per-connection and per-account limits; the API screens and keeps a 7-day copy before fan-out (refused, not let through, if it is down); blocks both ways enforced by the server; report, hide (this visit), block, message from a line's menu; cleared on a city change; IME-safe Enter; typing never moves the avatar | `apps/web/components/ui/chat/`, `lib/state/chatStore.js`, `lib/net/multiplayer.js` |
 | 2: Inbox | Conversations, requests (one message until accepted), history with before / after pages, read positions (never backwards), unread counts, mute, request settings, blocks; idempotent sends; account-targeted notices through an outbox written in the same transaction, retried with back-off; polling every 30 s and on focus as the fallback; private state cleared on sign-out and never stored in the browser | same, plus `lib/data/messaging.js` |
-| 3: Business inquiries | "Message the owner" on a player-owned building's card; the owner is read inside the transaction; after a take-over the new owner gets new inquiries only | `POST /plots/{id}/inquiries`, `components/ui/PlotCard.jsx` |
+| 3: Business inquiries | "Message the owner" on a player-owned building's card; the owner is read inside the transaction; after a take-over the new owner gets new inquiries only | `POST /plots/{id}/inquiries`, `apps/web/components/ui/PlotCard.jsx` |
 
 Also: reports of chat messages join the existing moderation queue (`npm run moderate`, kinds `message` and `nearby`); retention runs hourly (nearby 7 days, inbox 90, report evidence 180 after a decision, held while a report is open).
 
@@ -36,15 +36,15 @@ Verified in the local source during this review:
 
 | Area | Current behavior | Source |
 | --- | --- | --- |
-| Nearby delivery | Messages reach connections in the same seed-based city within `MP_CHAT_RADIUS`, default 60 units; server limits each connection to one message per second and 140 characters | `server/multiplayer.mjs` |
-| Transport | Existing protocol version 2 has a `chat` message with sender connection ID, display name, text, position, and server timestamp | `server/multiplayer.mjs` |
+| Nearby delivery | Messages reach connections in the same seed-based city within `MP_CHAT_RADIUS`, default 60 units; server limits each connection to one message per second and 140 characters | `services/multiplayer/server.mjs` |
+| Transport | Existing protocol version 2 has a `chat` message with sender connection ID, display name, text, position, and server timestamp | `services/multiplayer/server.mjs` |
 | Client history | Last 40 received messages are held in memory in `useNet.chat` | `lib/net/multiplayer.js` |
-| Interface | Online panel contains a nearby-chat log and composer | `components/ui/panel/views.jsx`, `OnlineView` |
+| Interface | Online panel contains a nearby-chat log and composer | `apps/web/components/ui/panel/views.jsx`, `OnlineView` |
 | Send feedback gap | `sendChat()` returns true for nonempty text even when no open socket sent it; the UI can clear a draft without confirmed delivery | `lib/net/multiplayer.js` |
-| Identity | Presence uses a connection ID and editable name; its hello does not authenticate the API account | `lib/net/multiplayer.js`, `server/multiplayer.mjs` |
-| Account foundation | API bearer sessions and account lookup already exist | `server/api/core.mjs`, `server/api/server.mjs` |
-| Storage | Node SQLite with WAL, transactions, and existing schema-upgrade helpers | `server/api/db.mjs`, `server/api/schema.sql` |
-| Moderation foundation | Text screening, reports, admin review, and account bans exist for other content; chat needs explicit integration | `server/api/moderation.mjs` |
+| Identity | Presence uses a connection ID and editable name; its hello does not authenticate the API account | `lib/net/multiplayer.js`, `services/multiplayer/server.mjs` |
+| Account foundation | API bearer sessions and account lookup already exist | `services/api/core.mjs`, `services/api/server.mjs` |
+| Storage | Node SQLite with WAL, transactions, and existing schema-upgrade helpers | `services/api/db.mjs`, `services/api/schema.sql` |
+| Moderation foundation | Text screening, reports, admin review, and account bans exist for other content; chat needs explicit integration | `services/api/moderation.mjs` |
 
 No persistent direct-message inbox, conversation membership, read cursors, or message-request workflow was identified in the reviewed chat path. Existing generic WebSocket rate limits and input cleaning are useful foundations, but do not establish authenticated chat identity or durable delivery.
 
@@ -81,7 +81,7 @@ These are recommended defaults rather than user-approved product policies. They 
 
 ### API owns durable messaging
 
-Implement a messaging domain module in `server/api/messaging.mjs`. It owns conversation creation, membership, requests, persistence, blocks, read state, reports, retention, and authorization. Keep writes in short transactions and use cursor pagination.
+Implement a messaging domain module in `services/api/messaging.mjs`. It owns conversation creation, membership, requests, persistence, blocks, read state, reports, retention, and authorization. Keep writes in short transactions and use cursor pagination.
 
 Use authenticated HTTP for Inbox writes and reads. Commit each message and an outbox notification atomically. The existing API-to-presence notification path can wake clients, but private notifications MUST use a new account-targeted route: never reuse a city-wide world broadcast for message bodies, conversation IDs, or recipient lists.
 
@@ -197,17 +197,17 @@ Potential later work: optional city channel, typing indicators, opt-in read rece
 
 | Existing area | Planned change |
 | --- | --- |
-| `server/multiplayer.mjs` | Authenticate account bindings; Nearby validation/acks; server-enforced filtering; account-targeted notifications and bounded send queues |
+| `services/multiplayer/server.mjs` | Authenticate account bindings; Nearby validation/acks; server-enforced filtering; account-targeted notifications and bounded send queues |
 | `lib/net/multiplayer.js` | Messaging capability handling, ticket authentication, transport errors, account reset, and events forwarded to chat state |
 | `lib/state/chatStore.js` (new) | Channel buffers, conversation state, drafts, pending sends, unread cursors, deduplication; subscribe independently of simulation state |
 | `lib/data/messaging.js` (new) | Typed/validated API operations and reconnect/history synchronization |
-| `components/ui/chat/` (new) | Chat panel, Nearby log, Inbox list, Requests, composer, message actions and preferences |
-| `components/ui/panel/Toolbar.jsx`, `SidePanel.jsx`, `lib/state/panelStore.js` | Add Chat entry/view and unread badge |
-| `components/ui/panel/views.jsx` | Move existing chat out of OnlineView and link to the dedicated panel |
-| `components/ui/PlotCard.jsx` | Business-inquiry entry point and sign-in continuation |
-| `server/api/messaging.mjs` (new) | Authorization, transactions, conversations, requests, blocks, evidence, read cursors and outbox |
-| `server/api/server.mjs`, `schema.sql`, `db.mjs` | Routes, incremental migrations, cleanup/worker integration |
-| `server/api/moderation.mjs`, `scripts/moderate.mjs` | Message report targets, evidence access and timed restrictions |
+| `apps/web/components/ui/chat/` (new) | Chat panel, Nearby log, Inbox list, Requests, composer, message actions and preferences |
+| `apps/web/components/ui/panel/Toolbar.jsx`, `SidePanel.jsx`, `lib/state/panelStore.js` | Add Chat entry/view and unread badge |
+| `apps/web/components/ui/panel/views.jsx` | Move existing chat out of OnlineView and link to the dedicated panel |
+| `apps/web/components/ui/PlotCard.jsx` | Business-inquiry entry point and sign-in continuation |
+| `services/api/messaging.mjs` (new) | Authorization, transactions, conversations, requests, blocks, evidence, read cursors and outbox |
+| `services/api/server.mjs`, `schema.sql`, `db.mjs` | Routes, incremental migrations, cleanup/worker integration |
+| `services/api/moderation.mjs`, `scripts/moderate.mjs` | Message report targets, evidence access and timed restrictions |
 | `tests/` | Protocol, API, migration, browser, security-boundary and load coverage |
 
 Before implementation, read the relevant local Next.js guides under `node_modules/next/dist/docs/` as required by AGENTS.md. This planning document makes no framework/API changes.
@@ -249,7 +249,7 @@ Roll out to local two-client testing, then a small authenticated group, then a p
 
 Rollback disables messaging writes and real-time fanout while preserving stored conversations and read-only access where safe. Stop notification retries for disabled features without deleting durable events. Avoid destructive schema rollback; deploy backward-compatible migrations and restore backups only through a tested recovery procedure.
 
-Update `docs/README.md`, `docs/roadmap/tasks.md`, `server/README.md`, and backend documentation when implementation ships. Correct the Online panel's outdated wording about what is shared at the same time.
+Update `docs/README.md`, `docs/roadmap/tasks.md`, `services/multiplayer/README.md`, and backend documentation when implementation ships. Correct the Online panel's outdated wording about what is shared at the same time.
 
 ## 12. Decisions to confirm during implementation
 

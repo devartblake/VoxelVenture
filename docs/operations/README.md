@@ -14,7 +14,7 @@ Documents are stored in their primary topic directories. Related service and dep
 Related runbooks:
 
 - [Deployment and rollback](../../deploy/README.md)
-- [Multiplayer server](../../server/README.md)
+- [Multiplayer server](../../services/multiplayer/README.md)
 - [Python messaging service](../../services/messaging/README.md)
 - [Measurement scripts](../../scripts/study/README.md)
 - [Asset credits and licensing](../../CREDITS.md)

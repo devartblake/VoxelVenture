@@ -14,7 +14,7 @@ const { bad, total } = problemTally();
 for (const kind of Object.keys(KINDS)) {
   const m = ANIMAL_CATALOG.find((a) => a.id === kind);
   if (!m) { bad('every kind of animal has a model', kind); continue; }
-  const file = path.join(root, 'public', m.url);
+  const file = path.join(root, 'apps', 'web', 'public', m.url);
   if (!fs.existsSync(file)) { bad('the animal model file exists', kind); continue; }
   const v = parseVox(new Uint8Array(fs.readFileSync(file)));
   if (v.voxels.length < 30 || v.voxels.length > 3000) bad('an animal is a sane size', `${kind}: ${v.voxels.length} voxels`);

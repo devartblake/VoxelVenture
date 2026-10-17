@@ -64,13 +64,13 @@ check('a lib/ module loaded through the lib-loader reads the same catalogue', fa
 check('the old lib/ adapters are gone', ['plans', 'conversions', 'profile'].every((m) => !fs.existsSync(path.join(root, 'lib', 'business', `${m}.js`))));
 
 // ---- prices: the API charges what the pages show, from the one catalogue
-const billingSrc = fs.readFileSync(path.join(root, 'server', 'api', 'billing.mjs'), 'utf8');
+const billingSrc = fs.readFileSync(path.join(root, 'services', 'api', 'billing.mjs'), 'utf8');
 check('the server reads prices from the catalogue, not its own numbers', /from '@voxelventure\/business-core'/.test(billingSrc) && !/\b(900|1900|9900|2900|4900)\b/.test(code(billingSrc)));
 check('the catalogue\'s prices are whole cents', Object.values(direct.PRODUCTS).every((p) => p.cents == null || Number.isInteger(p.cents)) && Object.values(direct.PLACEMENTS).every((p) => Number.isInteger(p.cents)));
-for (const f of ['components/business/ManageProfiles.jsx']) check(`${f} takes its prices from the catalogue`, /from '@voxelventure\/business-core'/.test(fs.readFileSync(path.join(root, f), 'utf8')));
+for (const f of ['apps/web/components/business/ManageProfiles.jsx']) check(`${f} takes its prices from the catalogue`, /from '@voxelventure\/business-core'/.test(fs.readFileSync(path.join(root, f), 'utf8')));
 
 // ---- outside packages/, a package is imported by its name only: no relative paths into packages/, no old lib/ paths
-const users = ['lib', 'app', 'components', 'server', 'scripts', 'tests'].flatMap((d) => fs.readdirSync(path.join(root, d), { recursive: true }).filter((f) => /\.(js|jsx|mjs)$/.test(f) && !String(f).includes('node_modules')).map((f) => path.join(root, d, f)));
+const users = ['lib', 'apps/web/app', 'apps/web/components', 'services/api', 'services/multiplayer', 'scripts', 'tests'].flatMap((d) => fs.readdirSync(path.join(root, d), { recursive: true }).filter((f) => /\.(js|jsx|mjs)$/.test(f) && !String(f).includes('node_modules')).map((f) => path.join(root, d, f)));
 const IMPORT = /(?:\bfrom|\bimport)\s*\(?\s*'([^']+)'/g;
 const relative = [];
 const old = [];

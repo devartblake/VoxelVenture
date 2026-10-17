@@ -19,8 +19,8 @@ const free = () => new Promise((resolve) => { const s = net.createServer(); s.li
 const [apiPort, mpPort, msgPort] = [await free(), await free(), await free()];
 const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-chat-'));
 const common = { ...process.env, MP_NOTIFY_SECRET: 'shh', INTERNAL_SECRET: 'inside', ADMIN_TOKEN: 'admin-secret', MESSAGING_NEW_PER_DAY: '4', MESSAGING_SENDS_PER_MINUTE: '12' };
-const mp = spawn(process.execPath, [path.join(root, 'server', 'multiplayer.mjs')], { cwd: root, env: { ...common, MP_PORT: String(mpPort), MP_LOG_DIR: logDir, MP_API_URL: `http://localhost:${apiPort}`, MP_RECHECK_MS: '700' }, stdio: 'ignore' });
-const api = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], {
+const mp = spawn(process.execPath, [path.join(root, 'services', 'multiplayer', 'server.mjs')], { cwd: root, env: { ...common, MP_PORT: String(mpPort), MP_LOG_DIR: logDir, MP_API_URL: `http://localhost:${apiPort}`, MP_RECHECK_MS: '700' }, stdio: 'ignore' });
+const api = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], {
   cwd: root,
   env: { ...common, API_PORT: String(apiPort), API_DB: ':memory:', MP_NOTIFY_URL: `http://localhost:${mpPort}/notify`, ...(FASTAPI ? { MESSAGING_SERVICE_URL: `http://localhost:${msgPort}` } : {}) },
   stdio: 'ignore',
@@ -250,8 +250,8 @@ try {
 
   // ---- retention and the notice outbox (in-process, on a fresh database; the Python service has its own: services/messaging/tests)
   if (FASTAPI) throw Object.assign(new Error('done'), { done: true });
-  const m = await import(pathToFileURL(path.join(root, 'server', 'api', 'messaging.mjs')).href);
-  const { createApi } = await import(pathToFileURL(path.join(root, 'server', 'api', 'server.mjs')).href);
+  const m = await import(pathToFileURL(path.join(root, 'services', 'api', 'messaging.mjs')).href);
+  const { createApi } = await import(pathToFileURL(path.join(root, 'services', 'api', 'server.mjs')).href);
   const local = createApi({ deliverEveryMs: 0, env: {} });
   const db = local.db;
   const x = db.prepare("INSERT INTO accounts (username, pass_salt, pass_hash, created_at) VALUES ('x','s','h',0)").run().lastInsertRowid;

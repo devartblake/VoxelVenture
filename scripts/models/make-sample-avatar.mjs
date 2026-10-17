@@ -1,11 +1,11 @@
-// Writes the sample player avatar to public/models/avatar/player.glb, in the layout the game expects from a Blockbench export:
+// Writes the sample player avatar to apps/web/public/models/avatar/player.glb, in the layout the game expects from a Blockbench export:
 //   node scripts/models/make-sample-avatar.mjs
 //
 // To use your own: model the character in Blockbench (a "Generic Model" / glTF project), group the cubes into groups named exactly
 //   leg_l, leg_r, arm_l, arm_r   (the group's origin is the joint: hip or shoulder, so the limb swings from there)
 //   torso, head                  (anywhere)
 // and give the materials these names: shirt (torso and arms), pants (legs), skin (head), so the Wardrobe colours still apply.
-// File > Export > Export as glTF, save over public/models/avatar/player.glb. The character should be about 0.8 units tall (feet at y = 0, facing +z).
+// File > Export > Export as glTF, save over apps/web/public/models/avatar/player.glb. The character should be about 0.8 units tall (feet at y = 0, facing +z).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,6 +101,6 @@ const ch = (len, type) => {
   b.writeUInt32LE(type, 4);
   return b;
 };
-fs.mkdirSync(path.join(root, 'public', 'models', 'avatar'), { recursive: true });
-fs.writeFileSync(path.join(root, 'public', 'models', 'avatar', 'player.glb'), Buffer.concat([header, ch(jsonBuf.length, 0x4e4f534a), jsonBuf, ch(bin.length, 0x004e4942), bin]));
+fs.mkdirSync(path.join(root, 'apps', 'web', 'public', 'models', 'avatar'), { recursive: true });
+fs.writeFileSync(path.join(root, 'apps', 'web', 'public', 'models', 'avatar', 'player.glb'), Buffer.concat([header, ch(jsonBuf.length, 0x4e4f534a), jsonBuf, ch(bin.length, 0x004e4942), bin]));
 console.log(`player.glb: ${PARTS.length} parts, ${12 + 16 + jsonBuf.length + bin.length} bytes`);

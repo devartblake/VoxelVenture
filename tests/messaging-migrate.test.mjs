@@ -24,7 +24,7 @@ let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
 const children = [];
 const startApi = async (port, extra = {}) => {
-  const p = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { cwd: root, env: { ...common, API_PORT: String(port), API_DB: nodeDb, ...extra }, stdio: 'ignore' });
+  const p = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], { cwd: root, env: { ...common, API_PORT: String(port), API_DB: nodeDb, ...extra }, stdio: 'ignore' });
   children.push(p);
   for (let i = 0; i < 80; i++) { try { if ((await fetch(`http://localhost:${port}/health`)).ok) break; } catch { /* starting */ } await sleep(250); }
   return p;

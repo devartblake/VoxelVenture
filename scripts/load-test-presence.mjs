@@ -42,7 +42,7 @@ if (!url) {
     });
   });
   logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-load-'));
-  child = spawn(process.execPath, ['server/multiplayer.mjs'], { cwd: root, env: { ...process.env, MP_PORT: String(port), MP_LOG_DIR: logDir, MP_MAX_CLIENTS: String(CLIENTS + 50), MP_MAX_PER_IP: String(CLIENTS + 50) }, stdio: 'ignore' });
+  child = spawn(process.execPath, ['services/multiplayer/server.mjs'], { cwd: root, env: { ...process.env, MP_PORT: String(port), MP_LOG_DIR: logDir, MP_MAX_CLIENTS: String(CLIENTS + 50), MP_MAX_PER_IP: String(CLIENTS + 50) }, stdio: 'ignore' });
   url = `ws://127.0.0.1:${port}`;
   await sleep(1500);
 }

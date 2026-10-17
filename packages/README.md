@@ -1,6 +1,6 @@
 # Shared packages
 
-Pure modules shared by the web app (`app/`, `components/`), the game (`lib/`) and the Node API (`server/`). They are npm workspaces of the root `package.json`, so each is imported by its name, `@voxelventure/<package>`.
+Pure modules shared by the web app (`apps/web/app/`, `apps/web/components/`), the game (`lib/`) and the Node API (`server/`). They are npm workspaces of the root `package.json`, so each is imported by its name, `@voxelventure/<package>`.
 
 - **Phase B** of the [modular monorepo migration plan](../docs/architecture/modular_monorepo_migration_plan.md) introduced them.
 - **Phase C, step 1** made them workspaces.
@@ -22,7 +22,7 @@ import { PRODUCTS, cleanProfile } from '@voxelventure/business-core'; // the pag
 - **Pure.** Nothing here touches:
   - the database, the file system or `process`;
   - `window`, `document` or `localStorage`;
-  - npm packages, or `lib/`, `app/`, `components/` and `server/`.
+  - npm packages, or `lib/`, `apps/web/app/`, `apps/web/components/` and `server/`.
 
   Standard globals such as `URL` and `globalThis.crypto.getRandomValues` are fine.
 - **Declared dependencies.** Each `package.json` lists what the package may import in `"voxelventure": { "dependsOn": [...] }`. [`tests/packages.test.mjs`](../tests/packages.test.mjs) enforces it.

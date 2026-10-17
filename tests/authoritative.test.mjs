@@ -4,8 +4,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { root } from './helpers.mjs';
-import { createApi } from '../server/api/server.mjs';
-import { checkApiEnv, checkWebEnv } from '../server/api/config.mjs';
+import { createApi } from '../services/api/server.mjs';
+import { checkApiEnv, checkWebEnv } from '../services/api/config.mjs';
 
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
@@ -97,7 +97,7 @@ try {
   const bad = checkApiEnv({ ...good, ADMIN_TOKEN: 'CHANGE_ME', IP_SALT: 'short', REFERRAL_SECRET: good.MP_NOTIFY_SECRET, API_ORIGIN: '*', API_DB: ':memory:', HUMAN_MIN_AGE_MS: '0', HUMAN_VISIT_CAP: '1000' }).errors.join(' | ');
   for (const k of ['ADMIN_TOKEN', 'IP_SALT is too short', 'different', 'API_ORIGIN', 'API_DB', 'HUMAN_MIN_AGE_MS', 'HUMAN_VISIT_CAP']) check(`a bad setting is caught: ${k}`, bad.includes(k));
   check('the web settings need the real API and site addresses', checkWebEnv({ NEXT_PUBLIC_LIVE_API_URL: 'https://api.example.com' }).errors.length === 2 && checkWebEnv({ NEXT_PUBLIC_LIVE_API_URL: 'https://api.voxel.test', NEXT_PUBLIC_SITE_URL: 'https://voxel.test', NEXT_PUBLIC_MP_URL: 'wss://play.voxel.test' }).errors.length === 0);
-  const refused = spawnSync(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { env: { PATH: process.env.PATH, NODE_ENV: 'production', API_DB: ':memory:', API_PORT: '0' }, encoding: 'utf8', timeout: 20000 });
+  const refused = spawnSync(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], { env: { PATH: process.env.PATH, NODE_ENV: 'production', API_DB: ':memory:', API_PORT: '0' }, encoding: 'utf8', timeout: 20000 });
   check('in production the API refuses to start with unsafe settings', refused.status === 1 && /will not start in production/.test(refused.stderr), `status ${refused.status}`);
 
   // ---- the deploy check against this API

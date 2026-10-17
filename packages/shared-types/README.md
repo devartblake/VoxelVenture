@@ -35,8 +35,8 @@ Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-S
 
 | Name | Values | Must equal |
 | --- | --- | --- |
-| `TRAFFIC_SOURCES` | `direct search social referral city x` | `SOURCES` in `server/api/business.mjs` |
-| `PROFILE_EVENT_KINDS` | `view engaged store cta` | `EVENT_KINDS` in `server/api/business.mjs` |
+| `TRAFFIC_SOURCES` | `direct search social referral city x` | `SOURCES` in `services/api/business.mjs` |
+| `PROFILE_EVENT_KINDS` | `view engaged store cta` | `EVENT_KINDS` in `services/api/business.mjs` |
 | `OUTCOME_FAMILIES` | `leads claims redemptions purchases` | the ids of `OUTCOMES` in `@voxelventure/analytics` |
 | `PURCHASE_REPORTS` | `server browser` | the `report` column of `business_events` |
 

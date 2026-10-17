@@ -39,8 +39,8 @@ booked once the payment is confirmed. Cancelling a paid booking before it opens 
 
 ## Code
 - `lib/market/layout.js`: the plan (`planMarket`), tiers, prices. `lib/market/weeks.js`: weeks and booking rules. `lib/market/local.js`: the same rules in the browser.
-- `server/api/market.mjs` and the `/market`, `/admin/market` routes in `server/api/server.mjs`; tables `market_layouts`, `market_bookings`, `market_visits` (`server/api/schema.sql`).
-- `lib/state/marketStore.js`, `components/ui/panel/{SitesView,MarketPanel}.jsx`, `components/city/MarketStalls.jsx`.
+- `services/api/market.mjs` and the `/market`, `/admin/market` routes in `services/api/server.mjs`; tables `market_layouts`, `market_bookings`, `market_visits` (`services/api/schema.sql`).
+- `lib/state/marketStore.js`, `apps/web/components/ui/panel/{SitesView,MarketPanel}.jsx`, `apps/web/components/city/MarketStalls.jsx`.
 - Tests: `tests/market-layout.test.mjs`, `tests/market-api.test.mjs`, and the market checks in `tests/browser.test.mjs`.
 
 ## What happens after someone books (the whole life of a stall)

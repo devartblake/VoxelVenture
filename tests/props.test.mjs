@@ -8,9 +8,9 @@ const { treeModelFor, bushModelFor, carModelFor, CAR_LENGTH, TRUCK_LENGTH } = aw
 const { bad, total } = problemTally();
 
 for (const m of PROP_CATALOG) {
-  const file = path.join(root, 'public', m.url);
+  const file = path.join(root, 'apps', 'web', 'public', m.url);
   if (!fs.existsSync(file) || fs.readFileSync(file).readUInt32LE(0) !== 0x46546c67) bad('every prop file exists and is a .glb', m.url);
-  if (m.textured && !fs.existsSync(path.join(root, 'public', 'models', 'kenney', m.kit, 'Textures', 'colormap.png'))) bad('a textured kit has its colormap', m.kit);
+  if (m.textured && !fs.existsSync(path.join(root, 'apps', 'web', 'public', 'models', 'kenney', m.kit, 'Textures', 'colormap.png'))) bad('a textured kit has its colormap', m.kit);
   if (!(m.h > 0.1 && m.tris > 10 && m.tris < 4000)) bad('a prop has a sane size and triangle count', m.id);
 }
 for (const cls of ['tree', 'bush', 'car', 'truck']) if (PROP_CATALOG.filter((m) => m.cls === cls).length < 2) bad('at least two models of each kind', cls);

@@ -34,11 +34,15 @@ When in doubt: if the change helps a business get found, convert a visitor, meas
 
 `npm run check:freeze` compares the branch with `origin/main` (or `--base <ref>`) and fails when a **new file** is added under a frozen folder:
 
-`lib/city/`, `lib/sim/`, `components/city/`, `scripts/models/`, `scripts/streets/`, `scripts/study/`, `public/models/`
+`lib/city/`, `lib/sim/`, `apps/web/components/city/`, `scripts/models/`, `scripts/streets/`, `scripts/study/`, `apps/web/public/models/`
 
-Edits to existing files in those folders pass, so fixes and tuning are never blocked. The folder list lives in `lib/dev/worldFreeze.js`; the check is tested by `tests/world-freeze.test.mjs`.
+Edits to existing files in those folders pass, so fixes and tuning are never blocked.
 
-**Exceptions.** Work from the "continues" list sometimes needs a new file in a frozen folder (a sponsored-label mesh in `components/city/`, a performance split of a large component). Add this line to one of the branch's commit messages:
+A file **moved** (renamed) from a world folder is the same world file in a new place, so it is not flagged either. That includes moves from where the folders were before Phase C, `components/city/` and `public/models/` ([ADR 0003](../architecture/adr/0003-apps-and-services.md)). A copy is flagged.
+
+The folder list lives in `lib/dev/worldFreeze.js`; the check is tested by `tests/world-freeze.test.mjs`.
+
+**Exceptions.** Work from the "continues" list sometimes needs a new file in a frozen folder (a sponsored-label mesh in `apps/web/components/city/`, a performance split of a large component). Add this line to one of the branch's commit messages:
 
 ```
 World-freeze-exception: sponsored label on billboards (phase 2 funnel)

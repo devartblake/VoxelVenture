@@ -29,8 +29,8 @@ fi
 
 # The user that runs the game, and the places it writes to
 id voxel >/dev/null 2>&1 || useradd --system --home-dir "$APP" --shell /usr/sbin/nologin voxel
-mkdir -p "$APP/server/data" "$APP/server/logs" "$APP/.next/cache" "$APP/services/messaging/data" /etc/voxelventure /var/backups/voxelventure
-chown -R voxel:voxel "$APP/server/data" "$APP/server/logs" "$APP/.next" "$APP/services/messaging/data" /var/backups/voxelventure
+mkdir -p "$APP/services/api/data" "$APP/services/multiplayer/logs" "$APP/apps/web/.next/cache" "$APP/services/messaging/data" /etc/voxelventure /var/backups/voxelventure
+chown -R voxel:voxel "$APP/services/api/data" "$APP/services/multiplayer/logs" "$APP/apps/web/.next" "$APP/services/messaging/data" /var/backups/voxelventure
 
 # The Python messaging service's environment, with the pinned packages (it is installed but not started: see deploy/README.md)
 [ -x "$APP/services/messaging/.venv/bin/python" ] || python3 -m venv "$APP/services/messaging/.venv"

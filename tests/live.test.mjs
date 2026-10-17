@@ -7,7 +7,7 @@ import { root, sleep, imp } from './helpers.mjs';
 
 const free = () => new Promise((resolve) => { const s = net.createServer(); s.listen(0, () => { const { port } = s.address(); s.close(() => resolve(port)); }); });
 const port = await free();
-const proc = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { cwd: root, env: { ...process.env, API_PORT: String(port), API_DB: ':memory:', ADMIN_TOKEN: 'admin-secret', HUMAN_MIN_AGE_MS: '0', HUMAN_VISIT_CAP: '1000', HUMAN_CLICK_CAP: '1000' }, stdio: 'ignore' });
+const proc = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], { cwd: root, env: { ...process.env, API_PORT: String(port), API_DB: ':memory:', ADMIN_TOKEN: 'admin-secret', HUMAN_MIN_AGE_MS: '0', HUMAN_VISIT_CAP: '1000', HUMAN_CLICK_CAP: '1000' }, stdio: 'ignore' });
 process.env.NEXT_PUBLIC_LIVE_API_URL = `http://localhost:${port}`;
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => void mem.set(k, String(v)), removeItem: (k) => void mem.delete(k) };

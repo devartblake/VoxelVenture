@@ -80,11 +80,11 @@ These are true today and the drafts say so honestly. Each one is better fixed in
    - **What changed:** the multiplayer server now keeps only `net`, the same salted hash the API stores. `net` is `sha256(IP_SALT|address)`, cut to 16 characters. The error log, the console, `/status` and the `/admin` monitor all show it instead of the address.
    - **Configuration:** `presence.env` takes the API's `IP_SALT`. It also sets `TRUST_PROXY=1`, so behind Caddy each player's own address is hashed, not 127.0.0.1 for everyone. This also makes the per-network connection cap work in production.
    - **Tests:** `tests/multiplayer.test.mjs` and `tests/legal.test.mjs`.
-   - **Your old logs:** error logs written before this change can still hold full addresses. Delete `server/logs/client-errors.jsonl*` on any machine that ran the server.
-2. **The Plot of the Day newsletter is opt-out for account holders.** It goes to every account with a confirmed email and notices on, and notices are on by default (`server/api/engage.mjs`, `sendNewsletter`). Account holders get no unsubscribe link, only "turn these off in your account". Marketing email often needs opt-in. **Fix:** separate the newsletter from service notices, make it opt-in, and add a one-click unsubscribe link. *Half a day.*
-3. ✅ **Fixed (2026-10-16): take-over emails no longer say "you were paid out $X".** They now say "the game credited you N in game value (play money: no real money is paid)", with no currency sign (`server/api/engage.mjs`, `notifyTakeover`, `notifyAdTakeover`; checked by `tests/engage.test.mjs` and `tests/legal.test.mjs`). The terms say the same.
+   - **Your old logs:** error logs written before this change can still hold full addresses. Delete `services/multiplayer/logs/client-errors.jsonl*` on any machine that ran the server.
+2. **The Plot of the Day newsletter is opt-out for account holders.** It goes to every account with a confirmed email and notices on, and notices are on by default (`services/api/engage.mjs`, `sendNewsletter`). Account holders get no unsubscribe link, only "turn these off in your account". Marketing email often needs opt-in. **Fix:** separate the newsletter from service notices, make it opt-in, and add a one-click unsubscribe link. *Half a day.*
+3. ✅ **Fixed (2026-10-16): take-over emails no longer say "you were paid out $X".** They now say "the game credited you N in game value (play money: no real money is paid)", with no currency sign (`services/api/engage.mjs`, `notifyTakeover`, `notifyAdTakeover`; checked by `tests/engage.test.mjs` and `tests/legal.test.mjs`). The terms say the same.
 4. **Ad spaces are never charged.** `POST /ads/:id/buy` has no payment even when billing is on. The advertising policy calls them a free game feature; decision 9.
-5. **Disputes and partial refunds.** Chargebacks are recorded but nothing else happens. A partial refund made in the Stripe dashboard is ignored (`server/api/billing.mjs`). **Fix:** handle `charge.dispute.created` (pause what it paid for, alert an admin) and partial refunds. *A day.*
+5. **Disputes and partial refunds.** Chargebacks are recorded but nothing else happens. A partial refund made in the Stripe dashboard is ignored (`services/api/billing.mjs`). **Fix:** handle `charge.dispute.created` (pause what it paid for, alert an admin) and partial refunds. *A day.*
 6. **People cannot delete their account or download their data.** The policies say to email. **Fix:**
    - an account deletion that wipes personal fields and keeps anonymised records;
    - a data export;
@@ -108,8 +108,8 @@ These are true today and the drafts say so honestly. Each one is better fixed in
 
 The facts come from an inventory of the code on 2026-10-17. The main sources are:
 
-- `server/api/core.mjs`, `engage.mjs`, `business.mjs`, `conversions.mjs`, `messaging.mjs`, `moderation.mjs`, `billing.mjs`, `social.mjs`, `stats.mjs`, `schema.sql`
-- `server/multiplayer.mjs`
+- `services/api/core.mjs`, `engage.mjs`, `business.mjs`, `conversions.mjs`, `messaging.mjs`, `moderation.mjs`, `billing.mjs`, `social.mjs`, `stats.mjs`, `schema.sql`
+- `services/multiplayer/server.mjs`
 - `packages/business-core/src/plans.js`, `lib/game/leases.js`, `lib/market/layout.js`, `lib/business/referral.js`
 - `deploy/backup.sh`
-- every `localStorage` key in `lib/`, `components/` and `app/`
+- every `localStorage` key in `lib/`, `apps/web/components/` and `apps/web/app/`

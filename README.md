@@ -54,11 +54,13 @@ Payments switch on with Stripe keys: see [docs/monetization/billing.md](docs/mon
 
 | Folder | What is in it |
 | --- | --- |
-| `app/`, `components/` | The Next.js app: the 3D city (`/`) and the public business pages (`app/(public)`: Discover, business, category and district pages, `/legal`) |
+| `apps/web/` | The Next.js app: `app/` (the 3D city at `/`, and the public business pages in `app/(public)`: Discover, business, category and district pages, `/legal`), `components/`, `public/` and its config |
 | `lib/` | Rules shared by the game, the pages and the server, loaded by the server through `scripts/lib-loader.mjs` |
 | `packages/` | Pure shared packages with versioned contracts ([packages/README.md](packages/README.md)) |
-| `server/` | The Node API (`server/api/`, SQLite) and the presence server (`server/multiplayer.mjs`) |
+| `services/api/` | The Node API (SQLite; its data in `services/api/data/`) |
+| `services/multiplayer/` | The presence server (avatars, chat, instant updates) |
 | `services/messaging/` | The Python (FastAPI) messaging service, not switched on yet |
+| `styles/` | CSS shared by the apps |
 | `tests/` | `node tests/run.mjs`; CI picks the suites a change needs (`scripts/select-checks.mjs`) |
 | `deploy/` | Caddy, systemd units, settings templates, setup and backup scripts, the runbook |
 

@@ -16,7 +16,7 @@ A runbook for one server running everything: the web app, the API and the presen
 - A Cloud Firewall in the Linode dashboard: allow 80 and 443 to everyone and SSH (22) from your own address only.
 
 ## First deployment
-1. **Copy the project** to `/srv/voxelventure` (without `node_modules`, `.next` or `server/data`), e.g. `rsync -a --exclude node_modules --exclude .next --exclude server/data ./ root@SERVER:/srv/voxelventure/`.
+1. **Copy the project** to `/srv/voxelventure` (without `node_modules`, `.next` or `services/api/data`), e.g. `rsync -a --exclude node_modules --exclude .next --exclude services/api/data ./ root@SERVER:/srv/voxelventure/`.
 2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`.
 3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env`: your domain, and a long random value for `ADMIN_TOKEN`, `IP_SALT`, `MP_NOTIFY_SECRET` and `REFERRAL_SECRET` (`openssl rand -hex 32`, a different one each; the notify secret must be the same in `api.env` and `presence.env`). `API_SEED` must match the game's seed. `presence.env` also needs the same `IP_SALT` as `api.env`, and `TRUST_PROXY=1`. Network addresses are only ever kept as that salted hash, and behind Caddy the presence server must read each player's address from `X-Forwarded-For`, or everyone shares one per-network connection limit. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
    Then **check them**: `cd /srv/voxelventure && sudo -u voxel npm ci && npm run check:env -- /etc/voxelventure/api.env /etc/voxelventure/web.env` must say `ok` for both (it lists anything still a placeholder, too short, a test setting, or not https). The API checks the same again when it starts and **refuses to start in production** until they are fixed (`journalctl -u voxelventure-api` says why).
@@ -49,16 +49,30 @@ npm run verify:live -- --api https://api.example.com --site https://example.com 
 ```
 The API upgrades the database in place when it starts (new columns are added). Take a backup first: `sudo -u voxel voxelventure-backup`.
 
+## From the old layout (before Phase C)
+
+The app is in `apps/web/`, and the servers are in `services/api/` and `services/multiplayer/` ([ADR 0003](../docs/architecture/adr/0003-apps-and-services.md)). A machine that ran the old layout, with `server/api/`, `server/multiplayer.mjs` and the app at the root, moves its data once:
+
+1. `systemctl stop voxelventure-web voxelventure-presence voxelventure-api`.
+2. Copy the new release, then run `sudo bash deploy/setup.sh` again. It makes `services/api/data`, `services/multiplayer/logs` and `apps/web/.next/cache`, and installs the new systemd units.
+3. Move the data:
+   - `mv /srv/voxelventure/server/data/* /srv/voxelventure/services/api/data/` (the database, and `outbox/` if it is there);
+   - optionally, `mv /srv/voxelventure/server/logs/* /srv/voxelventure/services/multiplayer/logs/`.
+
+   Then check `API_DB` in `/etc/voxelventure/api.env` and `MP_LOG_DIR` in `presence.env`; the templates have the new paths.
+4. Run `npm ci` and `npm run build` as `voxel`, then `systemctl start voxelventure-api voxelventure-presence voxelventure-web`.
+5. Check `/health` on the API and the presence server, sign in, claim, and open `/admin`.
+
 ## Backups and restoring
 - Nightly at 03:15 (`/etc/cron.d/voxelventure-backup`): a compressed copy in `/var/backups/voxelventure`, kept 14 days. For off-machine copies, install `rclone`, run `rclone config` once for your Linode Object Storage, and put `RCLONE_REMOTE=linode:your-bucket` in `/etc/voxelventure/backup.env`. Also switch on Linode's own Backups.
-- **Restore:** `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/server/data/voxelventure.db`, make sure the `voxel` user owns it, then `systemctl start voxelventure-api`.
+- **Restore:** `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/services/api/data/voxelventure.db`, make sure the `voxel` user owns it, then `systemctl start voxelventure-api`.
 - Do a restore on a spare machine once, before you rely on it.
 
 ## Things to know
 - **One API process, one machine.** The database is SQLite with a single writer (that is what makes a claim atomic). Do not run two copies of the API.
-- **Node version.** `setup.sh` installs Node 22 (it leaves a newer Node in place). The API uses Node's built-in SQLite (`node:sqlite`); the service file passes `--experimental-sqlite --no-warnings`, as `npm run api` does. Older Node 22 releases need the flag; Node 24, which the development machine runs, works without it, and the flag does no harm. I tried switching to `better-sqlite3` for production, but its native build crashed on the development machine, so it was not adopted: if you want it, install it on the Linode itself, run the API tests (`node tests/run.mjs api engage community stats`), and change only `server/api/db.mjs`.
+- **Node version.** `setup.sh` installs Node 22 (it leaves a newer Node in place). The API uses Node's built-in SQLite (`node:sqlite`); the service file passes `--experimental-sqlite --no-warnings`, as `npm run api` does. Older Node 22 releases need the flag; Node 24, which the development machine runs, works without it, and the flag does no harm. I tried switching to `better-sqlite3` for production, but its native build crashed on the development machine, so it was not adopted: if you want it, install it on the Linode itself, run the API tests (`node tests/run.mjs api engage community stats`), and change only `services/api/db.mjs`.
 - **What is public.** Caddy serves the game, the API and the presence connection; `/status` and `/notify` on the presence server are hidden from outside, and the `/admin` monitor page (which reads `/status` through `/mp-status`) is behind a password. Without the monitor, set `ADMIN_TOKEN` and use the admin endpoints only from your machine. `/notify-accounts` on the presence server and everything under `/internal/` on the API are for the processes on this machine to call each other: they refuse anything without their secret (`MP_NOTIFY_SECRET`, or `INTERNAL_SECRET` for the messaging service), and the `Caddyfile` also answers 404 to them from outside.
-- **Email.** Until `MAIL_WEBHOOK_URL` is set, notices are only written to files in `server/data/outbox`: nothing is delivered.
+- **Email.** Until `MAIL_WEBHOOK_URL` is set, notices are only written to files in `services/api/data/outbox`: nothing is delivered.
 - **Payments.** The Launch Pack, Pro and sponsored placements go through Stripe once `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are set. Point the Stripe webhook at `https://<api host>/billing/webhook` with the events listed in [docs/monetization/billing.md](../docs/monetization/billing.md). With the keys set, claims, take-overs, lease renewals and market stalls also go through Stripe Checkout. Without them, everything works as before, for free.
 - **Watch bandwidth.** Presence sends nearby players about ten times a second. Check `/admin` (through the password) and the Linode transfer graph during the first busy days.
 

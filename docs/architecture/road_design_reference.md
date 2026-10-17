@@ -8,7 +8,7 @@ Open `/reference` in the running app to see the maps side by side. This file has
 
 - The three real maps are road networks from **OpenStreetMap** (© OpenStreetMap contributors, ODbL licence), fetched through the Overpass API on 2026-10-12. Each is about 2.2 km tall; all four maps use the same scale (a 500 m bar is drawn on each).
 - Only vehicle roads were kept (motorway down to residential, plus pedestrian streets). Footpaths, service lanes and buildings are left out.
-- The files are in `public/reference/`: `nyc.svg`, `sf.svg`, `dc.svg`, and `voxelventure.svg` (this city, drawn the same way at 1 city unit = 7 m, so a 2.8-unit road corridor is about 20 m wide).
+- The files are in `apps/web/public/reference/`: `nyc.svg`, `sf.svg`, `dc.svg`, and `voxelventure.svg` (this city, drawn the same way at 1 city unit = 7 m, so a 2.8-unit road corridor is about 20 m wide).
 - I could not open the SVGs as images while preparing this, so the drawings themselves have not been looked at. They are valid SVG, and the numbers below were computed from the same data.
 
 ## What was measured

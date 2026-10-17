@@ -1,6 +1,6 @@
 # Feasibility study: a big, authored world with cities, an island, an ocean and a shipping yard
 
-Written for: you, deciding whether to build one large hand-designed world map out of several cities, with an island, an ocean and a shipping yard, streamed in as you move. Everything here was measured on the current code unless it says "estimate". The scripts that produced the numbers are in `scripts/study/`; the prototype is in `components/city/StreamedNetwork.jsx` (open the game with `?stream=64` to try it).
+Written for: you, deciding whether to build one large hand-designed world map out of several cities, with an island, an ocean and a shipping yard, streamed in as you move. Everything here was measured on the current code unless it says "estimate". The scripts that produced the numbers are in `scripts/study/`; the prototype is in `apps/web/components/city/StreamedNetwork.jsx` (open the game with `?stream=64` to try it).
 
 ## 1. Short answers
 
@@ -63,9 +63,9 @@ Teleporting across the map swapped the chunks (20 unmounted, 4 mounted) with no 
 **The world is data, not code.** Today `generateCity(seed)` runs in the browser. In the new design a build step (`scripts/bake-world.mjs`) produces the files the game ships:
 
 ```
-public/world/manifest.json       regions (cities) with names, borders, a land mask, the ocean, ids
-public/world/chunks/<cx>_<cz>.bin  baked chunk: merged geometry, plot / road / junction records
-public/world/overview/<cx>_<cz>.png  a flat picture of each chunk, for the far views and the map
+apps/web/public/world/manifest.json       regions (cities) with names, borders, a land mask, the ocean, ids
+apps/web/public/world/chunks/<cx>_<cz>.bin  baked chunk: merged geometry, plot / road / junction records
+apps/web/public/world/overview/<cx>_<cz>.png  a flat picture of each chunk, for the far views and the map
 ```
 
 - **Authoring.** Each city starts as a generated city (seed + scale + hand-picked options), is placed on the world grid, then edited by hand; the reserved-site designer already shows how edits go into the data. Highways, bridges and railways between cities are drawn on the world grid. The editor can start as scripts and JSON and become a visual tool later (the largest open-ended cost: 1–3 weeks).
@@ -116,4 +116,4 @@ Decisions since the study: ownership and statistics go to a database (so the bro
 | Highways between cities | hand-drawn | 3-4 days | generate gateways, connect them over land, bridge rivers, add a fast-road class to traffic |
 | Streaming runtime, coast and ocean, port and ships | 4-5 + 3 + 4-5 days | unchanged | |
 
-Total about **20-24 days** (was 20-30 with an editor); a vertical slice (one island, two cities, a highway, a port, streaming) is about 10-12 days. Real mountains (a non-flat world) would be a separate 4-6 day project; start with decorative hills (done since: the north-east hills, `lib/city/hills.js` and `components/city/Hills.jsx`).
+Total about **20-24 days** (was 20-30 with an editor); a vertical slice (one island, two cities, a highway, a port, streaming) is about 10-12 days. Real mountains (a non-flat world) would be a separate 4-6 day project; start with decorative hills (done since: the north-east hills, `lib/city/hills.js` and `apps/web/components/city/Hills.jsx`).

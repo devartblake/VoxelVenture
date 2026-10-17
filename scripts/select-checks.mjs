@@ -17,7 +17,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Files whose change means nothing to test: documentation and repository paperwork. (CREDITS.md is not one: a test checks it.)
 const DOCS = [/^docs\//, /^(?!CREDITS\.md$)[^/]*\.md$/i, /\/[^/]*\.md$/i, /^LICENSE/, /^\.github\/(pull_request_template\.md|dependabot\.yml)$/, /^\.gitignore$/, /^AGENTS\.md$/];
 // Files every test depends on: any change runs everything.
-const EVERYTHING = [/^package(-lock)?\.json$/, /^tests\/(helpers|run|browser-driver)\.mjs$/, /^tests\/fixtures\//, /^scripts\/lib-loader\.mjs$/, /^patches\//, /^vendor\//, /^next\.config\.mjs$/, /^jsconfig\.json$/, /^postcss\.config\.mjs$/, /^\.github\/workflows\//, /^scripts\/select-checks\.mjs$/];
+const EVERYTHING = [/^package(-lock)?\.json$/, /^tests\/(helpers|run|browser-driver)\.mjs$/, /^tests\/fixtures\//, /^scripts\/lib-loader\.mjs$/, /^patches\//, /^vendor\//, /^apps\/web\/(next\.config\.mjs|jsconfig\.json|postcss\.config\.mjs)$/, /^\.github\/workflows\//, /^scripts\/select-checks\.mjs$/];
 const CODE = /\.(js|jsx|mjs|cjs)$/;
 
 // Which tests read what: from each test file's own source, so a new test is covered without editing this file.
@@ -56,13 +56,18 @@ export function libDependents(changed, users = libGraph()) {
   while (queue.length) for (const u of users.get(queue.shift()) ?? []) if (!seen.has(u)) (seen.add(u), queue.push(u));
   return [...seen];
 }
-const serverSource = () => {
-  const dir = path.join(root, 'server');
-  return fs.readdirSync(dir, { recursive: true }).filter((f) => /\.mjs$/.test(f)).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
-};
+// the Node servers' own code: the API and the presence server (services/api, services/multiplayer)
+const serverSource = () =>
+  ['services/api', 'services/multiplayer']
+    .map((d) => path.join(root, d))
+    .filter((dir) => fs.existsSync(dir))
+    .flatMap((dir) => fs.readdirSync(dir, { recursive: true }).map(String).filter((f) => /\.mjs$/.test(f)).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')))
+    .join('\n');
+// the tests that start a Node server, or import its modules
+const SERVER_TESTS = /services\/(api|multiplayer)|'services', '(api|multiplayer)'/;
 // The pages and the 3D city's own code (not lib/, which libGraph follows), for which packages they import by name.
 const appSource = () =>
-  ['app', 'components']
+  ['apps/web/app', 'apps/web/components']
     .flatMap((d) => (fs.existsSync(path.join(root, d)) ? fs.readdirSync(path.join(root, d), { recursive: true }).map(String).filter((f) => /\.(js|jsx|mjs)$/.test(f)).map((f) => path.join(root, d, f)) : []))
     .map((f) => fs.readFileSync(f, 'utf8'))
     .join('\n');
@@ -92,7 +97,7 @@ export function selectChecks(files, tests = testIndex()) {
       // end-to-end browser test (the game and the pages are built on lib/)
       const mods = libDependents(f.replace(/^lib\//, '').replace(/\.(js|jsx)$/, ''));
       add(['live-browser.test.mjs', ...mentioning(tests, naming(mods))], `${f} (and ${mods.length - 1} module(s) built on it)`);
-      if (serverUses(mods)) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), `${f}: the server loads it`);
+      if (serverUses(mods)) add(mentioning(tests, SERVER_TESTS), `${f}: the server loads it`);
     }
     else if (/^packages\/[^/]+\/src\/.+\.js$/.test(f)) {
       // a shared package, imported by its workspace name (docs/architecture/adr/0001-shared-package-boundaries.md, 0002-workspaces.md):
@@ -112,18 +117,18 @@ export function selectChecks(files, tests = testIndex()) {
         add(['packages.test.mjs', ...named], `${f}: the package rules and the tests that import the package`);
         if (mods.length) add(mentioning(tests, naming(mods)), `${f} (through ${mods.length} lib/ module(s) built on it)`);
         if (mods.length || inPages) add(['live-browser.test.mjs'], `${f}: the pages use it`);
-        if (inServer) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), `${f}: the server loads it`);
+        if (inServer) add(mentioning(tests, SERVER_TESTS), `${f}: the server loads it`);
       }
     }
     else if (f === 'CREDITS.md') add(mentioning(tests, /CREDITS/), f);
-    else if (/^(app|components|styles)\//.test(f)) {
+    else if (/^apps\/web\/(app|components)\//.test(f) || /^styles\//.test(f)) {
       // the pages and the 3D city: the end-to-end browser test (it builds the app) and any test that reads these folders
       add(['live-browser.test.mjs', ...mentioning(tests, /['"/](app|components|styles)\//)], f);
-    } else if (/^server\//.test(f)) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), f);
+    } else if (/^services\/(api|multiplayer)\//.test(f)) add(mentioning(tests, SERVER_TESTS), f);
     else if (/^services\/messaging\//.test(f)) {
       out.python = true;
-      add(mentioning(tests, /services\/messaging|['"]services['"]|MESSAGING_IMPL/), f);
-    } else if (/^public\//.test(f) || /^scripts\/(models|streets)\//.test(f)) {
+      add(mentioning(tests, /services\/messaging|'services', 'messaging'|MESSAGING_IMPL/), f);
+    } else if (/^apps\/web\/public\//.test(f) || /^scripts\/(models|streets)\//.test(f)) {
       // models, textures, sounds and the scripts that make them: the catalogue, model, credits and world tests
       add(mentioning(tests, /public\/|['"]public['"]|models|\.glb|\.vox|CREDITS|credits|streetNames|streets/), f);
     } else if (/^scripts\/[^/]+\.mjs$/.test(f)) add(mentioning(tests, new RegExp(path.basename(f).replace(/\./g, '\\.'))), f);

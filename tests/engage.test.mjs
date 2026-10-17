@@ -19,8 +19,8 @@ const receiver = http.createServer((req, res) => {
 }).listen(mailPort);
 const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-mp-'));
 const common = { ...process.env, MP_NOTIFY_SECRET: 'shh' };
-const mp = spawn(process.execPath, [path.join(root, 'server', 'multiplayer.mjs')], { cwd: root, env: { ...common, MP_PORT: String(mpPort), MP_LOG_DIR: logDir }, stdio: 'ignore' });
-const api = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], {
+const mp = spawn(process.execPath, [path.join(root, 'services', 'multiplayer', 'server.mjs')], { cwd: root, env: { ...common, MP_PORT: String(mpPort), MP_LOG_DIR: logDir }, stdio: 'ignore' });
+const api = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], {
   cwd: root,
   env: { ...common, API_PORT: String(apiPort), API_DB: ':memory:', PUBLIC_API_URL: `http://localhost:${apiPort}`, MAIL_WEBHOOK_URL: `http://localhost:${mailPort}/mail`, MAIL_WEBHOOK_TOKEN: 'mailkey', MAIL_FROM: 'VoxelVenture <hi@x.test>', MP_NOTIFY_URL: `http://localhost:${mpPort}/notify`, ADMIN_TOKEN: 'admin-secret' },
   stdio: 'ignore',

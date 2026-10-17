@@ -9,7 +9,7 @@ Status: steps 1 to 5 done on October 15, 2026: the Python messaging service exis
 | --- | --- | --- |
 | 1. Inventory and freeze contracts | Done | `tests/messaging.test.mjs` is the contract: about 70 checks of routes, bodies, error codes, limits, idempotency, requests, reads, blocks, reports, bans, inquiries and the presence path. It runs against the Node API, or with `MESSAGING_IMPL=fastapi` against the service (`tests/messaging-fastapi.test.mjs`); both pass unchanged. |
 | 2. Internal boundaries | Done | Node stays the authority: `POST /internal/identity/session` (bearer token, in the body, to account or 401), `/internal/identity/binding` (a presence binding to its account), `/internal/identity/accounts` (by ids or name, with `banned` and `emailVerified`), `/internal/identity/accounts/{id}/ban`, `GET /internal/plots/{id}/owner` (owner and an ownership **version**: the plot's latest ledger id). All need `INTERNAL_SECRET`. **Tickets stay with Node** (part of signing in); the presence server keeps talking to Node, which forwards `/internal/messaging/nearby`. Failures are explicit `503 unavailable`. |
-| 3. FastAPI alongside Node | Done | `services/messaging` (Python 3.13, FastAPI, its own SQLite database): the whole messaging domain, ported from `server/api/messaging.mjs` with the same answers. Node forwards the public messaging routes to it when `MESSAGING_SERVICE_URL` is set, and then runs none of its own messaging jobs (one sender of notices, one pruner). The text checks are compared with the JavaScript ones on awkward inputs (`services/messaging/tests`). |
+| 3. FastAPI alongside Node | Done | `services/messaging` (Python 3.13, FastAPI, its own SQLite database): the whole messaging domain, ported from `services/api/messaging.mjs` with the same answers. Node forwards the public messaging routes to it when `MESSAGING_SERVICE_URL` is set, and then runs none of its own messaging jobs (one sender of notices, one pruner). The text checks are compared with the JavaScript ones on awkward inputs (`services/messaging/tests`). |
 | 4. Rehearse data extraction | Done (rehearsed) | `python -m app.migrate_from_node` copies conversations, members, messages, blocks, request settings, nearby evidence, chat reports, pending notices and names, keeping ids; refuses a non-empty target; reconciles counts, id ranges and read positions. `tests/messaging-migrate.test.mjs`: history made on Node, the pause (`MESSAGING_READONLY=1`), the copy, then every player sees exactly the same through the service, and retries, new ids, reports and tickets carry on. |
 | 5. Combined system | Done locally | `tests/live-browser.test.mjs` with `MESSAGING_IMPL=fastapi`: real browsers sign up, claim, use a storefront, chat nearby, message privately, get the live badge, reply, and ask a building's owner, with messaging on the service. |
 | 6. Cut over | Not done | The runbook is in `deploy/README.md` ("Moving messaging to the Python service"); the systemd unit and `messaging.env.example` are ready and `setup.sh` installs the service without enabling it. |
@@ -176,10 +176,10 @@ Avoid introducing Redis or a general event broker for the initial single-instanc
 
 | Area | Action |
 | --- | --- |
-| `server/api/messaging.mjs` | Inventory behavior and port the messaging domain into FastAPI |
-| `server/api/server.mjs` | Remove or temporarily proxy migrated routes after compatibility validation; add protected identity/ownership interfaces |
-| `server/api/schema.sql`, `server/api/db.mjs` | Preserve Node tables; plan messaging-table extraction and disable duplicate messaging migrations/jobs at cutover |
-| `server/multiplayer.mjs` | Retain presence; update internal messaging URLs/contracts and targeted notification integration |
+| `services/api/messaging.mjs` | Inventory behavior and port the messaging domain into FastAPI |
+| `services/api/server.mjs` | Remove or temporarily proxy migrated routes after compatibility validation; add protected identity/ownership interfaces |
+| `services/api/schema.sql`, `services/api/db.mjs` | Preserve Node tables; plan messaging-table extraction and disable duplicate messaging migrations/jobs at cutover |
+| `services/multiplayer/server.mjs` | Retain presence; update internal messaging URLs/contracts and targeted notification integration |
 | `lib/data/` messaging client | Preserve public contracts or add a small base-path adapter |
 | `lib/net/multiplayer.js` | Preserve movement protocol; adapt messaging authentication/events only where needed |
 | Chat/Inbox UI and state | Keep React implementation; verify compatibility with the FastAPI responses |

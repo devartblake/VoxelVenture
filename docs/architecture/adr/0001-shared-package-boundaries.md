@@ -46,11 +46,11 @@ packages/
 | Package | May import | Must not import |
 | --- | --- | --- |
 | `shared-types` | nothing | anything |
-| `analytics` | `shared-types` | `business-core`, `lib/`, `app/`, `components/`, `server/`, npm packages, Node or browser APIs |
-| `business-core` | `shared-types` | `analytics`, `lib/`, `app/`, `components/`, `server/`, npm packages, Node or browser APIs |
+| `analytics` | `shared-types` | `business-core`, `lib/`, `apps/web/app/`, `apps/web/components/`, `server/`, npm packages, Node or browser APIs |
+| `business-core` | `shared-types` | `analytics`, `lib/`, `apps/web/app/`, `apps/web/components/`, `server/`, npm packages, Node or browser APIs |
 
 - **Pure modules:** packages contain only pure modules: no database, no `window`, `document` or `localStorage`, no `process`, no file system, no renderer. Globals that are standard in both environments, such as `globalThis.crypto.getRandomValues` and `URL`, are allowed.
-- **Who may import packages:** `lib/`, `app/`, `components/`, `server/` and `tests/`.
+- **Who may import packages:** `lib/`, `apps/web/app/`, `apps/web/components/`, `server/` and `tests/`.
 - **Enforcement:** each package declares its allowed dependencies in its `package.json` (`"voxelventure": { "dependsOn": [...] }`). `tests/packages.test.mjs` checks every import against that list.
 
 ### 3. Compatibility adapters keep every existing import working
@@ -93,11 +93,11 @@ packages/
 | Moved | From | To | Adapter |
 | --- | --- | --- | --- |
 | Profile rules: categories, districts, calls to action, slugs, validation (`cleanProfile`), onboarding steps, upgrade prompts, referral-code shape, structured data, the demo profiles, traffic sources | `lib/business/profile.js` | `packages/business-core/src/profile.js` | `lib/business/profile.js` |
-| The pilot's criteria and how each business counts | (new) | `packages/analytics/src/pilot.js` | none: `server/api/pilot.mjs` imports the package directly |
+| The pilot's criteria and how each business counts | (new) | `packages/analytics/src/pilot.js` | none: `services/api/pilot.mjs` imports the package directly |
 | Contracts for meeting and quote requests, the pilot check-in and the pilot dashboard | (new) | `packages/shared-types/src/contracts/` | none |
 
 - **Why all of `profile.js` moved:** its district list is a static list in the file itself, not the city generator's.
-- **One validation:** the web form (`components/business/ProfileForm.jsx`) and the server now check a profile with the very same `cleanProfile`.
+- **One validation:** the web form (`apps/web/components/business/ProfileForm.jsx`) and the server now check a profile with the very same `cleanProfile`.
 
 ## The last contracts (2026-10-17)
 
@@ -108,7 +108,7 @@ That makes 15 contracts, every shape that crosses a boundary today. A new one is
 
 ## Decision: what stays out of the packages
 
-- **Signing referral codes** needs the server's secret and Node's `crypto`, so it stays in `server/api/business.mjs`. A package is code the browser may load, and the secret's code does not belong there.
+- **Signing referral codes** needs the server's secret and Node's `crypto`, so it stays in `services/api/business.mjs`. A package is code the browser may load, and the secret's code does not belong there.
 - **Keeping a referral code in the browser** (`localStorage`) stays in `lib/business/referral.js`.
 - **The world** (`lib/city`, `lib/game`, `lib/sim`) waits for the P2 `world-core` package, after the commercial gates.
 
@@ -117,7 +117,7 @@ Not moved yet:
 - `lib/business/referral.js`: the browser half of referrals.
   - It keeps the code in `localStorage`, so it stays in `lib/`.
   - Its pure part, the shape of a code (`isRefCode`), is in `business-core`.
-  - Signing a code is server-only (`server/api/business.mjs`, with Node's `crypto`).
+  - Signing a code is server-only (`services/api/business.mjs`, with Node's `crypto`).
 - Everything in `lib/city`, `lib/game` and `lib/sim`: the world-core package is P2.
 
 ## Consequences

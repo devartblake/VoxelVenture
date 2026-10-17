@@ -7,7 +7,7 @@ Type=simple
 User=voxel
 WorkingDirectory=/srv/voxelventure
 EnvironmentFile=/etc/voxelventure/presence.env
-ExecStart=/usr/bin/node server/multiplayer.mjs
+ExecStart=/usr/bin/node services/multiplayer/server.mjs
 Restart=always
 RestartSec=3
 # one open file for every connected player, and a few more
@@ -16,7 +16,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/srv/voxelventure/server/logs
+ReadWritePaths=/srv/voxelventure/services/multiplayer/logs
 
 [Install]
 WantedBy=multi-user.target

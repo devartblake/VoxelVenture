@@ -17,7 +17,7 @@ const run = (name, args) => {
   return child;
 };
 
-const children = [run('web', [nextBin, 'dev', '-H', '0.0.0.0']), run('mp', ['server/multiplayer.mjs'])];
+const children = [run('web', [nextBin, 'dev', 'apps/web', '-H', '0.0.0.0']), run('mp', ['services/multiplayer/server.mjs'])];
 let stopping = false;
 function stopAll() {
   if (stopping) return;

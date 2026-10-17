@@ -24,15 +24,15 @@ Everything in VoxelVenture that was not made for it, who made it, and the licenc
 
 These eight releases contain 16 recordings. The CC0 declarations allow commercial use, modification, redistribution and public performance without a fee or required attribution; credit is given here voluntarily.
 
-The recordings are served locally from `public/audio/music/`. See the [music provenance record](docs/licences/music/README.md) for preserved creator-upload pages and the CC0 legal text, captured on 2026-10-16. The [asset manifest](public/audio/music/manifest.json) records download addresses, individual file paths and SHA-256 hashes.
+The recordings are served locally from `apps/web/public/audio/music/`. See the [music provenance record](docs/licences/music/README.md) for preserved creator-upload pages and the CC0 legal text, captured on 2026-10-16. The [asset manifest](apps/web/public/audio/music/manifest.json) records download addresses, individual file paths and SHA-256 hashes.
 
 ## 3D models
 
-**Kenney**, https://www.kenney.nl: City Kit (Commercial), City Kit (Suburban), Nature Kit, Car Kit, Watercraft Kit, Pirate Kit and Coaster Kit. Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. Credit is not required but is given gladly. Which kit each model comes from: `public/models/CREDITS.md`.
+**Kenney**, https://www.kenney.nl: City Kit (Commercial), City Kit (Suburban), Nature Kit, Car Kit, Watercraft Kit, Pirate Kit and Coaster Kit. Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. Credit is not required but is given gladly. Which kit each model comes from: `apps/web/public/models/CREDITS.md`.
 
-**Pascal Editor (Pascal Group Inc.)**, https://github.com/pascalorg/editor: the interior items (doors, windows, furniture) and materials in `public/items/` and `public/material/`, and the `@pascal-app/*` packages behind them: the building interiors, the furniture editor (*Redesign inside*) and the `/viewer` page. **MIT** licence, https://opensource.org/license/mit.
+**Pascal Editor (Pascal Group Inc.)**, https://github.com/pascalorg/editor: the interior items (doors, windows, furniture) and materials in `apps/web/public/items/` and `apps/web/public/material/`, and the `@pascal-app/*` packages behind them: the building interiors, the furniture editor (*Redesign inside*) and the `/viewer` page. **MIT** licence, https://opensource.org/license/mit.
 
-**Voxel landmarks** in `public/models/vox/`: made for this game.
+**Voxel landmarks** in `apps/web/public/models/vox/`: made for this game.
 
 ## Map data
 

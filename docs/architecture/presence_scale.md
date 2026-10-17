@@ -1,6 +1,6 @@
 # Presence at scale (protocol 2)
 
-How the presence server ([server/multiplayer.mjs](../../server/multiplayer.mjs), client in [lib/net/multiplayer.js](../../lib/net/multiplayer.js)) handles a crowd, what it was measured doing, and what to do when one server is not enough. Setup and settings are in [../server/README.md](../../server/README.md) and [../deploy/README.md](../../deploy/README.md).
+How the presence server ([services/multiplayer/server.mjs](../../services/multiplayer/server.mjs), client in [lib/net/multiplayer.js](../../lib/net/multiplayer.js)) handles a crowd, what it was measured doing, and what to do when one server is not enough. Setup and settings are in [../server/README.md](../../services/multiplayer/README.md) and [../deploy/README.md](../../deploy/README.md).
 
 ## What changed
 Protocol 1 sent every player to every client: a join told everyone in the city, a welcome listed the whole city, and every tick each client got a full position for every player within 120 units. Cost per client grew with the crowd, and the browser drew an avatar for everyone it had heard of.
@@ -41,7 +41,7 @@ Per client the stream is bounded (about 10 KB/s in a packed crowd) whatever the 
 - `MP_MAX_PER_IP` (default 20) stops one address from filling the server; people behind one office or school network share an address, so raise it if that matters to you.
 - Chat adds calls to the API (`MP_API_URL`): each signed-in nearby line is checked there before it is passed on, and the signed-in connections are re-checked every `MP_RECHECK_MS` (30 s) in one call. The load test connects as guests with no API, so it does not measure these.
 - Caddy forwards WebSockets without extra settings (`deploy/Caddyfile`).
-- Re-run the load test after any change to `server/multiplayer.mjs`; it prints a verdict and needs no setup (it starts its own server): `node scripts/load-test-presence.mjs --clients 600 --seconds 20`. `--url ws://host:3001` tests a running server (do that against a staging copy, never the live one).
+- Re-run the load test after any change to `services/multiplayer/server.mjs`; it prints a verdict and needs no setup (it starts its own server): `node scripts/load-test-presence.mjs --clients 600 --seconds 20`. `--url ws://host:3001` tests a running server (do that against a staging copy, never the live one).
 
 ## Not done
 Binary messages instead of JSON (another 2 to 3 times smaller); region sharding of one world (step 3 above); a compressed first-sight `enter` (it is the one large message when someone arrives in a crowd); a bandwidth budget per client that adapts to a slow link.

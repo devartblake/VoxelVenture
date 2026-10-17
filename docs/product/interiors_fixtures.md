@@ -1,6 +1,6 @@
 # Interiors: business type, brand colours and the fixture price list
 
-How a building's inside follows from what kind of business it is. The code is in `lib/content/` (pure, tested in Node), the editor panel in `components/interior/editor/FurniturePanel.jsx`.
+How a building's inside follows from what kind of business it is. The code is in `lib/content/` (pure, tested in Node), the editor panel in `apps/web/components/interior/editor/FurniturePanel.jsx`.
 
 ## The furniture menu knows the business
 The owner says what the business is when claiming (shop, restaurant, office, house) and picks a layout (boutique, market, diner, cafe, open-plan, meeting rooms, cottage ...). When they press **Redesign inside**, the editor's furniture tab opens as **"Furniture for your <kind>"**:

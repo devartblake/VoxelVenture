@@ -1,4 +1,4 @@
-// Free business profiles on the API (server/api/business.mjs): creating and editing, the public list and filters, verified profile events,
+// Free business profiles on the API (services/api/business.mjs): creating and editing, the public list and filters, verified profile events,
 // referral attribution, newsletter sign-ups, upgrade interest and moderation. Starts its own server on a free port.
 import { spawn } from 'node:child_process';
 import net from 'node:net';
@@ -7,7 +7,7 @@ import { root, sleep } from './helpers.mjs';
 
 const free = () => new Promise((resolve) => { const s = net.createServer(); s.listen(0, () => { const { port } = s.address(); s.close(() => resolve(port)); }); });
 const port = await free();
-const proc = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { cwd: root, env: { ...process.env, API_PORT: String(port), API_DB: ':memory:', ADMIN_TOKEN: 'admin-secret', REFERRAL_SECRET: 'test-secret', PROFILE_VIEW_CAP: '2' }, stdio: 'ignore' });
+const proc = spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], { cwd: root, env: { ...process.env, API_PORT: String(port), API_DB: ':memory:', ADMIN_TOKEN: 'admin-secret', REFERRAL_SECRET: 'test-secret', PROFILE_VIEW_CAP: '2' }, stdio: 'ignore' });
 const base = `http://localhost:${port}`;
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
@@ -74,7 +74,7 @@ try {
   check('a press after a view is', (await cta('visitor-one')).data.verified === true);
   check('a bad event kind is refused', (await call('POST', '/businesses/amys-cafe-bar/events', { body: { kind: 'purchase', visitor: 'visitor-one' } })).status === 400);
 
-  // ---- campaigns (utm_campaign on the link): a Pro figure, so this profile gets complimentary Pro first (server/api/billing.mjs)
+  // ---- campaigns (utm_campaign on the link): a Pro figure, so this profile gets complimentary Pro first (services/api/billing.mjs)
   check('campaign figures are Pro: the free plan does not see them', (await call('GET', '/me/businesses', { token: bob.token })).data.profiles.find((x) => x.profile.slug === 'amys-cafe-bar-2').stats.campaigns === undefined);
   check('only an admin can grant Pro', (await call('POST', '/admin/billing/grant/amys-cafe-bar-2', { token: bob.token, body: { product: 'pro' } })).status === 403);
   await call('POST', '/admin/billing/grant/amys-cafe-bar-2', { token: 'admin-secret', body: { product: 'pro', days: 30, reason: 'test' } });

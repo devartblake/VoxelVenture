@@ -1,9 +1,9 @@
-// Welcome posts on X (server/api/social.mjs) against a stand-in for the X API that checks the OAuth 1.0a signature, and the admin
+// Welcome posts on X (services/api/social.mjs) against a stand-in for the X API that checks the OAuth 1.0a signature, and the admin
 // headquarters' live city panel (GET /world/live).
 import crypto from 'node:crypto';
 import http from 'node:http';
-import { createApi } from '../server/api/server.mjs';
-import { oauthHeader, welcomeText, xLength } from '../server/api/social.mjs';
+import { createApi } from '../services/api/server.mjs';
+import { oauthHeader, welcomeText, xLength } from '../services/api/social.mjs';
 import { sleep } from './helpers.mjs';
 
 let fails = 0;

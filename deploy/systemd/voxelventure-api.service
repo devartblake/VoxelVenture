@@ -8,7 +8,7 @@ User=voxel
 WorkingDirectory=/srv/voxelventure
 EnvironmentFile=/etc/voxelventure/api.env
 # One API process only: the database is SQLite, which has a single writer.
-ExecStart=/usr/bin/node --experimental-sqlite --no-warnings server/api/server.mjs
+ExecStart=/usr/bin/node --experimental-sqlite --no-warnings services/api/server.mjs
 Restart=always
 RestartSec=3
 # Hardening: the process can write only to its data folder.
@@ -16,7 +16,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/srv/voxelventure/server/data
+ReadWritePaths=/srv/voxelventure/services/api/data
 
 [Install]
 WantedBy=multi-user.target

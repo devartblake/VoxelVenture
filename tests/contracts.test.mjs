@@ -1,10 +1,10 @@
 // The cross-boundary contracts of packages/shared-types (docs/architecture/adr/0001-shared-package-boundaries.md), checked against the real
 // API: a profile event, a purchase report from the business's server, the owner's figures and the weekly vote. If the server's answers or
 // its own lists drift from a contract, this fails; change the contract (and its version, see the package's CHANGELOG.md) on purpose.
-import { createApi } from '../server/api/server.mjs';
+import { createApi } from '../services/api/server.mjs';
 import { imp } from '../scripts/lib-loader.mjs';
 import * as types from '@voxelventure/shared-types';
-import { SOURCES, EVENT_KINDS } from '../server/api/business.mjs';
+import { SOURCES, EVENT_KINDS } from '../services/api/business.mjs';
 
 const { check: fits, validate, CONTRACTS } = types;
 let fails = 0;

@@ -26,7 +26,7 @@ Today it is a complete single-player game with local saves, plus LAN multiplayer
 | `npm run test:browser` | Real-browser test (needs a build and Edge or Chrome) |
 | `npm run test:all` | Both |
 
-`dev:all` does not start the API. To try accounts, the inbox and signed-in chat locally, also run `npm run api` and set `NEXT_PUBLIC_LIVE_API_URL` (the API's address) for the web app, `MP_API_URL` for the multiplayer server, `MP_NOTIFY_URL` for the API, and the same `MP_NOTIFY_SECRET` on both servers ([../server/README.md](../../server/README.md)).
+`dev:all` does not start the API. To try accounts, the inbox and signed-in chat locally, also run `npm run api` and set `NEXT_PUBLIC_LIVE_API_URL` (the API's address) for the web app, `MP_API_URL` for the multiplayer server, `MP_NOTIFY_URL` for the API, and the same `MP_NOTIFY_SECRET` on both servers ([../server/README.md](../../services/multiplayer/README.md)).
 
 Pages: `/` the city; the public business pages `/discover`, `/business/<slug>`, `/category/<id>` and `/district/<id>`, plus `/business/new` and `/business/manage` for owners; `sitemap.xml` and `robots.txt`; `/b/<id>` a short link that opens the city on one building; `/admin` the client monitor, `/editor` the city editor ([city_editor.md](../architecture/city_editor.md)), `/viewer` (the Pascal scene viewer used for interiors), `/land`, `/pricing` and `/models` (development tools: free land and new streets, land prices, the model preview), `/curves` and `/reference` (road research). Add `?diag=1` to the city address to enable the `window.__vv*` debugging hooks (they are always on in development).
 
@@ -49,21 +49,21 @@ A seed gives the same city every time (`lib/city/cityGenerator.js`, a seeded ran
 - **Rendering** (React Three Fiber): roads and junctions are merged into a few meshes (`StaticBatch`), plots, trees and shrubs are instanced. About **470 draw calls on desktop and 177 on a phone** (was 5,617). Touch devices get no shadows and a capped pixel ratio. [5j, 5p]
 - **Traffic** (`lib/sim/traffic.js`): cars follow lanes with stop lines and signals, treat a circle as one shared space, and are tested for contacts (none at 120 cars). About 44 walkers use the sidewalks and crossings. [5c, 5l]
 - **Planes** (`lib/sim/flight.js`): timed circuits sampled with Hermite curves; the banner trails on the plane's own path. Click a plane or banner to open its ad. [5m]
-- **Vehicles and fishing** (`lib/sim/vehicles.js`, `components/city/Vehicles.jsx`): take any car off the road and drive it, or sail a boat from its mooring on a lake or the river and fish from it for Gold (capped at 120 a day). [5t]
-- **Camera** (`lib/state/viewStore.js`, `components/ui/panel/CameraMenu.jsx`): a menu of views (Action, Third-person, Tactical, Overview, Top-down, and the original isometric map), with zoom, tilt and turn. [5s]
+- **Vehicles and fishing** (`lib/sim/vehicles.js`, `apps/web/components/city/Vehicles.jsx`): take any car off the road and drive it, or sail a boat from its mooring on a lake or the river and fish from it for Gold (capped at 120 a day). [5t]
+- **Camera** (`lib/state/viewStore.js`, `apps/web/components/ui/panel/CameraMenu.jsx`): a menu of views (Action, Third-person, Tactical, Overview, Top-down, and the original isometric map), with zoom, tilt and turn. [5s]
 - **Avatar and collisions** (`lib/sim/collision.js`): WASD / click-to-walk / on-screen joystick; buildings, hedges, fountains, tree trunks, circle islands and airport buildings are solid. [5b, 5g]
 - **State** (`lib/state/store.js`, zustand, saved in the browser, version 3): plots, Gold, outfit, daily progress, billboards. [5b]
-- **Building card** (`components/ui/PlotCard.jsx`): step inside, logo and description, figures, address, exposure and rank, the owner's forms, 30-day site visits and the building's history. [5w]
-- **UI** (`components/ui/panel/`): one movable side panel that every toolbar icon and every selection opens into, with back, expand and close. [5o] The **Credits** view (who made the models, data and code, and their licences; from `lib/content/credits.js`) opens from *Credits & licences* at the bottom of the City map & guide view; `CREDITS.md` at the repo root says the same in long form. [5z]
-- **Chat** (`components/ui/chat/`, state in `lib/state/chatStore.js`, API calls in `lib/data/messaging.js`): the toolbar's *Chat and messages* button (with a badge for unread messages) opens **Nearby** and **Inbox** tabs. The Online view lists players with a verified mark and a Message button, and a player-owned building's card has *Message the owner*. [5za; [chat_messaging_plan.md](../architecture/chat_messaging_plan.md)]
-- **Music:** 16 CC0 recordings (`lib/content/music.js`, played by `components/sound/recordedMusic.js`).
+- **Building card** (`apps/web/components/ui/PlotCard.jsx`): step inside, logo and description, figures, address, exposure and rank, the owner's forms, 30-day site visits and the building's history. [5w]
+- **UI** (`apps/web/components/ui/panel/`): one movable side panel that every toolbar icon and every selection opens into, with back, expand and close. [5o] The **Credits** view (who made the models, data and code, and their licences; from `lib/content/credits.js`) opens from *Credits & licences* at the bottom of the City map & guide view; `CREDITS.md` at the repo root says the same in long form. [5z]
+- **Chat** (`apps/web/components/ui/chat/`, state in `lib/state/chatStore.js`, API calls in `lib/data/messaging.js`): the toolbar's *Chat and messages* button (with a badge for unread messages) opens **Nearby** and **Inbox** tabs. The Online view lists players with a verified mark and a Message button, and a player-owned building's card has *Message the owner*. [5za; [chat_messaging_plan.md](../architecture/chat_messaging_plan.md)]
+- **Music:** 16 CC0 recordings (`lib/content/music.js`, played by `apps/web/components/sound/recordedMusic.js`).
   - One soundtrack, like SimCity's, chosen by the music director (`lib/game/musicDirector.js`): the city playlist, with a night playlist after dark; chiptunes once you stay at the arcade, jazz at a coffee shop, funk while driving.
   - Tracks play to their end. The camera's zoom does not change the music.
   - The live WebAudio tunes (`lib/game/musicRules.js`) fill in while a track loads, or if it fails.
 
 ## 5. Multiplayer and the monitor
 
-`server/multiplayer.mjs` (WebSocket, port 3001) gives presence: players in the same city (same seed) see each other's avatars and talk in nearby chat; each city is a room. With the API set up, a signed-in game hands the server a one-use ticket and then speaks as that account, and the API's "inbox changed" notices go to that account only ([backend.md](../architecture/backend.md)). Each client also reports its device, frame rate, draw calls and errors; `/admin` shows them live and errors are appended to a rotating log. Details and settings are in [../server/README.md](../../server/README.md). [5i, 5k, 5p, 5za]
+`services/multiplayer/server.mjs` (WebSocket, port 3001) gives presence: players in the same city (same seed) see each other's avatars and talk in nearby chat; each city is a room. With the API set up, a signed-in game hands the server a one-use ticket and then speaks as that account, and the API's "inbox changed" notices go to that account only ([backend.md](../architecture/backend.md)). Each client also reports its device, frame rate, draw calls and errors; `/admin` shows them live and errors are appended to a rotating log. Details and settings are in [../server/README.md](../../services/multiplayer/README.md). [5i, 5k, 5p, 5za]
 
 Concurrency measures: view-radius filtering (120 units), duplicate snapshots skipped, slow-socket backpressure, 60 msg/s and 16 KB limits, per-address and total connection caps, heartbeats. Presence does not carry plot claims or ad slots: with a game server those are the API's ([backend.md](../architecture/backend.md)), which tells the presence server to push each change to every player. **Not shared:** the game's own Gold (it stays in the browser), and the simulated cars and walkers.
 
@@ -112,28 +112,28 @@ What remains:
 | Area | Files |
 | :--- | :--- |
 | City generation | `lib/city/cityGenerator.js`, `lib/city/parkGeometry.js` |
-| Walking and collisions | `lib/sim/collision.js`, `lib/sim/pathfind.js` (click-to-walk routes round buildings), `lib/sim/avatarState.js`, `components/city/Avatar.jsx` |
-| Traffic | `lib/sim/traffic.js`, `components/city/Traffic.jsx`, `IntersectionControl.jsx` |
-| Malls | `lib/city/cityGenerator.js` (`planMalls`), `components/city/Malls.jsx`, `components/ui/panel/MallView.jsx` |
-| Vehicles, boats, fishing | `lib/sim/vehicles.js`, `lib/state/fleetStore.js`, `components/city/Vehicles.jsx`, `components/ui/VehicleHud.jsx` |
-| Roof banner logos | `lib/game/logos.js`, `components/city/bannerAtlas.js`, `components/ui/imageLogo.js` |
-| Camera | `lib/state/viewStore.js`, `components/city/FollowCamera.jsx`, `components/ui/panel/CameraMenu.jsx` |
-| Planes and airports | `lib/sim/flight.js`, `components/city/Planes.jsx`, `Airports.jsx` |
+| Walking and collisions | `lib/sim/collision.js`, `lib/sim/pathfind.js` (click-to-walk routes round buildings), `lib/sim/avatarState.js`, `apps/web/components/city/Avatar.jsx` |
+| Traffic | `lib/sim/traffic.js`, `apps/web/components/city/Traffic.jsx`, `IntersectionControl.jsx` |
+| Malls | `lib/city/cityGenerator.js` (`planMalls`), `apps/web/components/city/Malls.jsx`, `apps/web/components/ui/panel/MallView.jsx` |
+| Vehicles, boats, fishing | `lib/sim/vehicles.js`, `lib/state/fleetStore.js`, `apps/web/components/city/Vehicles.jsx`, `apps/web/components/ui/VehicleHud.jsx` |
+| Roof banner logos | `lib/game/logos.js`, `apps/web/components/city/bannerAtlas.js`, `apps/web/components/ui/imageLogo.js` |
+| Camera | `lib/state/viewStore.js`, `apps/web/components/city/FollowCamera.jsx`, `apps/web/components/ui/panel/CameraMenu.jsx` |
+| Planes and airports | `lib/sim/flight.js`, `apps/web/components/city/Planes.jsx`, `Airports.jsx` |
 | Store, daily loop | `lib/state/store.js`, `lib/game/daily.js` |
-| Side panel | `lib/state/panelStore.js`, `lib/state/worldStore.js`, `components/ui/panel/`, `components/city/CameraFocus.jsx` |
-| Cards | `components/ui/PlotCard.jsx`, `ParkCard.jsx`, `BillboardCard.jsx`, `Wardrobe.jsx`, `Legend.jsx` |
-| Multiplayer | `server/multiplayer.mjs`, `lib/net/multiplayer.js`, `app/admin` |
-| Interiors | `components/interior/`, the Pascal packages (patched drei, see project_status section 7) |
-| Mall hall, ad rotation, hotspots | `lib/city/mallHall.js`, `components/city/Malls.jsx`; `lib/game/adRotation.js`, `components/city/useRotatingAd.js`; `lib/content/interiorHotspots.js`, `components/interior/InteriorViewer.jsx` |
-| Presence at scale | `server/multiplayer.mjs`, `lib/net/multiplayer.js`, `scripts/load-test-presence.mjs` |
-| Interiors by business type | `lib/content/businessFixtures.js`, `brandPalette.js`, `fixturePricing.js`, `components/interior/editor/FurniturePanel.jsx` |
+| Side panel | `lib/state/panelStore.js`, `lib/state/worldStore.js`, `apps/web/components/ui/panel/`, `apps/web/components/city/CameraFocus.jsx` |
+| Cards | `apps/web/components/ui/PlotCard.jsx`, `ParkCard.jsx`, `BillboardCard.jsx`, `Wardrobe.jsx`, `Legend.jsx` |
+| Multiplayer | `services/multiplayer/server.mjs`, `lib/net/multiplayer.js`, `apps/web/app/admin` |
+| Interiors | `apps/web/components/interior/`, the Pascal packages (patched drei, see project_status section 7) |
+| Mall hall, ad rotation, hotspots | `lib/city/mallHall.js`, `apps/web/components/city/Malls.jsx`; `lib/game/adRotation.js`, `apps/web/components/city/useRotatingAd.js`; `lib/content/interiorHotspots.js`, `apps/web/components/interior/InteriorViewer.jsx` |
+| Presence at scale | `services/multiplayer/server.mjs`, `lib/net/multiplayer.js`, `scripts/load-test-presence.mjs` |
+| Interiors by business type | `lib/content/businessFixtures.js`, `brandPalette.js`, `fixturePricing.js`, `apps/web/components/interior/editor/FurniturePanel.jsx` |
 | Curved site traffic | `lib/sim/curveTraffic.js` (the street is made by `designCurvedSite` in `lib/city/cityGenerator.js`) |
-| World map | `components/ui/WorldMap.jsx`, `components/ui/worldMap/`, `lib/state/mapStore.js`, `lib/city/routing.js`, `lib/city/spatialGrid.js`, `components/city/RouteFollower.jsx` |
-| Chat and messages | `components/ui/chat/`, `lib/state/chatStore.js`, `lib/data/messaging.js`, `server/api/messaging.mjs`, `server/api/textcheck.mjs`, `tests/messaging.test.mjs` |
-| Credits | `lib/content/credits.js`, `components/ui/panel/CreditsView.jsx`, `../CREDITS.md`, `tests/credits.test.mjs` |
-| Music | `lib/content/music.js` and `components/sound/recordedMusic.js` (CC0 recordings in `public/audio/music/`), `lib/game/musicRules.js` (the live fallback tunes) |
-| Business pages | `app/(public)/`, `components/business/` (the phone menu is `PublicNav.jsx`), `lib/business/` |
+| World map | `apps/web/components/ui/WorldMap.jsx`, `apps/web/components/ui/worldMap/`, `lib/state/mapStore.js`, `lib/city/routing.js`, `lib/city/spatialGrid.js`, `apps/web/components/city/RouteFollower.jsx` |
+| Chat and messages | `apps/web/components/ui/chat/`, `lib/state/chatStore.js`, `lib/data/messaging.js`, `services/api/messaging.mjs`, `services/api/textcheck.mjs`, `tests/messaging.test.mjs` |
+| Credits | `lib/content/credits.js`, `apps/web/components/ui/panel/CreditsView.jsx`, `../CREDITS.md`, `tests/credits.test.mjs` |
+| Music | `lib/content/music.js` and `apps/web/components/sound/recordedMusic.js` (CC0 recordings in `apps/web/public/audio/music/`), `lib/game/musicRules.js` (the live fallback tunes) |
+| Business pages | `apps/web/app/(public)/`, `apps/web/components/business/` (the phone menu is `PublicNav.jsx`), `lib/business/` |
 | Prices, plans, conversion rules | `packages/business-core/`, `packages/analytics/`, imported as `@voxelventure/business-core` and `@voxelventure/analytics` |
 | Cross-boundary contracts | `packages/shared-types/` (`tests/contracts.test.mjs`) |
-| Policies | `lib/legal/`, `app/(public)/legal/`, `components/legal/PolicyBody.jsx` |
+| Policies | `lib/legal/`, `apps/web/app/(public)/legal/`, `apps/web/components/legal/PolicyBody.jsx` |
 | Tests | `tests/*.test.mjs`, `tests/run.mjs`, `tests/browser-driver.mjs`; CI's selector `scripts/select-checks.mjs` |

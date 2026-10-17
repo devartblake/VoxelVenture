@@ -1,4 +1,4 @@
-"""The first filter on what players write: a port of server/api/textcheck.mjs that gives the same answers.
+"""The first filter on what players write: a port of services/api/textcheck.mjs that gives the same answers.
 
 JavaScript and Python disagree on small things (which characters are white space, what "." matches, emoji as two UTF-16 units),
 so those are spelled out here to match the JavaScript; tests/test_textcheck.py runs both on the same inputs.

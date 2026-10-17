@@ -1,4 +1,4 @@
--- The database as the first release (commit 9301b4c) left it: server/api/schema.sql plus the columns its db.mjs added.
+-- The database as the first release (commit 9301b4c) left it: services/api/schema.sql plus the columns its db.mjs added.
 -- Used by tests/migration.test.mjs to check that today's code upgrades such a database in place.
 -- VoxelVenture API schema. Written to be portable to Postgres (types are plain; JSON is stored as text; ids are integers).
 CREATE TABLE IF NOT EXISTS accounts (
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS market_visits (
 CREATE INDEX IF NOT EXISTS market_bookings_stall ON market_bookings(site_code, week_start, stall_id, status);
 CREATE INDEX IF NOT EXISTS market_bookings_account ON market_bookings(account_id, status, start_at);
 
--- Presence and arrivals (see server/api/stats.mjs): who is on the site right now, and every visit to it.
+-- Presence and arrivals (see services/api/stats.mjs): who is on the site right now, and every visit to it.
 CREATE TABLE IF NOT EXISTS presence (
   visitor TEXT PRIMARY KEY,                      -- an account (a<id>) or an anonymous browser (v<id>)
   country TEXT,                                  -- two-letter code; never an address
@@ -259,7 +259,7 @@ CREATE TABLE IF NOT EXISTS votes (
 );
 CREATE INDEX IF NOT EXISTS votes_plot ON votes(week, plot_id);
 
--- Messaging (docs/architecture/chat_messaging_plan.md, server/api/messaging.mjs): nearby chat evidence, private conversations, blocks, and the
+-- Messaging (docs/architecture/chat_messaging_plan.md, services/api/messaging.mjs): nearby chat evidence, private conversations, blocks, and the
 -- account-targeted notices the presence server delivers.
 -- A one-use ticket that binds a presence connection to an account (60 seconds; only its hash is kept, like sessions).
 CREATE TABLE IF NOT EXISTS messaging_tickets (

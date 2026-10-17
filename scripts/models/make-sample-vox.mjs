@@ -1,4 +1,4 @@
-// Writes the sample voxel landmark(s) into public/models/vox/. Replace a file with your own MagicaVoxel export of the same name to change a landmark.
+// Writes the sample voxel landmark(s) into apps/web/public/models/vox/. Replace a file with your own MagicaVoxel export of the same name to change a landmark.
 //   node scripts/models/make-sample-vox.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,8 +23,8 @@ for (let z = 28; z < 32; z++) {
   else for (let x = 7; x < 9; x++) for (let y = 7; y < 9; y++) voxels.push([x, y, z, 3]);
 }
 const out = (name, size, vox, pal) => {
-  fs.mkdirSync(path.join(root, 'public', 'models', 'vox'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'public', 'models', 'vox', name), writeVox({ size, voxels: vox, palette: pal }));
+  fs.mkdirSync(path.join(root, 'apps', 'web', 'public', 'models', 'vox'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'apps', 'web', 'public', 'models', 'vox', name), writeVox({ size, voxels: vox, palette: pal }));
   console.log(`${name}: ${vox.length} voxels`);
 };
 out('monument.vox', [16, 16, 32], voxels, palette);

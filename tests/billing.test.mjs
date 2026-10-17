@@ -1,10 +1,10 @@
-// Payments (server/api/billing.mjs, docs/monetization/billing.md) against a stand-in for the Stripe API: checkout at the catalogue's price, signed
+// Payments (services/api/billing.mjs, docs/monetization/billing.md) against a stand-in for the Stripe API: checkout at the catalogue's price, signed
 // webhooks applied once, what each product grants, sponsored-spot limits, Pro renewals and cancelling, refunds, reconciliation after a
 // lost webhook, what the free plan sees, and the settings check for a live key.
 import http from 'node:http';
-import { createApi } from '../server/api/server.mjs';
-import { signPayload } from '../server/api/billing.mjs';
-import { checkApiEnv } from '../server/api/config.mjs';
+import { createApi } from '../services/api/server.mjs';
+import { signPayload } from '../services/api/billing.mjs';
+import { checkApiEnv } from '../services/api/config.mjs';
 
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };

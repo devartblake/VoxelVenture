@@ -1,4 +1,4 @@
-// Contracts of Building of the Week (server/api/community.mjs, lib/game/buildingOfWeek.js; docs/product/community.md).
+// Contracts of Building of the Week (services/api/community.mjs, lib/game/buildingOfWeek.js; docs/product/community.md).
 const WEEK = '^\\d{4}-\\d{2}-\\d{2}$';
 const tally = {
   type: 'object',
