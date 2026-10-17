@@ -6,7 +6,8 @@
 | [overview.md](overview.md) | **Start here.** What the project is, how to run and test it, how the city, game and multiplayer work, and what is next |
 | [project_status.md](project_status.md) | The detailed record: everything built, section by section (5 to 5z), known issues, progress against the blueprint |
 | [claimavenue_competitive_alignment_review.md](claimavenue_competitive_alignment_review.md) | **The current plan.** How the project compares with the recommended commercial strategy, the critical gaps, and the six-phase implementation sequence |
-| [alignment_status.md](alignment_status.md) | **Where phases 1 to 3 stand** against the review, item by item, and what still needs you |
+| [phase_5_ai_agent_delivery_estimate.md](phase_5_ai_agent_delivery_estimate.md) | A historical estimate (2026-10-16) of how long phases 1 to 5 would take; they were done in code by 2026-10-17 |
+| [alignment_status.md](alignment_status.md) | **Where phases 1 to 5 stand** against the review (and its public-discoverability gap), item by item, and what still needs you |
 | [authoritative_data.md](authoritative_data.md) | Phase 3: verified figures only (nothing simulated with a server), the building's outside kept by the server, the audit trail, the production settings check and `npm run verify:live` |
 | [social_posts.md](social_posts.md) | Welcome posts on VoxelVenture's X account for owners who opt in: the text, the review queue, the settings and how visits from a post are counted |
 | [business_funnel.md](business_funnel.md) | Phase 2: free business profiles, the public pages (`/discover`, `/business/[slug]`, categories, districts), calls to action, referral links, owner onboarding and upgrade prompts |
@@ -18,10 +19,10 @@
 | [live_data.md](live_data.md) | Every figure that needs a server, its endpoint and what it needs (the live-data switch) |
 | [market.md](market.md) | The pop-up market: spots, tiers, weekly layouts, booking, shops, notices |
 | [community.md](community.md) | The five strategy features built: proof-of-human traffic, leaseholds, skyline, Building of the Week, The Bazaar |
-| [hosting_stack_payments.md](hosting_stack_payments.md) | Going live: why the server stays on Node, the Linode setup, Stripe vs PayPal, and the owner dashboard |
+| [hosting_stack_payments.md](hosting_stack_payments.md) | Going live: why the server stays on Node, the Linode setup, why Stripe was chosen (now built: [billing.md](billing.md)), and the owner dashboard |
 | [conversions.md](conversions.md) | Phase 5: the funnel from impression to result, meeting and quote requests, purchases credited by click id, coupon redemptions, cost per result and renewals |
 | [takeover_payouts.md](takeover_payouts.md) | Why the 1.25x take-over rule stays in Gold and real-money take-overs are conventional leases: the legal, tax, fraud and economic reasons |
-| [billing.md](billing.md) | Phase 4 payments: the Launch Pack, Pro and sponsored placements through Stripe Checkout, webhooks, reconciliation, refunds |
+| [billing.md](billing.md) | Phase 4 payments through Stripe Checkout: the Launch Pack, Pro and sponsored placements, and in the game paid leases (claim, take-over, renewal) and market stalls; webhooks, reconciliation, refunds, receipts |
 | [../deploy/README.md](../deploy/README.md) | The deployment runbook and files (Caddy, systemd, settings, backups) for a Linode |
 | [presence_scale.md](presence_scale.md) | The presence server at scale: protocol 2, what a crowd costs (measured), and how to grow past one server |
 | [interiors_fixtures.md](interiors_fixtures.md) | Interiors by business type: the furniture menu, brand colours, hotspots and the fixture price list |

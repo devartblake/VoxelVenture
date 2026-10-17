@@ -5,10 +5,10 @@ A reading of `voxelventure_idea_01.md` to `_06.md` against the game as it is now
 ## What each document says, and where it stands
 
 **Idea 01: strategic differentiation.** Leaseholds, in-app conversion kiosks, activity-based skyline, districts, proof-of-human traffic, pop-up stalls, UGC marketplace, billboard ads, daily quests.
-Built: leaseholds, skyline, districts (The Bazaar), proof-of-human, pop-up market, billboards with rotation, daily hunt and Building of the Week (`community.md`, `market.md`). Left: checkout / scheduling kiosks (need Stripe, Cal.com), the UGC marketplace.
+Built: leaseholds, skyline, districts (The Bazaar), proof-of-human, pop-up market, billboards with rotation, daily hunt and Building of the Week (`community.md`, `market.md`). Since then: Stripe payments ([billing.md](billing.md)), and meeting and quote requests and purchase tracking ([conversions.md](conversions.md)). Left: a checkout kiosk inside the storefront, calendar booking (Cal.com) and the UGC marketplace.
 
 **Idea 02: growth and reach.**
-1. *Programmatic SEO pages* for every claimed building: not built.
+1. *Programmatic SEO pages* for every claimed building: built as the public business pages (`/business/<slug>`, categories, districts, `sitemap.xml`, share images and structured data: [business_funnel.md](business_funnel.md)).
 2. *Time-lapse city history*: not built (the server's ledger already records every claim and take-over).
 3. *Embeddable "Shop window" badge with a deep link that glides the camera to the building*: built (`/?plot=ID` and `/b/ID` links, a share box with a copy-paste badge: `lib/game/shareLink.js`, `components/ui/ShareBox.jsx`).
 4. *AI clerk NPCs* grounded on the owner's own docs: not built.
@@ -38,7 +38,7 @@ Ranked by how much each adds for the work. "Needs" lists anything outside the co
 | 5 | **Style presets for buildings.** Curated palettes (Tokyo Cyberpunk, Nordic, High-Tech Solar, ...) applied to the exterior and the inside in one click. | 04 | 1.5 | Looks premium; builds on the brand palette. | #2 helps | Partly: colour styles for the outside (`PALETTES` in `lib/game/exterior.js`); not applied to the inside |
 | 6 | **Crown props.** Pick a rooftop feature: beacon, dish, rooftop garden, dome, rotating logo. | 04 | 2 | Visible from the whole map: owners stand out. | models (simple voxel ones) | Done: beacon, dish, roof garden, dome and spire (`CROWNS` in `lib/game/exterior.js`, `lib/content/crowns.js`, `components/city/Crowns.jsx`); no rotating logo |
 | 7 | **Facade LED ticker.** A scrolling headline strip on the building, from the owner's text (reuses the banner texture code). | 04 | 2 | Makes buildings look live, not like boxes. | nothing | Not built |
-| 8 | **"Held for you" checkout timer.** The claim flow holds the plot for a few minutes and shows the countdown. | 04 | 1 (local), 2 (server hold) | Urgency, and it stops two people claiming at once. | the server for the real hold | Partly: a three-minute hold on the client (`lib/game/claimHold.js`, `lib/state/claimHoldStore.js`); not on the server |
+| 8 | **"Held for you" checkout timer.** The claim flow holds the plot for a few minutes and shows the countdown. | 04 | 1 (local), 2 (server hold) | Urgency, and it stops two people claiming at once. | the server for the real hold | Partly: a three-minute hold on the client (`lib/game/claimHold.js`, `lib/state/claimHoldStore.js`). With payments on, the server holds the plot for 30 minutes while the player pays ([billing.md](billing.md)) |
 | 9 | **Guestbook and District Mayor.** Relabel the feedback board a guestbook; each month the top building of a district (verified visitors, votes) becomes its Mayor with a rooftop spire. | 06 | 2.5 | A reason to visit and to compete beyond buying. | the server | Not built |
 | 10 | **OpenStreetMap street names.** The offline script that gives districts real street names. | 03 | 1 | Character, and removes the generic names. | OSM data, ODbL credit | Done as a script (`scripts/streets/`, [street_names.md](street_names.md)); off by default in the game |
 | 11 | **Saturday plaza drop.** A scheduled event that unlocks free blank stalls for two hours (the market already books stalls by the week). | 06 | 2 | A weekly reason to return. | the server | Not built |
@@ -48,7 +48,7 @@ None of these is built yet (2026-10-15). The `/pricing` heatmap is a land-price 
 
 | # | What | From | Days | Notes |
 | :-: | :--- | :-: | :-: | :--- |
-| 12 | **Programmatic SEO pages**: a static page per claimed building (`/district/.../name`) with its description, screenshots, owner links and a button into the 3D world; sitemap and share images. | 02-1 | 3 to 4 | Real search backlinks for tenants, a concrete reason to pay. Needs the live server for the data. |
+| 12 | **Programmatic SEO pages**: a static page per claimed building (`/district/.../name`) with its description, screenshots, owner links and a button into the 3D world; sitemap and share images. | 02-1 | 3 to 4 | Real search backlinks for tenants, a concrete reason to pay. **Built** (phase 2) as the business pages, for every business that lists one. |
 | 13 | **Window-shopper peek**: hover a building and see into it (the cut interior fades in over the facade). | 06 | 3 to 4 | Uses the interior scenes already built. |
 | 14 | **Neighbour synergy**: complementary businesses side by side earn a "synergy" badge and a shared visit quest; anchor tenants lift the foot traffic of small neighbours. | 06 | 4 to 5 | The SimCity idea; the district and building-type data already exist. |
 | 15 | **City time-lapse**: a scrubber that replays ownership and skyline growth from the server's ledger. | 02-2 | 5 to 6 | Shareable and sticky. Needs the live server and some history. |
@@ -62,7 +62,7 @@ None of these is built yet (2026-10-15).
 | :--- | :-: | :-: | :--- |
 | Modular builder: podium + body + crown with a drag-to-extrude height handle | 04 | 2 to 3 weeks | a procedural building generator in place of the fixed models |
 | AI clerk NPCs per storefront | 02-4 | 1 to 2 weeks | an LLM service and its cost, moderation, a per-building knowledge box |
-| Automatic social posting on every claim | 02-5 | 1 to 2 weeks | X / LinkedIn accounts and approval; a headless screenshot worker |
+| Automatic social posting on every claim (partly built: opt-in welcome posts on X that tag the owner, [social_posts.md](social_posts.md)) | 02-5 | 1 to 2 weeks | X / LinkedIn accounts and approval; a headless screenshot worker |
 | Creator asset marketplace (UGC) | 01 | 3 to 4 weeks | payments, review, storage |
 | Weather and events tied to the real internet (outages, launches) | 06 | 1 to 2 weeks | data feeds and a policy for them |
 | Zoning boards and district charters (voting on themes and rules) | 06 | 2 to 3 weeks | accounts at scale, moderation |
@@ -73,4 +73,4 @@ None of these is built yet (2026-10-15).
 2. **#4 share buttons**, **#5 style presets**, **#7 ticker**: another four or five days of visible polish. *Partly done: the outside colour styles and the copy-link box; the X / LinkedIn buttons, presets for the inside and the ticker are left.*
 3. With the live server running: **#12 SEO pages**, **#9 mayor and guestbook**, **#11 plaza drop**, **#8 the hold timer**: the retention and reach features.
 4. **#14 synergy** and **#13 peek** as the first big gameplay additions; **#15 time-lapse** once there is history to show.
-5. Leave the long projects until payments and hosting are live; the AI clerks and the social bot are the two I would try first.
+5. Leave the long projects until hosting is live (payments are done in code); the AI clerks and the social bot are the two I would try first.

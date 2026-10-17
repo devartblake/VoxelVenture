@@ -14,7 +14,12 @@ Everything added to the project so far, on top of the original Next.js + React T
 | `/editor` | The city editor (`components/dev/CityEditor.jsx`, see [city_editor.md](city_editor.md)). It was the Pascal building editor at first; the Pascal editor now opens inside a building (*Redesign inside*) |
 | `/viewer` | Pascal 3D viewer (`<Viewer selectionManager="custom">` + drei `CameraControls`). Shows whatever scene is in the Pascal store; a fresh store is empty |
 | `/admin` | Client monitor (5i) |
-| `/b/[id]` | Link to one building (see tasks.md, links and badges) |
+| `/b/[id]` | Link to one building in the city (see tasks.md, links and badges). A building linked to a business page shares that page instead |
+| `/discover` | Public discovery page: search, categories, districts, sponsored and new-this-week rows ([business_funnel.md](business_funnel.md)) |
+| `/business/[slug]` | A business's public page: one call to action, an offer, a share image and structured data; works without WebGL |
+| `/business/new`, `/business/manage` | Listing a business for free, and the owner's dashboard: funnel, results, plans and checkout ([conversions.md](conversions.md), [billing.md](billing.md)) |
+| `/category/[slug]`, `/district/[slug]` | Category and district pages, each with its own share image |
+| `/sitemap.xml`, `/robots.txt` | The public pages for search engines |
 | `/curves` | Curved-road sandbox (5d) |
 | `/reference` | Road design reference (5e) |
 | `/pricing` | Land price heatmap tool (`docs/pricing_analysis.md`) |
@@ -129,9 +134,9 @@ State also holds `billboards`, `selectedBillboardId`, `gold` and `completedQuest
 *(Rewritten after the 5l–5p work; the old list was stale: mobile, lint, traffic, the 520-plot size and the missing diagonal are all done.)*
 
 **Needs a decision or a backend**
-- **Everything the player does is local to the browser.** Plots claimed, Gold, outfits, billboard and banner views/clicks, bought-out ads and the hunt progress live in the browser's storage. Two players in the same city see each other's avatars (multiplayer, 5i) but **not each other's claims**, so two players can "own" the same plot. A real fix is a server that owns plots and Gold (Supabase accounts + Postgres, with an atomic claim: `update ... where owner is null`) and Stripe for money. See 5p for the concurrency review.
-- **Payments, email capture, offer codes** are placeholders until there is a backend.
-- **The banner and billboard ad purchase is a local simulation** (it takes Gold, not money).
+- **With an API server, the server owns the shared world** ([backend.md](backend.md), [authoritative_data.md](authoritative_data.md)): claims, take-overs, leases, ad spaces, market bookings, leads and the verified statistics. Two players see each other's claims, and they are pushed at once. Without a server, everything is still local to the browser, as before. **Gold** (and outfits, the hunt) is still kept in the browser, and moving it to the server is on the list ([tasks.md](tasks.md)).
+- **Payments** run through Stripe Checkout when it is set up ([billing.md](billing.md)). Email sign-ups (double opt-in), coupon tickets with redemption, and meeting and quote requests are on the server ([conversions.md](conversions.md)). Email delivery needs a mail service key.
+- **Banner and billboard ad spaces** are bought through the server when there is one (paid in the game's money, not real money); without one, they are a local simulation.
 
 **Visual and play checks still worth doing by hand**
 - The look of cars and walkers, the planes and banners, the landscaping and the gardens have been checked in screenshots but not played at length on a real phone. Real-device frame rates are still to be confirmed (software-rendered headless runs are only a rough guide; the monitor reports real ones).
@@ -145,7 +150,7 @@ State also holds `billboards`, `selectedBillboardId`, `gold` and `completedQuest
 - Other players see your car or boat, and parked cars are saved and shared (5y). Moved boats are not saved.
 - Cars vanish at the end of a road next to the billboards (no U-turn).
 - Console warnings that are harmless: `THREE.Clock` is deprecated; `PCFSoftShadowMap` was removed.
-- Blueprint items not started: Rapier physics, PartyKit/Colyseus-style authoritative multiplayer, Stripe checkout, brand budgets for quests, the interior mini-games. See section 6.
+- Blueprint items not started: Rapier physics, PartyKit/Colyseus-style authoritative multiplayer and the interior mini-games. (Stripe Checkout is done, and brand budgets for quests are paid from the owner's Credits.) See section 6.
 
 **Done since the old list** (so it is not re-opened): moderation, the owner's sign-ups screen and Credits (backend.md), the directory and the live-data layer (5x), the building card and wider side panel (5w), mega malls (5u), driving, sailing and fishing (5t), roof banners, camera views and the `lib/` layout (5s), mobile controls (5g), lint (5k), traffic and pedestrians (5c), a mixed city with water and a closed road network (5f), diagonal avenue and circles (5h), multiplayer and monitor (5i), performance (5j), luxury/grand estates and reserved land (5l), airports and banners (5m), a second park and landscaping (5n), the side panel (5o).
 
@@ -504,24 +509,24 @@ Legend: ✅ done · 🟡 partly done · ❌ not started
 | Item | Status | Notes |
 | :--- | :--- | :--- |
 | PartyKit sync of visitor positions | ✅ (own server) | A WebSocket server (not PartyKit) shares avatars within a view radius, pushes world changes instantly, and carries spatial chat; names are account names (docs/backend.md) |
-| Stripe checkout to claim/buy out a plot | ❌ | Claiming is a local form with no payment or backend (see tasks.md) |
-| Automatic 1.25× escalation | 🟡 | Billboards and businesses both implement the hot-potato buyout (take over for 1.25x; the displaced owner is paid +25% and moved to Old Town). Saved in the browser, but not charged: no Stripe payments, and no email to the former owner |
+| Stripe checkout to claim/buy out a plot | ✅ | With Stripe set up, claims, take-overs and lease renewals go through Stripe Checkout, with the plot held while the player pays ([billing.md](billing.md)) |
+| Automatic 1.25× escalation | 🟡 | The game keeps the hot-potato buyout: take over for 1.25x, the displaced owner is paid +25% in the game and moved to Old Town, and is emailed. With real money a take-over is a conventional lease and nobody is paid out; the 1.25x rule stays a Gold-only game mechanic ([takeover_payouts.md](takeover_payouts.md)). Gold itself is still in the browser |
 
 ### Core pillars (section 3.2)
 | Pillar | Status | Notes |
 | :--- | :--- | :--- |
 | Interactive storefronts / interiors | 🟡 | A Storefront panel next to the room now carries a claimable coupon, a visit-for-Gold reward and an optional embedded video / game demo (YouTube, Vimeo, itch.io), editable by the owner. You walk to a building's door and press E; claimed plots open a 3D interior that matches the building type (office, restaurant or shop, 7 layouts). Still missing: brand-specific interiors, embeds (game demo, video, feedback board) and coupon dispensers |
 | Quest & bounty economy (Gold, cosmetics, raffles) | 🟡 | Gold comes from billboard quests (+25), fishing from a boat (up to 120 a day), brand visit quests ("stay 30 s, earn Gold"), the daily chest and the Plot of the Day, and is spent in the Wardrobe (avatar clothes, hats, emotes) and a sponsored raffle. Brand-set quests exist (owners choose the time and reward) but are paid from nothing: there is no brand budget yet |
-| Player-driven foot traffic / real-time multiplayer | 🟡 | LAN presence works (5i, 5p): players in the same city see each other's avatars; a monitor shows devices and errors. Still missing: shared plots, Gold and ad slots, and real visitor counts for the park boost and billboard numbers (needs the backend) |
+| Player-driven foot traffic / real-time multiplayer | 🟡 | Presence works across the internet once the presence server is deployed (5i, 5p): players see each other's avatars and chat, and plots and ad spaces are shared through the API. Visitor counts are verified. Still missing: shared Gold |
 
 ### Improvements table (section 2)
 | Area | Status | Notes |
 | :--- | :--- | :--- |
 | Thematic districts | ✅ | SaaS Silicon Strip, Arcade Alley, Creator Commons, Agency Boulevard, with labeled, color-coded avenues |
-| Daily discovery loops (chests, scavenger hunts, Plot of the Day) | ✅ | Daily chest, Plot of the Day and a three-star scavenger hunt (5l) are done, picked from the date and saved. No "Plot of the Day" newsletter (needs email) |
-| Live avatars on sidewalks | 🟡 | About 44 simulated walkers and cars fill the city, and LAN players appear as avatars. No internet-wide presence yet |
+| Daily discovery loops (chests, scavenger hunts, Plot of the Day) | ✅ | Daily chest, Plot of the Day and a three-star scavenger hunt (5l) are done, picked from the date and saved. The Plot of the Day newsletter is on the server ([backend.md](backend.md)); it needs a mail service key to deliver |
+| Live avatars on sidewalks | 🟡 | About 44 simulated walkers and cars fill the city, and players appear as avatars through the presence server (on a LAN now, and across the internet once deployed) |
 | Displacement friction / Hall of Fame / suburb | ✅ | Taking over a business pays the owner 1.25x, logs them in the plot's Hall of Fame, and moves them to a house in the Old Town suburb. Billboards have a Hall of Fame too |
-| Micro-cards with in-world CTAs (email signup, demos, codes) | 🟡 | Billboard card has email signup, an offer-code reveal and a visit link; storefronts have claimable coupons and embedded video / game demos. None has a backend: the email goes nowhere and coupon codes are not redeemable anywhere |
+| Micro-cards with in-world CTAs (email signup, demos, codes) | ✅ | Billboard cards and storefronts have email sign-up (double opt-in), coupons with a ticket the owner marks redeemed, and embedded video and game demos, all on the server. Presses of a building's website link count for its business page ([conversions.md](conversions.md)) |
 | Spatial organization / world feels alive | ✅ | Road hierarchy, signals, circles, crossings, two parks, river, lakes, airports with banner planes, landscaping, moving cars and people |
 
 ### Tech stack (section 4)
@@ -532,7 +537,7 @@ Legend: ✅ done · 🟡 partly done · ❌ not started
 | Rapier.js | ❌ |
 | PartyKit / Colyseus / LiveKit | ❌ |
 | Supabase (Postgres, auth, realtime) | 🟡 | Own Node + SQLite API with a Postgres-portable schema (`docs/backend.md`) |
-| Stripe / Stripe Connect | ❌ |
+| Stripe / Stripe Connect | 🟡 | Stripe Checkout is built ([billing.md](billing.md)). Stripe Connect is not used, on purpose: nobody is paid out ([takeover_payouts.md](takeover_payouts.md)) |
 | MagicaVoxel / Blockbench / Kenney assets / Blender | 🟡 | Kenney and `.vox` assets and a Blockbench-layout avatar are in; Blender not used |
 
 ---
