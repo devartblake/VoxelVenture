@@ -93,6 +93,17 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - the presence server checks `hello` and `auth` against them, and answers a game speaking another protocol version, which then asks the player to reload;
   - the tests hold the golden examples and the real traffic (with and without signed-in players) to the contracts;
   - the load test shows no regression.
+- [x] **Business journeys** (Track A of the [adoption plan](../architecture/external_voxel_repositories_adoption_plan.md), section 6.6; [the journeys](../../tests/journeys/README.md)):
+  - **Agents:** shared browser, merchant, operator and presence agents in `tests/agents/`.
+  - **Scenarios:** seeded scenarios in the `test.scenario` contract (`shared-types` 0.5.0), with no credentials and example-domain links only.
+  - **Journeys:** four, with 41 business milestones:
+    - a visitor from Discover to the 3D storefront;
+    - merchant onboarding to the pilot check-in;
+    - reconnect and resilience;
+    - attribution deduplication.
+  - **Failures:** each names its milestone and its kind (product, rendering or environment). CI sets `JOURNEY_STRICT=1` and uploads the sanitized logs and screenshots of a failed run.
+  - **Staging:** `JOURNEY_*_URL` and `JOURNEY_ALLOW_WRITES=1` point the suite at a running stack.
+  - **Defect found:** a chat line retried after a reconnect was said twice. The presence server now remembers answers per account too.
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
 - [x] **Music director, a SimCity-style soundtrack** (`lib/game/musicDirector.js`):
   - **What changed:** the music no longer changes with the zoom. Zooming used to cut the track, swap playlists and change the volume.

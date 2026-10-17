@@ -22,6 +22,8 @@ Every protocol-2 message has an executable contract in `packages/shared-types` (
 - **Versions:** a `hello` whose `v` is not 2 is answered `protocol.unsupported` and closed (code 4002). The game then stops reconnecting and asks for a reload.
 - **Tests:** they hold the server's real messages to the contracts, so a shape change fails CI.
 - **Changes:** each protocol change goes in `packages/shared-types/CHANGELOG.md`.
+- **Chat retries:** a nearby line is said once per `id`, even when it is retried after a reconnect. The server remembers its answer per connection and, for a signed-in player, per account for five minutes.
+- **Journeys:** `tests/journeys/reconnect-and-recovery.test.mjs` is the end-to-end check ([the journeys](../../tests/journeys/README.md)). Two signed-in players reconnect, and the server is sent stale protocols, spent tickets, malformed input, floods and a slow receiver.
 
 ## Measured
 `node scripts/load-test-presence.mjs --clients N`: pretend players walk about the city (a quarter stand still, 60% gather in four busy places, so most see a full 40). The bots and the server shared one development laptop, so the server is slightly worse off than on its own machine.

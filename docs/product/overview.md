@@ -25,6 +25,7 @@ Today it is a complete single-player game with local saves, plus LAN multiplayer
 | `npm test` | Every suite except the browser test (a few minutes: `live-browser` rebuilds the production app, so run `npm run build` after it) |
 | `npm run test:browser` | Real-browser test (needs a build and Edge or Chrome) |
 | `npm run test:all` | Both |
+| `npm run test:journeys` | The four business journeys (visitor, merchant, reconnect, attribution) as milestones. They build the production app once and need Edge or Chrome; `npm test` runs them too. They can also run against staging ([tests/journeys/README.md](../../tests/journeys/README.md)) |
 
 `dev:all` does not start the API. To try accounts, the inbox and signed-in chat locally, also run `npm run api` and set `NEXT_PUBLIC_LIVE_API_URL` (the API's address) for the web app, `MP_API_URL` for the multiplayer server, `MP_NOTIFY_URL` for the API, and the same `MP_NOTIFY_SECRET` on both servers ([../server/README.md](../../services/multiplayer/README.md)).
 
@@ -137,3 +138,4 @@ What remains:
 | Cross-boundary contracts | `packages/shared-types/` (`tests/contracts.test.mjs`) |
 | Policies | `lib/legal/`, `apps/web/app/(public)/legal/`, `apps/web/components/legal/PolicyBody.jsx` |
 | Tests | `tests/*.test.mjs`, `tests/run.mjs`, `tests/browser-driver.mjs`; CI's selector `scripts/select-checks.mjs` |
+| Business journeys | `tests/journeys/`, their agents `tests/agents/`, their scenarios `tests/fixtures/deterministic-pilot-city.mjs` (the `test.scenario` contract), `tests/journey-runner.test.mjs` |

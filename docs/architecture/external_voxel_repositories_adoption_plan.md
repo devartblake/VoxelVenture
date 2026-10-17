@@ -1,7 +1,7 @@
 # External Voxel Repository Adoption and Implementation Plan
 
 **Date:** 2026-10-17  
-**Status:** Proposed implementation plan. **Track B (realtime protocol contracts) is implemented** ([ADR 0004](adr/0004-presence-protocol-contracts.md)); the other tracks are proposals.  
+**Status:** Proposed implementation plan. **Track A (headless journeys and deterministic scenarios) and Track B (realtime protocol contracts) are implemented** (see 6.6 and [ADR 0004](adr/0004-presence-protocol-contracts.md)); the other tracks are proposals.  
 **Repository baseline:** `main` at `699cdb3f2ca4016bb224c4c8e9348493acd2bdad`  
 **Related roadmap:** [Tasks](../roadmap/tasks.md), [alignment status](../roadmap/alignment_status.md), [world-expansion freeze](../roadmap/world_freeze.md)  
 **Related architecture:** [Modular monorepo migration plan](modular_monorepo_migration_plan.md), [ADR 0001](adr/0001-shared-package-boundaries.md)
@@ -262,6 +262,7 @@ Every implementation slice should follow these rules:
 
 ## 6. Implementation Track A — Headless journeys and deterministic scenarios
 
+**Status:** implemented, 2026-10-17; see 6.6 and [the journeys' README](../../tests/journeys/README.md).  
 **Priority:** P0  
 **Freeze status:** Allowed; testing and commercial validation  
 **Recommended timing:** Before the Phase 6 pilot
@@ -368,6 +369,26 @@ The scenario format must not contain production credentials or real customer dat
 - Artifacts contain sanitized logs and screenshots.
 - CI distinguishes product regression, rendering failure, and environment/GPU limitation.
 - A pilot release can run the same journey suite against staging.
+
+### 6.6 What was implemented
+
+The files are the ones 6.3 proposes. The four journeys have 41 business milestones between them: 9 for the visitor, 10 for the merchant, 15 for reconnect and resilience, and 7 for attribution. `npm run test:journeys` runs them, and `npm test` includes them.
+
+| Acceptance criterion | How it is met |
+| --- | --- |
+| The existing live-browser test continues to pass | `tests/live-browser.test.mjs` is unchanged and passes. The journeys reuse its browser driver (`tests/browser-driver.mjs`). Their production build is cached with a marker (`apps/web/.next/journey-build.json`), so the four journeys build the app once |
+| At least three journeys use the shared agents | All four do. `tests/agents/` holds the runner (`scenario.mjs`), the browser agent, the merchant and operator agents (through the API, as the dashboard sends it) and the presence agent (each message it receives is checked against the Track B contracts) |
+| Runs are repeatable with the same seed | `tests/fixtures/deterministic-pilot-city.mjs` fixes the city seed (20260101), the accounts, the businesses and the milestones. Visitor ids and test passwords are derived from the seed. Each run starts its own servers on empty data, and two reruns gave the same results |
+| Each failure names its business milestone | A failure reads, for example, `PRODUCT REGRESSION at "Pressing the call to action counts one press, and its link carries a click id" (cta-press)`, followed by what was expected and what happened. `report.json` lists every milestone with its status and time |
+| Artifacts hold sanitized logs and screenshots | Each run writes `artifacts/journeys/<scenario>/`: `report.json`, `run.log`, each page's console, and a screenshot of each open page when it fails. Session tokens, tickets, conversion keys, emails and passwords are redacted first. `tests/journey-runner.test.mjs` checks the redaction. `artifacts/` is ignored by git; CI uploads the folder when a check fails |
+| CI tells a product regression from a rendering failure and an environment limitation | Three failure kinds: product (exit 1), rendering (exit 1; for example, the city falls back to its no-WebGL page) and environment (no Chrome, no stack, a port in use). An environment failure skips the journey with exit 0 on a developer machine. CI sets `JOURNEY_STRICT=1`, so there it fails. `scripts/select-checks.mjs` runs the journeys for any change to the pages, the API or the presence server |
+| A pilot release can run the suite against staging | `JOURNEY_WEB_URL`, `JOURNEY_API_URL` and `JOURNEY_MP_URL` point the journeys at a running stack. Because they create accounts and businesses there, `JOURNEY_ALLOW_WRITES=1` must also be set. `JOURNEY_ADMIN_TOKEN` enables the operator's pilot milestones; without it they are reported as skipped |
+
+The journeys found one real defect. After a reconnect, a nearby chat line retried with the same id was said twice, because the server remembered answers per connection. The presence server now also remembers them per account for five minutes, so the retry is answered rather than repeated (`services/multiplayer/server.mjs`; see [ADR 0004](adr/0004-presence-protocol-contracts.md)).
+
+The journeys check what a visitor sees, not the game's internal state. Production pages expose the diagnostic handles only with `?diag=1`, so the journeys use the visible page, the API and the presence protocol.
+
+Not covered yet: a pilot tour manifest for sales demos (the gap row "Deterministic demos" in section 17), and running the suite against staging, which is part of Phase D's certification.
 
 ## 7. Implementation Track B — Realtime protocol contracts
 
@@ -857,8 +878,8 @@ Any Voxelize adoption proposal must include:
 | --- | --- | --- | --- |
 | 1 | Document plan and decisions | Low | Now |
 | 2 | ✅ Realtime protocol-v2 contracts and fixture validation (done, ADR 0004) | Low–medium | Before pilot |
-| 3 | Extract reusable browser/presence agents from existing tests | Medium | Before pilot |
-| 4 | Add deterministic pilot journeys and sanitized artifacts | Medium | Before pilot |
+| 3 | ✅ Extract reusable browser/presence agents from existing tests (done, 6.6) | Medium | Before pilot |
+| 4 | ✅ Add deterministic pilot journeys and sanitized artifacts (done, 6.6) | Medium | Before pilot |
 | 5 | Central performance capability profile and measurements | Medium | During pilot preparation |
 | 6 | Asset-contract schema and metadata overlay, no new assets | Low–medium | During pilot |
 | 7 | Merchant-customizer ADR and UX prototype | Low | After pilot signal |
@@ -1055,12 +1076,12 @@ The following analysis compares the recommended target with the current project 
 | Mobile navigation | Explicit, tested gesture state model | Joystick, interaction button, safe-area support, map controls, touch DPR/shadow tuning | Editing/navigation gesture rules are not centralized or broadly pointer-tested | P1 | Add interaction-state specification and automated touch tests |
 | Idle rendering efficiency | Visibility-aware pausing and measured quality tiers | Static batching, touch limits, culling, diagnostics; many continuous `useFrame` systems | No central capability policy; demand rendering not assessed systematically | P0/P1 | Inventory frame loops, add capability/visibility policies, benchmark |
 | Asset manifest | Technical, legal, placement, moderation, and fallback metadata | Generated catalog has geometry, dimensions, size, class, URL | Missing normalized license, slot, LOD/fallback, usage-policy, moderation fields | P1 | Add metadata overlay and shared asset contract |
-| Browser agents | Reusable visitor, merchant, resilience, and realtime actors | Strong live-browser journey plus socket tests | Helpers are not a general scenario/agent framework; limited staged journey matrix | P0 | Extract reusable agents and deterministic scenarios |
+| Browser agents | Reusable visitor, merchant, resilience, and realtime actors | **Done (Track A):** shared agents in `tests/agents/` and four milestone journeys in `tests/journeys/` (visitor, merchant, reconnect and resilience, attribution), runnable against staging | Not yet run against staging (Phase D) | Done | Run the suite against staging before each pilot release |
 | Multiplayer load agents | Protocol-aware, reusable agents tied to acceptance budgets | Synthetic 500-client presence load test exists | Load test focuses on presence throughput, not full auth/reconnect/business journeys | P0/P1 | Reuse presence actor, add auth/reconnect/slow-client scenarios |
 | Realtime schemas | Executable, versioned client/server contracts | **Done (Track B):** every protocol-2 message has a contract in `shared-types`. The server checks `hello` and `auth` against them and answers another protocol version. Tests hold golden examples and the real traffic to them | None for protocol 2 | Done | Keep the contracts and the CHANGELOG in step with every protocol change |
 | Interest management | Proximity/district scoped updates | Grid-based proximity, maximum visible, compact deltas already implemented | No material pre-pilot gap | Maintain | Keep and certify with load budgets |
 | Server authority | Authority for abuse-sensitive and commercial actions | Commercial data authoritative in API; positions remain client-reported by design | Movement cannot prove location; acceptable while no rewards depend on it | Conditional | Add scoped authority only when a protected action requires it |
-| Deterministic demos | Repeatable seeds and milestone assertions | Seeded city, deep links, diagnostic routes, browser fixtures | No formal reusable scenario contract or sales/pilot tour manifest | P1 | Add versioned scenario fixtures and pilot tour definitions |
+| Deterministic demos | Repeatable seeds and milestone assertions | Seeded city, deep links, diagnostic routes, browser fixtures. **Track A:** a versioned `test.scenario` contract in `shared-types` and seeded scenario fixtures with milestones | No sales/pilot tour manifest | P1 | Add pilot tour definitions on the scenario contract |
 | Merchant customization | Bounded draft/preview/review/publish workflow | Business fields, logos, building rendering, development-only site designer | No merchant-facing slot-based customization record or moderation lifecycle | Post-pilot P1 | Implement declarative customizer after freeze gate |
 | Adjacency presentation | Pure rules for bounded storefront joins | City generation and road systems already derive connected layouts | No merchant-level facade/awning/stall adjacency package | P2 | Add pure `world-core` rules after customizer validates |
 | Arbitrary world editor | Not recommended | Development-only reserved-site tools; no public editor | No gap by product design | None | Keep unavailable |
@@ -1068,7 +1089,7 @@ The following analysis compares the recommended target with the current project 
 | WASM meshing | Only if profiling proves geometry bottleneck | Three.js/React Three Fiber with static batches | No evidence of a meshing bottleneck | Deferred | Profile first; write ADR before any spike |
 | Rust authoritative server | Only if Node cannot meet certified requirements | Node server with interest management, limits, telemetry, and load testing | No demonstrated gap | Deferred | Keep Node until evidence justifies migration |
 | Third-party licensing | Automated provenance, credits, policy checks | Credits system and license tests already exist | External additions need source-specific review; Tiny is AGPL | P0 governance | Extend admission checklist and prohibit unreviewed copies |
-| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics` and `business-core` exist. The runtime moved to its target layout in separate PRs (`apps/web/`, `services/api/`, `services/multiplayer/`; ADR 0002, ADR 0003) | `world-core`, agent/journey folders and performance policy modules are not present | Incremental | Add only as each approved slice begins |
+| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics` and `business-core` exist. The runtime moved to its target layout in separate PRs (`apps/web/`, `services/api/`, `services/multiplayer/`; ADR 0002, ADR 0003) | `world-core` and performance policy modules are not present (the agent and journey folders are, from Track A) | Incremental | Add only as each approved slice begins |
 | Commercial validation | Customization and scaling decisions supported by customer data | Phase 6 pilot tooling exists; external-feature demand unvalidated | No customer evidence that a builder increases payment or renewal | Highest product gap | Run pilot before customizer/engine expansion |
 
 ## 18. Gap conclusions
@@ -1076,8 +1097,8 @@ The following analysis compares the recommended target with the current project 
 ### Gaps that should be closed before the pilot
 
 1. ✅ Realtime message contracts (Track B).
-2. Reusable deterministic visitor and merchant journeys.
-3. Staging-capable browser and reconnect evidence.
+2. ✅ Reusable deterministic visitor and merchant journeys (Track A).
+3. Staging-capable browser and reconnect evidence. The journeys can now run against staging (6.6); the evidence comes with Phase D.
 4. A documented performance budget and centralized capability policy.
 5. Third-party admission and provenance controls for any borrowed material.
 
@@ -1105,8 +1126,8 @@ These may be technically interesting, but the current product does not need them
 1. Approve or revise the adoption boundaries in this document.
 2. ✅ Create an ADR for executable multiplayer protocol contracts ([ADR 0004](adr/0004-presence-protocol-contracts.md)).
 3. ✅ Implement protocol-v2 contracts under `packages/shared-types`.
-4. Extract reusable agent helpers from existing browser and presence tests.
-5. Add deterministic pilot journey fixtures.
+4. ✅ Extract reusable agent helpers from existing browser and presence tests (`tests/agents/`).
+5. ✅ Add deterministic pilot journey fixtures (`tests/fixtures/deterministic-pilot-city.mjs`, `tests/journeys/`).
 6. Establish mobile and desktop performance budgets from real-device evidence.
 7. Define the asset metadata overlay without adding new world content.
 8. Complete the Phase 6 pilot.

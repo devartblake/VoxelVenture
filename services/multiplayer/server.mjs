@@ -226,8 +226,30 @@ function answerChat(p, clientMessageId, out) {
   if (out.type === 'chat.accepted') p.chatAnswers.set(clientMessageId, out);
   else p.chatAnswers.delete(clientMessageId);
   if (p.chatAnswers.size > 50) p.chatAnswers.delete(p.chatAnswers.keys().next().value);
+  if (out.type === 'chat.accepted' && p.account) rememberForAccount(p.account.id, p.room, clientMessageId, out);
   send(p, out);
 }
+// A signed-in player's accepted lines, by account, for a few minutes: a phone that lost its connection just after a line went out never got
+// the answer, so the game retries the line on its new connection, and it must get the same answer, not be said again (found by the
+// reconnect-and-recovery journey, tests/journeys/). Guests have no identity that survives a reconnect, so theirs stay per connection.
+const ACCOUNT_ANSWER_MS = 5 * 60 * 1000;
+const accountAnswers = new Map(); // account id -> Map(clientMessageId -> { out, room, at })
+function rememberForAccount(accountId, room, clientMessageId, out) {
+  const mine = accountAnswers.get(accountId) ?? accountAnswers.set(accountId, new Map()).get(accountId);
+  mine.set(clientMessageId, { out, room, at: Date.now() });
+  if (mine.size > 50) mine.delete(mine.keys().next().value);
+}
+function answeredForAccount(p, clientMessageId) {
+  const hit = p.account && accountAnswers.get(p.account.id)?.get(clientMessageId);
+  return hit && hit.room === p.room && Date.now() - hit.at < ACCOUNT_ANSWER_MS ? hit.out : null;
+}
+setInterval(() => {
+  const old = Date.now() - ACCOUNT_ANSWER_MS;
+  for (const [id, mine] of accountAnswers) {
+    for (const [cid, a] of mine) if (a.at < old) mine.delete(cid);
+    if (!mine.size) accountAnswers.delete(id);
+  }
+}, 60 * 1000).unref();
 const rejected = (clientMessageId, code, message, retryAfterMs) => ({ type: 'chat.rejected', clientMessageId, code, message, ...(retryAfterMs ? { retryAfterMs: Math.ceil(retryAfterMs) } : {}) });
 let guestLines = 0;
 
@@ -241,6 +263,12 @@ function handleChat(p, m, now) {
   const v2 = m.type === 'chat.send';
   const cid = v2 ? str(m.clientMessageId, 64) : '';
   if (v2 && !/^[\w-]{8,64}$/.test(cid)) return send(p, rejected(cid, 'bad_request', 'Each message needs its own id.'));
+  const earlier = v2 && !p.chatAnswers.has(cid) && answeredForAccount(p, cid);
+  if (earlier) {
+    // a line this account said on a connection that has since gone: the same answer, not said again
+    p.chatAnswers.set(cid, earlier);
+    return send(p, earlier);
+  }
   if (v2 && p.chatAnswers.has(cid)) {
     const before = p.chatAnswers.get(cid);
     if (before) send(p, before); // the same send again: the same answer (nothing is said twice)

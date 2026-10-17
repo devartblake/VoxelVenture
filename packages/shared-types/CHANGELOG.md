@@ -1,5 +1,9 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.5.0 (2026-10-17)
+
+- `TEST_SCENARIO` (`test.scenario`, version 1): a journey scenario, as the business journeys in `tests/journeys/` use it (Track A of the [adoption plan](../../docs/architecture/external_voxel_repositories_adoption_plan.md)). It records the seed, the device, the participants, the starting accounts and businesses, the milestones in order, the timeout, the allowed links and the budgets. It has no place for a password or a token, and its links must use the example domains (RFC 2606). It is in `CONTRACTS`, but not in `API_CONTRACTS`: nothing travels over the wire in this shape.
+
 ## 0.4.0 (2026-10-17)
 
 The presence protocol, protocol 2, as contracts ([ADR 0004](../../docs/architecture/adr/0004-presence-protocol-contracts.md)):

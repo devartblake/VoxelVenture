@@ -60,10 +60,23 @@ jobs:
       - name: All tests (includes a production build and a headless Chrome run)
         if: steps.pick.outputs.tests == 'all'
         run: npm test
+        env:
+          JOURNEY_STRICT: 1 # the business journeys (tests/journeys/) must run here: a missing Chrome or GPU fails, it does not skip
 
       - name: The tests this change needs
         if: steps.pick.outputs.tests != 'all' && steps.pick.outputs.tests != ''
         run: node tests/run.mjs ${{ steps.pick.outputs.tests }}
+        env:
+          JOURNEY_STRICT: 1
+
+      - name: Journey artifacts (sanitized logs, screenshots and the milestone report of a failed journey)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journeys
+          path: artifacts/journeys
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Messaging service unit tests
         if: steps.pick.outputs.python == 'true'
