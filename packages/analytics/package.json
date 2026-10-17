@@ -1,0 +1,16 @@
+{
+  "name": "@voxelventure/analytics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The conversion funnel, outcome families, attribution and click ids.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.js",
+    "./*": "./src/*"
+  },
+  "voxelventure": {
+    "owner": "@devartblake",
+    "dependsOn": ["shared-types"]
+  }
+}

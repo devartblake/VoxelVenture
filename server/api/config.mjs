@@ -1,4 +1,4 @@
-// The production settings check (docs/authoritative_data.md). The API refuses to start in production (NODE_ENV=production, or API_STRICT=1)
+// The production settings check (docs/architecture/authoritative_data.md). The API refuses to start in production (NODE_ENV=production, or API_STRICT=1)
 // while any `errors` remain, so a missing secret or a test setting can never reach real users; `warnings` are printed and it starts.
 // `npm run check:env -- <file>` runs the same checks on a settings file before a deploy (scripts/check-env.mjs), for the web app's too.
 const PLACEHOLDER = /CHANGE_ME|example\.com|changeme|^secret$|^password$/i;

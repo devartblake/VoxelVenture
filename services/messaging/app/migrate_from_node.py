@@ -1,4 +1,4 @@
-"""Copies the messaging data out of the Node API's database into this service's (docs/node_fastapi_architecture_plan.md, step 4).
+"""Copies the messaging data out of the Node API's database into this service's (docs/architecture/node_fastapi_architecture_plan.md, step 4).
 
     python -m app.migrate_from_node --node-db server/data/voxelventure.db --messaging-db services/messaging/data/messaging.db
 

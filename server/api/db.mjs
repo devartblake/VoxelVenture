@@ -39,7 +39,7 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'reports', 'evidence', 'TEXT'); // a reported chat message as it was when reported (JSON)
   addColumn(db, 'business_events', 'campaign', 'TEXT'); // utm_campaign of the link the visitor came by (business.mjs)
   addColumn(db, 'businesses', 'x_handle', 'TEXT'); // the owner's X handle, without the @ (optional)
-  addColumn(db, 'business_events', 'click_id', 'TEXT'); // a press of the call to action: the id added to its link (docs/conversions.md)
+  addColumn(db, 'business_events', 'click_id', 'TEXT'); // a press of the call to action: the id added to its link (docs/monetization/conversions.md)
   addColumn(db, 'business_events', 'value_cents', 'INTEGER'); // a purchase: its value
   addColumn(db, 'business_events', 'order_ref', 'TEXT'); // a purchase: the business's own order number (a purchase is counted once)
   db.exec('CREATE INDEX IF NOT EXISTS business_events_click ON business_events(business_id, click_id)');

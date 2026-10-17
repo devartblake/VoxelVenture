@@ -259,7 +259,7 @@ CREATE TABLE IF NOT EXISTS votes (
 );
 CREATE INDEX IF NOT EXISTS votes_plot ON votes(week, plot_id);
 
--- Messaging (docs/chat_messaging_plan.md, server/api/messaging.mjs): nearby chat evidence, private conversations, blocks, and the
+-- Messaging (docs/architecture/chat_messaging_plan.md, server/api/messaging.mjs): nearby chat evidence, private conversations, blocks, and the
 -- account-targeted notices the presence server delivers.
 -- A one-use ticket that binds a presence connection to an account (60 seconds; only its hash is kept, like sessions).
 CREATE TABLE IF NOT EXISTS messaging_tickets (

@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { fail } from './core.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 
-// Welcome posts on VoxelVenture's X account (idea 02, section 5; docs/social_posts.md): when a business joins, the platform posts
+// Welcome posts on VoxelVenture's X account (idea 02, section 5; docs/operations/social_posts.md): when a business joins, the platform posts
 // "Welcome <name> to <district>! @<handle> <link>". Only for owners who opted in (the profile's "welcome my business on X" box), so their
 // handle is never posted without their say-so. The link carries utm_source=x, so the owner's figures show what the post brought.
 //

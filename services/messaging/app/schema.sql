@@ -1,4 +1,4 @@
--- The messaging service's own database (docs/node_fastapi_architecture_plan.md). Account and plot ids are the Node API's: they are
+-- The messaging service's own database (docs/architecture/node_fastapi_architecture_plan.md). Account and plot ids are the Node API's: they are
 -- references, not foreign keys (that database is not this one). Same tables and meanings as the messaging tables the Node API had,
 -- so data moves across with its ids (app/migrate_from_node.py).
 CREATE TABLE IF NOT EXISTS nearby_messages (

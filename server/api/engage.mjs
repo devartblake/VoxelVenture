@@ -298,14 +298,17 @@ export const noticeAddress = (db, accountId) => {
   const a = db.prepare('SELECT email, email_verified, notify FROM accounts WHERE id = ?').get(accountId);
   return a?.email && a.email_verified && a.notify ? a.email : null;
 };
+// A take-over's payout is game value, never money (docs/monetization/takeover_payouts.md; policy_review.md gap 3): the emails say so and
+// show no currency sign.
+const gameValue = (n) => `${Number(n).toLocaleString('en-US')} in game value (play money: no real money is paid)`;
 export function notifyTakeover(db, previousAccount, { title, newOwner, paidOut, plotId }) {
   const to = noticeAddress(db, previousAccount);
-  if (to) enqueue(db, { to, kind: 'takeover', subject: `${newOwner} took over ${title}`, body: `${newOwner} took over ${title} (plot #${plotId}) ${paidOut == null ? 'after your lease ended and its grace week passed' : `and you were paid out $${paidOut.toLocaleString()}: 25% more than it was worth`}.\n\nYou can claim another plot at any time. To stop notices, turn them off in your account.` });
+  if (to) enqueue(db, { to, kind: 'takeover', subject: `${newOwner} took over ${title}`, body: `${newOwner} took over ${title} (plot #${plotId}) ${paidOut == null ? 'after your lease ended and its grace week passed' : `and the game credited you ${gameValue(paidOut)}: 25% more than its value in the game`}.\n\nYou can claim another plot at any time. To stop notices, turn them off in your account.` });
   return Boolean(to);
 }
 export function notifyAdTakeover(db, previousAccount, { slot, newAdvertiser, paidOut }) {
   const to = noticeAddress(db, previousAccount);
-  if (to) enqueue(db, { to, kind: 'ad_takeover', subject: `${newAdvertiser} took over your ad space`, body: `${newAdvertiser} took over the ad space "${slot}" and you were paid out $${paidOut.toLocaleString()}.\n\nYou can buy another ad space at any time.` });
+  if (to) enqueue(db, { to, kind: 'ad_takeover', subject: `${newAdvertiser} took over your ad space`, body: `${newAdvertiser} took over the ad space "${slot}"${paidOut ? ` and the game credited you ${gameValue(paidOut)}` : ''}.\n\nYou can buy another ad space at any time.` });
   return Boolean(to);
 }
 

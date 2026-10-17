@@ -1,4 +1,4 @@
-// Checks a branch against the world-expansion freeze (docs/world_freeze.md).
+// Checks a branch against the world-expansion freeze (docs/roadmap/world_freeze.md).
 //   npm run check:freeze                     compare with origin/main (committed, staged and untracked files)
 //   npm run check:freeze -- --base main      compare with another branch or commit
 // Fails when a new file is added under a frozen folder (lib/city, lib/sim, components/city, the model, street and
@@ -41,7 +41,7 @@ if (reason) {
   console.log(`allowed by exception: ${reason}`);
   process.exit(0);
 }
-console.log(`\nWorld expansion is frozen until the commercial pilot is validated (docs/world_freeze.md).`);
+console.log(`\nWorld expansion is frozen until the commercial pilot is validated (docs/roadmap/world_freeze.md).`);
 console.log(`Fixes, performance and accessibility work belong in existing files. If this is one of the allowed kinds of work,`);
 console.log(`add "${EXCEPTION_TRAILER}: <why>" to a commit message on this branch.`);
 process.exit(1);

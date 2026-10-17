@@ -13,7 +13,7 @@ import MidBlockCrossing from './MidBlockCrossing';
 // The road network (roads, junctions, mid-block crossings: about nine tenths of the scene's objects) is cut into square chunks, and
 // only the chunks near where you are looking are mounted, each as its own baked batch. Walking or panning on mounts the chunks
 // that come into range and unmounts (and disposes) the ones that leave. Nothing else about the city changes: this measures what
-// the streaming costs and saves; it is not the finished design (see docs/study_world_streaming.md).
+// the streaming costs and saves; it is not the finished design (see docs/architecture/study_world_streaming.md).
 const stats = { mounted: 0, mounts: 0, unmounts: 0, lastSwitchMs: 0 };
 if (typeof window !== 'undefined') window.__vvStream = stats;
 

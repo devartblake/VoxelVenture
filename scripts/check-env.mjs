@@ -1,4 +1,4 @@
-// Checks a settings file before a deploy (docs/authoritative_data.md, server/api/config.mjs).
+// Checks a settings file before a deploy (docs/architecture/authoritative_data.md, server/api/config.mjs).
 //   npm run check:env -- /etc/voxelventure/api.env      the API's settings (the API also refuses to start in production with these errors)
 //   npm run check:env -- /etc/voxelventure/web.env      the web app's (run it before `npm run build`)
 // The kind is told by the file's contents (NEXT_PUBLIC_* means the web app). Exits 1 if there is anything to fix.

@@ -140,6 +140,7 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
         <div className="mt-4"><ProfileForm initial={p} submitLabel="Save changes" onSubmit={save} onCancel={() => setEditing(false)} /></div>
       ) : (
         <>
+          {row.pilot && <PilotFeedback slug={p.slug} pilot={row.pilot} onChange={onChange} />}
           <Funnel stats={stats} ctaLabel={p.cta.label} />
           <Results stats={stats} />
           {welcomePost && (
@@ -250,6 +251,87 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
         </>
       )}
     </section>
+  );
+}
+
+// The pilot's weekly check-in (server/api/pilot.mjs, docs/monetization/pilot.md): only for a business in the pilot. Four short questions,
+// once a week; sending again the same week replaces the answers.
+const WOULD_PAY = [['yes', 'Yes'], ['maybe', 'Maybe'], ['no', 'No']];
+function PilotFeedback({ slug, pilot, onChange }) {
+  const sent = pilot.feedback;
+  const [open, setOpen] = useState(!sent);
+  const [rating, setRating] = useState(sent?.rating ?? 0);
+  const [wouldPay, setWouldPay] = useState(sent?.wouldPay ?? '');
+  const [result, setResult] = useState(sent?.result ?? '');
+  const [missing, setMissing] = useState(sent?.missing ?? '');
+  const [errors, setErrors] = useState({});
+  const [msg, setMsg] = useState('');
+  const submit = async (e) => {
+    e.preventDefault();
+    setMsg('');
+    try {
+      await request('POST', `/businesses/${slug}/pilot-feedback`, { rating, wouldPay, result, missing });
+      setErrors({});
+      setOpen(false);
+      onChange();
+    } catch (err) {
+      setErrors(err.errors ?? {});
+      setMsg(err.message);
+    }
+  };
+  const week = new Date(`${pilot.week}T00:00:00Z`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', timeZone: 'UTC' });
+  return (
+    <div className="mt-4 rounded-xl border border-sx-cyan/40 bg-cyan-500/10 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="mr-auto text-sm font-semibold text-white">Pilot check-in · week of {week}</h3>
+        {sent && !open && <button type="button" onClick={() => setOpen(true)} className="min-h-9 rounded-lg border border-sx-stroke px-3 text-sm text-slate-200 hover:bg-sx-alt">Change answers</button>}
+      </div>
+      {sent && !open ? (
+        <p className="mt-1 text-sm text-emerald-300">Thank you: this week&apos;s answers are in ({sent.rating} of 5). They help decide what we build next.</p>
+      ) : (
+        <form onSubmit={submit} className="mt-2 space-y-3 text-sm">
+          <p className="text-slate-300">You are in the VoxelVenture pilot. Four quick questions, once a week:</p>
+          <fieldset>
+            <legend className="mb-1 text-slate-200">How useful was VoxelVenture to your business this week?</legend>
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <label key={n} className={`flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg border px-3 ${rating === n ? 'border-sx-cyan bg-sx-cyan text-slate-950' : 'border-sx-stroke text-slate-200 hover:bg-sx-alt'}`}>
+                  <input type="radio" name={`rating-${slug}`} value={n} checked={rating === n} onChange={() => setRating(n)} className="sr-only" />
+                  {n}
+                </label>
+              ))}
+              <span className="self-center text-xs text-sx-muted">1 not at all · 5 very</span>
+            </div>
+            {errors.rating && <p className="mt-1 text-rose-300">{errors.rating}</p>}
+          </fieldset>
+          <label className="block">
+            <span className="text-slate-200">What did it bring you? <span className="text-sx-muted">(a customer, a booking, a question; optional)</span></span>
+            <textarea value={result} onChange={(e) => setResult(e.target.value)} maxLength={500} rows={2} className="mt-1 w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-white" />
+          </label>
+          <label className="block">
+            <span className="text-slate-200">What would make it more useful? <span className="text-sx-muted">(optional)</span></span>
+            <textarea value={missing} onChange={(e) => setMissing(e.target.value)} maxLength={500} rows={2} className="mt-1 w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-white" />
+          </label>
+          <fieldset>
+            <legend className="mb-1 text-slate-200">As it is today, would you pay for it?</legend>
+            <div className="flex gap-2">
+              {WOULD_PAY.map(([id, label]) => (
+                <label key={id} className={`flex min-h-11 cursor-pointer items-center rounded-lg border px-4 ${wouldPay === id ? 'border-sx-cyan bg-sx-cyan text-slate-950' : 'border-sx-stroke text-slate-200 hover:bg-sx-alt'}`}>
+                  <input type="radio" name={`pay-${slug}`} value={id} checked={wouldPay === id} onChange={() => setWouldPay(id)} className="sr-only" />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {errors.wouldPay && <p className="mt-1 text-rose-300">{errors.wouldPay}</p>}
+          </fieldset>
+          <div className="flex items-center gap-3">
+            <button className="min-h-11 rounded-lg bg-sx-cyan px-4 font-semibold text-slate-950">Send this week&apos;s answers</button>
+            {sent && <button type="button" onClick={() => setOpen(false)} className="text-slate-300 hover:text-white">Cancel</button>}
+          </div>
+          {msg && <p className="text-rose-300" role="alert">{msg}</p>}
+        </form>
+      )}
+    </div>
   );
 }
 

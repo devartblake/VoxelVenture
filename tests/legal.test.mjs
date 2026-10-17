@@ -25,6 +25,8 @@ check('the Python messaging service keeps the same periods', has('services/messa
 check('who is online is kept a day', RETENTION.presenceDays === 1 && has('server/api/stats.mjs', /DELETE FROM presence WHERE last_at < \?'\)\.run\(now - DAY\)/));
 check('the referral code is kept the stated days', has('lib/business/referral.js', new RegExp(`KEEP_MS = ${RETENTION.referralDays} \\* 86400000`)));
 check('backups are kept the stated days', has('deploy/backup.sh', new RegExp(`BACKUP_KEEP:-${RETENTION.backupDays}\\}`)));
+check('the presence server keeps network addresses only scrambled, as the privacy policy says (gap 1)', has('server/multiplayer.mjs', /const netOf = /) && !has('server/multiplayer.mjs', /ip: p\.ip|^\s+ip,\r?$|`\$\{ip\} \(|from \$\{ip\}|\$\{id\}, \$\{ip\}/m));
+check('take-over emails call the payout game value, as the terms say (gap 3)', has('server/api/engage.mjs', /no real money is paid/) && !has('server/api/engage.mjs', /paid out \$/));
 check('the error log is cut at the stated size', has('server/multiplayer.mjs', /MP_LOG_MAX_BYTES \|\| 2_000_000/) && RETENTION.errorLogBytes === 2_000_000);
 check('the attribution window is the code\'s', RETENTION.attributionDays === ATTRIBUTION_DAYS);
 check('the limits are the code\'s', has('server/api/business.mjs', new RegExp(`MAX_PROFILES = ${LIMITS.profilesPerAccount};`)) && has('server/api/market.mjs', new RegExp(`MAX_ACTIVE_PER_WEEK = ${MONEY.stallsPerWeek};`)) && has('server/api/billing.mjs', new RegExp(`HOLD_MS = ${MONEY.checkoutHoldMinutes} \\* 60000`)) && has('server/api/social.mjs', new RegExp(`default ${LIMITS.socialPostsPerDay}\\)`)));

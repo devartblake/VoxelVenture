@@ -30,7 +30,7 @@ if [ -n "${RCLONE_REMOTE:-}" ]; then
   rclone copy "$OUT.gz" "$RCLONE_REMOTE" && echo "Uploaded to $RCLONE_REMOTE"
 fi
 
-# the messaging service's database, once it runs (docs/node_fastapi_architecture_plan.md): the same way, beside it
+# the messaging service's database, once it runs (docs/architecture/node_fastapi_architecture_plan.md): the same way, beside it
 MDB="${MESSAGING_DB:-/srv/voxelventure/services/messaging/data/messaging.db}"
 if [ -f "$MDB" ]; then
   MOUT="$DIR/messaging-$STAMP.db"

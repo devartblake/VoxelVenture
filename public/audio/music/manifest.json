@@ -1,0 +1,154 @@
+[
+  {
+    "id": "happy-chiptunes",
+    "title": "Happy Chiptunes (Collection)",
+    "artist": "Holizna",
+    "source": "https://opengameart.org/content/happy-chiptunes-collection",
+    "download": "https://opengameart.org/sites/default/files/happy_chiptunes.zip",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "arcade",
+    "files": [
+      "/audio/music/happy-chiptunes/Happy Chiptunes/03 HoliznaCC0 - Adventure Begins Loop.mp3",
+      "/audio/music/happy-chiptunes/Happy Chiptunes/06 HoliznaCC0 - Sunny Afternoon.mp3",
+      "/audio/music/happy-chiptunes/Happy Chiptunes/06 HoliznaCC0 - Where It's Safe.mp3",
+      "/audio/music/happy-chiptunes/Happy Chiptunes/12 HoliznaCC0 - NPC Theme.mp3"
+    ],
+    "sha256": "555ae56bc19f7d73ad9ba80a0a6534b09613a47fc54963503d60ebecfa795ca9",
+    "fileHashes": {
+      "/audio/music/happy-chiptunes/Happy Chiptunes/03 HoliznaCC0 - Adventure Begins Loop.mp3": "0f8151ea3b7cef17a5b93adf2bdb6ed5a1f080aba658b4909432641efb03f9bc",
+      "/audio/music/happy-chiptunes/Happy Chiptunes/06 HoliznaCC0 - Sunny Afternoon.mp3": "337ed73d88ba3c26447b155d990c3f70611c59cc1f3057155dff2e1b098988a2",
+      "/audio/music/happy-chiptunes/Happy Chiptunes/06 HoliznaCC0 - Where It's Safe.mp3": "fa7543d820856697577cf990d6c47fc2e89b2106cdc379e7e2bc8335d00b66f9",
+      "/audio/music/happy-chiptunes/Happy Chiptunes/12 HoliznaCC0 - NPC Theme.mp3": "2161b6a9e5e1158d34ebad3cbda1aa8919a2f968547f611dcc9ce22599a3be85"
+    }
+  },
+  {
+    "id": "sideways-city",
+    "title": "Sideways City",
+    "artist": "Zane Little Music",
+    "source": "https://opengameart.org/content/sideways-city",
+    "download": "https://opengameart.org/sites/default/files/sideways_city_loop.wav",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "city",
+    "files": [
+      "/audio/music/sideways-city.wav"
+    ],
+    "sha256": "549309746ba2609d7d91d19f5757de6c86a987017e7d0f54aa2a97cb88f8521c",
+    "fileHashes": {
+      "/audio/music/sideways-city.wav": "549309746ba2609d7d91d19f5757de6c86a987017e7d0f54aa2a97cb88f8521c"
+    }
+  },
+  {
+    "id": "wednesday-night",
+    "title": "Wednesday Night",
+    "artist": "Zane Little Music",
+    "source": "https://opengameart.org/content/wednesday-night-funk-fusion",
+    "download": "https://opengameart.org/sites/default/files/wednesday_night.ogg",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "city",
+    "files": [
+      "/audio/music/wednesday-night.ogg"
+    ],
+    "sha256": "514f0665f7eaa74e9fc687e01e8633b67f8bab3e26de53b66ee68499762f18f3",
+    "fileHashes": {
+      "/audio/music/wednesday-night.ogg": "514f0665f7eaa74e9fc687e01e8633b67f8bab3e26de53b66ee68499762f18f3"
+    }
+  },
+  {
+    "id": "barriers",
+    "title": "Barriers",
+    "artist": "Zane Little Music",
+    "source": "https://opengameart.org/content/barriers",
+    "download": "https://opengameart.org/sites/default/files/barriers_0.mp3",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "driving",
+    "files": [
+      "/audio/music/barriers.mp3"
+    ],
+    "sha256": "b31722165f6e9461da157bfaefa37fd64db0ec0fe853470dff481b5db5ac964a",
+    "fileHashes": {
+      "/audio/music/barriers.mp3": "b31722165f6e9461da157bfaefa37fd64db0ec0fe853470dff481b5db5ac964a"
+    }
+  },
+  {
+    "id": "funked-up",
+    "title": "Funked Up",
+    "artist": "Joth",
+    "source": "https://opengameart.org/content/funked-up",
+    "download": "https://opengameart.org/sites/default/files/Funked%20Up.mp3",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "driving",
+    "files": [
+      "/audio/music/funked-up.mp3"
+    ],
+    "sha256": "57cd81254a0f4e068535c5421f93b586514332ad2377f81aea190dd91659fff3",
+    "fileHashes": {
+      "/audio/music/funked-up.mp3": "57cd81254a0f4e068535c5421f93b586514332ad2377f81aea190dd91659fff3"
+    }
+  },
+  {
+    "id": "moil",
+    "title": "Moil",
+    "artist": "Ruskerdax",
+    "source": "https://opengameart.org/content/moil",
+    "download": "https://opengameart.org/sites/default/files/ruskerdax_-_moil.mp3",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "night",
+    "files": [
+      "/audio/music/moil.mp3"
+    ],
+    "sha256": "d496edafbca02a2a84ae1150e11b2e4d46b8a15e2ee081a676d1ae3ce996dc25",
+    "fileHashes": {
+      "/audio/music/moil.mp3": "d496edafbca02a2a84ae1150e11b2e4d46b8a15e2ee081a676d1ae3ce996dc25"
+    }
+  },
+  {
+    "id": "fusion-jazz",
+    "title": "(Basically not) Fusion Jazz",
+    "artist": "Spring Spring",
+    "source": "https://opengameart.org/content/basically-not-fusion-jazz",
+    "download": "https://opengameart.org/sites/default/files/fusion%20jazz_0.ogg",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "jazz",
+    "files": [
+      "/audio/music/fusion-jazz.ogg"
+    ],
+    "sha256": "645f7cd6ef7a56b22fe394ff006dae17348cf70c72aa9e2a9b4d7f70b2804af4",
+    "fileHashes": {
+      "/audio/music/fusion-jazz.ogg": "645f7cd6ef7a56b22fe394ff006dae17348cf70c72aa9e2a9b4d7f70b2804af4"
+    }
+  },
+  {
+    "id": "funk-collection",
+    "title": "Funk (Collection)",
+    "artist": "Holizna",
+    "source": "https://opengameart.org/content/funk-collection",
+    "download": "https://opengameart.org/sites/default/files/funk_collection_.zip",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "zone": "driving",
+    "files": [
+      "/audio/music/funk-collection/Funk ( Collection )/01 HoliznaCC0 - Eat.mp3.mp3",
+      "/audio/music/funk-collection/Funk ( Collection )/02 HoliznaCC0 - Sleep.mp3",
+      "/audio/music/funk-collection/Funk ( Collection )/03 HoliznaCC0 - Breath.mp3",
+      "/audio/music/funk-collection/Funk ( Collection )/04 HoliznaCC0 - Make Money.mp3",
+      "/audio/music/funk-collection/Funk ( Collection )/05 HoliznaCC0 - Make Love.mp3",
+      "/audio/music/funk-collection/Funk ( Collection )/06 HoliznaCC0 - Make Funk.mp3"
+    ],
+    "sha256": "215f063fb3d8ab561d50e6c43dceab05d9547ed670e5279d6fc0388943311117",
+    "fileHashes": {
+      "/audio/music/funk-collection/Funk ( Collection )/01 HoliznaCC0 - Eat.mp3.mp3": "3790956589afe99e4197c97fd59f5368f3b2f8d3faab01a87a97e9627935f664",
+      "/audio/music/funk-collection/Funk ( Collection )/02 HoliznaCC0 - Sleep.mp3": "9980347d761c692381952e1de09cde27aa7792c59370a7813f7cb43704028b59",
+      "/audio/music/funk-collection/Funk ( Collection )/03 HoliznaCC0 - Breath.mp3": "c62b118aca01295b962c910db262a202b6a1c35371024c79ec1f8dd8a4a89af3",
+      "/audio/music/funk-collection/Funk ( Collection )/04 HoliznaCC0 - Make Money.mp3": "3f10f346e5ab4c4c63977bd0157926075e0bba768bc48e89515669b1a9c8fe90",
+      "/audio/music/funk-collection/Funk ( Collection )/05 HoliznaCC0 - Make Love.mp3": "5fc6daf9499bd7e0ebf07bf10eab3e8237ed8634d1949cf3785d420ee4adc418",
+      "/audio/music/funk-collection/Funk ( Collection )/06 HoliznaCC0 - Make Funk.mp3": "4631f55b7fc2a021f24b22f60ec87735cf9163638b3a79ac1719ea3515949f9c"
+    }
+  }
+]

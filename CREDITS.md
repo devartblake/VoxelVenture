@@ -4,7 +4,27 @@ Everything in VoxelVenture that was not made for it, who made it, and the licenc
 
 ## Music & sound
 
-**City music and soundscape**: original, by VoxelVenture. There are no recordings: every tune (the city's day, dusk and night moods, the arcade, the café jazz, the fun-park waltz, the mall) and every sound is made live by the browser's audio. See `lib/game/musicRules.js` and `docs/day_night_sound.md`.
+**City music and soundscape**: original procedural ambience and fallback tunes by VoxelVenture, generated live by the browser. Recorded music is listed below, all released under **CC0** (public-domain dedication): https://creativecommons.org/publicdomain/zero/1.0/.
+
+| Release / source | Artist | License | Used for |
+| --- | --- | --- | --- |
+| [Happy Chiptunes (Collection)](https://opengameart.org/content/happy-chiptunes-collection) | Holizna | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Arcades |
+| [Sideways City](https://opengameart.org/content/sideways-city) | Zane Little Music | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | City overview |
+| [Wednesday Night](https://opengameart.org/content/wednesday-night-funk-fusion) | Zane Little Music | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | City overview |
+| [Barriers](https://opengameart.org/content/barriers) | Zane Little Music | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Driving / vehicle radio |
+| [Funked Up](https://opengameart.org/content/funked-up) | Joth | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Driving / vehicle radio |
+| [Moil](https://opengameart.org/content/moil) | Ruskerdax | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Nighttime city overview |
+| [(Basically not) Fusion Jazz](https://opengameart.org/content/basically-not-fusion-jazz) | Spring Spring | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Cafes |
+| [Funk (Collection)](https://opengameart.org/content/funk-collection) | Holizna | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Driving / vehicle radio |
+
+**Included collection tracks:**
+
+- **Happy Chiptunes (Collection)** by Holizna: Adventure Begins Loop; Sunny Afternoon; Where It's Safe; NPC Theme.
+- **Funk (Collection)** by Holizna: Eat; Sleep; Breath; Make Money; Make Love; Make Funk.
+
+These eight releases contain 16 recordings. The CC0 declarations allow commercial use, modification, redistribution and public performance without a fee or required attribution; credit is given here voluntarily.
+
+The recordings are served locally from `public/audio/music/`. See the [music provenance record](docs/licences/music/README.md) for preserved creator-upload pages and the CC0 legal text, captured on 2026-10-16. The [asset manifest](public/audio/music/manifest.json) records download addresses, individual file paths and SHA-256 hashes.
 
 ## 3D models
 

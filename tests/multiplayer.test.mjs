@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -138,7 +139,10 @@ b.ws.send(JSON.stringify({ type: 'error', kind: 'console.error', message: 'Warni
 await sleep(300);
 const status = await (await fetch(`http://localhost:${PORT}/status`)).json();
 const bobStatus = status.players.find((p) => p.name === 'Bob');
-check('status lists all three clients with their devices', status.players.length === 3 && bobStatus.device.touch === true && bobStatus.device.screen === '390x844@3' && bobStatus.ip, JSON.stringify(bobStatus.device));
+check('status lists all three clients with their devices', status.players.length === 3 && bobStatus.device.touch === true && bobStatus.device.screen === '390x844@3' && bobStatus.net, JSON.stringify(bobStatus.device));
+// network addresses are kept only scrambled, the same way as the API (docs/monetization/policy_review.md, gap 1)
+const localNet = crypto.createHash('sha256').update(`${process.env.IP_SALT || 'voxelventure'}|127.0.0.1`).digest('hex').slice(0, 16);
+check('status shows the scrambled network, never the address', bobStatus.net === localNet && !('ip' in bobStatus) && !/127\.0\.0\.1|::1\b/.test(JSON.stringify(status)), bobStatus.net);
 check('frame rate is recorded', bobStatus.fps === 58.3, String(bobStatus.fps));
 check('errors are recorded per client with counts', bobStatus.errorCount === 6 && bobStatus.errors.length === 2, String(bobStatus.errorCount));
 check('recent errors name the client', status.recentErrors.some((e) => e.name === 'Bob' && e.message === 'TypeError: boom' && e.stack.includes('at x')));
@@ -163,6 +167,9 @@ await sleep(500);
 const logFiles = fs.readdirSync(logDir).sort();
 check('the error log rotates past its size limit', logFiles.includes('client-errors.jsonl') && logFiles.includes('client-errors.jsonl.1'), logFiles.join(', '));
 check('the live log stays under the limit', fs.statSync(path.join(logDir, 'client-errors.jsonl')).size <= 1500);
+const logText = logFiles.map((f) => fs.readFileSync(path.join(logDir, f), 'utf8')).join('');
+check('the error log has the scrambled network, not the address', logText.includes(`"net":"${localNet}"`) && !/127\.0\.0\.1|::1\b|"ip"/.test(logText));
+check('nor does the console', serverOut.includes(localNet) && !/127\.0\.0\.1|::ffff/.test(serverOut));
 
 // health and protocol
 const health = await (await fetch(`http://localhost:${PORT}/health`)).json();

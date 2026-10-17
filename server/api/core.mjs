@@ -96,7 +96,7 @@ export function logout(db, token) {
 export const requireAccount = (account) => account ?? fail(401, 'Sign in first.', 'unauthorized');
 
 // ---- plots -----------------------------------------------------------------------------------------------------------
-// Every count the API serves is verified events only (docs/authoritative_data.md). The generator's starting figures (base_visits,
+// Every count the API serves is verified events only (docs/architecture/authoritative_data.md). The generator's starting figures (base_visits,
 // base_views, base_clicks) are kept in the database as the seed's history but never added to a count: nobody sees an invented number as real.
 const visitsOf = (db, id) => db.prepare("SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND kind = 'visit' AND verified = 1").get(id).n;
 export function plotView(db, row) {

@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { text } from './core.mjs';
 
-// The audit trail: an append-only, hash-chained record of every change that matters to money, ownership or moderation (docs/authoritative_data.md).
+// The audit trail: an append-only, hash-chained record of every change that matters to money, ownership or moderation (docs/architecture/authoritative_data.md).
 // Each row's hash covers its own fields and the previous row's hash, so editing or removing a row outside the API is detectable with verifyChain().
 // The table's triggers refuse UPDATE and DELETE outright (schema.sql).
 const GENESIS = '0'.repeat(64);

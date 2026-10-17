@@ -4,7 +4,7 @@ import { ApiError, fail, getPlot, requireAccount } from './core.mjs';
 import { screenWithService } from './moderation.mjs';
 import { checkText, cleanMessage } from './textcheck.mjs';
 
-// Messaging (docs/chat_messaging_plan.md): the API owns everything about it that lasts or needs an account.
+// Messaging (docs/architecture/chat_messaging_plan.md): the API owns everything about it that lasts or needs an account.
 //   tickets     a signed-in game gets a one-use ticket and hands it to the presence server, which redeems it here: that is how a
 //               connection is bound to an account (the presence server never takes an account id from a client)
 //   nearby      the presence server asks here before it passes a signed-in player's line on: the filter, the account's budget,

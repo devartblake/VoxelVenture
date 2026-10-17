@@ -10,7 +10,7 @@ In the city, plots are leased (paid through Stripe when it is set up), a busines
 
 ## Where it stands (2026-10-17)
 
-Phases 1 to 5 of the [competitive alignment review](docs/claimavenue_competitive_alignment_review.md) are done in code. They are, in order:
+Phases 1 to 5 of the [competitive alignment review](docs/competitive-research/claimavenue_competitive_alignment_review.md) are done in code. They are, in order:
 
 1. The world-expansion freeze.
 2. The business-first funnel.
@@ -18,7 +18,19 @@ Phases 1 to 5 of the [competitive alignment review](docs/claimavenue_competitive
 4. Stripe payments.
 5. Conversion measurement.
 
-Still to do: going live (host and domain, the Stripe account, the terms, a mail service), then a pilot with 10 to 20 businesses (phase 6). The item-by-item status is in [docs/alignment_status.md](docs/alignment_status.md), and the full list in [docs/tasks.md](docs/tasks.md).
+Since then:
+
+- per-business conversion keys, and outcomes reported by family;
+- a reworked Building of the Week vote;
+- draft policies at `/legal` (not yet approved);
+- `CODEOWNERS`;
+- the documentation sorted by topic;
+- the first shared packages (`packages/`).
+
+Still to do:
+
+- going live: host and domain, the Stripe account, policy approval, a mail service;
+- then a pilot with 10 to 20 businesses (phase 6). The item-by-item status is in [docs/roadmap/alignment_status.md](docs/roadmap/alignment_status.md), and the full list in [docs/roadmap/tasks.md](docs/roadmap/tasks.md).
 
 ## Run it
 
@@ -31,8 +43,20 @@ npm test             # the test suites (npm run test:browser for the real-browse
 npm run lint
 ```
 
-Payments switch on with Stripe keys: see [docs/billing.md](docs/billing.md). Deployment is described in [deploy/README.md](deploy/README.md).
+Payments switch on with Stripe keys: see [docs/monetization/billing.md](docs/monetization/billing.md). Deployment is described in [deploy/README.md](deploy/README.md).
+
+## Layout
+
+| Folder | What is in it |
+| --- | --- |
+| `app/`, `components/` | The Next.js app: the 3D city (`/`) and the public business pages (`app/(public)`: Discover, business, category and district pages, `/legal`) |
+| `lib/` | Rules shared by the game, the pages and the server, loaded by the server through `scripts/lib-loader.mjs` |
+| `packages/` | Pure shared packages with versioned contracts ([packages/README.md](packages/README.md)) |
+| `server/` | The Node API (`server/api/`, SQLite) and the presence server (`server/multiplayer.mjs`) |
+| `services/messaging/` | The Python (FastAPI) messaging service, not switched on yet |
+| `tests/` | `node tests/run.mjs`; CI picks the suites a change needs (`scripts/select-checks.mjs`) |
+| `deploy/` | Caddy, systemd units, settings templates, setup and backup scripts, the runbook |
 
 ## Documentation
 
-Start with [docs/overview.md](docs/overview.md). Every document is listed in [docs/README.md](docs/README.md).
+Start with [docs/product/overview.md](docs/product/overview.md). Every document is listed in [docs/README.md](docs/README.md).

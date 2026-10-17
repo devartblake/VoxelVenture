@@ -1,4 +1,4 @@
-// Conversion measurement (server/api/conversions.mjs, business.mjs, docs/conversions.md): impressions in lists, qualified visits, store
+// Conversion measurement (server/api/conversions.mjs, business.mjs, docs/monetization/conversions.md): impressions in lists, qualified visits, store
 // entries, meeting and quote requests, purchases credited by click id (postback and pixel), coupon tickets and redemptions, spend and cost
 // per result, the renewal rate, and what the free plan sees. Every figure is verified like a view.
 import { createApi } from '../server/api/server.mjs';

@@ -4,14 +4,16 @@
 //                       (kinds: feedback, plot, ad, business (a profile, by its slug), message (a private message), nearby (a nearby chat line))
 //   npm run moderate -- ban 7 "spam"                                                    ban an account by id
 //   npm run moderate -- unban 7
-//   npm run moderate -- audit [plot 12 | action plot.takeover | account 7]          the audit trail, newest first (docs/authoritative_data.md)
+//   npm run moderate -- audit [plot 12 | action plot.takeover | account 7]          the audit trail, newest first (docs/architecture/authoritative_data.md)
 //   npm run moderate -- audit verify                                                check the audit trail's hash chain
-//   npm run moderate -- posts [review|queued|posted|failed]                         welcome posts on X (docs/social_posts.md)
+//   npm run moderate -- posts [review|queued|posted|failed]                         welcome posts on X (docs/operations/social_posts.md)
 //   npm run moderate -- posts approve|reject 4
-//   npm run moderate -- orders [pending|paid|refunded|expired|failed]             payments (docs/billing.md), newest first
+//   npm run moderate -- orders [pending|paid|refunded|expired|failed]             payments (docs/monetization/billing.md), newest first
 //   npm run moderate -- refund 12                                                   refund an order in full and take back what it bought
 //   npm run moderate -- grant amys-cafe pro|launch|sponsored [days] [placement] [reason...]   a complimentary week, month or placement
-//   npm run moderate -- renewals                                                    Pro renewals and repeat purchases (docs/conversions.md)
+//   npm run moderate -- pilot [weeks]                                               the pilot: each business's weeks, and whether the freeze can lift
+//   npm run moderate -- pilot add <slug> [note] | pilot remove <slug> | pilot csv     who takes part, and the figures as a spreadsheet
+//   npm run moderate -- renewals                                                    Pro renewals and repeat purchases (docs/monetization/conversions.md)
 //   npm run moderate -- reconcile                                                   ask Stripe about pending orders and running Pro plans now
 // With the messaging service (services/messaging), chat reports are its own: set MESSAGING_URL (e.g. http://localhost:3003) and the
 // list shows both queues, and `resolve message|nearby ...` goes there.
@@ -71,6 +73,27 @@ if (!cmd || cmd === 'list') {
   const [slug, product, days, placement, ...reason] = args;
   const g = await call('POST', `/admin/billing/grant/${encodeURIComponent(slug ?? '')}`, { product, days: days ? Number(days) : undefined, placement: placement || undefined, reason: reason.join(' ') || undefined });
   console.log(`Granted: order ${g.orderId}, until ${new Date(g.until).toISOString().slice(0, 10)}.`);
+} else if (cmd === 'pilot' && args[0] === 'add') {
+  const r = await call('POST', '/admin/pilot/members', { slug: args[1], note: args.slice(2).join(' ') || undefined });
+  console.log(`${r.slug} is in the pilot`);
+} else if (cmd === 'pilot' && args[0] === 'remove') {
+  const r = await call('DELETE', `/admin/pilot/members/${args[1]}`);
+  console.log(`${r.slug} is out of the pilot (its record is kept)`);
+} else if (cmd === 'pilot' && args[0] === 'csv') {
+  const res = await fetch(`${base}/admin/pilot.csv${args[1] ? `?weeks=${args[1]}` : ''}`, { headers });
+  if (!res.ok) (console.error(`${res.status}: failed`), process.exit(1));
+  process.stdout.write(await res.text());
+} else if (cmd === 'pilot') {
+  const s = await call('GET', `/admin/pilot${args[0] ? `?weeks=${args[0]}` : ''}`);
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  console.log(`Pilot, weeks ${s.weeks[0]} to ${s.weeks.at(-1)} (this one so far): ${s.businesses.length} business(es), ${s.totals.activated} activated`);
+  for (const b of s.businesses) {
+    const weeks = b.weekly.map((w) => (w.member ? (w.ownerActive ? '#' : '.') : ' ')).join('');
+    console.log(`  ${b.slug.padEnd(28)} [${weeks}] back ${b.retention.activeWeeks}/${b.retention.completedWeeks}  views ${b.totals.views}  presses ${b.totals.ctaClicks}  leads ${b.totals.leads}  redeemed ${b.totals.redemptions}  bought ${b.totals.purchases}  revenue ${(b.totals.verifiedRevenueCents / 100).toFixed(2)}  paid ${(b.paidCents / 100).toFixed(2)}${b.renewed ? '  renewed' : ''}${b.activated ? '' : '  (not activated)'}`);
+  }
+  console.log('Criteria (docs/roadmap/world_freeze.md):');
+  for (const c of s.verdict.criteria) console.log(`  ${c.met ? 'met ' : 'not '} ${c.label}: ${c.kind === 'share' ? `${pct(c.actual)} (${c.businesses} of ${c.of}), needs ${pct(c.target)}` : c.kind === 'count' ? `${c.actual}, needs ${c.target}` : c.actual ? 'yes' : 'no'}`);
+  console.log(s.verdict.lifts ? 'All met: the world-expansion freeze can lift.' : 'Not all met yet: the freeze stays.');
 } else if (cmd === 'renewals') {
   const r = await call('GET', '/admin/metrics/renewals');
   const pct = (x) => `${Math.round(x * 100)}%`;
@@ -80,6 +103,6 @@ if (!cmd || cmd === 'list') {
 } else if (cmd === 'reconcile') {
   console.log(JSON.stringify(await call('POST', '/admin/billing/reconcile')));
 } else {
-  console.error('Commands: list | resolve <feedback|plot|ad|business|message|nearby> <id> <dismiss|remove|ban> | ban <account id> [reason] | unban <account id> | audit [verify | <kind> [id] | action <name> | account <id>] | posts [status | approve <id> | reject <id>] | orders [status] | refund <order id> | grant <slug> <pro|launch|sponsored> [days] [placement] [reason] | renewals | reconcile');
+  console.error('Commands: list | resolve <feedback|plot|ad|business|message|nearby> <id> <dismiss|remove|ban> | ban <account id> [reason] | unban <account id> | audit [verify | <kind> [id] | action <name> | account <id>] | posts [status | approve <id> | reject <id>] | orders [status] | refund <order id> | grant <slug> <pro|launch|sponsored> [days] [placement] [reason] | pilot [weeks | add <slug> [note] | remove <slug> | csv [weeks]] | renewals | reconcile');
   process.exit(1);
 }

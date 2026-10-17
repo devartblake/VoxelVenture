@@ -1,4 +1,4 @@
-// Phase 3, authoritative data (docs/authoritative_data.md): every count the API serves is verified events only (no generated starting
+// Phase 3, authoritative data (docs/architecture/authoritative_data.md): every count the API serves is verified events only (no generated starting
 // figures), the outside of a building is kept by the server, the audit trail records each change atomically and cannot be edited, the
 // production settings check, and the deploy check (scripts/verify-live.mjs) against a running API.
 import { spawn, spawnSync } from 'node:child_process';

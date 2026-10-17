@@ -1,4 +1,5 @@
-// The city's sound engine: every sound is made with the browser's audio (no files). `createEngine(ctx)` builds the master chain and the layers; the layers only start
+import { createRecordedMusic } from './recordedMusic';
+// The city's sound engine: local CC0 recordings plus procedural ambience and fallback music. `createEngine(ctx)` builds the master chain and the layers; the layers only start
 // working when their level (from lib/game/soundZones.js) is above silence, and stop again when it falls, so a quiet part of the map costs almost nothing.
 //   engine.update(mix, extras, now)  sets the level of every layer from mixZones() (extras: { birds, crickets, hour })
 //   engine.tick(now)                 schedules the notes and one-off sounds a little ahead of time (call about every 100 ms)
@@ -34,6 +35,7 @@ export function createEngine(ctx, { rand = Math.random } = {}) {
   master.connect(tone);
   tone.connect(comp);
   comp.connect(ctx.destination);
+  const recordings = createRecordedMusic(ctx, master);
   const white = noiseBuffer(ctx, 4, 'white');
   const brown = noiseBuffer(ctx, 4, 'brown');
 
@@ -322,11 +324,15 @@ export function createEngine(ctx, { rand = Math.random } = {}) {
     state.birds = extras.birds ?? 0;
     state.crickets = extras.crickets ?? 0;
     state.zones = { ...mix.local, street: mix.street };
+    const recordedLayer = recordings.update(mix, extras);
     const want = { hum: mix.city, street: mix.street, music: mix.music };
     for (const zone of Object.keys(ZONE_LAYERS)) {
       const v = mix.local[zone] ?? 0;
       for (const [layer, share] of ZONE_LAYERS[zone]) want[layer] = Math.max(want[layer] ?? 0, v * share);
     }
+    if (recordedLayer) want[recordedLayer] = 0;
+    // The music switch silences local tunes as well as the city soundtrack.
+    if (extras.musicOn === false) for (const key of ['music', 'arcade', 'jazz', 'mall', 'funfair']) want[key] = 0;
     for (const L of Object.values(layers)) {
       const v = want[L.name] ?? 0;
       state.levels[L.name] = v;
@@ -381,6 +387,7 @@ export function createEngine(ctx, { rand = Math.random } = {}) {
     tick,
     levels: state.levels,
     close: () => {
+      recordings.close();
       for (const L of Object.values(layers)) stop(L);
       try {
         ctx.close();

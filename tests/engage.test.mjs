@@ -140,7 +140,8 @@ try {
   await openLease(lot2.id);
   await call('POST', `/plots/${lot2.id}/takeover`, { token: cat.token, body: { ...biz, title: 'Cat Cafe' } });
   const notice = await waitMail((m) => m.to === 'amy@example.com' && /took over/.test(m.subject));
-  check('a verified owner is emailed when their business is taken over, with the payout', notice && /Cat/.test(notice.subject) && /paid out/.test(notice.text), notice?.subject);
+  check('a verified owner is emailed when their business is taken over, with the payout', notice && /Cat/.test(notice.subject) && /credited you [\d,]+ in game value/.test(notice.text), notice?.subject);
+  check('the payout is called game value, never money (policy gap 3)', /no real money is paid/.test(notice?.text) && !/\$|paid out/.test(notice?.text), notice?.text);
   check('the take-over refunds what was left in the quest budget', (await call('GET', '/me', { token: amy.token })).data.account.gold === 80 + 0 || (await call('GET', '/me', { token: amy.token })).data.account.gold >= 80);
   check('and the new owner starts with no offers or budget', (await call('GET', `/plots/${lot2.id}/storefront`)).data.brand.coupon === null && (await call('GET', `/plots/${lot2.id}/storefront`)).data.brand.quest === null);
   await call('PATCH', '/me', { token: amy.token, body: { notify: false } });

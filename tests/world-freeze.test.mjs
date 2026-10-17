@@ -1,4 +1,4 @@
-// The world-expansion freeze check (docs/world_freeze.md): which files it flags and how an exception is given.
+// The world-expansion freeze check (docs/roadmap/world_freeze.md): which files it flags and how an exception is given.
 import { imp } from './helpers.mjs';
 const { isFrozenPath, frozenAdditions, exceptionReason, parseNameStatus } = await imp('dev/worldFreeze.js');
 let fails = 0;

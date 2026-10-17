@@ -7,7 +7,7 @@ import { ApiError, fail, requireAccount } from './core.mjs';
 import { audit, ADMIN, SYSTEM, byAccount } from './audit.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 
-// Payments through Stripe Checkout (phase 4, docs/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
+// Payments through Stripe Checkout (phase 4, docs/monetization/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
 // each for one business profile; and, in the game, leases (claiming, taking over or renewing a plot) and market stalls. A lease or a stall
 // is held for the player while they pay and only happens once the payment is confirmed (step 2): what an order does is in fulfil().
 //

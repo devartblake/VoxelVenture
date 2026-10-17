@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS votes (
 );
 CREATE INDEX IF NOT EXISTS votes_plot ON votes(week, plot_id);
 
--- Messaging (docs/chat_messaging_plan.md, server/api/messaging.mjs): nearby chat evidence, private conversations, blocks, and the
+-- Messaging (docs/architecture/chat_messaging_plan.md, server/api/messaging.mjs): nearby chat evidence, private conversations, blocks, and the
 -- account-targeted notices the presence server delivers.
 -- A one-use ticket that binds a presence connection to an account (60 seconds; only its hash is kept, like sessions).
 CREATE TABLE IF NOT EXISTS messaging_tickets (
@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS messaging_outbox (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS messaging_outbox_due ON messaging_outbox(status, next_at);
--- Free business profiles (server/api/business.mjs, docs/business_funnel.md): a public page per business, no plot needed.
+-- Free business profiles (server/api/business.mjs, docs/product/business_funnel.md): a public page per business, no plot needed.
 CREATE TABLE IF NOT EXISTS businesses (
   id INTEGER PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,                     -- the public address: /business/<slug>
@@ -365,7 +365,7 @@ CREATE TABLE IF NOT EXISTS business_events (
 );
 CREATE INDEX IF NOT EXISTS business_events_business ON business_events(business_id, at);
 CREATE INDEX IF NOT EXISTS business_events_ref ON business_events(ref_account, at);
--- A meeting or quote request a visitor sent from a profile (phase 5, docs/conversions.md). Emailed to the owner and listed for them;
+-- A meeting or quote request a visitor sent from a profile (phase 5, docs/monetization/conversions.md). Emailed to the owner and listed for them;
 -- only verified ones (not a bot, the visitor viewed the profile first, within the per-network cap) count as results.
 CREATE TABLE IF NOT EXISTS business_inquiries (
   id INTEGER PRIMARY KEY,
@@ -395,7 +395,7 @@ CREATE TABLE IF NOT EXISTS upgrade_interest (
   PRIMARY KEY (business_id, plan)
 );
 
--- The audit trail (server/api/audit.mjs, docs/authoritative_data.md): who did what to whom, for every change of ownership, purchase,
+-- The audit trail (server/api/audit.mjs, docs/architecture/authoritative_data.md): who did what to whom, for every change of ownership, purchase,
 -- booking, moderation decision and admin action. Append-only: the triggers refuse any change or deletion, and each row carries the hash
 -- of the row before it, so a row edited outside the API (straight in the file) breaks the chain that GET /admin/audit/verify checks.
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -415,7 +415,7 @@ CREATE INDEX IF NOT EXISTS audit_action ON audit_log(action, id);
 CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
 
--- Welcome posts on VoxelVenture's X account (server/api/social.mjs, docs/social_posts.md): one per business that opted in, tagging its handle.
+-- Welcome posts on VoxelVenture's X account (server/api/social.mjs, docs/operations/social_posts.md): one per business that opted in, tagging its handle.
 CREATE TABLE IF NOT EXISTS social_posts (
   id INTEGER PRIMARY KEY,
   kind TEXT NOT NULL,                            -- welcome
@@ -435,7 +435,7 @@ CREATE TABLE IF NOT EXISTS social_posts (
 );
 CREATE INDEX IF NOT EXISTS social_posts_due ON social_posts(status, next_at);
 
--- Billing (server/api/billing.mjs, docs/billing.md): Stripe Checkout for the Launch Pack, Pro and sponsored placements.
+-- Billing (server/api/billing.mjs, docs/monetization/billing.md): Stripe Checkout for the Launch Pack, Pro and sponsored placements.
 -- An order is made before checkout; only Stripe's signed webhook (or the reconciliation job asking Stripe) marks it paid, and only a paid
 -- order grants anything. Amounts come from lib/business/plans.js, never from a browser.
 CREATE TABLE IF NOT EXISTS orders (
@@ -482,3 +482,31 @@ CREATE TABLE IF NOT EXISTS entitlements (
 );
 CREATE INDEX IF NOT EXISTS entitlements_business ON entitlements(business_id, kind, ends_at);
 CREATE INDEX IF NOT EXISTS entitlements_placement ON entitlements(placement, ends_at);
+-- The constrained pilot (phase 6, server/api/pilot.mjs, docs/monetization/pilot.md): which businesses take part, when the owner came back,
+-- and what they told us each week. Read by the admin's pilot dashboard (GET /admin/pilot).
+CREATE TABLE IF NOT EXISTS pilot_members (
+  business_id INTEGER PRIMARY KEY REFERENCES businesses(id),
+  joined_at INTEGER NOT NULL,
+  left_at INTEGER,                               -- taken out of the pilot (kept, so the record stays complete)
+  note TEXT                                      -- the admin's own note: how they were recruited, who to talk to
+);
+-- An owner used their dashboard (or changed their profile) in a week (UTC, from Monday): the retention signal. One row per profile per week.
+CREATE TABLE IF NOT EXISTS owner_activity (
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  week TEXT NOT NULL,                            -- the Monday it starts, YYYY-MM-DD
+  first_at INTEGER NOT NULL,
+  PRIMARY KEY (business_id, week)
+);
+-- A pilot business's weekly feedback (one per week; sending it again that week replaces it).
+CREATE TABLE IF NOT EXISTS pilot_feedback (
+  id INTEGER PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES businesses(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  week TEXT NOT NULL,
+  rating INTEGER NOT NULL,                       -- 1 to 5: how useful VoxelVenture was to the business this week
+  result TEXT,                                   -- what it brought (a customer, a booking), in their words
+  missing TEXT,                                  -- what would make it more useful
+  would_pay TEXT NOT NULL,                       -- yes | maybe | no: would they pay for it as it is
+  created_at INTEGER NOT NULL,
+  UNIQUE (business_id, week)
+);

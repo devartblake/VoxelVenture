@@ -8,7 +8,7 @@
 // appended to server/logs/client-errors.jsonl, and served as JSON at http://<this machine>:3001/status
 // (the /admin page in the app shows them live).
 //
-// Chat (docs/chat_messaging_plan.md): players near each other can talk (`chat.send`, answered with `chat.accepted` or `chat.rejected`).
+// Chat (docs/architecture/chat_messaging_plan.md): players near each other can talk (`chat.send`, answered with `chat.accepted` or `chat.rejected`).
 // With the API set up (MP_API_URL), a game that is signed in hands over a one-use ticket (`auth`) and this server asks the API who it
 // is: from then on the connection speaks as that account, and every line it says is checked and kept briefly by the API before it is
 // passed on (blocks are applied there). Guests may chat only where MP_CHAT_GUESTS allows it (a trusted LAN). The API also sends
@@ -16,7 +16,11 @@
 //
 // /status is open to anyone who can reach the port (a development tool): put the server behind the proxy in deploy/ before
 // exposing it to the internet.
+//
+// Network addresses are never written down or shown: the log, the console, /status and /admin show a salted hash of the address
+// (`net`, the same form the API keeps as ip_hash, with the same IP_SALT), enough to tell that two reports came from one network.
 
+import crypto from 'node:crypto';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,6 +34,8 @@ import { checkText, cleanMessage } from './api/textcheck.mjs';
 //   MP_HOST          address to listen on                   (default 0.0.0.0: every network interface)
 //   MP_MAX_CLIENTS   most connections at once               (default 1500)
 //   MP_MAX_PER_IP    most connections from one address      (default 20)
+//   IP_SALT          salt for the scrambled network address  (the API's IP_SALT; default 'voxelventure')
+//   TRUST_PROXY      1: the player's address is X-Forwarded-For's first entry (behind Caddy)
 //   MP_VIEW_RADIUS   how far away a player is still sent    (default 120 units)
 //   MP_MAX_VISIBLE   most other players one client is told about at a time (default 40: the nearest ones)
 //   MP_LOG_MAX_BYTES size at which the error log rotates    (default 2000000)
@@ -44,6 +50,12 @@ const PORT = Number(process.env.MP_PORT || 3001);
 const HOST = process.env.MP_HOST || '0.0.0.0';
 const MAX_CLIENTS = Number(process.env.MP_MAX_CLIENTS || 1500);
 const MAX_PER_IP = Number(process.env.MP_MAX_PER_IP || 20);
+// Behind the proxy (deploy/Caddyfile) every connection comes from 127.0.0.1: with TRUST_PROXY=1 the player's address is the one the
+// proxy puts in X-Forwarded-For (as in the API), so the per-network cap and `net` tell players apart.
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
+const IP_SALT = process.env.IP_SALT || 'voxelventure'; // the API's default too, so the two hashes of one address agree
+// The scrambled form of a network address (docs/monetization/policy_review.md, gap 1): the address itself is not kept.
+const netOf = (ip) => (ip ? crypto.createHash('sha256').update(`${IP_SALT}|${ip}`).digest('hex').slice(0, 16) : null);
 const LOG_MAX_BYTES = Number(process.env.MP_LOG_MAX_BYTES || 2_000_000);
 // Protocol 2 (interest management): a client is only told about the players near it (`enter` when one comes into range, `exit` when one leaves it,
 // and only the changed positions after that), the nearest MAX_VISIBLE of them, so what a client costs does not grow with the size of the crowd.
@@ -148,7 +160,7 @@ function summary(p) {
   return {
     id: p.id,
     name: p.name,
-    ip: p.ip,
+    net: p.net,
     room: p.room,
     connectedAt: p.connectedAt,
     lastSeen: p.lastSeen,
@@ -377,16 +389,17 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, maxPayload: MAX_MESSAGE });
 
 wss.on('connection', (ws, req) => {
-  const ip = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  const forwarded = TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '';
+  const net = netOf((forwarded || req.socket.remoteAddress || '').replace(/^::ffff:/, ''));
   // a browser says which page opened the connection: with MP_ORIGINS set, only those pages may (programs that send no Origin are let in)
   if (ORIGINS.length && req.headers.origin && !ORIGINS.includes(req.headers.origin)) {
-    log(c.yellow, 'refuse', `${ip} (page ${req.headers.origin} is not in MP_ORIGINS)`);
+    log(c.yellow, 'refuse', `${net} (page ${req.headers.origin} is not in MP_ORIGINS)`);
     ws.close(1008, 'origin not allowed');
     return;
   }
   // refuse connections beyond the limits, so one misbehaving device cannot crowd out the rest
-  if (clients.size >= MAX_CLIENTS || [...clients.values()].filter((c2) => c2.ip === ip).length >= MAX_PER_IP) {
-    log(c.yellow, 'refuse', `${ip} (too many connections)`);
+  if (clients.size >= MAX_CLIENTS || [...clients.values()].filter((c2) => c2.net === net).length >= MAX_PER_IP) {
+    log(c.yellow, 'refuse', `${net} (too many connections)`);
     ws.close(1013, 'too many connections');
     return;
   }
@@ -394,7 +407,7 @@ wss.on('connection', (ws, req) => {
   const p = {
     id,
     ws,
-    ip,
+    net,
     hello: false,
     name: `Player ${id}`,
     room: null,
@@ -452,7 +465,7 @@ wss.on('connection', (ws, req) => {
       dirtyRooms.add(p.room);
       // who is near comes with the first ticks. `features` says what this server can do (an older client ignores it)
       send(p, { type: 'welcome', protocol: PROTOCOL, id, online: roomSize(p.room), view: VIEW_RADIUS, features: { chat: CHAT_ON ? 2 : 0, accounts: ACCOUNTS, guestChat: GUESTS_CHAT, chatMax: CHAT_MAX, chatRadius: CHAT_RADIUS }, ...(p.account ? { account: { id: p.account.id, username: p.account.username } } : {}) });
-      if (first) log(c.green, '+ join ', `${p.name} (#${id}) from ${ip}, city ${p.room}, ${p.device.touch ? 'touch' : 'desktop'} ${p.device.screen}`);
+      if (first) log(c.green, '+ join ', `${p.name} (#${id}) from ${net}, city ${p.room}, ${p.device.touch ? 'touch' : 'desktop'} ${p.device.screen}`);
       return;
     }
     if (m.type === 'auth' || m.type === 'auth.clear') return handleAuth(p, m); // may come before hello
@@ -488,7 +501,7 @@ wss.on('connection', (ws, req) => {
         time: now,
         clientId: id,
         name: p.name,
-        ip,
+        net,
         kind: str(m.kind, 30),
         message: str(m.message, 600),
         source: str(m.source, 200),
@@ -502,7 +515,7 @@ wss.on('connection', (ws, req) => {
       recentErrors.push(entry);
       if (recentErrors.length > MAX_RECENT_ERRORS) recentErrors.shift();
       appendErrorLog(entry);
-      log(c.red, '! error', `${p.name} (#${id}, ${ip}) [${entry.kind}] ${entry.message}${entry.count > 1 ? ` (x${entry.count})` : ''}`);
+      log(c.red, '! error', `${p.name} (#${id}, ${net}) [${entry.kind}] ${entry.message}${entry.count > 1 ? ` (x${entry.count})` : ''}`);
     }
   });
 

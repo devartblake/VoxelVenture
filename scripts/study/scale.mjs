@@ -1,4 +1,4 @@
-// Feasibility study (see docs/study_world_streaming.md): how does the city generator, the traffic simulation and the collision map scale with the size of the map?
+// Feasibility study (see docs/architecture/study_world_streaming.md): how does the city generator, the traffic simulation and the collision map scale with the size of the map?
 // It copies lib/ to a temp folder with the grid enlarged by a factor k (k times as many avenues and as many columns: k^2 times the area),
 // then generates cities there and measures. Nothing in the project is changed.
 import fs from 'node:fs';

@@ -1,4 +1,4 @@
-// Checks a deployment is serving authoritative data (docs/authoritative_data.md). Read-only: it signs nobody up and changes nothing.
+// Checks a deployment is serving authoritative data (docs/architecture/authoritative_data.md). Read-only: it signs nobody up and changes nothing.
 //   npm run verify:live -- --api https://api.example.com --site https://example.com [--admin-token <ADMIN_TOKEN>]
 // Run it after every deploy. It exits 1 if anything is wrong; each line says what was checked.
 const args = process.argv.slice(2);

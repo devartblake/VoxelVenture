@@ -1,10 +1,11 @@
-# Who must review changes to the security-sensitive parts (docs/voxelventure_core_concept_reassessment_2026-10-17.md, "Repository governance").
+# Who must review changes to the security-sensitive parts (docs/competitive-research/voxelventure_core_concept_reassessment_2026-10-17.md, "Repository governance").
 # GitHub asks these owners for a review on every pull request that touches a matching path; with branch protection's "Require review from
 # Code Owners" switched on, it cannot merge without one. Later lines win over earlier ones for the same file.
 
 # Billing and money: Stripe checkout, webhooks, refunds, reconciliation, plans and prices
 /server/api/billing.mjs          @devartblake
 /lib/business/plans.js           @devartblake
+/packages/business-core/         @devartblake
 
 # Accounts, sign-in, sessions, bans and the audit trail
 /server/api/core.mjs             @devartblake
@@ -16,6 +17,7 @@
 /server/api/business.mjs         @devartblake
 /server/api/conversions.mjs      @devartblake
 /lib/business/conversions.js     @devartblake
+/packages/analytics/             @devartblake
 /lib/business/referral.js        @devartblake
 
 # The database schema and its upgrades, and the API's routing and internal (service-to-service) routes
@@ -23,6 +25,9 @@
 /server/api/db.mjs               @devartblake
 /server/api/server.mjs           @devartblake
 /server/api/config.mjs           @devartblake
+
+# Cross-boundary contracts: changing one changes what the browser, the API and the messaging service agree on
+/packages/shared-types/          @devartblake
 
 # Messaging: identity on the presence server, private messages, the Python service
 /server/multiplayer.mjs          @devartblake

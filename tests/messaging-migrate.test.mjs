@@ -1,4 +1,4 @@
-// Moving messaging from the Node API to the Python service (docs/node_fastapi_architecture_plan.md, step 4, rehearsed): messages,
+// Moving messaging from the Node API to the Python service (docs/architecture/node_fastapi_architecture_plan.md, step 4, rehearsed): messages,
 // requests, read positions, blocks, settings and reports are made on the Node API, what every player sees is recorded through the
 // public routes, the data is copied with services/messaging/app/migrate_from_node.py, and the same routes, now served by the
 // Python service, must show exactly the same. Then new messages carry on from the old ids. Skipped without the service's Python.

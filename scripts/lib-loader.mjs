@@ -10,11 +10,20 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-lib-'));
 const src = path.join(root, 'lib');
+// A relative import inside lib/ gets its ".js"; one that leaves lib/ (a compatibility adapter re-exporting packages/, see
+// docs/architecture/adr/0001-shared-package-boundaries.md) points at the real file by URL, so the server runs the same file the bundler does.
+const rewrite = (file, code) =>
+  code.replace(/from '(\.{1,2}\/[^']+?)'/g, (all, spec) => {
+    const target = path.resolve(path.dirname(file), spec);
+    if (path.relative(src, target).startsWith('..')) return `from '${pathToFileURL(target.endsWith('.js') ? target : `${target}.js`).href}'`;
+    return spec.endsWith('.js') ? all : `from '${spec}.js'`;
+  });
 const copyDir = (from, to) => {
   fs.mkdirSync(to, { recursive: true });
   for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
-    if (entry.isDirectory()) copyDir(path.join(from, entry.name), path.join(to, entry.name));
-    else if (entry.name.endsWith('.js')) fs.writeFileSync(path.join(to, entry.name), fs.readFileSync(path.join(from, entry.name), 'utf8').replace(/from '(\.{1,2}\/[^']+?)(?<!\.js)'/g, "from '$1.js'"));
+    const file = path.join(from, entry.name);
+    if (entry.isDirectory()) copyDir(file, path.join(to, entry.name));
+    else if (entry.name.endsWith('.js')) fs.writeFileSync(path.join(to, entry.name), rewrite(file, fs.readFileSync(file, 'utf8')));
   }
 };
 copyDir(src, out);

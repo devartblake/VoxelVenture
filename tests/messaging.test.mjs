@@ -1,8 +1,8 @@
-// Chat and messages (docs/chat_messaging_plan.md): signed-in identity on the presence server, nearby chat with answers, blocks,
+// Chat and messages (docs/architecture/chat_messaging_plan.md): signed-in identity on the presence server, nearby chat with answers, blocks,
 // reports and bans, the inbox (requests, history, read positions, retries), business inquiries and take-overs, and retention.
 // Starts its own API and presence server on free ports. (About 15 seconds.)
 //
-// This is also the messaging contract (docs/node_fastapi_architecture_plan.md): with MESSAGING_IMPL=fastapi it starts the Python
+// This is also the messaging contract (docs/architecture/node_fastapi_architecture_plan.md): with MESSAGING_IMPL=fastapi it starts the Python
 // messaging service (services/messaging) as well, the Node API forwards the messaging routes to it, and every check below must pass
 // unchanged. tests/messaging-fastapi.test.mjs runs it that way.
 import { spawn } from 'node:child_process';

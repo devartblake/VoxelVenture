@@ -1,4 +1,4 @@
-// Payments (server/api/billing.mjs, docs/billing.md) against a stand-in for the Stripe API: checkout at the catalogue's price, signed
+// Payments (server/api/billing.mjs, docs/monetization/billing.md) against a stand-in for the Stripe API: checkout at the catalogue's price, signed
 // webhooks applied once, what each product grants, sponsored-spot limits, Pro renewals and cancelling, refunds, reconciliation after a
 // lost webhook, what the free plan sees, and the settings check for a live key.
 import http from 'node:http';

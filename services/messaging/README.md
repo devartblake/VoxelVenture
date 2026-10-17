@@ -2,7 +2,7 @@
 
 The persistent messaging domain (the Inbox, message requests, read positions, blocks, chat reports, the checks and evidence for
 nearby chat, retention and "your inbox changed" notices), as its own service. This is the first step of
-[../../docs/node_fastapi_architecture_plan.md](../../docs/node_fastapi_architecture_plan.md): the Node API keeps accounts,
+[../../docs/architecture/node_fastapi_architecture_plan.md](../../docs/architecture/node_fastapi_architecture_plan.md): the Node API keeps accounts,
 sign-ins, plots, businesses and the presence server; this service owns messages.
 
 It is a port of `server/api/messaging.mjs` with the same routes, bodies and error shapes, so the game and the presence server work
@@ -47,7 +47,7 @@ and start the Node API with `MESSAGING_SERVICE_URL=http://localhost:3003` and th
 
 ## Routes
 
-The same as the Node API's messaging routes (see `docs/backend.md`): `/conversations...`, `/messaging/summary|settings|blocks|reports`,
+The same as the Node API's messaging routes (see `docs/architecture/backend.md`): `/conversations...`, `/messaging/summary|settings|blocks|reports`,
 `/plots/{id}/inquiries`, `/internal/messaging/nearby`. Also `/health` (with the outbox counts) and, with `ADMIN_TOKEN`:
 `/admin/reports`, `/admin/reports/ids`, `/admin/reports/{id}/resolve` (the same shapes as the Node API's, so `npm run moderate` with
 `MESSAGING_URL` set lists and decides chat reports), `/admin/messaging/prune` and `/admin/messaging/deliver`.

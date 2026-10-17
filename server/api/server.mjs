@@ -1,4 +1,4 @@
-// The VoxelVenture API: accounts, plots, claiming, events and statistics (see docs/backend.md).
+// The VoxelVenture API: accounts, plots, claiming, events and statistics (see docs/architecture/backend.md).
 //
 //   node --experimental-sqlite server/api/server.mjs            (npm run api)
 //
@@ -15,7 +15,7 @@
 //   STATS_TZ_OFFSET_MIN   the time zone of "yesterday" in the statistics, in minutes from UTC (default 0)
 //   MESSAGING_*   chat and messages: switches and limits (see server/api/messaging.mjs). The presence server reaches the /internal/messaging
 //                 routes with MP_NOTIFY_SECRET, the secret the two servers already share.
-//   MESSAGING_SERVICE_URL   the Python messaging service (services/messaging, docs/node_fastapi_architecture_plan.md). When set, this API
+//   MESSAGING_SERVICE_URL   the Python messaging service (services/messaging, docs/architecture/node_fastapi_architecture_plan.md). When set, this API
 //                 forwards the messaging routes there and stops writing, notifying and pruning messages itself; accounts, sessions,
 //                 tickets and plots stay here, and the service asks about them through /internal/identity and /internal/plots.
 //   NODE_ENV=production (or API_STRICT=1)  refuse to start with unsafe settings (server/api/config.mjs)
@@ -40,6 +40,7 @@ import * as auditLog from './audit.mjs';
 import * as social from './social.mjs';
 import * as billing from './billing.mjs';
 import * as conversions from './conversions.mjs';
+import * as pilot from './pilot.mjs';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 
@@ -388,7 +389,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const plan = (await body(req)).plan;
       return logged(A.byAccount(account), 'business.upgrade_interest', { kind: 'business', id: r[1] }, () => business.requestUpgrade(db, account, r[1], plan), () => ({ plan }));
     }
-    // conversion measurement (conversions.mjs, docs/conversions.md)
+    // conversion measurement (conversions.mjs, docs/monetization/conversions.md)
     if (m === 'POST' && p === '/businesses/impressions') return conversions.recordImpressions(db, account, await body(req), visitCtx(req));
     // a business's server reports a sale with its own conversion key in the Authorization header (never in a URL); the pixel has no key and
     // only ever counts as browser-reported
@@ -404,10 +405,20 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       return logged(A.byAccount(account), 'coupon.redeem', { kind: 'plot', id: r[1] }, () => conversions.redeemCoupon(db, account, r[1], b), (o) => ({ ticket: o.ticket }));
     }
     if (m === 'GET' && p === '/admin/metrics/renewals') return (adminOnly(token), conversions.renewals(db));
+    // the pilot (pilot.mjs, docs/monetization/pilot.md)
+    if (m === 'GET' && p === '/admin/pilot') return (adminOnly(token), pilot.summary(db, { weeks: url.searchParams.get('weeks'), all: url.searchParams.get('all') === '1' }));
+    if (m === 'GET' && p === '/admin/pilot.csv') return (adminOnly(token), pilot.summaryCsv(db, { weeks: url.searchParams.get('weeks'), all: url.searchParams.get('all') === '1' }));
+    if (m === 'POST' && p === '/admin/pilot/members') {
+      adminOnly(token);
+      const b = await body(req);
+      return logged(A.ADMIN, 'pilot.add', { kind: 'business', id: String(b.slug ?? '') }, () => pilot.addMember(db, String(b.slug ?? ''), b));
+    }
+    if ((r = p.match(/^\/admin\/pilot\/members\/([a-z0-9-]{1,48})$/)) && m === 'DELETE') return (adminOnly(token), logged(A.ADMIN, 'pilot.remove', { kind: 'business', id: r[1] }, () => pilot.removeMember(db, r[1])));
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/pilot-feedback$/)) && m === 'POST') { const b = await screened(req, { result: 0, missing: 0 }); return pilot.sendFeedback(db, account, r[1], b); }
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/events$/)) && m === 'POST') return business.recordProfileEvent(db, account, r[1], await body(req), visitCtx(req));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'business', r[1]);
     if (m === 'GET' && p === '/me/businesses') return business.myProfiles(db, account, env);
-    // billing (billing.mjs, docs/billing.md)
+    // billing (billing.mjs, docs/monetization/billing.md)
     if (m === 'GET' && p === '/billing/config') return { enabled: billing.billingOn(env), termsUrl: env.TERMS_URL || null };
     if (m === 'GET' && p === '/billing/availability') return billing.availability(db, url.searchParams.get('placement'));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/checkout$/)) && m === 'POST') return billing.createCheckout(db, account, r[1], await body(req), env);
@@ -439,7 +450,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     }
     if (m === 'GET' && p === '/world/stats') return core.worldStats(db, 0);
     if (m === 'GET' && p === '/world/live') return stats.liveCity(db); // the admin headquarters' live panel (totals only)
-    // what the messaging service asks (docs/node_fastapi_architecture_plan.md): this API stays the authority on accounts and plots
+    // what the messaging service asks (docs/architecture/node_fastapi_architecture_plan.md): this API stays the authority on accounts and plots
     if (m === 'POST' && p === '/internal/identity/session') {
       serviceOnly(req);
       const who = core.accountFromToken(db, String((await body(req)).token ?? '')); // null when signed out, expired or banned

@@ -3,7 +3,7 @@ import { categoryOf, districtOf, isSlug } from '@/lib/business/profile';
 import { getBusiness } from '@/lib/business/source';
 
 // The picture a profile link shows when it is shared on a social site or in a chat. In a paid launch week (the Launch Pack,
-// docs/billing.md) it carries a gold frame and a "New this week" label, so the owner's launch posts stand out.
+// docs/monetization/billing.md) it carries a gold frame and a "New this week" label, so the owner's launch posts stand out.
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const alt = 'A business on VoxelVenture';

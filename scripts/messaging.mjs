@@ -1,4 +1,4 @@
-// The Python messaging service (services/messaging, docs/node_fastapi_architecture_plan.md).
+// The Python messaging service (services/messaging, docs/architecture/node_fastapi_architecture_plan.md).
 //   npm run messaging:setup    make its Python environment (services/messaging/.venv) and install the pinned packages
 //   npm run messaging          run it (port 3003; settings from the environment, see services/messaging/README.md)
 import { spawn, spawnSync } from 'node:child_process';

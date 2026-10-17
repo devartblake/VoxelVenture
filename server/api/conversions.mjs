@@ -5,7 +5,7 @@ import { imp } from '../../scripts/lib-loader.mjs';
 import { BOT_UA, campaignOf, getRow, ipHashOf, ownRow, SOURCES, visitorOf } from './business.mjs';
 import { cleanEmail, enqueue, noticeAddress } from './engage.mjs';
 
-// Conversion measurement (phase 5, docs/conversions.md): the parts of the funnel that are not a profile event of business.mjs.
+// Conversion measurement (phase 5, docs/monetization/conversions.md): the parts of the funnel that are not a profile event of business.mjs.
 //
 //   impressions   a profile's card was on screen in a list (Discover, a category, a district): sent in batches by the page
 //   inquiries     a meeting or quote request from the profile's own form: kept, emailed to the owner, listed for them
@@ -45,7 +45,7 @@ export function recordImpressions(db, account, input = {}, ctx = {}) {
 }
 
 // ---- purchases --------------------------------------------------------------------------------------------------------------------
-// Two ways a business's site reports a sale, trusted differently (docs/voxelventure_core_concept_reassessment_2026-10-17.md):
+// Two ways a business's site reports a sale, trusted differently (docs/competitive-research/voxelventure_core_concept_reassessment_2026-10-17.md):
 //   server   POST /conversions from the business's own server, with its conversion key in the Authorization header. The key is random, one per
 //            business, shown to the owner once and stored only as a hash; a new one can be made at any time (the old one stops working).
 //            Never derived from REFERRAL_SECRET and never in a URL. Only these can be verified revenue.

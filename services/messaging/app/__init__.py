@@ -1,1 +1,1 @@
-"""VoxelVenture messaging service (docs/node_fastapi_architecture_plan.md)."""
+"""VoxelVenture messaging service (docs/architecture/node_fastapi_architecture_plan.md)."""

@@ -11,7 +11,7 @@ import { useSound, useSoundNow } from '@/lib/state/soundStore';
 import { useCityStore } from '@/lib/state/store';
 
 // The city's sound, presence based like the SimCity games (the rules are in lib/game/soundZones.js and lib/game/musicRules.js; the sounds are made by
-// components/sound/engine.js with the browser's audio, no files). Close to the ground you hear the places round you: an arcade's bleeps, a cafe's jazz, the offices,
+// components/sound/engine.js with local CC0 recordings and procedural browser audio). Close to the ground you hear the places round you: an arcade's bleeps, a cafe's jazz, the offices,
 // the market, a park's birds and fountain, water at a lake or a pier, the mall, the airport, the fun park's carousel organ, the countryside, and the traffic of a busy
 // street. High above the map you hear the city's music instead, with a faint murmur under it, and in between they crossfade. Nothing starts until the player has clicked or
 // pressed a key once (browsers do not allow sound before that), and the speaker and music buttons (components/ui/AmbientControls.jsx) turn it all off.
@@ -54,7 +54,7 @@ export default function SoundEngine() {
       // birds and crickets: where it is green, and not high above the map
       const base = soundMix({ sky: sky.current, indoors, driving });
       const green = Math.max(weights.park, weights.farm);
-      const extras = { sky: sky.current, volume: s.volume, birds: base.birds * (0.15 + 0.85 * green) * (1 - far), crickets: base.crickets * (0.25 + 0.75 * weights.farm) * (1 - far) };
+      const extras = { sky: sky.current, volume: s.volume, musicOn: s.musicOn, driving, birds: base.birds * (0.15 + 0.85 * green) * (1 - far), crickets: base.crickets * (0.25 + 0.75 * weights.farm) * (1 - far) };
       return { x, z, far, weights, mix, extras };
     };
     if (diag) window.__vvSound = { last: () => last, compute };

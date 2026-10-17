@@ -68,7 +68,7 @@ export default function AdminPage() {
                 <thead className="bg-slate-900 text-slate-400">
                   <tr>
                     <th className="px-3 py-2">Name</th>
-                    <th className="px-3 py-2">Address</th>
+                    <th className="px-3 py-2" title="A scrambled form of the network address">Network</th>
                     <th className="px-3 py-2">Device</th>
                     <th className="px-3 py-2">Screen</th>
                     <th className="px-3 py-2">FPS</th>
@@ -86,7 +86,7 @@ export default function AdminPage() {
                   {data.players.map((p) => (
                     <tr key={p.id} className="border-t border-slate-800">
                       <td className="px-3 py-2 font-medium">{p.name} <span className="text-slate-500">#{p.id}</span></td>
-                      <td className="px-3 py-2 font-mono">{p.ip}</td>
+                      <td className="px-3 py-2 font-mono" title="A scrambled form of the network address: the address itself is not kept">{p.net}</td>
                       <td className="px-3 py-2" title={p.device?.ua}>{shortAgent(p.device?.ua)}{p.device?.touch ? ' · touch' : ''}</td>
                       <td className="px-3 py-2 font-mono">{p.device?.screen}</td>
                       <td className={`px-3 py-2 font-mono ${p.fps != null && p.fps < 25 ? 'text-amber-300' : ''}`}>{p.fps ?? '–'}</td>
@@ -110,7 +110,7 @@ export default function AdminPage() {
                   <li key={`${e.time}-${i}`} className={`rounded-lg border p-3 text-xs ${e.kind === 'injected' ? 'border-slate-800 bg-slate-900/40 opacity-70' : 'border-red-950 bg-red-950/20'}`}>
                     <button className="block w-full text-left" onClick={() => setOpen(open === i ? null : i)}>
                       <span className="text-slate-400">{new Date(e.time).toLocaleTimeString()} · </span>
-                      <span className="font-medium">{e.name}</span> <span className="text-slate-500">({e.ip})</span>
+                      <span className="font-medium">{e.name}</span> <span className="text-slate-500" title="network (scrambled)">({e.net})</span>
                       <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">{e.kind === 'injected' ? 'from a browser extension, not the app' : e.kind}</span>
                       {e.count > 1 && <span className="ml-1 text-amber-300">×{e.count}</span>}
                       <span className="mt-1 block break-words font-mono text-red-200">{e.message}</span>

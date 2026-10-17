@@ -83,7 +83,7 @@ export default function DirectoryView() {
         })}
       </ol>
       <p className="mt-3 text-[10px] leading-snug text-slate-500">
-        {isLive() ? 'Live data.' : 'Visit counts here are simulated until the live data service is connected (docs/live_data.md).'}
+        {isLive() ? 'Live data.' : 'Visit counts here are simulated until the live data service is connected (docs/architecture/live_data.md).'}
       </p>
     </div>
   );

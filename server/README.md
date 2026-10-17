@@ -19,12 +19,13 @@ Without the server the game works solo.
   `/health` is a liveness check.
 - **Error log.** Errors are appended to `server/logs/client-errors.jsonl` (one JSON object per line). Past
   2 MB it rotates to `client-errors.jsonl.1`.
+- **No network addresses are kept.** The log, the console, `/status` and `/admin` show `net`, a salted hash of the address (`sha256(IP_SALT|address)`, 16 hex characters), the same form the API keeps. Set the same `IP_SALT` in `presence.env` as in `api.env` so the two agree. The per-address connection cap compares these hashes.
 - **Chat.** Players near each other can talk (within `MP_CHAT_RADIUS`). With the API set up (`MP_API_URL`), a signed-in game hands this
   server a one-use ticket and the API says which account it is: from then on the connection speaks as that account (its name and a
   verified mark come from the account, never from the client). Every line a signed-in player says goes through the API first (the word
   filter, the account's budget, blocks both ways, and a week-long copy for reports); if the API cannot be reached the line is refused,
   never let through. The API also sends "your inbox changed" notices here, and they go only to that account's connections
-  (`POST /notify-accounts`). See [../docs/chat_messaging_plan.md](../docs/chat_messaging_plan.md).
+  (`POST /notify-accounts`). See [../docs/architecture/chat_messaging_plan.md](../docs/architecture/chat_messaging_plan.md).
 
 ## Settings (environment variables)
 
@@ -34,6 +35,8 @@ Without the server the game works solo.
 | `MP_HOST` | 0.0.0.0 | address to listen on (every network interface) |
 | `MP_MAX_CLIENTS` | 1500 | most connections at once |
 | `MP_MAX_PER_IP` | 20 | most connections from one address |
+| `IP_SALT` | voxelventure | salt for the scrambled network address; use the API's value |
+| `TRUST_PROXY` | off | `1`: take the address from `X-Forwarded-For` (behind Caddy; otherwise every player is 127.0.0.1) |
 | `MP_VIEW_RADIUS` | 120 | a player is only told about others within this many units |
 | `MP_MAX_VISIBLE` | 40 | and at most this many of them (the nearest) |
 | `MP_CHAT_RADIUS` | 60 | how far a chat message carries |
@@ -77,7 +80,7 @@ A client only hears about the players **near** it (the nearest `MP_MAX_VISIBLE` 
 - `online` is `{ n, dots }`: how many are in the city, and up to 250 coarse `[id, x, z]` dots for the world map. Sent when someone joins or leaves, and every two seconds.
 - `parked` and `profile` go only to the players who can see the one concerned.
 Everything from a client is validated: numbers are clamped, strings are cut and stripped of control characters, messages are size- and rate-limited.
-How it was measured and how to scale it: [../docs/presence_scale.md](../docs/presence_scale.md).
+How it was measured and how to scale it: [../docs/architecture/presence_scale.md](../docs/architecture/presence_scale.md).
 
 ## Load handling
 
@@ -92,7 +95,7 @@ How it was measured and how to scale it: [../docs/presence_scale.md](../docs/pre
 ## Limits
 
 `/status` shows every client's address and errors and has no login: on the internet put it behind a password (see `deploy/Caddyfile`) and keep `/notify` and
-`/notify-accounts` private. Presence is who is where and what they say nearby; plots, claims, statistics, accounts and private messages are the API's (`docs/backend.md`).
+`/notify-accounts` private. Presence is who is where and what they say nearby; plots, claims, statistics, accounts and private messages are the API's (`docs/architecture/backend.md`).
 Positions come from the clients, so "nearby" keeps chat in its place but does not prove where someone is: never use it for rewards.
 With several presence servers (`NEXT_PUBLIC_MP_URLS`), the API's `MP_NOTIFY_URL` reaches one of them: inbox nudges reach only players on that one (the others
 still see new messages within half a minute, when their game polls).

@@ -1,7 +1,11 @@
 # VoxelVenture — Incremental Modular Monorepo Structure and Migration Plan
 
 **Date:** 2026-10-16  
-**Status:** Proposal for architectural review; no runtime paths or imports changed  
+**Status:**
+
+- **Phase A (documentation):** implemented.
+- **Phase B (shared packages):** first slices implemented, see [ADR 0001](adr/0001-shared-package-boundaries.md) and [`packages/`](../../packages/README.md). `lib/business/plans.js` and `lib/business/conversions.js` moved behind compatibility adapters; no public API changed.
+- **Phases C and D:** proposals.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
 
@@ -125,6 +129,31 @@ Introduce `packages/shared-types/`, `packages/business-core/`, and `packages/ana
 
 **Estimate:** 2–4 working days.
 
+**Implemented (first slices, 2026-10-16).** Recorded in [ADR 0001: Shared package boundaries](adr/0001-shared-package-boundaries.md).
+
+| Item | Where |
+| --- | --- |
+| Three plain-ESM packages: explicit `.js` imports, no workspaces, no lockfile change | `packages/shared-types`, `packages/analytics`, `packages/business-core` |
+| Ownership and allowed dependencies, declared and enforced | `"voxelventure": { "owner", "dependsOn" }` in each `package.json`; `tests/packages.test.mjs`; `CODEOWNERS` |
+| Six versioned contracts and their validator | `packages/shared-types/src/contracts/`, `schema.js` |
+| Shared enums: traffic sources, event kinds, outcome families, report kinds | `packages/shared-types/src/enums.js` |
+| Prices, plans and entitlements moved with `git mv`; old path re-exports them | `packages/business-core/src/plans.js`, adapter `lib/business/plans.js` |
+| The conversion funnel and attribution moved with `git mv`; old path re-exports them | `packages/analytics/src/conversions.js`, adapter `lib/business/conversions.js` |
+| The server loads the same files as the bundler: imports that leave `lib/` are rewritten to file URLs | `scripts/lib-loader.mjs` |
+| CI selector covers `packages/`: through the adapters, plus tests naming the package; `package.json` or an unused package runs everything | `scripts/select-checks.mjs`, `tests/select-checks.test.mjs` |
+| Parity: the adapter and the package give identical objects, and `billing.mjs` holds no prices of its own | `tests/packages.test.mjs` |
+| Contract tests against the live API: events, purchase reports, owner figures, weekly vote; the server's lists match the enums | `tests/contracts.test.mjs` |
+
+**Not moved yet:**
+
+| Module | Why |
+| --- | --- |
+| `lib/business/profile.js` | It depends on the city generator's districts |
+| `lib/business/referral.js` | It uses `localStorage` |
+| World modules | `world-core` is P2 |
+
+The next slices follow the ADR's recipe.
+
 ### Phase C — Application and service separation (P2)
 
 Only after production/staging priorities are satisfied:
@@ -201,12 +230,14 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 ## 9. Immediate actionable checklist
 
 - [ ] Review and approve target directory responsibilities.
-- [ ] Inventory current `docs/` files and cross-references.
-- [ ] Create `docs/README.md` and category indexes without moving code.
-- [ ] Map existing docs to target categories; preserve stable links.
+- [x] Inventory current `docs/` files and cross-references ([path map and audit](documentation_path_map.md)).
+- [x] Create `docs/README.md` and category indexes without moving code.
+- [x] Map existing docs to target categories; preserve stable links.
 - [ ] Confirm the existing CI workflow is green.
-- [ ] Write package-boundary ADR before extraction.
-- [ ] Update `scripts/select-checks.mjs` before introducing executable `packages/` modules.
+- [x] Write package-boundary ADR before extraction ([ADR 0001](adr/0001-shared-package-boundaries.md)).
+- [x] Update `scripts/select-checks.mjs` before introducing executable `packages/` modules.
+- [x] Phase B first slices: `shared-types` contracts, `business-core` (plans), `analytics` (conversions), with adapters, parity and contract tests.
+- [ ] Phase B next slices: profile validation (after separating it from the district lookup) and referral signing (after separating it from `localStorage`).
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation.
 
 ## 10. Final recommendation

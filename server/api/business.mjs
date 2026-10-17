@@ -3,9 +3,10 @@ import { transaction } from './db.mjs';
 import { ApiError, fail, requireAccount, text } from './core.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 import { postFor } from './social.mjs';
+import { markOwnerActive, memberStatus } from './ownerActivity.mjs';
 import { billingOn, planFor } from './billing.mjs';
 
-// Free business profiles, referral attribution and the owner's figures (docs/business_funnel.md). The rules (categories, districts, calls to
+// Free business profiles, referral attribution and the owner's figures (docs/product/business_funnel.md). The rules (categories, districts, calls to
 // action, validation, onboarding steps, upgrade prompts) are lib/business/profile.js, shared with the public pages.
 //
 //   profiles    any account can list up to MAX_PROFILES businesses for free; each gets a public page /business/<slug>
@@ -105,6 +106,7 @@ export function updateProfile(db, account, slug, input) {
   const v = checked(merged);
   db.prepare('UPDATE businesses SET name=?, category=?, district=?, tagline=?, description=?, website=?, cta=?, x_handle=?, announce=?, updated_at=? WHERE id=?')
     .run(v.name, v.category, v.district ?? null, v.tagline ?? null, v.description ?? null, v.website ?? null, JSON.stringify(v.cta), v.xHandle ?? null, v.announce ? 1 : 0, now(), row.id);
+  markOwnerActive(db, [row.id]);
   return ownerView(getRow(db, slug));
 }
 
@@ -286,6 +288,7 @@ export function myProfiles(db, account, env = process.env) {
   requireAccount(account);
   const rows = db.prepare("SELECT * FROM businesses WHERE account_id = ? AND status = 'published' ORDER BY id").all(account.id);
   const interest = db.prepare('SELECT plan FROM upgrade_interest WHERE business_id = ?');
+  markOwnerActive(db, rows.map((r) => r.id)); // the pilot's retention signal: the owner came back this week
   return {
     referral: myReferrals(db, account, env),
     checkout: billingOn(env), // false: the prompts record interest instead of offering checkout
@@ -305,6 +308,7 @@ export function myProfiles(db, account, env = process.env) {
         ready: profileReady(steps),
         welcomePost: postFor(db, 'business', row.id),
         prompts: prompts.map((p) => ({ ...p, requested: interest.all(row.id).some((r) => r.plan === p.plan.id) })),
+        pilot: memberStatus(db, row.id), // null unless the business is in the pilot: then the weekly feedback form shows
       };
     }),
   };

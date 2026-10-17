@@ -27,13 +27,15 @@ function testIndex(dir = path.join(root, 'tests')) {
 const mentioning = (tests, re) => tests.filter((t) => re.test(t.src)).map((t) => t.file);
 
 // lib/ is shared by the game, the pages and the server, so a change there reaches whatever imports it, directly or not. This follows the
-// imports inside lib/ backwards from the changed file and returns every module that depends on it, itself included, as lib-relative paths
-// without the extension ('content/models', 'city/cityGenerator').
+// imports inside lib/ and packages/ backwards from the changed file and returns every module that depends on it, itself included, as
+// lib-relative paths without the extension ('content/models', 'city/cityGenerator'; a package module is '../packages/analytics/src/conversions').
 const LIB = path.join(root, 'lib');
+const PACKAGES = path.join(root, 'packages');
 function libGraph() {
   const files = [];
-  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : /\.(js|jsx)$/.test(e.name) && files.push(path.join(d, e.name))));
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? e.name !== 'node_modules' && walk(path.join(d, e.name)) : /\.(js|jsx)$/.test(e.name) && files.push(path.join(d, e.name))));
   walk(LIB);
+  if (fs.existsSync(PACKAGES)) walk(PACKAGES);
   const id = (abs) => path.relative(LIB, abs).replace(/\\/g, '/').replace(/\.(js|jsx)$/, '');
   const users = new Map(); // module -> the modules that import it
   for (const f of files) {
@@ -51,11 +53,13 @@ export function libDependents(changed, users = libGraph()) {
   while (queue.length) for (const u of users.get(queue.shift()) ?? []) if (!seen.has(u)) (seen.add(u), queue.push(u));
   return [...seen];
 }
-const serverUses = (mods) => {
+const serverSource = () => {
   const dir = path.join(root, 'server');
-  const src = fs.readdirSync(dir, { recursive: true }).filter((f) => /\.mjs$/.test(f)).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
-  return mods.some((m) => src.includes(`${m}.js`) || src.includes(`lib/${m}`));
+  return fs.readdirSync(dir, { recursive: true }).filter((f) => /\.mjs$/.test(f)).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
 };
+const serverUses = (mods, src = serverSource()) => mods.some((m) => src.includes(`${m}.js`) || src.includes(`lib/${m}`));
+// A test that imports one of these lib/ modules ('business/plans' matches imp('business/plans.js') and '@/lib/business/plans').
+const naming = (mods) => new RegExp(mods.map((m) => `(['"/]${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\.js)?['"])`).join('|'));
 
 // The decision for a list of changed files. `tests` is 'all', or a list of test file names (empty: no tests).
 export function selectChecks(files, tests = testIndex()) {
@@ -78,9 +82,21 @@ export function selectChecks(files, tests = testIndex()) {
       // the tests that load the changed module or anything built on it; the server's tests if the server loads any of them; and the
       // end-to-end browser test (the game and the pages are built on lib/)
       const mods = libDependents(f.replace(/^lib\//, '').replace(/\.(js|jsx)$/, ''));
-      const re = new RegExp(mods.map((m) => `(['"/]${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\.js)?['"])`).join('|'));
-      add(['live-browser.test.mjs', ...mentioning(tests, re)], `${f} (and ${mods.length - 1} module(s) built on it)`);
+      add(['live-browser.test.mjs', ...mentioning(tests, naming(mods))], `${f} (and ${mods.length - 1} module(s) built on it)`);
       if (serverUses(mods)) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), `${f}: the server loads it`);
+    }
+    else if (/^packages\/[^/]+\/src\/.+\.js$/.test(f)) {
+      // a shared package (docs/architecture/adr/0001-shared-package-boundaries.md): what a change to the lib/ adapters re-exporting it
+      // would run, and every test that names the package. A package that neither lib/ nor a test uses yet: everything.
+      const name = f.split('/')[1];
+      const mods = libDependents(`../${f.replace(/\.js$/, '')}`).filter((m) => !m.startsWith('../'));
+      const named = mentioning(tests, new RegExp(`packages/${name}/`));
+      if (!mods.length && !named.length) all(`${f} (nothing uses the package yet)`);
+      else {
+        add(['packages.test.mjs', ...named], `${f}: the package rules and the tests that name the package`);
+        if (mods.length) add(['live-browser.test.mjs', ...mentioning(tests, naming(mods))], `${f} (through ${mods.length} lib/ module(s) built on it)`);
+        if ((mods.length && serverUses(mods)) || serverSource().includes(`packages/${name}/`)) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), `${f}: the server loads it`);
+      }
     }
     else if (f === 'CREDITS.md') add(mentioning(tests, /CREDITS/), f);
     else if (/^(app|components|styles)\//.test(f)) {

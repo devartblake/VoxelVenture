@@ -134,7 +134,7 @@ export function setLayout(db, seed, input = {}) {
   });
 }
 
-// A stall counts as taken by a confirmed booking, and by one waiting for its payment while its hold lasts (docs/billing.md).
+// A stall counts as taken by a confirmed booking, and by one waiting for its payment while its hold lasts (docs/monetization/billing.md).
 const TAKEN = "(status = 'booked' OR (status = 'pending' AND hold_until > ?))";
 
 // A player rents a stall. Everything is checked and written in one transaction, so two people cannot take the same stall at the same time.

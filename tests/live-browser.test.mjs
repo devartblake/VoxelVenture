@@ -17,7 +17,7 @@ const webPort = await free();
 const mpPort = await free(); // a presence server of the test's own, joined to its API (not whatever runs on 3001)
 const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-live-mp-'));
 const env = { ...process.env, NEXT_PUBLIC_LIVE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_SECRET: 'live-test', INTERNAL_SECRET: 'live-inside' };
-// MESSAGING_IMPL=fastapi: the same run with messaging served by the Python service (docs/node_fastapi_architecture_plan.md, step 5)
+// MESSAGING_IMPL=fastapi: the same run with messaging served by the Python service (docs/architecture/node_fastapi_architecture_plan.md, step 5)
 const FASTAPI = process.env.MESSAGING_IMPL === 'fastapi';
 const msgPort = await free();
 const msgDir = path.join(root, 'services', 'messaging');
@@ -154,7 +154,7 @@ try {
   check('no console errors on either page during chat', page.problems().length === 0 && other.problems().length === 0, [...page.problems(), ...other.problems()].slice(0, 2).join(' | '));
   check('no console errors during the storefront, account and chat steps either', other.problems().length === 0, other.problems().slice(0, 2).join(' | '));
 
-  // ---- conversion measurement (docs/conversions.md): the owner of Browser Bakery gives it a business profile linked to the building,
+  // ---- conversion measurement (docs/monetization/conversions.md): the owner of Browser Bakery gives it a business profile linked to the building,
   // then a fresh visitor sees it in a list, stays on its page, presses its button, and another walks into the 3D storefront
   const api = async (method, p, body) => (await fetch(`http://localhost:${apiPort}${p}`, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bakerToken}` }, body: body && JSON.stringify(body) })).json();
   const bakerToken = await page.eval(`localStorage.getItem('voxelventure-token')`);

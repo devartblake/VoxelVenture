@@ -5,7 +5,7 @@ const check = (n, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  '
 const has = (d, ...names) => d.tests !== 'all' && names.every((n) => d.tests.includes(n));
 const lacks = (d, ...names) => d.tests !== 'all' && names.every((n) => !d.tests.includes(n));
 
-const docs = selectChecks(['docs/tasks.md', 'README.md', 'services/messaging/README.md', '.github/pull_request_template.md']);
+const docs = selectChecks(['docs/roadmap/tasks.md', 'README.md', 'services/messaging/README.md', '.github/pull_request_template.md']);
 check('a documentation edit runs nothing (no install, lint, freeze check or tests)', !docs.install && !docs.lint && !docs.freeze && !docs.python && docs.tests.length === 0, JSON.stringify(docs));
 const credits = selectChecks(['CREDITS.md']);
 check('CREDITS.md is not just documentation: its test runs', has(credits, 'credits.test.mjs') && credits.tests.length < 10);
@@ -26,6 +26,16 @@ for (const f of ['package.json', 'package-lock.json', 'tests/helpers.mjs', 'scri
   check(`${f} runs everything`, selectChecks([f]).tests === 'all');
 check('a file no rule knows runs everything', selectChecks(['somewhere/new-thing.yaml']).tests === 'all' && selectChecks(['somewhere/new-thing.yaml']).python);
 check('docs mixed with code: the code decides', has(selectChecks(['docs/a.md', 'server/api/core.mjs']), 'api.test.mjs'));
+
+// the shared packages (docs/architecture/adr/0001-shared-package-boundaries.md)
+check('lib/ dependents follow an adapter into its package', libDependents('../packages/business-core/src/plans').includes('business/plans') && libDependents('../packages/business-core/src/plans').includes('business/profile'));
+const prices = selectChecks(['packages/business-core/src/plans.js']);
+check('a package module runs what its lib/ adapter would, the server\'s tests and the package rules', ['billing.test.mjs', 'business-profile.test.mjs', 'live-browser.test.mjs', 'packages.test.mjs', 'contracts.test.mjs', 'api.test.mjs'].every((t) => has(prices, t)), JSON.stringify(prices.tests));
+const contract = selectChecks(['packages/shared-types/src/contracts/business.js']);
+check('a contract runs the contract and package tests, not everything', contract.tests !== 'all' && has(contract, 'contracts.test.mjs') && has(contract, 'packages.test.mjs') && contract.lint);
+check('a package\'s package.json runs everything', selectChecks(['packages/analytics/package.json']).tests === 'all');
+check('a package nothing uses yet runs everything', selectChecks(['packages/world-core/src/index.js'], []).tests === 'all'); // (no tests: this file names it)
+check('a package\'s README and CHANGELOG run nothing', JSON.stringify(selectChecks(['packages/analytics/README.md', 'packages/shared-types/CHANGELOG.md', 'packages/README.md']).tests) === '[]');
 
 console.log(fails === 0 ? 'ALL OK' : `${fails} FAILED`);
 process.exit(fails ? 1 : 0);
