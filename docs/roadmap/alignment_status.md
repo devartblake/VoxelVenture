@@ -64,7 +64,7 @@ Still to check once the site is live: a Lighthouse run on a real phone and netwo
 | Moderation actions | ✅ | Audited; `npm run moderate` covers reports, bans, the audit trail and X posts |
 | Audit records | ✅ | Append-only, hash-chained `audit_log` |
 | Simulated metrics removed from advertiser interfaces | ✅ | The building card, My businesses, ad counts, the newsletter and the admin HQs (live city panel) |
-| Deploy and verify | 👤 | Choose the host and domain (task 1), then `npm run check:env`, deploy, and `npm run verify:live` |
+| Deploy and verify | ✅ | voxelventure.app on a Linode since 2026-10-17; `npm run verify:live` passes all 17 checks |
 
 ## Phase 4: low-risk monetisation ([billing.md](../monetization/billing.md))
 
@@ -101,7 +101,7 @@ Still to check once the site is live: a Lighthouse run on a real phone and netwo
 | GitHub Actions for build, lint and tests | ✅ | `.github/workflows/ci.yml` runs only what a change needs (`scripts/select-checks.mjs`, tested in `tests/select-checks.test.mjs`). Documentation runs nothing. A model runs the model, credits and world tests. A `lib/` file runs the tests of every module built on it. A server file runs the server's tests. Anything unknown runs everything, including the production build in the browser test. |
 | Protect `main` and require passing checks | Half done (✅ + 👤) | `.github/CODEOWNERS` names the owner of billing, accounts, attribution, the schema, messaging, deployment and the shared `packages/` ✅. Settings > Branches: protect `main`, require pull requests, the **CI / checks** status and a Code Owners review 👤 (repository settings; code cannot change them). |
 | Dependency and secret scanning | Half done (✅ + 👤) | `.github/dependabot.yml` (npm, pip, actions) ✅. Secret scanning and push protection are repository settings (Settings > Code security) 👤. |
-| Deploy the API and authoritative data store | 👤 | The code is ready; the hosting choice is yours |
+| Deploy the API and authoritative data store | ✅ | The API and SQLite on the Linode behind Caddy ([deploy/README.md](../../deploy/README.md)) |
 | Remove simulated advertiser data from production | ✅ | |
 | Implement referral and campaign attribution | ✅ | Referral codes, campaigns, the X source |
 | Complete production moderation and audit tooling | ✅ | |

@@ -62,7 +62,12 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
    - `curl https://play.voxelventure.app/health` returns `{"ok":true,...}`
    - Open `https://voxelventure.app`: you should be able to look around without signing in, and sign-in appears only when you claim something.
    - `journalctl -u voxelventure-api -f` (and `-presence`, `-web`) show the logs.
-   - **Verify the data is authoritative:** `npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app --admin-token <ADMIN_TOKEN>` must end `all checks passed`. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
+   - **Verify the data is authoritative:** this must end `all checks passed`:
+     ```
+     VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
+       npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
+     ```
+     Give the admin token in `VERIFY_ADMIN_TOKEN`, never as `--admin-token`: npm prints the command it runs, so a token on the command line ends up on screen and in the terminal's scrollback. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
 
 ## Updating
 ```
@@ -72,7 +77,8 @@ sudo -u voxel npm ci
 set -a; . /etc/voxelventure/web.env; set +a
 sudo -E -u voxel npm run build
 systemctl restart voxelventure-api voxelventure-presence voxelventure-web
-npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app --admin-token <ADMIN_TOKEN>
+VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
+  npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
 ```
 The API upgrades the database in place when it starts (new columns are added). Take a backup first: `sudo -u voxel voxelventure-backup`.
 

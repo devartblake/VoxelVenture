@@ -1,5 +1,7 @@
 // Checks a deployment is serving authoritative data (docs/architecture/authoritative_data.md). Read-only: it signs nobody up and changes nothing.
-//   npm run verify:live -- --api https://api.example.com --site https://example.com [--admin-token <ADMIN_TOKEN>]
+//   VERIFY_ADMIN_TOKEN=<ADMIN_TOKEN> npm run verify:live -- --api https://api.example.com --site https://example.com
+// Each option can also come from VERIFY_<NAME>. Give the token that way, not as --admin-token: npm prints the command it runs, so a
+// token on the command line ends up on screen.
 // Run it after every deploy. It exits 1 if anything is wrong; each line says what was checked.
 const args = process.argv.slice(2);
 const opt = (name) => {
@@ -10,7 +12,7 @@ const api = (opt('api') ?? '').replace(/\/+$/, '');
 const site = (opt('site') ?? '').replace(/\/+$/, '');
 const adminToken = opt('admin-token');
 if (!api) {
-  console.error('usage: npm run verify:live -- --api <API address> [--site <site address>] [--admin-token <token>]');
+  console.error('usage: npm run verify:live -- --api <API address> [--site <site address>]   (admin token in VERIFY_ADMIN_TOKEN)');
   process.exit(2);
 }
 
