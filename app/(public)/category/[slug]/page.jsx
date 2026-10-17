@@ -8,10 +8,13 @@ import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 export async function generateMetadata({ params }) {
   const category = categoryOf((await params).slug);
   if (!category) return {};
+  const description = `${category.label} on VoxelVenture: independent businesses with free pages and 3D storefronts.`;
   return {
     title: `${category.label} | VoxelVenture`,
-    description: `${category.label} on VoxelVenture: independent businesses with free pages and 3D storefronts.`,
+    description,
     alternates: { canonical: `/category/${category.id}` },
+    openGraph: { title: `${category.label} on VoxelVenture`, description, url: `/category/${category.id}`, type: 'website', siteName: 'VoxelVenture' },
+    twitter: { card: 'summary_large_image', title: `${category.label} on VoxelVenture`, description },
     robots: isDemo() ? { index: false, follow: true } : undefined,
   };
 }

@@ -9,6 +9,8 @@ export async function generateMetadata({ searchParams }) {
     title: q ? `“${String(q).slice(0, 40)}” businesses | VoxelVenture` : 'Discover businesses | VoxelVenture',
     description: 'Find independent businesses, creators and digital projects by category and district, then step inside their 3D storefronts.',
     alternates: { canonical: '/discover' },
+    openGraph: { title: 'Discover businesses on VoxelVenture', description: 'Independent businesses, creators and digital projects, with free pages and 3D storefronts.', url: '/discover', type: 'website', siteName: 'VoxelVenture' },
+    twitter: { card: 'summary_large_image', title: 'Discover businesses on VoxelVenture' },
     robots: isDemo() || q ? { index: false, follow: true } : undefined,
   };
 }

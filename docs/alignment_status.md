@@ -28,10 +28,28 @@ Checked on 2026-10-16 against [claimavenue_competitive_alignment_review.md](clai
 | 6. Owner onboarding checklist | ✅ | `/business/manage` |
 | 7. Upgrade prompts tied to measurable value | ✅ | From verified figures only; with Stripe set up they lead to checkout (phase 4), otherwise they record interest |
 | 3D building as an optional destination from the profile | ✅ | "Step inside the 3D storefront" on the profile; "Business page" on the building's card |
-| Accessible non-WebGL fallback (gap 4) | ✅ | `components/ui/NoWebGL.jsx` |
-| Fast mobile landing pages (gap 4) | ✅ | Plain server-rendered pages with no multiplayer connection |
+| Accessible non-WebGL fallback (gap 4) | ✅ | `components/ui/NoWebGL.jsx`, which points a building's link to its business page |
+| Fast mobile landing pages (gap 4) | ✅ | Plain server-rendered pages that load no game code: see [gap 4](#critical-gap-4-public-discoverability) |
 | A way into the free funnel from the game (gap: "free business/profile entry") | ✅ | The game header's **Businesses** and **List your business free** |
 | Welcome posts that tag the owner (idea 02 section 5) | ✅ | Opt-in, off by default; needs your X keys 👤 ([social_posts.md](social_posts.md)) |
+
+## Critical gap 4: public discoverability
+
+The review asked for fast public pages that search engines and social networks can understand, because `/b/[id]` (which opens the city on a building) is not enough as the main acquisition page. Checked on 2026-10-17:
+
+| Expectation | Status | What exists |
+| --- | --- | --- |
+| `/discover` | ✅ exceeds | Search, the categories and districts, **Sponsored** and **New this week** rows, and the newest businesses. Canonical address; search results are not indexed. |
+| `/business/[slug]` | ✅ exceeds | One call to action (website, order, booking, demo, newsletter, meeting or quote request), a Pro offer, the launch badge, **Step inside the 3D storefront**, share and report. Verified views, presses and results feed the owner's dashboard. |
+| `/district/[slug]` | ✅ | The district's businesses and its sponsored cards, with a link into the 3D district |
+| `/category/[slug]` | ✅ | The category's businesses and its sponsored cards, with links to the other categories |
+| Open Graph preview images | ✅ | Each business has its own share image, with a gold launch-week version. Categories and districts each have their own image (name, colour and number of businesses). Discover has one too. Titles, descriptions and Twitter cards are set. |
+| Structured business metadata | ✅ | JSON-LD on every public page. A profile has its schema.org business type (for example `FoodEstablishment` or `Store`), its website, district and running offer, plus a breadcrumb. Discover, categories and districts have a `CollectionPage` with an `ItemList` of their businesses and a breadcrumb. `sitemap.xml` and `robots.txt` list the public pages. |
+| Accessible non-WebGL fallback | ✅ | `components/ui/NoWebGL.jsx` replaces the city when WebGL is missing. A link to one building (`/b/<id>`) whose owner has a business page leads to that page. |
+| Fast mobile landing pages | ✅ | Server-rendered, with no 3D and no game code. About 178 KB of compressed JavaScript per page (almost all of it the Next.js and React runtime), against 689 KB for the city. Measured on a production build: server response in 20 to 45 ms; first paint 0.5 s on a phone-sized screen, locally and without network throttling; no sideways scrolling. |
+| `/b/[id]` not the main acquisition page | ✅ | A building linked to a business page shares that page. The link straight into the city is offered beside it. `/b/<id>` stays the deep link into the game, and only the business pages are in the sitemap. |
+
+Still to check once the site is live: a Lighthouse run on a real phone and network, and Google's Rich Results test on a live profile. Neither can be done before deployment (task 1).
 
 ## Phase 3: authoritative production data
 

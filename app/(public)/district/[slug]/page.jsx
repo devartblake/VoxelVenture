@@ -8,10 +8,13 @@ import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 export async function generateMetadata({ params }) {
   const district = districtOf((await params).slug);
   if (!district) return {};
+  const description = `The businesses of ${district.name}, a district of the VoxelVenture city.`;
   return {
     title: `${district.name} | VoxelVenture`,
-    description: `The businesses of ${district.name}, a district of the VoxelVenture city.`,
+    description,
     alternates: { canonical: `/district/${district.id}` },
+    openGraph: { title: `${district.name} on VoxelVenture`, description, url: `/district/${district.id}`, type: 'website', siteName: 'VoxelVenture' },
+    twitter: { card: 'summary_large_image', title: `${district.name} on VoxelVenture`, description },
     robots: isDemo() ? { index: false, follow: true } : undefined,
   };
 }
