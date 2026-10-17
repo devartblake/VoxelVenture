@@ -33,13 +33,14 @@ await runJourney(scenario, { needs: { web: true, api: true, presence: true } }, 
 
   const visitor = await openBrowser(j, 'visitor', '/discover');
   await j.step('discover-lists-business', async () => {
-    await visitor.expect(`document.body.innerText.includes(${JSON.stringify(business.name)})`, `Discover lists ${business.name}`, 60);
+    await visitor.expectFresh(`document.body.innerText.includes(${JSON.stringify(business.name)})`, `Discover lists ${business.name}`);
     await counted((s) => s.impressions >= 1, 'its card on screen counts an impression');
   });
 
   await j.step('category-filter', async () => {
     j.expect(await visitor.clickText('a', categoryLabel), `Discover links the "${categoryLabel}" category`);
-    await visitor.expect(`location.pathname === '/category/${business.category}' && document.body.innerText.includes(${JSON.stringify(business.name)})`, `the ${categoryLabel} page lists ${business.name}`, 30);
+    await visitor.expect(`location.pathname === '/category/${business.category}'`, `the ${categoryLabel} page opens`, 30);
+    await visitor.expectFresh(`document.body.innerText.includes(${JSON.stringify(business.name)})`, `the ${categoryLabel} page lists ${business.name}`);
   });
 
   await j.step('profile-visit', async () => {

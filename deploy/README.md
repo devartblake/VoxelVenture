@@ -9,6 +9,7 @@ A runbook for one server running everything: the web app, the API and the presen
 | `systemd/*.service` | The three processes, restarted automatically, and the messaging service (installed, not enabled until the switch-over below) |
 | `env/*.env.example` | The settings for each process (copied to `/etc/voxelventure/`) |
 | `backup.sh` | A consistent copy of the database (and the messaging service's, once it has one), kept for 14 days, optionally uploaded with rclone |
+| `staging.sh`, `Caddyfile.staging`, `systemd/staging/` | Staging on the same machine: the business journeys, deploy and rollback rehearsals, restoring a production backup ([STAGING.md](STAGING.md)) |
 
 The files are filled in for **voxelventure.app** (the game), **api.voxelventure.app** (the API) and **play.voxelventure.app** (presence), with `www.voxelventure.app` and `voxelventure.net` redirecting to the game. Only the secrets are left as `CHANGE_ME`.
 
