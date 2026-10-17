@@ -12,7 +12,7 @@ voxelventure.app {
 	# /mp-status is the presence server's /status, reached through this protected address (the monitor page reads it:
 	# NEXT_PUBLIC_MP_HTTP in web.env).
 	@monitor path /admin /admin/* /mp-status
-	basicauth @monitor {
+	basic_auth @monitor {
 		admin REPLACE_WITH_A_CADDY_HASH
 	}
 
