@@ -1,0 +1,22 @@
+[Unit]
+Description=VoxelVenture staging web app (deploy/STAGING.md)
+After=network.target
+
+[Service]
+Type=simple
+User=voxel
+WorkingDirectory=/srv/voxelventure-staging/current
+EnvironmentFile=/etc/voxelventure/staging/web.env
+# deploy/staging.sh builds each release with web.env loaded: the NEXT_PUBLIC_ addresses are fixed into the build.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start apps/web -H 127.0.0.1 -p 3100
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# the live release's page cache (the leading - : no error if a release has none yet)
+ReadWritePaths=-/srv/voxelventure-staging/current/apps/web/.next/cache
+
+[Install]
+WantedBy=multi-user.target

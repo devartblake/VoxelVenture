@@ -34,6 +34,16 @@ export async function openBrowser(j, name, pathOrUrl, { device = j.scenario.devi
     expect: async (expr, what, seconds = 20) => {
       if (!(await b.until(expr, seconds))) throw new ProductFailure(`expected within ${seconds} s: ${what}`);
     },
+    // the same for a page the site caches (Discover and the category pages are rebuilt at most once a minute): reloads every
+    // `every` seconds while it waits, as a visitor would. Locally the cache starts empty, so the first look passes.
+    expectFresh: async (expr, what, seconds = 90, every = 10) => {
+      for (let waited = 0; waited < seconds; waited += every) {
+        if (await b.until(expr, Math.min(every, seconds - waited))) return;
+        await page.eval('location.reload(); 1').catch(() => {});
+        await sleep(1000);
+      }
+      throw new ProductFailure(`expected within ${seconds} s, reloading every ${every} s: ${what}`);
+    },
     go: (p) => page.eval(`location.href = ${JSON.stringify(/^https?:/.test(p) ? p : `${j.stack.webUrl}${p}`)}; 1`),
     text: () => page.eval('document.body.innerText'),
     // types into an input the way React notices

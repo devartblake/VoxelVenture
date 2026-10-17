@@ -1,0 +1,23 @@
+[Unit]
+Description=VoxelVenture staging API (deploy/STAGING.md)
+After=network.target
+
+[Service]
+Type=simple
+User=voxel
+# the live release (deploy/staging.sh switches this link)
+WorkingDirectory=/srv/voxelventure-staging/current
+EnvironmentFile=/etc/voxelventure/staging/api.env
+# One API process only: the database is SQLite, which has a single writer.
+ExecStart=/usr/bin/node --experimental-sqlite --no-warnings services/api/server.mjs
+Restart=always
+RestartSec=3
+# Hardening: the process can write only to staging's data folder (the database and the email outbox).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/srv/voxelventure-staging/data
+
+[Install]
+WantedBy=multi-user.target

@@ -10,9 +10,8 @@
   - No public API changed.
 - **Phase C (application and service separation):**
   - **Step 1** is merged: workspaces, imports by `@voxelventure/*` name, adapters retired ([ADR 0002](adr/0002-workspaces.md)).
-  - **Steps 2 to 5** are done on the branch `phase-c/apps-services`: `apps/web/`, `services/api/` and `services/multiplayer/`, with the tests, CI and deploy files ([ADR 0003](adr/0003-apps-and-services.md)).
-  - **Merging:** held until the staging deploy has been rehearsed, by the owner's choice. Steps 2 to 5 (moving the app and the servers) wait for staging and Stripe certification (section 6); see "Phase C readiness" below.
-- **Phase D:** a proposal.
+  - **Steps 2 to 5** are merged: `apps/web/`, `services/api/` and `services/multiplayer/`, with the tests, CI and deploy files ([ADR 0003](adr/0003-apps-and-services.md)). Production (voxelventure.app) runs this layout since 2026-10-17.
+- **Phase D:** under way. Staging on the production Linode ([deploy/STAGING.md](../../deploy/STAGING.md)): the business journeys against it, a release layout with a rollback, and restoring a production backup. Stripe test mode waits on the Stripe account.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
 
@@ -328,11 +327,12 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 - [x] Phase B, the last contracts: coupon claims and redemptions, and the pixel (15 contracts in all). **Phase B is complete.**
 - [x] Phase C step 1: workspaces and imports by package name, on the branch `phase-c/workspaces` (to review and merge).
 - [x] Phase C steps 2 to 5 (`apps/web/`, `services/api/`, `services/multiplayer/`), done on the branch `phase-c/apps-services` ([ADR 0003](adr/0003-apps-and-services.md)).
-- [ ] Merge `phase-c/apps-services` after a staging deploy of it (then Phase D, integration certification).
+- [x] Merge `phase-c/apps-services` (merged; production deployed on this layout, 2026-10-17).
+- [ ] Phase D, integration certification: staging is written ([deploy/STAGING.md](../../deploy/STAGING.md)). Still to do: the rollback rehearsal, the journeys against staging, a restored production backup, Stripe test mode.
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation.
 
 ## 10. Final recommendation
 
 **Yes, apply the structure selectively.** Organize docs now, create shared contracts next, and move the runtime only when there is a clear maintainability or deployment payoff. This achieves cleaner ownership and easier AI-agent collaboration while preserving VoxelVenture's competitive differentiators and minimizing risk to commercial launch.
 
-**Phases A and B are done. Phase C is done, steps 2 to 5 on a branch held for the staging rehearsal. Phase D is still a proposal.**
+**Phases A, B and C are done. Phase D is under way: staging is ready to set up ([deploy/STAGING.md](../../deploy/STAGING.md)).**

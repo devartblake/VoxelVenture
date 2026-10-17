@@ -1,0 +1,21 @@
+[Unit]
+Description=VoxelVenture staging presence server (deploy/STAGING.md)
+After=network.target
+
+[Service]
+Type=simple
+User=voxel
+WorkingDirectory=/srv/voxelventure-staging/current
+EnvironmentFile=/etc/voxelventure/staging/presence.env
+ExecStart=/usr/bin/node services/multiplayer/server.mjs
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/srv/voxelventure-staging/logs
+
+[Install]
+WantedBy=multi-user.target
