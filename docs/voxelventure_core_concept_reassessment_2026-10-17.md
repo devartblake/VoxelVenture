@@ -3,7 +3,8 @@
 **Assessment date:** 2026-10-17  
 **Repository:** [devartblake/VoxelVenture](https://github.com/devartblake/VoxelVenture)  
 **Assessed baseline:** `main` at `40d286eb2c91608a297fd55c23f0008510c51e54`  
-**Phase 5 candidate:** [PR #21](https://github.com/devartblake/VoxelVenture/pull/21), head `dc7b8de22b82505e421b6c6885aa6b38e6b7b98c`
+**Phase 5 candidate:** [PR #21](https://github.com/devartblake/VoxelVenture/pull/21), head `dc7b8de22b82505e421b6c6885aa6b38e6b7b98c`  
+**Related strategy audit:** [PR #22](https://github.com/devartblake/VoxelVenture/pull/22), merged as `03bad9766050c30df1d760c97b32d98cdc7baecb`
 
 ## Executive verdict
 
@@ -292,14 +293,13 @@ These are not blockers for the core business-discovery product. They should rema
 2. Separate leads, intent, offline conversions, online conversions, and revenue in reporting.
 3. Wait for all Phase 5 CI checks to complete successfully.
 4. Merge PR #21.
-5. Rebase or update PR #22 against the new `main`.
-6. Reconcile stale or overlapping documentation and close superseded work.
-7. Protect the default branch and enable the recommended security settings.
-8. Deploy a staging environment with Stripe test mode, mail delivery, migrations, backups, and monitoring.
-9. Complete policy and release-certification checklists.
-10. Run a structured pilot with approximately 10–20 businesses.
-11. Measure activation, qualified visits, leads, coupon redemptions, purchases, revenue, renewals, and merchant retention.
-12. Use pilot evidence—not feature count—to decide the next product investment.
+5. Reconcile the now-merged PR #22 strategy audit with Phase 5 documentation and close any superseded material.
+6. Protect the default branch and enable the recommended security settings.
+7. Deploy a staging environment with Stripe test mode, mail delivery, migrations, backups, and monitoring.
+8. Complete policy and release-certification checklists.
+9. Run a structured pilot with approximately 10–20 businesses.
+10. Measure activation, qualified visits, leads, coupon redemptions, purchases, revenue, renewals, and merchant retention.
+11. Use pilot evidence—not feature count—to decide the next product investment.
 
 ## Release gate for the paid pilot
 
