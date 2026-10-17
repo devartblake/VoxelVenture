@@ -213,4 +213,4 @@ Staging is where payments are tried before production takes a live key.
 | :--- | :--- | :--- | :--- |
 | | Rollback (section 5) | | |
 | | Production backup restored (section 6) | | |
-| | Journeys against staging (section 4) | | |
+| 2026-10-17 | Journeys against staging (section 4) | 41 of 41 milestones, all four journeys, in strict mode. The first run stopped at `malformed-input`: it read presence's `/status`, which Caddy rightly hides. It now checks what a watching player sees | |
