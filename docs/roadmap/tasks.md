@@ -183,7 +183,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 - the pilot criteria in `analytics`;
 - contracts for meeting and quote requests, the pilot check-in and the pilot dashboard.
 
-**Next:** Phase C (workspaces, moving the app and the API) waits for staging and Stripe certification. Its readiness is in the [plan](../architecture/modular_monorepo_migration_plan.md#phase-c-readiness-2026-10-17) | Phase C: 4-8 days, gated |
+**Phase C step 1** (npm workspaces, imports by `@voxelventure/*` name, the `lib/business/` adapters retired) is done on the branch `phase-c/workspaces`, to review and merge. The rest of Phase C, moving the app and the API, waits for staging and Stripe certification. Its readiness is in the [plan](../architecture/modular_monorepo_migration_plan.md#phase-c-readiness-2026-10-17) | Phase C steps 2-5: 3-7 days, gated |
 | 39 | ✅ Outside music: 16 CC0 recordings from OpenGameArt (city, night, arcade, cafe and driving playlists), with the procedural tunes as fallback ([day_night_sound.md](../architecture/day_night_sound.md), `docs/licences/music/`). Left: a listening check on real speakers, loop points for the tracks that have none | listening check needs you |
 
 ## Priorities: by impact and by what sets VoxelVenture apart from ClaimAvenue

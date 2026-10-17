@@ -8,7 +8,7 @@
   - Prices, plans, profile rules and the conversion funnel moved behind compatibility adapters.
   - 15 versioned contracts are tested against the live API.
   - No public API changed.
-- **Phase C (application and service separation):** not started. It is gated on staging and Stripe certification (section 6); see "Phase C readiness" below.
+- **Phase C (application and service separation):** step 1 done on the branch `phase-c/workspaces`, not yet merged: workspaces, imports by `@voxelventure/*` name, adapters retired ([ADR 0002](adr/0002-workspaces.md)). Steps 2 to 5 (moving the app and the servers) wait for staging and Stripe certification (section 6); see "Phase C readiness" below.
 - **Phase D:** a proposal.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
@@ -215,9 +215,18 @@ Phase C is gated: *"Only after production/staging priorities are satisfied"* (se
 | Pilot measurement | The dashboard is built; the pilot has not run (task 47) |
 | CI green on `main` | To confirm on GitHub (checklist below) |
 
-What Phase C needs, once the gates allow, in its own branch and pull requests:
+Step 1 was taken early, by the owner's choice, because it moves no runtime paths. Its record is [ADR 0002](adr/0002-workspaces.md):
 
-1. **Workspace tooling:** npm workspaces for `packages/*`, so `@voxelventure/*` names resolve. Then the relative `../../packages/...` imports and the `lib/` adapters can go.
+- **Done:** `"workspaces": ["packages/*"]` in the root `package.json`. The lockfile gains only the three links (27 lines).
+- **Imports by name:** every importer uses `@voxelventure/business-core`, `@voxelventure/analytics` or `@voxelventure/shared-types`. That covers the pages, `lib/`, the server (static imports instead of `imp()`) and the tests.
+- **Adapters retired:** `lib/business/{plans,profile,conversions}.js` are deleted.
+- **Tests:** `tests/packages.test.mjs` checks the workspace links, that each name gives the very same objects as the files, and that no relative or old-path imports remain.
+- **CI:** `scripts/select-checks.mjs` follows imports by package name.
+- **To merge:** run `npm install` after pulling, so the names resolve.
+
+What the rest of Phase C needs, once the gates allow, in its own branch and pull requests:
+
+1. ✅ **Workspace tooling** (the branch above): npm workspaces for `packages/*`, so `@voxelventure/*` names resolve. Then the relative `../../packages/...` imports and the `lib/` adapters can go.
 2. **`apps/web/`:** the Next.js app moves there with `next.config.mjs`, `jsconfig.json`, `postcss.config.mjs`, `public/` and `patches/`. `patch-package` runs from the right root.
 3. **`services/api/` and `services/multiplayer/`:** the Node servers move without any rewrite. `deploy/systemd`, `deploy/Caddyfile` and the backup script take the new paths.
 4. **The rest follows:** `scripts/lib-loader.mjs`, `scripts/select-checks.mjs`, `tests/`, the CI workflow and the `deploy/` runbook are updated in the same change, with a full CI and browser run.
@@ -310,7 +319,8 @@ The subtotal assumes an experienced developer, existing tests and manageable con
   - the pilot criteria into `analytics`;
   - contracts for meeting and quote requests and for the pilot.
 - [x] Phase B, the last contracts: coupon claims and redemptions, and the pixel (15 contracts in all). **Phase B is complete.**
-- [ ] Phase C, after staging and Stripe certification (see "Phase C readiness").
+- [x] Phase C step 1: workspaces and imports by package name, on the branch `phase-c/workspaces` (to review and merge).
+- [ ] Phase C steps 2 to 5 (`apps/web/`, `services/api/`, `services/multiplayer/`), after staging and Stripe certification (see "Phase C readiness").
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation.
 
 ## 10. Final recommendation
