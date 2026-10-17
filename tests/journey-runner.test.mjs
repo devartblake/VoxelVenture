@@ -38,7 +38,8 @@ const run = (id, failWith, env = {}) => {
     ? `await j.step('first-step', async () => {}); await j.step('second-step', async () => { throw new m.${failWith}('it did not happen'); });`
     : `await j.step('first-step', async () => {}); await j.step('second-step', async () => {});`;
   const code = `const m = await import(${JSON.stringify(scenarioUrl)}); await m.runJourney(${JSON.stringify(tiny(id))}, { needs: {} }, async (j) => { ${body} });`;
-  const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], { cwd: root, encoding: 'utf8', env: { ...process.env, ...env } });
+  // JOURNEY_STRICT cleared unless a check sets it: CI sets it for the whole test step
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], { cwd: root, encoding: 'utf8', env: { ...process.env, JOURNEY_STRICT: '', ...env } });
   const report = JSON.parse(fs.readFileSync(path.join(root, 'artifacts', 'journeys', id, 'report.json'), 'utf8'));
   fs.rmSync(path.join(root, 'artifacts', 'journeys', id), { recursive: true, force: true });
   return { status: r.status, out: `${r.stdout}${r.stderr}`, report };
@@ -54,7 +55,7 @@ const env = run('runner-check-env', 'EnvironmentFailure');
 check('a machine that cannot run the journey skips it (exit 0), saying why', env.status === 0 && /SKIPPED \(environment\)/.test(env.out) && env.report.result === 'environment', env.out.slice(-200));
 const strict = run('runner-check-strict', 'EnvironmentFailure', { JOURNEY_STRICT: '1' });
 check('unless JOURNEY_STRICT=1 (a CI machine that must run it): then it fails', strict.status === 1, strict.out.slice(-200));
-const remote = spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(scenarioUrl)}); await m.runJourney(${JSON.stringify(tiny('runner-check-remote'))}, { needs: {} }, async () => {});`], { cwd: root, encoding: 'utf8', env: { ...process.env, JOURNEY_API_URL: 'http://staging.example.com', JOURNEY_ALLOW_WRITES: '' } });
+const remote = spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(scenarioUrl)}); await m.runJourney(${JSON.stringify(tiny('runner-check-remote'))}, { needs: {} }, async () => {});`], { cwd: root, encoding: 'utf8', env: { ...process.env, JOURNEY_STRICT: '', JOURNEY_API_URL: 'http://staging.example.com', JOURNEY_ALLOW_WRITES: '' } });
 fs.rmSync(path.join(root, 'artifacts', 'journeys', 'runner-check-remote'), { recursive: true, force: true });
 check('a run against another stack needs JOURNEY_ALLOW_WRITES=1 (journeys create accounts there)', /SKIPPED \(environment\)/.test(remote.stdout) && /JOURNEY_ALLOW_WRITES=1/.test(remote.stdout), remote.stdout.slice(-200));
 
