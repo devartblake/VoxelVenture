@@ -39,17 +39,46 @@ Make these at GoDaddy, as for production (voxelventure.app > DNS > Add New Recor
 
 Wait until `dig +short api.staging.voxelventure.app` answers before step 2: Caddy asks for the certificates as soon as it loads the staging blocks.
 
-## 2. Setup (once)
+## Copying the project to the server
 
-Copy the project to the server, then run the setup from it:
+`root@SERVER` below means `root@` followed by your Linode's IP address, for example `root@203.0.113.10`.
+
+**From Windows (PowerShell),** use `deploy/push.ps1`:
+- It packs the committed project with `git archive`, so `node_modules`, `.next`, databases and uncommitted edits stay behind.
+- It copies the pack with `scp` and unpacks it into `/srv/voxelventure-staging/incoming/` with `ssh`. Both are built into Windows 10 and 11, and rsync isn't needed.
+- It always packs with Unix (LF) line endings. Windows-style (CRLF) endings would stop `staging.sh` with `set: pipefail: invalid option` and break every settings value.
+
+```powershell
+$env:VV_SERVER = "root@SERVER"            # once per PowerShell window
+.\deploy\push.ps1 staging                  # copy only
+.\deploy\push.ps1 staging -Deploy          # copy, then deploy/staging.sh deploy
+.\deploy\push.ps1 staging -Deploy -Ref my-branch   # another branch or commit
+```
+
+The same copy by hand, if you'd rather not use the script:
+
+```powershell
+git -c core.autocrlf=false -c core.eol=lf archive --format=tar.gz -o "$env:TEMP\vv.tar.gz" HEAD
+scp "$env:TEMP\vv.tar.gz" "root@SERVER:/tmp/vv.tar.gz"
+ssh root@SERVER "rm -rf /srv/voxelventure-staging/incoming && mkdir -p /srv/voxelventure-staging/incoming && tar -xzf /tmp/vv.tar.gz -C /srv/voxelventure-staging/incoming && rm /tmp/vv.tar.gz"
+```
+
+**From a Mac, Linux or WSL shell:**
 
 ```sh
-# on your machine, from the project folder
 rsync -a --delete --exclude node_modules --exclude .next --exclude services/api/data --exclude artifacts --exclude .git \
   ./ root@SERVER:/srv/voxelventure-staging/incoming/
+```
 
-# on the server
-bash /srv/voxelventure-staging/incoming/deploy/staging.sh setup
+**SSH key:** if `ssh` asks for the root password each time, set up a key once. Run `ssh-keygen -t ed25519` on Windows, then add the contents of `~\.ssh\id_ed25519.pub` to `/root/.ssh/authorized_keys` on the server. Once key sign-in works, turn off password sign-in.
+
+## 2. Setup (once)
+
+Copy the project to the server (above), then run the setup from it:
+
+```powershell
+.\deploy\push.ps1 staging
+ssh root@SERVER "bash /srv/voxelventure-staging/incoming/deploy/staging.sh setup"
 ```
 
 `setup` does the following:
@@ -62,14 +91,13 @@ Read the three settings files before the first deploy. There is nothing to fill 
 
 ## 3. Deploy a release
 
-```sh
-# on your machine: the code you want on staging (a branch, or main before it goes to production)
-rsync -a --delete --exclude node_modules --exclude .next --exclude services/api/data --exclude artifacts --exclude .git \
-  ./ root@SERVER:/srv/voxelventure-staging/incoming/
+The code you want on staging: `main` before it goes to production, or a branch with `-Ref`:
 
-# on the server
-bash /srv/voxelventure-staging/incoming/deploy/staging.sh deploy
+```powershell
+.\deploy\push.ps1 staging -Deploy
 ```
+
+Or copy it any way from the section above, then run on the server: `bash /srv/voxelventure-staging/incoming/deploy/staging.sh deploy`.
 
 `deploy` does the following:
 1. Runs `check:env` on staging's settings.
@@ -185,4 +213,4 @@ Staging is where payments are tried before production takes a live key.
 | :--- | :--- | :--- | :--- |
 | | Rollback (section 5) | | |
 | | Production backup restored (section 6) | | |
-| | Journeys against staging (section 4) | | |
+| 2026-10-17 | Journeys against staging (section 4) | 41 of 41 milestones, all four journeys, in strict mode. The first run stopped at `malformed-input`: it read presence's `/status`, which Caddy rightly hides. It now checks what a watching player sees | |

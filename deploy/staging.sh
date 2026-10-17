@@ -127,7 +127,7 @@ cmd_setup() {
   echo
   echo "Done. Next (deploy/STAGING.md):"
   echo "  1. read $ETC/api.env, presence.env and web.env"
-  echo "  2. copy the project to $BASE/incoming/ (rsync, as for production), then: bash $BASE/incoming/deploy/staging.sh deploy"
+  echo "  2. deploy: from Windows  .\\deploy\\push.ps1 staging -Deploy  (or copy the project to $BASE/incoming/, then: bash $BASE/incoming/deploy/staging.sh deploy)"
 }
 
 cmd_deploy() {
@@ -152,8 +152,7 @@ cmd_deploy() {
   (
     cd "$rel"
     sudo -u voxel npm ci --no-audit --no-fund
-    set -a; . "$ETC/web.env"; set +a
-    sudo -E -u voxel npm run build
+    bash deploy/build-web.sh "$ETC/web.env" # with staging's addresses, checked to be in the build
   )
   mkdir -p "$rel/apps/web/.next/cache"
   chown -R voxel:voxel "$rel/apps/web/.next"

@@ -9,7 +9,6 @@ import { sleep } from '../helpers.mjs';
 
 const scenario = SCENARIOS.reconnectRecovery;
 const room = String(scenario.seed);
-const status = async (j) => (await fetch(`${j.stack.mpUrl.replace(/^ws/, 'http')}/status`)).json();
 
 await runJourney(scenario, { needs: { api: true, presence: true } }, async (j) => {
   const people = { ada: await merchantAgent(j, 'ada'), ben: await merchantAgent(j, 'ben') };
@@ -117,11 +116,19 @@ await runJourney(scenario, { needs: { api: true, presence: true } }, async (j) =
     await odd.expect('invalid', 'a malformed hello is answered invalid');
     odd.send(gameHello('Odd', room, 6, 6));
     await odd.expect('welcome', 'the same connection then says hello properly');
+    // what the server kept is seen as any player sees it: a watcher at the edge of the world, where a clamped x lands (the server's
+    // /status would show it too, but it is rightly private behind Caddy, so a journey on staging cannot read it)
+    const watcher = await presenceAgent(j, 'watcher', gameHello('Watcher', room, 1e5, 3));
     odd.send({ type: 'state', x: 1e12, z: 'north', yaw: null, moving: 'yes', veh: { kind: 'rocket' } });
     odd.send({ type: 'nonsense', anything: true });
-    await sleep(500);
-    const me = (await status(j)).players.find((p) => p.name === 'Odd');
-    j.expect(me && Math.abs(me.x) <= 1e5 && me.z === 0, 'out-of-range and wrong-typed positions are clamped, not taken', JSON.stringify(me && { x: me.x, z: me.z }));
+    let seen = null;
+    for (let i = 0; i < 30 && !seen; i++) {
+      seen = watcher.entered().find((p) => p.id === odd.id()) ?? null;
+      if (!seen) await sleep(100);
+    }
+    j.expect(seen && seen.x === 1e5 && seen.z === 0, 'out-of-range and wrong-typed positions are clamped, not taken (seen by a player beside the clamped spot)', JSON.stringify(seen && { x: seen.x, z: seen.z }));
+    j.expect(typeof seen.moving === 'boolean' && seen.veh === null, 'a wrong-typed "moving" is kept as a true/false, and a made-up vehicle is dropped', JSON.stringify({ moving: seen.moving, veh: seen.veh }));
+    watcher.close();
     odd.close();
   });
 
