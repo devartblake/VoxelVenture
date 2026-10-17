@@ -361,7 +361,7 @@ export function OnlineView() {
   return (
     <div className="text-slate-100">
       <p className="mb-2 text-[10px] uppercase tracking-wider text-slate-400">
-        {status === 'online' ? `Online · city #${room} · ${Math.max(1, online)} in the city` : status === 'connecting' ? 'Connecting…' : 'Server not reachable'}
+        {status === 'online' ? `Online · city #${room} · ${Math.max(1, online)} in the city` : status === 'connecting' ? 'Connecting…' : status === 'outdated' ? 'This game is out of date: reload the page' : 'Server not reachable'}
       </p>
       <ul className="mb-3 space-y-1 text-xs">
         <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-300" />{bound?.username ?? (name || 'You')} {bound && <BadgeCheck className="h-3 w-3 text-sx-cyan" aria-label="signed-in account" />}<span className="text-slate-500">(you)</span></li>

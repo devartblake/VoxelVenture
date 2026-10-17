@@ -281,7 +281,7 @@ function PilotFeedback({ slug, pilot, onChange }) {
   };
   const week = new Date(`${pilot.week}T00:00:00Z`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', timeZone: 'UTC' });
   return (
-    <div className="mt-4 rounded-xl border border-sx-cyan/40 bg-cyan-500/10 p-4">
+    <div className="mt-4 rounded-xl border border-sx-cyan/40 bg-cyan-500/10 p-4" data-testid="pilot-checkin">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="mr-auto text-sm font-semibold text-white">Pilot check-in · week of {week}</h3>
         {sent && !open && <button type="button" onClick={() => setOpen(true)} className="min-h-9 rounded-lg border border-sx-stroke px-3 text-sm text-slate-200 hover:bg-sx-alt">Change answers</button>}

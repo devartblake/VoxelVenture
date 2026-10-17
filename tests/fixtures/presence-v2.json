@@ -1,0 +1,60 @@
+{
+  "about": "Golden examples of presence protocol 2 (packages/shared-types/src/contracts/multiplayer-*-v2.js, docs/architecture/adr/0004-presence-protocol-contracts.md): at least one per message type, in the shapes lib/net/multiplayer.js and services/multiplayer/server.mjs use. tests/presence-contracts.test.mjs checks each against its contract.",
+  "client": {
+    "hello": [
+      { "type": "hello", "v": 2, "name": "Player-1234", "appearance": { "shirt": "shirt-red", "pants": "pants-navy", "hat": "hat-cap" }, "room": "20260101", "x": 12.5, "z": -40.25, "device": { "ua": "Mozilla/5.0", "screen": "390x844@3", "touch": true, "url": "/" } },
+      { "type": "hello", "name": "Bot1", "room": "default", "x": 0, "z": 0, "appearance": {}, "device": {} }
+    ],
+    "auth": [{ "type": "auth", "ticket": "t_8f2c1e9a0b7d" }],
+    "auth.clear": [{ "type": "auth.clear" }],
+    "state": [
+      { "type": "state", "x": 12.5, "z": -40.25, "yaw": 1.57, "moving": true, "emote": null, "veh": null },
+      { "type": "state", "x": 3, "z": 4, "yaw": 0, "moving": false, "emote": "wave", "veh": { "kind": "boat", "boatKind": "sailboat", "color": "#3b82f6" } }
+    ],
+    "parked": [{ "type": "parked", "cars": [{ "x": 10, "z": 2, "yaw": 3.14, "color": "#ef4444" }] }],
+    "profile": [{ "type": "profile", "name": "Amy", "appearance": { "shirt": "shirt-green" } }],
+    "chat.send": [{ "type": "chat.send", "clientMessageId": "c_0001-abcd", "channel": "nearby", "text": "Hello there" }],
+    "chat": [{ "type": "chat", "text": "hello there" }],
+    "perf": [{ "type": "perf", "fps": 58.3, "calls": 480, "triangles": 250000, "geometries": 300, "textures": 40 }],
+    "error": [{ "type": "error", "url": "/", "kind": "error", "message": "TypeError: x is undefined", "source": "app.js:10:5", "stack": "TypeError: x is undefined\n    at f", "count": 1 }]
+  },
+  "server": {
+    "welcome": [
+      { "type": "welcome", "protocol": 2, "id": 7, "online": 3, "view": 120, "features": { "chat": 2, "accounts": false, "guestChat": true, "chatMax": 140, "chatRadius": 60 } },
+      { "type": "welcome", "protocol": 2, "id": 8, "online": 1, "view": 120, "features": { "chat": 0, "accounts": true, "guestChat": false, "chatMax": 140, "chatRadius": 60 }, "account": { "id": 42, "username": "Amy" } }
+    ],
+    "snapshot": [
+      { "type": "snapshot", "players": [], "enter": [{ "id": 3, "name": "Bob", "appearance": { "shirt": "shirt-red", "pants": "", "hat": "" }, "x": 1.5, "z": 2, "yaw": 0, "moving": false, "emote": null, "veh": null, "parked": [], "account": null, "verified": false }] },
+      { "type": "snapshot", "players": [[3, 1.6, 2.1, 0.12, 1, 0, 0], [4, 10, 11, 3.14, 0, "wave", ["car", "rowboat", "#3b82f6"]]] },
+      { "type": "snapshot", "players": [], "exit": [3] }
+    ],
+    "online": [{ "type": "online", "n": 2, "dots": [[3, 2, 2], [4, 10, 12]] }, { "type": "online", "n": 1, "dots": [] }],
+    "parked": [{ "type": "parked", "id": 3, "cars": [{ "x": 10, "z": 2, "yaw": 3.14, "color": "#ef4444" }] }],
+    "profile": [{ "type": "profile", "player": { "id": 3, "name": "Bobby", "appearance": { "shirt": "", "pants": "", "hat": "" }, "x": 0, "z": 0, "yaw": 0, "moving": false, "emote": null, "veh": null, "parked": [], "account": 42, "verified": true } }],
+    "world": [{ "type": "world", "kind": "plots", "ids": ["12", "13"] }],
+    "chat": [{ "type": "chat", "id": 3, "messageId": "g1", "name": "Bob", "account": null, "verified": false, "text": "Hello there", "x": 1.5, "z": 2, "at": 1792000000000 }],
+    "chat.accepted": [{ "type": "chat.accepted", "clientMessageId": "c_0001-abcd", "messageId": "g1", "at": 1792000000000 }],
+    "chat.rejected": [{ "type": "chat.rejected", "clientMessageId": "c_0002-abcd", "code": "rate_limited", "message": "One message a second, please.", "retryAfterMs": 400 }],
+    "inbox.changed": [{ "type": "inbox.changed", "eventId": "17", "conversationId": "c_9" }],
+    "auth.ok": [{ "type": "auth.ok", "account": { "id": 42, "username": "Amy" } }],
+    "auth.failed": [{ "type": "auth.failed", "code": "unauthenticated", "message": "Sign in again." }],
+    "auth.revoked": [{ "type": "auth.revoked", "reason": "expired" }],
+    "invalid": [{ "type": "invalid", "of": "hello", "errors": ["$.room: expected string, got integer"] }],
+    "protocol.unsupported": [{ "type": "protocol.unsupported", "protocol": 2, "supported": [2], "message": "This server speaks presence protocol 2; reload the page to get the current game." }]
+  },
+  "invalid": {
+    "client": [
+      { "type": "hello", "room": 20260101 },
+      { "type": "hello", "v": "two", "room": "1" },
+      { "type": "auth" },
+      { "type": "chat.send", "clientMessageId": "short", "text": "hi" },
+      { "type": "parked", "cars": [{ "x": 1, "z": 1 }, { "x": 1, "z": 1 }, { "x": 1, "z": 1 }, { "x": 1, "z": 1 }] }
+    ],
+    "server": [
+      { "type": "snapshot", "players": [[3, 1, 2, 0, 2, 0, 0]] },
+      { "type": "snapshot", "players": [[3, 1, 2]] },
+      { "type": "chat.rejected", "clientMessageId": "x", "code": "too_loud", "message": "no" },
+      { "type": "welcome", "protocol": 2, "id": 1, "online": 1, "view": 120 }
+    ]
+  }
+}

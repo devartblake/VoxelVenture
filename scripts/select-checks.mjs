@@ -17,12 +17,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Files whose change means nothing to test: documentation and repository paperwork. (CREDITS.md is not one: a test checks it.)
 const DOCS = [/^docs\//, /^(?!CREDITS\.md$)[^/]*\.md$/i, /\/[^/]*\.md$/i, /^LICENSE/, /^\.github\/(pull_request_template\.md|dependabot\.yml)$/, /^\.gitignore$/, /^AGENTS\.md$/];
 // Files every test depends on: any change runs everything.
-const EVERYTHING = [/^package(-lock)?\.json$/, /^tests\/(helpers|run|browser-driver)\.mjs$/, /^tests\/fixtures\//, /^scripts\/lib-loader\.mjs$/, /^patches\//, /^vendor\//, /^apps\/web\/(next\.config\.mjs|jsconfig\.json|postcss\.config\.mjs)$/, /^\.github\/workflows\//, /^scripts\/select-checks\.mjs$/];
+const EVERYTHING = [/^package(-lock)?\.json$/, /^tests\/(helpers|run|browser-driver)\.mjs$/, /^tests\/fixtures\/(?!deterministic-pilot-city\.mjs$)/, /^scripts\/lib-loader\.mjs$/, /^patches\//, /^vendor\//, /^apps\/web\/(next\.config\.mjs|jsconfig\.json|postcss\.config\.mjs)$/, /^\.github\/workflows\//, /^scripts\/select-checks\.mjs$/];
 const CODE = /\.(js|jsx|mjs|cjs)$/;
 
 // Which tests read what: from each test file's own source, so a new test is covered without editing this file.
 function testIndex(dir = path.join(root, 'tests')) {
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.test.mjs')).map((f) => ({ file: f, src: fs.readFileSync(path.join(dir, f), 'utf8') }));
+  const suites = fs.readdirSync(dir).filter((f) => f.endsWith('.test.mjs')).map((f) => ({ file: f, src: fs.readFileSync(path.join(dir, f), 'utf8') }));
+  // the business journeys (tests/journeys/), named as tests/run.mjs runs them
+  const jdir = path.join(dir, 'journeys');
+  const journeys = fs.existsSync(jdir) ? fs.readdirSync(jdir).filter((f) => f.endsWith('.test.mjs')).map((f) => ({ file: `journeys/${f}`, src: fs.readFileSync(path.join(jdir, f), 'utf8') })) : [];
+  return [...suites, ...journeys];
 }
 const mentioning = (tests, re) => tests.filter((t) => re.test(t.src)).map((t) => t.file);
 
@@ -92,6 +96,8 @@ export function selectChecks(files, tests = testIndex()) {
     if (CODE.test(f) || /^eslint\.config\.mjs$/.test(f)) out.lint = true;
     if (EVERYTHING.some((re) => re.test(f))) all(f);
     else if (/^tests\/[^/]+\.test\.mjs$/.test(f)) add([path.basename(f)], f);
+    else if (/^tests\/journeys\/[^/]+\.test\.mjs$/.test(f)) add([`journeys/${path.basename(f)}`], f);
+    else if (/^tests\/agents\/|^tests\/fixtures\/deterministic-pilot-city\.mjs$/.test(f)) add([...tests.filter((t) => t.file.startsWith('journeys/')).map((t) => t.file), 'journey-runner.test.mjs'], `${f}: the journeys' agents and scenarios`);
     else if (/^lib\/.+\.(js|jsx)$/.test(f)) {
       // the tests that load the changed module or anything built on it; the server's tests if the server loads any of them; and the
       // end-to-end browser test (the game and the pages are built on lib/)
@@ -134,6 +140,12 @@ export function selectChecks(files, tests = testIndex()) {
     } else if (/^scripts\/[^/]+\.mjs$/.test(f)) add(mentioning(tests, new RegExp(path.basename(f).replace(/\./g, '\\.'))), f);
     else if (/^deploy\//.test(f)) add(mentioning(tests, /deploy\//), f);
     else all(`${f} (no rule for it)`);
+  }
+  // the business journeys (tests/journeys/) go through the pages, the API and the presence server end to end: a change to the product's
+  // code that needs the browser build test or a server's tests needs them too (a change to a test or a script does not)
+  const product = files.some((f) => /^(lib|packages|apps\/web\/(?!public\/)|services\/(api|multiplayer)|styles)/.test(f.replace(/\\/g, '/'))); // static assets (apps/web/public) are not
+  if (!out.all && product && [...out.tests].some((t) => t === 'live-browser.test.mjs' || SERVER_TESTS.test(tests.find((x) => x.file === t)?.src ?? ''))) {
+    add(tests.filter((t) => t.file.startsWith('journeys/') && !out.tests.has(t.file)).map((t) => t.file), 'the journeys cover the pages and the servers');
   }
   const install = out.all || out.lint || out.tests.size > 0;
   return { lint: out.lint || out.all, freeze: out.freeze, python: out.python || out.all, install, tests: out.all ? 'all' : [...out.tests].sort(), reasons: out.reasons };

@@ -36,7 +36,7 @@ export default function NearbyChat() {
   return (
     <div className="flex min-h-0 flex-col gap-2">
       <p className="text-[10px] text-slate-400">
-        {online ? `Players within about ${features?.chatRadius ?? 60} m of you hear you. Not saved: it is gone when you leave.` : status === 'connecting' ? 'Connecting to the city…' : 'Chat needs the multiplayer server.'}
+        {online ? `Players within about ${features?.chatRadius ?? 60} m of you hear you. Not saved: it is gone when you leave.` : status === 'connecting' ? 'Connecting to the city…' : status === 'outdated' ? 'This game is out of date: reload the page to chat.' : 'Chat needs the multiplayer server.'}
       </p>
       <ul ref={list} role="log" aria-live="polite" aria-relevant="additions" aria-label="Nearby chat" data-testid="chat-log" className="max-h-72 min-h-24 space-y-1.5 overflow-y-auto rounded-xl border border-sx-alt bg-sx-panel/50 p-2 text-[11px]">
         {shown.length === 0 && <li className="text-slate-500">Nobody has said anything yet. Walk up to someone and say hello.</li>}

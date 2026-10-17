@@ -41,13 +41,20 @@ const signup = async (username) => (await call('POST', '/auth/signup', { body: {
 let seq = 0;
 const cid = () => `test-${Date.now().toString(36)}-${++seq}`;
 
-// a game connection: says hello, keeps everything it is sent, and can wait for one kind of message
+// a game connection: says hello, keeps everything it is sent, and can wait for one kind of message. Every message the presence server
+// sends is also held to the protocol's contracts at the end (packages/shared-types, ADR 0004): signed-in identity, auth.revoked and
+// inbox.changed are only seen with a real API, which this test has.
+const presenceSeen = [];
 const connect = (name, room, x) =>
   new Promise((resolve) => {
     const s = new WebSocket(`ws://localhost:${mpPort}`);
     const c = { s, inbox: [], send: (m) => s.send(JSON.stringify(m)) };
     c.wait = async (pred, ms = 3000) => { for (let t = 0; t < ms; t += 50) { const hit = c.inbox.find(pred); if (hit) return hit; await sleep(50); } return null; };
-    s.on('message', (raw) => c.inbox.push(JSON.parse(raw.toString())));
+    s.on('message', (raw) => {
+      const m = JSON.parse(raw.toString());
+      c.inbox.push(m);
+      presenceSeen.push(m);
+    });
     s.on('open', () => { c.send({ type: 'hello', name, room, x, z: 0, appearance: {}, account: 1 }); setTimeout(() => resolve(c), 250); });
   });
 const authAs = async (c, who) => {
@@ -278,6 +285,12 @@ try {
   svc?.kill();
   await sleep(300);
   fs.rmSync(logDir, { recursive: true, force: true });
+}
+{
+  const { check: fits, presenceContract } = await import('@voxelventure/shared-types');
+  const misfits = presenceSeen.map((m) => ({ m, c: presenceContract('server', m) })).filter(({ m, c }) => !c || !fits(c, m).ok);
+  const kinds = new Set(presenceSeen.map((m) => m.type));
+  check(`every one of the ${presenceSeen.length} presence messages fits the protocol's contracts (with signed-in players)`, misfits.length === 0 && ['auth.ok', 'auth.revoked', 'inbox.changed'].every((t) => kinds.has(t)), misfits.slice(0, 3).map(({ m, c }) => `${m.type}: ${c ? fits(c, m).errors.join('; ') : 'not in the protocol'}`).join(' | ') || [...kinds].join(','));
 }
 if (fails) {
   console.log(`${fails} failed`);
