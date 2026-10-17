@@ -88,6 +88,11 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Speed:** about 1 ms a click.
   - **Tests:** `tests/pathfind.test.mjs` walks 180 clicks on three cities with the game's own movement.
   - **CI:** a world-freeze fix; the commit that adds the file needs a `World-freeze-exception:` line.
+- [x] **Presence protocol contracts** (Track B of the [adoption plan](../architecture/external_voxel_repositories_adoption_plan.md), [ADR 0004](../architecture/adr/0004-presence-protocol-contracts.md)):
+  - every protocol-2 message, in both directions, is a versioned contract in `packages/shared-types`;
+  - the presence server checks `hello` and `auth` against them, and answers a game speaking another protocol version, which then asks the player to reload;
+  - the tests hold the golden examples and the real traffic (with and without signed-in players) to the contracts;
+  - the load test shows no regression.
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
 - [x] **Music director, a SimCity-style soundtrack** (`lib/game/musicDirector.js`):
   - **What changed:** the music no longer changes with the zoom. Zooming used to cut the track, swap playlists and change the volume.

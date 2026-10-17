@@ -1,13 +1,18 @@
 // A small validator for the JSON-Schema subset the contracts use (docs/architecture/adr/0001-shared-package-boundaries.md):
 // type (one or a list: string, number, integer, boolean, object, array, null), enum, pattern, minLength, maxLength, minimum, maximum,
-// required, properties, additionalProperties (false: no other keys), items, minItems, maxItems. Plain JSON, so other languages (the
-// Python messaging service) can read the same contracts with a standard JSON-Schema library.
+// required, properties, additionalProperties (false: no other keys), items, prefixItems (a fixed-position array, a "tuple": the schema of
+// each position in turn), minItems, maxItems, and anyOf (one of several schemas). Plain JSON, so other languages (the Python messaging
+// service) can read the same contracts with a standard JSON-Schema library (prefixItems and anyOf are JSON Schema 2020-12).
 
 const typeOf = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : Number.isInteger(v) ? 'integer' : typeof v);
 const fits = (v, t) => (t === 'number' ? typeof v === 'number' && Number.isFinite(v) : t === typeOf(v)); // NaN and Infinity are not JSON numbers
 
 // Every problem with `value` against `schema`, as ["path: what is wrong"]. Empty when it fits.
 export function validate(schema, value, at = '$') {
+  if (schema.anyOf) {
+    const each = schema.anyOf.map((s) => validate(s, value, at));
+    if (!each.some((e) => e.length === 0)) return [`${at}: fits none of ${schema.anyOf.length} allowed shapes (${each.map((e) => e[0]).join('; ')})`];
+  }
   const errors = [];
   const types = schema.type == null ? null : [].concat(schema.type);
   if (types && !types.some((t) => fits(value, t))) return [`${at}: expected ${types.join(' or ')}, got ${typeOf(value)}`];
@@ -29,7 +34,8 @@ export function validate(schema, value, at = '$') {
   if (Array.isArray(value)) {
     if (schema.minItems != null && value.length < schema.minItems) errors.push(`${at}: fewer than ${schema.minItems} items`);
     if (schema.maxItems != null && value.length > schema.maxItems) errors.push(`${at}: more than ${schema.maxItems} items`);
-    if (schema.items) value.forEach((v, i) => errors.push(...validate(schema.items, v, `${at}[${i}]`)));
+    if (schema.prefixItems) schema.prefixItems.forEach((s, i) => i < value.length && errors.push(...validate(s, value[i], `${at}[${i}]`)));
+    if (schema.items) value.forEach((v, i) => i >= (schema.prefixItems?.length ?? 0) && errors.push(...validate(schema.items, v, `${at}[${i}]`)));
   }
   return errors;
 }

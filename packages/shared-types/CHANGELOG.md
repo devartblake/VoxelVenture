@@ -1,5 +1,18 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.4.0 (2026-10-17)
+
+The presence protocol, protocol 2, as contracts ([ADR 0004](../../docs/architecture/adr/0004-presence-protocol-contracts.md)):
+
+- `PRESENCE_CLIENT`: 10 message types a game sends, `presence.client.<type>`. `hello`, `auth` and `auth.clear` are marked `strict`: the server checks them on arrival.
+- `PRESENCE_SERVER`: 15 message types the server sends, `presence.server.<type>`. Two are new: `invalid` (a `hello` that does not fit) and `protocol.unsupported` (a `hello` in another version).
+- `PRESENCE_PROTOCOL` (2): the server's protocol number now comes from here.
+- `presenceContract(from, message)`: finds the contract of a message.
+- `API_CONTRACTS`: the 15 API contracts. `CONTRACTS` now holds those and the presence ones.
+- The validator gained `prefixItems` (fixed-position arrays) and `anyOf`, both JSON Schema 2020-12.
+
+No existing message changed shape, so protocol-2 clients keep working.
+
 ## 0.3.0 (2026-10-17)
 
 New contracts, all version 1:

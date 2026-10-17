@@ -1,7 +1,7 @@
 # External Voxel Repository Adoption and Implementation Plan
 
 **Date:** 2026-10-17  
-**Status:** Proposed implementation plan  
+**Status:** Proposed implementation plan. **Track B (realtime protocol contracts) is implemented** ([ADR 0004](adr/0004-presence-protocol-contracts.md)); the other tracks are proposals.  
 **Repository baseline:** `main` at `699cdb3f2ca4016bb224c4c8e9348493acd2bdad`  
 **Related roadmap:** [Tasks](../roadmap/tasks.md), [alignment status](../roadmap/alignment_status.md), [world-expansion freeze](../roadmap/world_freeze.md)  
 **Related architecture:** [Modular monorepo migration plan](modular_monorepo_migration_plan.md), [ADR 0001](adr/0001-shared-package-boundaries.md)
@@ -371,6 +371,7 @@ The scenario format must not contain production credentials or real customer dat
 
 ## 7. Implementation Track B — Realtime protocol contracts
 
+**Status:** implemented, 2026-10-17 ([ADR 0004](adr/0004-presence-protocol-contracts.md)); see 7.7.  
 **Priority:** P0/P1  
 **Freeze status:** Allowed; security and reliability  
 **Recommended timing:** Before broader public multiplayer
@@ -435,6 +436,24 @@ If an abuse-sensitive action is introduced later:
 - Protocol version changes are recorded in a changelog.
 - Current protocol-v2 clients retain compatibility.
 - No measurable regression occurs in the presence load test.
+
+### 7.7 What was implemented
+
+| Acceptance criterion | How it is met |
+| --- | --- |
+| Client and server fixtures validate against the same contracts | `packages/shared-types/src/contracts/multiplayer-client-v2.js` and `multiplayer-server-v2.js` cover all 25 message types (10 from the game, 15 from the server). `tests/fixtures/presence-v2.json` holds golden examples, at least one per type, plus broken ones that must fail. `tests/presence-contracts.test.mjs` checks them all |
+| An incompatible message-shape change fails CI | `tests/presence-contracts.test.mjs` starts a real presence server and holds every message it sends to its contract. `tests/messaging.test.mjs` does the same with signed-in players and the API (113 messages). Both tests also check, from the source, that the client sends and handles exactly the protocol's types |
+| Protocol version changes are recorded in a changelog | `packages/shared-types/CHANGELOG.md` (0.4.0). The server's `PROTOCOL` comes from `PRESENCE_PROTOCOL` in the same package |
+| Current protocol-v2 clients retain compatibility | No message shape changed. A `hello` without a `v` is still taken to be protocol 2, and fields a contract does not list are allowed |
+| No measurable regression in the presence load test | 500 clients, 20 s, before and after: average tick 22.28 ms and 21.65 ms, processor 31.3% and 32.7% of a core, no connections lost |
+
+Per 7.4:
+
+- `hello` and `auth` are checked strictly when they arrive. A `hello` that does not fit is answered `invalid`, with what is wrong; an `auth` without a ticket gets `auth.failed` / `bad_request`, and the API is not asked.
+- A `hello` in another protocol version is answered `protocol.unsupported` and closed with code 4002. The game then stops reconnecting and tells the player to reload.
+- The many-times-a-second messages keep the server's existing clamping.
+
+The shared validator gained `prefixItems` (fixed-position arrays, for the compact snapshot entries) and `anyOf`. Both are standard JSON Schema 2020-12.
 
 ## 8. Implementation Track C — Mobile interaction and rendering efficiency
 
@@ -837,7 +856,7 @@ Any Voxelize adoption proposal must include:
 | PR | Scope | Risk | Timing |
 | --- | --- | --- | --- |
 | 1 | Document plan and decisions | Low | Now |
-| 2 | Realtime protocol-v2 contracts and fixture validation | Low–medium | Before pilot |
+| 2 | ✅ Realtime protocol-v2 contracts and fixture validation (done, ADR 0004) | Low–medium | Before pilot |
 | 3 | Extract reusable browser/presence agents from existing tests | Medium | Before pilot |
 | 4 | Add deterministic pilot journeys and sanitized artifacts | Medium | Before pilot |
 | 5 | Central performance capability profile and measurements | Medium | During pilot preparation |
@@ -913,16 +932,26 @@ For every third-party-derived addition:
 
 ## 16. Proposed code-folder evolution
 
-The repository already has an approved incremental modularization plan. The following changes extend it without forcing an immediate move of the Next.js application or services.
+The modular-monorepo plan's Phase C has since moved the runtime into its target layout ([ADR 0003](adr/0003-apps-and-services.md), 2026-10-17):
+
+| Path | What is there |
+| --- | --- |
+| `apps/web/` | The Next.js app |
+| `services/api/` | The Node API |
+| `services/multiplayer/` | The presence server |
+| `lib/`, `packages/`, `styles/` | Shared code, at the root |
+
+The trees below are drawn in that layout. The tracks of this document add folders to it; none of them moves an existing one.
 
 ### 16.1 Near-term structure: before and during pilot
 
 ```text
 VoxelVenture/
-├── apps/web/app/                              # unchanged Next.js routes
-├── apps/web/components/
-│   ├── city/                         # existing world renderer; performance edits only
-│   └── ui/                           # existing UI and touch controls
+├── apps/web/
+│   ├── app/                          # unchanged Next.js routes
+│   └── components/
+│       ├── city/                     # existing world renderer; performance edits only
+│       └── ui/                       # existing UI and touch controls
 ├── lib/
 │   ├── content/
 │   │   ├── propCatalog.js            # existing generated catalog
@@ -932,22 +961,23 @@ VoxelVenture/
 │   │   ├── qualityPolicy.js          # proposed rendering decisions
 │   │   └── visibilityPolicy.js       # proposed pause/throttle rules
 │   └── net/
-│       └── multiplayer.js            # current client, using shared contracts
+│       └── multiplayer.js            # current client, speaking the shared protocol contracts
 ├── packages/
 │   ├── shared-types/
 │   │   └── src/contracts/
-│   │       ├── multiplayer-client-v2.js
-│   │       ├── multiplayer-server-v2.js
+│   │       ├── multiplayer-client-v2.js   # done (Track B)
+│   │       ├── multiplayer-server-v2.js   # done (Track B)
 │   │       ├── test-scenario.js
 │   │       └── world-customization-v1.js
 │   ├── analytics/                    # unchanged
 │   └── business-core/                # unchanged
-├── server/
-│   └── multiplayer.mjs               # current service, no rewrite
+├── services/
+│   └── multiplayer/
+│       └── server.mjs                # current service, no rewrite (checks hello and auth against the contracts)
 ├── tests/
 │   ├── agents/                       # reusable headless actors
 │   ├── journeys/                     # business-oriented scenarios
-│   └── fixtures/                     # deterministic, sanitized fixtures
+│   └── fixtures/                     # deterministic, sanitized fixtures (presence-v2.json: the golden protocol examples)
 ├── scripts/
 │   └── load-test-presence.mjs        # retained
 └── docs/
@@ -960,17 +990,18 @@ The customization contract may be defined before the feature is enabled, but no 
 
 ```text
 VoxelVenture/
-├── apps/web/app/
-│   └── (owner)/...                   # owner-facing customization route
-├── apps/web/components/
-│   ├── customization/
-│   │   ├── CustomizerShell.jsx
-│   │   ├── AssetPalette.jsx
-│   │   ├── SlotInspector.jsx
-│   │   ├── BuildingPreview.jsx
-│   │   └── PublishStatus.jsx
-│   └── city/
-│       └── CustomizationRenderer.jsx
+├── apps/web/
+│   ├── app/
+│   │   └── (owner)/...               # owner-facing customization route
+│   └── components/
+│       ├── customization/
+│       │   ├── CustomizerShell.jsx
+│       │   ├── AssetPalette.jsx
+│       │   ├── SlotInspector.jsx
+│       │   ├── BuildingPreview.jsx
+│       │   └── PublishStatus.jsx
+│       └── city/
+│           └── CustomizationRenderer.jsx
 ├── packages/
 │   ├── shared-types/
 │   ├── business-core/
@@ -980,7 +1011,7 @@ VoxelVenture/
 │           ├── assets/
 │           ├── customization/
 │           └── adjacency/
-├── server/
+├── services/
 │   └── api/
 │       └── ...                       # existing API modules gain draft/review routes
 └── tests/
@@ -989,9 +1020,9 @@ VoxelVenture/
     └── visual/
 ```
 
-### 16.3 Eventual Phase C layout
+### 16.3 The Phase C layout (done)
 
-The existing modular-monorepo plan remains authoritative for later relocation:
+The layout the modular-monorepo plan aimed for, now in place:
 
 ```text
 VoxelVenture/
@@ -1005,14 +1036,15 @@ VoxelVenture/
 │   ├── shared-types/
 │   ├── business-core/
 │   ├── analytics/
-│   └── world-core/
+│   └── world-core/                   # still P2: not created yet
+├── lib/                              # shared by the app, the servers and the tests
 ├── tests/
 ├── scripts/
 ├── deploy/
 └── docs/
 ```
 
-Do not perform this relocation merely to implement the recommendations in this document. Build and validate the feature boundaries first; relocate in separate PRs after deployment and pilot work is stable.
+The relocation was done in its own pull requests (ADR 0002 and ADR 0003), apart from this document's feature work, as section 5 asks. Keep it that way: no track here moves folders.
 
 ## 17. GAP analysis
 
@@ -1025,7 +1057,7 @@ The following analysis compares the recommended target with the current project 
 | Asset manifest | Technical, legal, placement, moderation, and fallback metadata | Generated catalog has geometry, dimensions, size, class, URL | Missing normalized license, slot, LOD/fallback, usage-policy, moderation fields | P1 | Add metadata overlay and shared asset contract |
 | Browser agents | Reusable visitor, merchant, resilience, and realtime actors | Strong live-browser journey plus socket tests | Helpers are not a general scenario/agent framework; limited staged journey matrix | P0 | Extract reusable agents and deterministic scenarios |
 | Multiplayer load agents | Protocol-aware, reusable agents tied to acceptance budgets | Synthetic 500-client presence load test exists | Load test focuses on presence throughput, not full auth/reconnect/business journeys | P0/P1 | Reuse presence actor, add auth/reconnect/slow-client scenarios |
-| Realtime schemas | Executable, versioned client/server contracts | Well-documented JSON protocol v2 with manual validation | Message shapes are not all represented in `shared-types` contracts | P0 | Add protocol-v2 contracts and fixture parity tests |
+| Realtime schemas | Executable, versioned client/server contracts | **Done (Track B):** every protocol-2 message has a contract in `shared-types`. The server checks `hello` and `auth` against them and answers another protocol version. Tests hold golden examples and the real traffic to them | None for protocol 2 | Done | Keep the contracts and the CHANGELOG in step with every protocol change |
 | Interest management | Proximity/district scoped updates | Grid-based proximity, maximum visible, compact deltas already implemented | No material pre-pilot gap | Maintain | Keep and certify with load budgets |
 | Server authority | Authority for abuse-sensitive and commercial actions | Commercial data authoritative in API; positions remain client-reported by design | Movement cannot prove location; acceptable while no rewards depend on it | Conditional | Add scoped authority only when a protected action requires it |
 | Deterministic demos | Repeatable seeds and milestone assertions | Seeded city, deep links, diagnostic routes, browser fixtures | No formal reusable scenario contract or sales/pilot tour manifest | P1 | Add versioned scenario fixtures and pilot tour definitions |
@@ -1036,14 +1068,14 @@ The following analysis compares the recommended target with the current project 
 | WASM meshing | Only if profiling proves geometry bottleneck | Three.js/React Three Fiber with static batches | No evidence of a meshing bottleneck | Deferred | Profile first; write ADR before any spike |
 | Rust authoritative server | Only if Node cannot meet certified requirements | Node server with interest management, limits, telemetry, and load testing | No demonstrated gap | Deferred | Keep Node until evidence justifies migration |
 | Third-party licensing | Automated provenance, credits, policy checks | Credits system and license tests already exist | External additions need source-specific review; Tiny is AGPL | P0 governance | Extend admission checklist and prohibit unreviewed copies |
-| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics`, and `business-core` exist; root apps/web/app/services retained | `world-core`, agent/journey folders, performance policy modules not present | Incremental | Add only as each approved slice begins |
+| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics` and `business-core` exist. The runtime moved to its target layout in separate PRs (`apps/web/`, `services/api/`, `services/multiplayer/`; ADR 0002, ADR 0003) | `world-core`, agent/journey folders and performance policy modules are not present | Incremental | Add only as each approved slice begins |
 | Commercial validation | Customization and scaling decisions supported by customer data | Phase 6 pilot tooling exists; external-feature demand unvalidated | No customer evidence that a builder increases payment or renewal | Highest product gap | Run pilot before customizer/engine expansion |
 
 ## 18. Gap conclusions
 
 ### Gaps that should be closed before the pilot
 
-1. Realtime message contracts.
+1. ✅ Realtime message contracts (Track B).
 2. Reusable deterministic visitor and merchant journeys.
 3. Staging-capable browser and reconnect evidence.
 4. A documented performance budget and centralized capability policy.
@@ -1071,8 +1103,8 @@ These may be technically interesting, but the current product does not need them
 ## 19. Immediate next actions
 
 1. Approve or revise the adoption boundaries in this document.
-2. Create an ADR for executable multiplayer protocol contracts.
-3. Implement protocol-v2 contracts under `packages/shared-types`.
+2. ✅ Create an ADR for executable multiplayer protocol contracts ([ADR 0004](adr/0004-presence-protocol-contracts.md)).
+3. ✅ Implement protocol-v2 contracts under `packages/shared-types`.
 4. Extract reusable agent helpers from existing browser and presence tests.
 5. Add deterministic pilot journey fixtures.
 6. Establish mobile and desktop performance budgets from real-device evidence.

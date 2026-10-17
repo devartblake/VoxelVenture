@@ -14,6 +14,15 @@ Protocol 2 is interest management:
 - **Back-pressure** as before: a client whose connection is backed up is skipped until it catches up.
 - `/status` now has a `load` block: time per tick against the 100 ms budget (average, 95th, worst), processor use, event-loop delay, bytes and messages a second, memory. The monitor page can show it; the load test reads it.
 
+## The messages, as contracts
+
+Every protocol-2 message has an executable contract in `packages/shared-types` (`PRESENCE_CLIENT`, `PRESENCE_SERVER`; [ADR 0004](adr/0004-presence-protocol-contracts.md)):
+
+- **Strict checks:** the server checks `hello` and `auth` against them as they arrive. A `hello` that does not fit is answered `invalid`.
+- **Versions:** a `hello` whose `v` is not 2 is answered `protocol.unsupported` and closed (code 4002). The game then stops reconnecting and asks for a reload.
+- **Tests:** they hold the server's real messages to the contracts, so a shape change fails CI.
+- **Changes:** each protocol change goes in `packages/shared-types/CHANGELOG.md`.
+
 ## Measured
 `node scripts/load-test-presence.mjs --clients N`: pretend players walk about the city (a quarter stand still, 60% gather in four busy places, so most see a full 40). The bots and the server shared one development laptop, so the server is slightly worse off than on its own machine.
 
