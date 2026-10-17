@@ -1,8 +1,17 @@
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { apiOn, request } from '@/lib/data/api';
 
 // Shown instead of the 3D city when the browser cannot draw it (no WebGL: an old device, a locked-down browser, or graphics switched off).
 // Everything a visitor came for is still one link away on the plain business pages (review gap 4: an accessible non-WebGL fallback).
+// A link to one building (/b/12, ?plot=12) that has a business page leads to that page instead.
 export default function NoWebGL() {
+  const [business, setBusiness] = useState(null);
+  useEffect(() => {
+    const plot = new URLSearchParams(window.location.search).get('plot');
+    if (!apiOn() || !/^\d{1,6}$/.test(plot ?? '')) return;
+    request('GET', `/plots/${plot}`).then((p) => p.profileSlug && setBusiness({ slug: p.profileSlug, title: p.title }), () => {});
+  }, []);
   return (
     <main id="main" className="h-dvh overflow-y-auto bg-sx-page px-4 py-10 text-sx-text">
       <div className="mx-auto max-w-xl">
@@ -13,6 +22,7 @@ export default function NoWebGL() {
         <h1 className="mt-6 text-3xl font-bold text-white">The 3D city cannot open in this browser</h1>
         <p className="mt-3 text-slate-300">It needs WebGL, which this browser or device has switched off or does not support. You can still find every business, its page and its offers without it.</p>
         <ul className="mt-6 space-y-3">
+          {business && <li><Link href={`/business/${business.slug}`} className="block rounded-xl bg-sx-purple px-5 py-3 text-center font-semibold text-white hover:bg-violet-400" data-testid="nowebgl-business">Open {business.title}&apos;s page</Link></li>}
           <li><Link href="/discover" className="block rounded-xl bg-sx-cyan px-5 py-3 text-center font-semibold text-slate-950 hover:bg-cyan-300">Discover businesses</Link></li>
           <li><Link href="/business/new" className="block rounded-xl border border-sx-stroke px-5 py-3 text-center font-semibold text-slate-100 hover:border-sx-cyan">List your business free</Link></li>
         </ul>

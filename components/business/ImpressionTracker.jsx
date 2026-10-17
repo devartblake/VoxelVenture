@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { apiOn, request } from '@/lib/data/api';
-import { visitorId } from '@/lib/data/sync';
+import { visitorId } from '@/lib/data/visitor';
 
 const SEEN_MS = 1000; // a card counts as seen once at least half of it has been on screen for a second
 const SEND_EVERY_MS = 4000;

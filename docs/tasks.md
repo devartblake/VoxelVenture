@@ -1,6 +1,6 @@
 # Tasks: what is done and what is left
 
-Written for: you, to plan the next stage. Status on 2026-10-15: `npm test` passes all 59 of its suites (live-browser included, which also does a production build). The 60th, the real-browser test (`npm run test:browser`), was last run before this update. Details of each item are in [project_status.md](project_status.md) (section numbers in brackets).
+Written for: you, to plan the next stage. Status on 2026-10-17: `npm test` passes all 74 of its suites, including live-browser, which also does a production build and follows a visitor from Discover into the 3D storefront. The 75th, the real-browser test (`npm run test:browser`), needs a machine with a GPU: in a software-rendered container its fixed waits time out. Details of each item are in [project_status.md](project_status.md) (section numbers in brackets).
 
 > **World-expansion freeze (from 2026-10-16).** New world content and simulation systems are on hold until the commercial pilot is validated; fixes, performance, accessibility and commercial work continue. Items marked ⏸ are deferred. See [world_freeze.md](world_freeze.md) and the [competitive alignment review](claimavenue_competitive_alignment_review.md); `npm run check:freeze` flags new files in the world's folders.
 
@@ -64,11 +64,11 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 ### 1. Backend and live data (the next big piece)
 | # | Task | Size | Depends on |
 | :-: | :--- | :-: | :--- |
-| 1 | Choose the stack and sign-in method (Supabase and Stripe were the plan) | 0.5 | **Needs you** |
+| 1 | Choose the host and domain. The stack is settled: the Node API with SQLite, its own accounts and Stripe ([hosting_stack_payments.md](hosting_stack_payments.md)) | 0.5 | **Needs you** |
 | 2 | ✅ Database: plots, owners, ledger, events and ad slots (`docs/backend.md`) | 3 | 1 |
-| 3 | ✅ Accounts and atomic claim / take-over (Gold on the server still to do) | 4 | 2 |
+| 3 | ✅ Accounts and atomic claim / take-over (Gold on the server still to do: it comes before the Gold-only 1.25x take-over, [takeover_payouts.md](takeover_payouts.md)) | 4 | 2 |
 | 4 | ✅ Event logging (visits, clicks with a source) and the stats, history and directory endpoints | 3 | 2 |
-| 5 | ✅ The game claims, takes over, buys ad spaces and sends events through the server; sign-in only on claim; 15-second sync. Still to do: instant push, and the card's stats/history from the server | 2 | 3, 4 |
+| 5 | ✅ The game claims, takes over, buys ad spaces and sends events through the server; sign-in only on claim; 15-second sync. Changes are pushed at once through the presence server, and the card's statistics and history come from the server | 2 | 3, 4 |
 | 6 | ✅ Payments (Stripe): Launch Pack, Pro (with offers), sponsored placements, leases (claim, take-over, renewal) and market stalls; webhooks, reconciliation, refunds ([billing.md](billing.md)). Not planned: buying Gold, and the real-money 1.25x payout until legal, tax and fraud review | 4 | 3, **needs you** (Stripe account, terms) |
 | 7 | ✅ Moderation: word filter, optional outside service for images, reports with auto-hide, admin queue, bans (`npm run moderate`) | 2 | 3 |
 | 8 | ✅ Email: confirmations, take-over notices, Plot of the Day newsletter (outbox, webhook or file transport; needs a real mail service key to deliver to the world) | 2 | 3 |
@@ -119,7 +119,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | 33 | ✅ Draw the waypoint route on the corner mini-map | done (`components/ui/MiniMap.jsx`) |
 | 34 | ⏸ Stream the 3D scene by area (only the map is culled today) | see `study_world_streaming.md` |
 | 35 | Run `live-browser` and a docs/test pass for the world map on phones (pinch, touch) | needs a device |
-| 36 | Checkout, meeting scheduling and the creator asset marketplace from `voxelventure_idea_01.md` | needs outside services |
+| 36 | 🟡 From `voxelventure_idea_01.md`: meeting and quote requests, newsletter sign-ups and purchase tracking are done ([conversions.md](conversions.md)). Still to do: an in-store checkout, a calendar booking service (Cal.com) and the creator asset marketplace | needs outside services |
 | 37 | Pascal viewer backdrop is grey and the cut view shows dither dots; no setting found, may need a patch | polish |
 | 38 | Next 16.4.2 is out; the project stays on 16.4.0 for now | your choice when to upgrade |
 | 40 | Chat launch checks (plan phase 4): load test with chat traffic, backup / restore of the new tables, metrics, a rollback run; then phone keyboards on real devices, timed chat restrictions, a moderator audit trail | 2-3 days, then a device |
@@ -133,11 +133,11 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 ClaimAvenue is a static, single-player directory of buildings bought at 1.25x. VoxelVenture's edge is that it is a place: people walk, drive, meet, and a business can convert visitors inside its building. The list is ordered by how much each item widens that gap, then by how much it blocks everything after it. "You" means it needs your decision or an account.
 
 **A. Make the differences real for outside users (do first)**
-1. Go live (the deployment kit is ready in `deploy/`: Caddyfile, systemd units, settings templates, setup and backup scripts and a runbook, untested on a real server; you still choose the host and domain): choose the stack and host (task 1, you), deploy the API and presence server, make claims authoritative, and move the building card's visits, history and ranks from the simulated provider to the server (`live_data.md`).
-2. Payments (task 6, you): Stripe checkout for claims, take-overs and leases, receipts, refunds and the 1.25x payout to the old owner.
-3. In-app conversion kiosks (`voxelventure_idea_01.md` 1.2): single-product checkout, newsletter sign-up (Beehiiv/ConvertKit) and a meeting scheduler (Cal.com) inside the storefront. This is the clearest functional gap with ClaimAvenue, which only redirects.
+1. Go live (the deployment kit is ready in `deploy/`: Caddyfile, systemd units, settings templates, setup and backup scripts and a runbook, untested on a real server; you still choose the host and domain): choose the stack and host (task 1, you), deploy the API and presence server. Claims are already authoritative, and the building card's figures already come from the server (`live_data.md`); what is left is the deployment itself.
+2. ✅ Payments (task 6): Stripe Checkout for claims, take-overs, leases, market stalls and the business plans, with receipts and refunds ([billing.md](billing.md)). The 1.25x payout to the old owner stays a Gold-only game rule ([takeover_payouts.md](takeover_payouts.md)). Still needs you: the Stripe account and the terms.
+3. 🟡 In-app conversion (`voxelventure_idea_01.md` 1.2): newsletter sign-ups, meeting and quote requests, coupons with redemption, and purchase tracking are done ([conversions.md](conversions.md)). Still to do: single-product checkout inside the storefront, and a calendar booking service (Cal.com).
 4. Real mail delivery (a mail service key) for confirmations, lease notices and the newsletter.
-5. Put the local-only features on the server: rented mall stores, shared billboard slots, the pop-up market bookings (market has its API), so they count for everyone.
+5. Put the last local-only features on the server, so they count for everyone: rented mall stores, shared billboard slots, and Gold. Market bookings are already on the server, and paid.
 
 **B. Deepen what only a game can do**
 6. 🟡 **Brand-specific interiors: started.** Done: the furniture menu follows the business type (essentials first, "show all" for the rest), brand-coloured walls with an accent back wall, hotspots, and a price list with a business-worth formula that stays at zero until you set prices ([interiors_fixtures.md](interiors_fixtures.md)). **Left:** your prices and rules for what items cost and how they change a business's worth, brand logo signs and props, mini-games, hosted WASM game demos.
@@ -179,7 +179,7 @@ Re-ordered on 2026-10-16 to follow the [competitive alignment review](claimavenu
 1. ✅ **Phase 1, freeze world expansion** ([world_freeze.md](world_freeze.md)): deferred items marked ⏸; stability, performance and accessibility work continues (tasks 25, 29, 30, 32, 35, 37).
 2. ✅ **Phase 2, business-first funnel** ([business_funnel.md](business_funnel.md); built, not yet tried with real businesses): free business profile, public indexable pages (`/discover`, `/business/[slug]`, `/district/[slug]`, `/category/[slug]`) with Open Graph images and structured data, CTA selection, share and referral attribution, owner onboarding, value-linked upgrade prompts. The 3D building becomes an optional destination linked from the profile.
 3. 🟡 **Phase 3, authoritative production data** ([authoritative_data.md](authoritative_data.md); the code is done, the deploy and its verification need you): decide task 1 (stack, host, sign-in; **needs you**), deploy the API (priority A1), server-owned claims and leases, verified statistics only (no simulated figures in owner dashboards), ads, market bookings, moderation and audit records.
-4. 🟡 **Phase 4, low-risk monetisation** ([billing.md](billing.md); the code is done; the Stripe account and terms need you): Stripe Checkout with webhook idempotency for a $9 Launch Pack, $19/month Pro, fixed-term sponsored placements, market bookings and leases (task 6, without the real-money 1.25x payout until legal, tax and fraud review).
+4. ✅ **Phase 4, low-risk monetisation** ([billing.md](billing.md); done in code; the Stripe account and terms need you): Stripe Checkout with webhook idempotency for a $9 Launch Pack, $19/month Pro, fixed-term sponsored placements, market bookings and leases (task 6, without the real-money 1.25x payout until legal, tax and fraud review).
 5. ✅ **Phase 5, conversion measurement** ([conversions.md](conversions.md)): meeting and quote requests on the profile, impressions, qualified visits, store entries, coupon redemptions and purchases credited by click id, the funnel with cost per result on the dashboard, and the renewal rate.
 6. **Phase 6, constrained pilot:** 10-20 businesses in two districts for four weeks; the freeze lifts if it meets the criteria in [world_freeze.md](world_freeze.md#when-it-lifts).
 7. Alongside all of these (the review's P0 list): ✅ CI (`.github/workflows/ci.yml`: build, lint, tests, `check:freeze`) and Dependabot; **needs you:** a protected `main` with the CI check required, secret scanning, and privacy, refund, advertising and placement terms. Item-by-item status: [alignment_status.md](alignment_status.md).

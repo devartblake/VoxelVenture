@@ -75,7 +75,7 @@ Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The
 
 ## What it does not do yet
 - **Payments and Gold on the server** (task 6): with Stripe set up, claims, take-overs, renewals and market stalls are paid through Stripe Checkout ([billing.md](billing.md)). Without Stripe, a claim records its price in the ledger but charges nothing. The server's Credits move only through visit quests and their budgets; nothing is bought with money, and the game's own Gold stays local.
-- **Realtime:** done for ownership and ad changes (push from the API through the presence server). The building card's statistics and history still come from the simulated provider, not the server's `/stats` and `/history` (the fetch functions exist in `liveData.js`).
+- **Realtime:** done for ownership and ad changes (push from the API through the presence server). With a server, the building card's statistics and history come from `/plots/<id>/stats` and `/plots/<id>/history` (`lib/data/liveStats.js`); the simulated provider is used only without one.
 - Automatic image moderation needs an outside service (the hook is there); until one is set up, pictures are caught by reports. Production needs HTTPS, a real `API_ORIGIN`, backups of the database file (or Postgres), and a longer-lived session store.
 
 Tests: `tests/api.test.mjs` starts its own server and runs about 50 checks (seeding, directory, sign-up and login rules, claim validation, the 10-way race, take-over, edit rights, events and statistics, body and rate limits).

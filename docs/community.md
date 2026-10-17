@@ -22,7 +22,7 @@ Finding all three daily gold stars (`POST /hunt/complete`, checked to be today a
 The fourth avenue district (formerly Agency Boulevard) is now **The Bazaar**: e-commerce and merchandise, mostly shops, orange, with names like Crate Shop and Trade Emporium. The pop-up market is "in The Bazaar".
 
 ## Not built (needs outside services)
-Checkout (Stripe, Lemon Squeezy), meeting scheduling (Cal.com) and the creator asset marketplace; see `voxelventure_idea_01.md`.
+An in-store checkout, calendar booking (Cal.com) and the creator asset marketplace; see `voxelventure_idea_01.md`. Stripe payments for leases, stalls and business plans are built ([billing.md](billing.md)), and so are meeting and quote requests ([conversions.md](conversions.md)).
 
 ## Tests
 `tests/rules.test.mjs` (the shared rules), `tests/community.test.mjs` (proof of human, skyline, leases, voting against a real server), and the existing `api`, `engage`, `live`, `stats` tests, which now ping presence before sending events and end a lease (admin call) before a take-over.

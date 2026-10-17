@@ -6,7 +6,7 @@ Written for: anyone picking up the project (you, a new developer, or a collabora
 
 A playable, browser-based isometric city in the spirit of ClaimAvenue (the "Million Dollar Homepage" as a virtual boulevard). Players walk a voxel avatar around a procedurally generated commercial city (or drive a car, or sail a boat and fish), claim plots, put up a business (title, link, building type, interior), and advertise on billboards and on **banners towed by planes**. Anyone can take over a business for **1.25×** its value; the old owner is paid out and moves to the Old Town suburb. The idea, the market read on ClaimAvenue and the product pillars are in [voxelventure_blueprint.md](voxelventure_blueprint.md).
 
-Today it is a complete single-player game with local saves, plus LAN multiplayer for avatars and nearby chat. There is a **backend** (accounts, claiming, events, statistics, leases, voting, market, chat and private messages; see [backend.md](backend.md)) that the game uses when `NEXT_PUBLIC_LIVE_API_URL` is set; payments and real mail delivery are not connected (section 7, [tasks.md](tasks.md)). Press **M** for the world map ([world_map.md](world_map.md)).
+Today it is a complete single-player game with local saves, plus LAN multiplayer for avatars and nearby chat. There is a **backend** (accounts, claiming, events, statistics, leases, voting, market, chat and private messages; see [backend.md](backend.md)) that the game uses when `NEXT_PUBLIC_LIVE_API_URL` is set. With Stripe keys, payments run through Stripe Checkout ([billing.md](billing.md)). Real mail delivery still needs a mail service key ([tasks.md](tasks.md)). Businesses also get fast public pages that work without 3D: Discover, a page per business, and category and district pages ([business_funnel.md](business_funnel.md)). Press **M** for the world map ([world_map.md](world_map.md)).
 
 ## 2. Run it
 
@@ -28,7 +28,7 @@ Today it is a complete single-player game with local saves, plus LAN multiplayer
 
 `dev:all` does not start the API. To try accounts, the inbox and signed-in chat locally, also run `npm run api` and set `NEXT_PUBLIC_LIVE_API_URL` (the API's address) for the web app, `MP_API_URL` for the multiplayer server, `MP_NOTIFY_URL` for the API, and the same `MP_NOTIFY_SECRET` on both servers ([../server/README.md](../server/README.md)).
 
-Pages: `/` the city, `/b/<id>` a short link that opens the city on one building, `/admin` the client monitor, `/editor` the city editor ([city_editor.md](city_editor.md)), `/viewer` (the Pascal scene viewer used for interiors), `/land`, `/pricing` and `/models` (development tools: free land and new streets, land prices, the model preview), `/curves` and `/reference` (road research). Add `?diag=1` to the city address to enable the `window.__vv*` debugging hooks (they are always on in development).
+Pages: `/` the city; the public business pages `/discover`, `/business/<slug>`, `/category/<id>` and `/district/<id>`, plus `/business/new` and `/business/manage` for owners; `sitemap.xml` and `robots.txt`; `/b/<id>` a short link that opens the city on one building; `/admin` the client monitor, `/editor` the city editor ([city_editor.md](city_editor.md)), `/viewer` (the Pascal scene viewer used for interiors), `/land`, `/pricing` and `/models` (development tools: free land and new streets, land prices, the model preview), `/curves` and `/reference` (road research). Add `?diag=1` to the city address to enable the `window.__vv*` debugging hooks (they are always on in development).
 
 ## 3. The city (how it is generated)
 
@@ -66,7 +66,12 @@ Concurrency measures: view-radius filtering (120 units), duplicate snapshots ski
 
 ## 6. Testing
 
-`tests/` holds the suites (all pass): `topology` (roads, junctions, river, lakes over many seeds), `lots-and-walking` (lots, reachability on foot, hunt and park access), `diagonal`, `estates`, `parks`, `landscape`, `flight` (planes, banners), `malls` (the two mega malls and their stores), `logos` (roof banner logos), `plotinfo` (the building card's figures), `vehicles` (cars, boats and fishing), `traffic` and `traffic-stress`, `multiplayer`, and `browser` (console errors, draw calls, clicking plots, regenerating and claiming, the joystick, every panel view and dragging it, the monitor). The browser test caught the crash behind a player's `refCleanup` report and the Play-view crash. There are 61 test files now; the newer ones include the server suites (`api`, `engage`, `community`, `market-api`, `stats`, `live`), `messaging` (chat and private messages against both servers) and `credits` (the Credits panel and `CREDITS.md` agree). `live-browser` also runs chat between two signed-in browsers.
+`tests/` holds the suites (all pass): `topology` (roads, junctions, river, lakes over many seeds), `lots-and-walking` (lots, reachability on foot, hunt and park access), `diagonal`, `estates`, `parks`, `landscape`, `flight` (planes, banners), `malls` (the two mega malls and their stores), `logos` (roof banner logos), `plotinfo` (the building card's figures), `vehicles` (cars, boats and fishing), `traffic` and `traffic-stress`, `multiplayer`, and `browser` (console errors, draw calls, clicking plots, regenerating and claiming, the joystick, every panel view and dragging it, the monitor). The browser test caught the crash behind a player's `refCleanup` report and the Play-view crash. There are 75 test files now. The newer ones include:
+
+- The server suites: `api`, `engage`, `community`, `market-api`, `stats` and `live`.
+- The business and payment suites: `business-api`, `billing`, `billing-game` and `conversions`.
+
+The others include `messaging` (chat and private messages against both servers) and `credits` (the Credits panel and `CREDITS.md` agree). `live-browser` also runs chat between two signed-in browsers.
 
 ## 6b. Development tools
 
@@ -74,7 +79,20 @@ The **reserved-site designer** (click an amber "Reserved: your road & plot" area
 
 ## 7. What is next
 
-The full list of what is done and what is left, with sizes and dependencies, is in **[tasks.md](tasks.md)**. In short: the game is feature-rich and fully tested as a single-player (plus LAN presence) experience; the backend is built ([backend.md](backend.md)); what remains is going live (payments, real mail delivery, chat's launch checks in [chat_messaging_plan.md](chat_messaging_plan.md), hosting: see [hosting_stack_payments.md](hosting_stack_payments.md) and [live_data.md](live_data.md)), the bigger authored world with an island, ocean and shipping yard ([study_world_streaming.md](study_world_streaming.md)), and real-device checks.
+The full list of what is done and what is left, with sizes and dependencies, is in **[tasks.md](tasks.md)**. In short, phases 1 to 5 of the [competitive alignment review](claimavenue_competitive_alignment_review.md) are done in code ([alignment_status.md](alignment_status.md)):
+
+- the world-expansion freeze
+- the free business funnel with public pages
+- authoritative server data
+- Stripe payments
+- conversion measurement
+
+What remains:
+
+- **Going live:** choosing the host and domain, then setting up the Stripe account, the terms and a real mail service ([hosting_stack_payments.md](hosting_stack_payments.md), [live_data.md](live_data.md)). Chat's launch checks are in [chat_messaging_plan.md](chat_messaging_plan.md).
+- **The pilot** with real businesses (phase 6).
+- **Real-device checks.**
+- **The bigger authored world** with an island, ocean and shipping yard ([study_world_streaming.md](study_world_streaming.md)). It waits for the pilot under the [world freeze](world_freeze.md).
 
 ## 8. Where things are
 

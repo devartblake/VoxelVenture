@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { apiOn, request } from '@/lib/data/api';
-import { visitorId } from '@/lib/data/sync';
+import { visitorId } from '@/lib/data/visitor';
 import { newClickId, withClickId } from '@/lib/business/conversions';
 import { trackCta } from './ProfileTracker';
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { BUSINESS_DISTRICTS, CATEGORIES } from '@/lib/business/profile';
-import { getFeatured, isDemo, listBusinesses } from '@/lib/business/source';
+import { BUSINESS_DISTRICTS, CATEGORIES, listJsonLd } from '@/lib/business/profile';
+import { getFeatured, isDemo, listBusinesses, siteUrl } from '@/lib/business/source';
 import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 
 export async function generateMetadata({ searchParams }) {
@@ -9,6 +9,8 @@ export async function generateMetadata({ searchParams }) {
     title: q ? `“${String(q).slice(0, 40)}” businesses | VoxelVenture` : 'Discover businesses | VoxelVenture',
     description: 'Find independent businesses, creators and digital projects by category and district, then step inside their 3D storefronts.',
     alternates: { canonical: '/discover' },
+    openGraph: { title: 'Discover businesses on VoxelVenture', description: 'Independent businesses, creators and digital projects, with free pages and 3D storefronts.', url: '/discover', type: 'website', siteName: 'VoxelVenture' },
+    twitter: { card: 'summary_large_image', title: 'Discover businesses on VoxelVenture' },
     robots: isDemo() || q ? { index: false, follow: true } : undefined,
   };
 }
@@ -20,6 +22,7 @@ export default async function Discover({ searchParams }) {
   const [{ total, profiles }, featured] = await Promise.all([listBusinesses({ q, limit: 30 }), q ? { sponsored: [], launches: [] } : getFeatured('discover')]);
   return (
     <>
+      {!q && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: listJsonLd({ name: 'Discover businesses on VoxelVenture', description: 'Independent shops, studios, software and creators, with free pages and 3D storefronts.', url: `${siteUrl()}/discover` }, profiles, siteUrl()) }} />}
       <section className="mb-8">
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Discover businesses</h1>
         <p className="mt-2 max-w-2xl text-slate-300">Independent shops, studios, software and creators. Every business has a free page; many have a 3D storefront you can step inside.</p>

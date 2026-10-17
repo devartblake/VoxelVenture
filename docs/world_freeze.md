@@ -2,7 +2,7 @@
 
 Status: **in force from 2026-10-16.** Phase 1 of the [competitive alignment review](claimavenue_competitive_alignment_review.md#recommended-implementation-sequence).
 
-The 3D city is far ahead of the business it is meant to support: there is no working payment, no subscription, no referral attribution and no public business page. Until the commercial loop is proven, the world stops growing. The world is kept healthy, but nothing new is added to it.
+When the freeze began, the 3D city was far ahead of the business it is meant to support: there was no working payment, no subscription, no referral attribution and no public business page. (All of these now exist: phases 2 to 5, [alignment_status.md](alignment_status.md).) Until the commercial loop is proven, the world stops growing. The world is kept healthy, but nothing new is added to it.
 
 ## What is frozen
 
@@ -59,5 +59,7 @@ The freeze ends when the constrained pilot (phase 6 of the review) meets its suc
 At that point the deferred tasks above return to the backlog in the review's P2 order (authored world content, then vehicles and environmental systems, the creator marketplace, multiplayer scale, and advanced resale or takeover mechanics after legal review). Remove the folder list from `lib/dev/worldFreeze.js` (or delete the check) in the same change that records the decision here.
 
 ## What comes next
+
+Update, 2026-10-17: phases 2 to 5 are done in code ([alignment_status.md](alignment_status.md)). Next is the phase 6 pilot, whose results decide when the freeze lifts (see above). The original plan for phase 2 follows.
 
 Phase 2 builds the business-first funnel on top of what already exists (directory, dashboard, deep links, leases): free business profiles, public indexable pages (`/discover`, `/business/[slug]`, `/district/[slug]`, `/category/[slug]`), CTA selection, referral attribution, owner onboarding and value-linked upgrade prompts. The engineering backlog (P0, P1) is in the [review](claimavenue_competitive_alignment_review.md#immediate-engineering-backlog).
