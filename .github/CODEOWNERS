@@ -1,0 +1,37 @@
+# Who must review changes to the security-sensitive parts (docs/voxelventure_core_concept_reassessment_2026-10-17.md, "Repository governance").
+# GitHub asks these owners for a review on every pull request that touches a matching path; with branch protection's "Require review from
+# Code Owners" switched on, it cannot merge without one. Later lines win over earlier ones for the same file.
+
+# Billing and money: Stripe checkout, webhooks, refunds, reconciliation, plans and prices
+/server/api/billing.mjs          @devartblake
+/lib/business/plans.js           @devartblake
+
+# Accounts, sign-in, sessions, bans and the audit trail
+/server/api/core.mjs             @devartblake
+/server/api/audit.mjs            @devartblake
+/server/api/moderation.mjs       @devartblake
+/lib/state/accountStore.js       @devartblake
+
+# Attribution and conversion measurement: referral signing, conversion keys, verified figures
+/server/api/business.mjs         @devartblake
+/server/api/conversions.mjs      @devartblake
+/lib/business/conversions.js     @devartblake
+/lib/business/referral.js        @devartblake
+
+# The database schema and its upgrades, and the API's routing and internal (service-to-service) routes
+/server/api/schema.sql           @devartblake
+/server/api/db.mjs               @devartblake
+/server/api/server.mjs           @devartblake
+/server/api/config.mjs           @devartblake
+
+# Messaging: identity on the presence server, private messages, the Python service
+/server/multiplayer.mjs          @devartblake
+/server/api/messaging.mjs        @devartblake
+/services/messaging/             @devartblake
+
+# Deployment, secrets templates, CI and repository settings
+/deploy/                         @devartblake
+/.github/                        @devartblake
+/patches/                        @devartblake
+/package.json                    @devartblake
+/package-lock.json               @devartblake

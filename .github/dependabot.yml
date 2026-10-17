@@ -12,12 +12,6 @@ updates:
       pascal:
         patterns:
           - '@pascal-app/*'
-    ignore:
-      # eslint-plugin-react supports eslint up to 9 only; take eslint 10 when the plugin does (check its peerDependencies).
-      - dependency-name: eslint
-        update-types: ['version-update:semver-major']
-      - dependency-name: '@eslint/js'
-        update-types: ['version-update:semver-major']
   - package-ecosystem: pip
     directory: /services/messaging
     schedule:
