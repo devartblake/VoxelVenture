@@ -40,6 +40,12 @@ chown -R voxel:voxel "$APP/services/api/data" "$APP/services/multiplayer/logs" "
 for f in api presence web messaging; do
   [ -f "/etc/voxelventure/$f.env" ] || cp "$APP/deploy/env/$f.env.example" "/etc/voxelventure/$f.env"
 done
+# The secrets: each still-CHANGE_ME one gets a long random value, the same in every file that names it (MP_NOTIFY_SECRET,
+# IP_SALT, ADMIN_TOKEN and INTERNAL_SECRET are shared between files and must match). Values already set are left alone.
+for name in ADMIN_TOKEN IP_SALT MP_NOTIFY_SECRET REFERRAL_SECRET INTERNAL_SECRET; do
+  value=$(openssl rand -hex 32)
+  sed -i -E "s/^(# ?)?$name=CHANGE_ME.*/\1$name=$value/" /etc/voxelventure/*.env
+done
 chown root:voxel /etc/voxelventure/*.env
 chmod 640 /etc/voxelventure/*.env
 
@@ -66,7 +72,8 @@ CRON
 
 echo
 echo "Done. Next:"
-echo "  1. edit /etc/voxelventure/api.env, presence.env and web.env (secrets, your domain)"
+echo "  1. read /etc/voxelventure/api.env, presence.env and web.env (secrets are filled in; add mail and Stripe when ready),"
+echo "     then: cd $APP && sudo -u voxel npm ci && npm run check:env -- /etc/voxelventure/api.env /etc/voxelventure/web.env"
 echo "  2. cd $APP && sudo -u voxel npm ci && set -a && . /etc/voxelventure/web.env && set +a && sudo -E -u voxel npm run build"
-echo "  3. put your domain in deploy/Caddyfile, copy it to /etc/caddy/Caddyfile, then: systemctl reload caddy"
+echo "  3. put a caddy hash-password hash in deploy/Caddyfile, copy it to /etc/caddy/Caddyfile, then: systemctl reload caddy"
 echo "  4. systemctl start voxelventure-api voxelventure-presence voxelventure-web"

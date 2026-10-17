@@ -10,15 +10,42 @@ A runbook for one server running everything: the web app, the API and the presen
 | `env/*.env.example` | The settings for each process (copied to `/etc/voxelventure/`) |
 | `backup.sh` | A consistent copy of the database (and the messaging service's, once it has one), kept for 14 days, optionally uploaded with rclone |
 
+The files are filled in for **voxelventure.app** (the game), **api.voxelventure.app** (the API) and **play.voxelventure.app** (presence), with `www.voxelventure.app` and `voxelventure.net` redirecting to the game. Only the secrets are left as `CHANGE_ME`.
+
 ## What you need first
-- A Linode (Shared CPU 4 GB to start) running Ubuntu 24.04, with your SSH key.
-- A domain with three DNS A records pointing at the server: `example.com` (the game), `api.example.com` and `play.example.com` (presence).
+- A Linode (Shared CPU 4 GB to start, about $24 a month) running Ubuntu 24.04, with your SSH key and Backups switched on (about $5 a month). Note its IPv4 address (and IPv6, if you want AAAA records too).
+- The DNS records below, made at GoDaddy (Domain > DNS > Add New Record), each pointing at the Linode. Make them before step 5: Caddy asks for the certificates as soon as it starts.
 - A Cloud Firewall in the Linode dashboard: allow 80 and 443 to everyone and SSH (22) from your own address only.
+
+### DNS at GoDaddy
+
+| Domain | Type | Name | Value | What for |
+| :--- | :--- | :--- | :--- | :--- |
+| voxelventure.app | A | `@` | the Linode's IPv4 | the game |
+| voxelventure.app | A | `api` | the Linode's IPv4 | the API |
+| voxelventure.app | A | `play` | the Linode's IPv4 | presence (WebSockets) |
+| voxelventure.app | A | `www` | the Linode's IPv4 | redirects to voxelventure.app |
+| voxelventure.net | A | `@` | the Linode's IPv4 | redirects to voxelventure.app |
+| voxelventure.net | A | `www` | the Linode's IPv4 | redirects to voxelventure.app |
+
+- Delete GoDaddy's default "Parked" `@` A record and any `www` CNAME first, or the new ones conflict.
+- Do not use GoDaddy's own "Forwarding" for voxelventure.net: Caddy does the redirect, with HTTPS. Without the `.net` or `www` records, remove those names from the last block of the `Caddyfile`.
+- `dig +short api.voxelventure.app` (or https://dnschecker.org) shows when a record has spread; usually minutes, at most a few hours.
+- Optional: the same records as AAAA with the Linode's IPv6.
+
+### Email
+- **Your inbox** (hello@voxelventure.app), e.g. Zoho Mail's free plan: add the domain there and copy the MX, SPF (TXT) and DKIM (TXT) records it shows into GoDaddy's DNS for voxelventure.app.
+- **The game's own mail** (sign-in codes, notices, receipts) through Resend: add voxelventure.app at resend.com, copy its DNS records (on a `send` subdomain, so they do not clash with Zoho's), wait until it says verified, then in `api.env` uncomment `MAIL_FROM`, `MAIL_WEBHOOK_URL=https://api.resend.com/emails` and put the API key in `MAIL_WEBHOOK_TOKEN`.
+- Only one SPF (TXT `v=spf1 ...`) record per name. Resend's is on `send`, Zoho's on `@`, so they do not meet; if another service later wants `@` too, merge it into Zoho's line.
+- Add a DMARC record too: TXT `_dmarc` with `v=DMARC1; p=none; rua=mailto:hello@voxelventure.app`.
+
+### Payments (when you are ready to charge)
+In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/billing/webhook`, with the events in [docs/monetization/billing.md](../docs/monetization/billing.md). Put the secret key and the endpoint's signing secret in `api.env`. A live key also needs `TERMS_URL=https://voxelventure.app/legal/terms` and `REFUND_POLICY_URL=https://voxelventure.app/legal/refunds`, and those policies need the `NEXT_PUBLIC_LEGAL_*` lines in `web.env` filled in.
 
 ## First deployment
 1. **Copy the project** to `/srv/voxelventure` (without `node_modules`, `.next` or `services/api/data`), e.g. `rsync -a --exclude node_modules --exclude .next --exclude services/api/data ./ root@SERVER:/srv/voxelventure/`.
 2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`.
-3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env`: your domain, and a long random value for `ADMIN_TOKEN`, `IP_SALT`, `MP_NOTIFY_SECRET` and `REFERRAL_SECRET` (`openssl rand -hex 32`, a different one each; the notify secret must be the same in `api.env` and `presence.env`). `API_SEED` must match the game's seed. `presence.env` also needs the same `IP_SALT` as `api.env`, and `TRUST_PROXY=1`. Network addresses are only ever kept as that salted hash, and behind Caddy the presence server must read each player's address from `X-Forwarded-For`, or everyone shares one per-network connection limit. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
+3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env` (the addresses are already voxelventure.app). `setup.sh` has already put a long random value in `ADMIN_TOKEN`, `IP_SALT`, `MP_NOTIFY_SECRET`, `REFERRAL_SECRET` and `INTERNAL_SECRET`, a different one each and the same one in every file that shares it; to change one by hand, use `openssl rand -hex 32` and change it in every file it appears in. `API_SEED` must match the game's seed. `presence.env` also needs the same `IP_SALT` as `api.env`, and `TRUST_PROXY=1`. Network addresses are only ever kept as that salted hash, and behind Caddy the presence server must read each player's address from `X-Forwarded-For`, or everyone shares one per-network connection limit. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
    Then **check them**: `cd /srv/voxelventure && sudo -u voxel npm ci && npm run check:env -- /etc/voxelventure/api.env /etc/voxelventure/web.env` must say `ok` for both (it lists anything still a placeholder, too short, a test setting, or not https). The API checks the same again when it starts and **refuses to start in production** until they are fixed (`journalctl -u voxelventure-api` says why).
 4. **Install and build**, with the web settings loaded (the `NEXT_PUBLIC_` addresses are fixed into the build):
    ```
@@ -28,14 +55,14 @@ A runbook for one server running everything: the web app, the API and the presen
    sudo -E -u voxel npm run build
    ```
    `npm ci` also runs `patch-package`, which applies the fixes in `patches/`: copy that folder with the rest.
-5. **Caddy:** put your domain in `deploy/Caddyfile`, make a password hash with `caddy hash-password` for the monitor page, copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`.
+5. **Caddy:** the domain is already in `deploy/Caddyfile`; make a password hash with `caddy hash-password` for the monitor page, copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`.
 6. **Start everything:** `systemctl start voxelventure-api voxelventure-presence voxelventure-web`.
 7. **Check it:**
-   - `curl https://api.example.com/health` returns `{"ok":true,...}`
-   - `curl https://play.example.com/health` returns `{"ok":true,...}`
-   - Open `https://example.com`: you should be able to look around without signing in, and sign-in appears only when you claim something.
+   - `curl https://api.voxelventure.app/health` returns `{"ok":true,...}`
+   - `curl https://play.voxelventure.app/health` returns `{"ok":true,...}`
+   - Open `https://voxelventure.app`: you should be able to look around without signing in, and sign-in appears only when you claim something.
    - `journalctl -u voxelventure-api -f` (and `-presence`, `-web`) show the logs.
-   - **Verify the data is authoritative:** `npm run verify:live -- --api https://api.example.com --site https://example.com --admin-token <ADMIN_TOKEN>` must end `all checks passed`. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
+   - **Verify the data is authoritative:** `npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app --admin-token <ADMIN_TOKEN>` must end `all checks passed`. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
 
 ## Updating
 ```
@@ -45,7 +72,7 @@ sudo -u voxel npm ci
 set -a; . /etc/voxelventure/web.env; set +a
 sudo -E -u voxel npm run build
 systemctl restart voxelventure-api voxelventure-presence voxelventure-web
-npm run verify:live -- --api https://api.example.com --site https://example.com --admin-token <ADMIN_TOKEN>
+npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app --admin-token <ADMIN_TOKEN>
 ```
 The API upgrades the database in place when it starts (new columns are added). Take a backup first: `sudo -u voxel voxelventure-backup`.
 
@@ -73,7 +100,7 @@ The app is in `apps/web/`, and the servers are in `services/api/` and `services/
 - **Node version.** `setup.sh` installs Node 22 (it leaves a newer Node in place). The API uses Node's built-in SQLite (`node:sqlite`); the service file passes `--experimental-sqlite --no-warnings`, as `npm run api` does. Older Node 22 releases need the flag; Node 24, which the development machine runs, works without it, and the flag does no harm. I tried switching to `better-sqlite3` for production, but its native build crashed on the development machine, so it was not adopted: if you want it, install it on the Linode itself, run the API tests (`node tests/run.mjs api engage community stats`), and change only `services/api/db.mjs`.
 - **What is public.** Caddy serves the game, the API and the presence connection; `/status` and `/notify` on the presence server are hidden from outside, and the `/admin` monitor page (which reads `/status` through `/mp-status`) is behind a password. Without the monitor, set `ADMIN_TOKEN` and use the admin endpoints only from your machine. `/notify-accounts` on the presence server and everything under `/internal/` on the API are for the processes on this machine to call each other: they refuse anything without their secret (`MP_NOTIFY_SECRET`, or `INTERNAL_SECRET` for the messaging service), and the `Caddyfile` also answers 404 to them from outside.
 - **Email.** Until `MAIL_WEBHOOK_URL` is set, notices are only written to files in `services/api/data/outbox`: nothing is delivered.
-- **Payments.** The Launch Pack, Pro and sponsored placements go through Stripe once `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are set. Point the Stripe webhook at `https://<api host>/billing/webhook` with the events listed in [docs/monetization/billing.md](../docs/monetization/billing.md). With the keys set, claims, take-overs, lease renewals and market stalls also go through Stripe Checkout. Without them, everything works as before, for free.
+- **Payments.** The Launch Pack, Pro and sponsored placements go through Stripe once `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are set. Point the Stripe webhook at `https://api.voxelventure.app/billing/webhook` with the events listed in [docs/monetization/billing.md](../docs/monetization/billing.md). With the keys set, claims, take-overs, lease renewals and market stalls also go through Stripe Checkout. Without them, everything works as before, for free.
 - **Watch bandwidth.** Presence sends nearby players about ten times a second. Check `/admin` (through the password) and the Linode transfer graph during the first busy days.
 
 ## Moving messaging to the Python service (not done yet)
