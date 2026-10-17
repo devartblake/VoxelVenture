@@ -8,7 +8,10 @@
   - Prices, plans, profile rules and the conversion funnel moved behind compatibility adapters.
   - 15 versioned contracts are tested against the live API.
   - No public API changed.
-- **Phase C (application and service separation):** step 1 done on the branch `phase-c/workspaces`, not yet merged: workspaces, imports by `@voxelventure/*` name, adapters retired ([ADR 0002](adr/0002-workspaces.md)). Steps 2 to 5 (moving the app and the servers) wait for staging and Stripe certification (section 6); see "Phase C readiness" below.
+- **Phase C (application and service separation):**
+  - **Step 1** is merged: workspaces, imports by `@voxelventure/*` name, adapters retired ([ADR 0002](adr/0002-workspaces.md)).
+  - **Steps 2 to 5** are done on the branch `phase-c/apps-services`: `apps/web/`, `services/api/` and `services/multiplayer/`, with the tests, CI and deploy files ([ADR 0003](adr/0003-apps-and-services.md)).
+  - **Merging:** held until the staging deploy has been rehearsed, by the owner's choice. Steps 2 to 5 (moving the app and the servers) wait for staging and Stripe certification (section 6); see "Phase C readiness" below.
 - **Phase D:** a proposal.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
@@ -51,7 +54,7 @@ VoxelVenture/
 └── README.md
 ```
 
-**Important:** This is a *target* tree, not a claim that these paths currently exist. In particular, `services/messaging/` already exists and should remain stable; `services/api/`, `services/multiplayer/`, and `apps/web/` are prospective moves.
+**Important:** This is a *target* tree. `services/messaging/` existed before the migration and stays as it is. `packages/` (shared-types, business-core, analytics) exists since Phase B. `apps/web/`, `services/api/` and `services/multiplayer/` exist on the `phase-c/apps-services` branch ([ADR 0003](adr/0003-apps-and-services.md)) until it is merged. `world-core` is still P2. `lib/` and `styles/` stay at the root, shared by the app, the servers and the tests.
 
 ## 2. Recommended migration priorities
 
@@ -70,7 +73,7 @@ VoxelVenture/
 
 ### 3.1 Root-level Next.js application
 
-`package.json` currently uses root-relative scripts including `next dev`, `next build`, `next start`, `node server/api/server.mjs`, `node server/multiplayer.mjs`, `node tests/run.mjs`, and `node scripts/dev-all.mjs`. It also runs `patch-package` on postinstall.
+`package.json` currently uses root-relative scripts including `next dev`, `next build`, `next start`, `node services/api/server.mjs`, `node services/multiplayer/server.mjs`, `node tests/run.mjs`, and `node scripts/dev-all.mjs`. It also runs `patch-package` on postinstall.
 
 Moving the web application into `apps/web/` affects package installation, lockfile ownership, asset paths, Next.js configuration, patch handling, test execution, scripts, and deployment working directories. Do not move it without a reproducible build and migration plan.
 
@@ -196,7 +199,7 @@ Introduce `packages/shared-types/`, `packages/business-core/`, and `packages/ana
 
 **Referral rules:** the pure part is shared: the shape of a code (`isRefCode`) and share links (`profileUrl`) are in `business-core`. Two parts stay where they are by design:
 
-- **Signing a code** needs the server's secret and Node's `crypto`. It stays in `server/api/business.mjs`; a package would put the signing code where no secret should be.
+- **Signing a code** needs the server's secret and Node's `crypto`. It stays in `services/api/business.mjs`; a package would put the signing code where no secret should be.
 - **Keeping a code in the browser** uses `localStorage`. It stays in `lib/business/referral.js`.
 
 **World modules** (`world-core`) are P2 and wait for the commercial gates, like the world freeze.
@@ -224,12 +227,16 @@ Step 1 was taken early, by the owner's choice, because it moves no runtime paths
 - **CI:** `scripts/select-checks.mjs` follows imports by package name.
 - **To merge:** run `npm install` after pulling, so the names resolve.
 
-What the rest of Phase C needs, once the gates allow, in its own branch and pull requests:
+The rest of Phase C, done on the branch `phase-c/apps-services` ([ADR 0003](adr/0003-apps-and-services.md)) and held until the staging deploy has been rehearsed:
 
 1. ✅ **Workspace tooling** (the branch above): npm workspaces for `packages/*`, so `@voxelventure/*` names resolve. Then the relative `../../packages/...` imports and the `lib/` adapters can go.
-2. **`apps/web/`:** the Next.js app moves there with `next.config.mjs`, `jsconfig.json`, `postcss.config.mjs`, `public/` and `patches/`. `patch-package` runs from the right root.
-3. **`services/api/` and `services/multiplayer/`:** the Node servers move without any rewrite. `deploy/systemd`, `deploy/Caddyfile` and the backup script take the new paths.
-4. **The rest follows:** `scripts/lib-loader.mjs`, `scripts/select-checks.mjs`, `tests/`, the CI workflow and the `deploy/` runbook are updated in the same change, with a full CI and browser run.
+2. ✅ **`apps/web/`:** the app moved with `app/`, `components/`, `public/`, `next.config.mjs`, `jsconfig.json` and `postcss.config.mjs`.
+   - `patches/`, the lockfile and `node_modules` stay at the root, so `patch-package` runs as before.
+   - `turbopack.root` and `outputFileTracingRoot` are the repository root, and `@/lib/*` maps to `../../lib/*`.
+   - `npm run dev`, `build` and `start` pass `apps/web` to Next.
+3. ✅ **`services/api/` and `services/multiplayer/`:** the Node servers moved without a rewrite. The API's data is in `services/api/data/`, and the presence server is `services/multiplayer/server.mjs` with its log in `logs/`. The systemd units, `setup.sh`, `backup.sh` and the settings templates take the new paths. The Caddyfile needed no change (it proxies ports, not paths).
+4. ✅ **The rest follows:** `scripts/select-checks.mjs`, the world-freeze paths, `tests/`, `CODEOWNERS`, the Python parity test and the docs are updated. The lib-loader and the CI workflow needed no change. The full suite, including the production build, passes on the branch.
+5. **To prove before merging:** a staging deploy of the branch with `deploy/README.md`, then the move of any existing data folders, as in ADR 0003's consequences.
 
 ### Phase C — Application and service separation (P2)
 
@@ -320,11 +327,12 @@ The subtotal assumes an experienced developer, existing tests and manageable con
   - contracts for meeting and quote requests and for the pilot.
 - [x] Phase B, the last contracts: coupon claims and redemptions, and the pixel (15 contracts in all). **Phase B is complete.**
 - [x] Phase C step 1: workspaces and imports by package name, on the branch `phase-c/workspaces` (to review and merge).
-- [ ] Phase C steps 2 to 5 (`apps/web/`, `services/api/`, `services/multiplayer/`), after staging and Stripe certification (see "Phase C readiness").
+- [x] Phase C steps 2 to 5 (`apps/web/`, `services/api/`, `services/multiplayer/`), done on the branch `phase-c/apps-services` ([ADR 0003](adr/0003-apps-and-services.md)).
+- [ ] Merge `phase-c/apps-services` after a staging deploy of it (then Phase D, integration certification).
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation.
 
 ## 10. Final recommendation
 
 **Yes, apply the structure selectively.** Organize docs now, create shared contracts next, and move the runtime only when there is a clear maintainability or deployment payoff. This achieves cleaner ownership and easier AI-agent collaboration while preserving VoxelVenture's competitive differentiators and minimizing risk to commercial launch.
 
-**Phases A and B are done (see their sections). Phases C and D are still proposals.**
+**Phases A and B are done. Phase C is done, steps 2 to 5 on a branch held for the staging rehearsal. Phase D is still a proposal.**

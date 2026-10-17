@@ -2,17 +2,17 @@
 
 ## What is built
 - **The clock** (`lib/game/dayCycle.js`): one day is 24 real minutes (one city hour is a real minute), computed from the UTC clock, so every player sees the same sky without a server. With a game server, the client asks `/health` (now returns `now`) once and corrects a wrong device clock (`clockOffset`).
-- **The lights** (`components/city/DayNight.jsx`): ambient, sun and a fill light follow keyframes by the hour. Noon is exactly the old look. The sun rises in the east, crosses the south and sets in the west, so shadows move; its shadow is switched off at night. Night is dark blue moonlight, dawn and dusk are warm.
-- **Street lamps** (`components/city/nightLights.js`): the lamp heads of straight, diagonal and curved roads share one material, so the baked road meshes follow it: dim by day, bright at night.
+- **The lights** (`apps/web/components/city/DayNight.jsx`): ambient, sun and a fill light follow keyframes by the hour. Noon is exactly the old look. The sun rises in the east, crosses the south and sets in the west, so shadows move; its shadow is switched off at night. Night is dark blue moonlight, dawn and dusk are warm.
+- **Street lamps** (`apps/web/components/city/nightLights.js`): the lamp heads of straight, diagonal and curved roads share one material, so the baked road meshes follow it: dim by day, bright at night.
 - **Windows**: the box buildings' glass material and the 3D building models' colour maps glow warm at night. The glow comes from each material's emissive level, so thousands of windows cost nothing extra.
 - **Controls** (bottom right): the time button (Live, Dawn, Day, Dusk, Night), `?time=night` or `?time=14.5` in the address, and the speaker button with a volume slider (`?sound=0` or `?sound=1`). The choice is remembered. Test browsers (`?diag=1`) start in Day and muted.
-- **Sound** (`lib/game/soundscape.js`, `components/SoundEngine.jsx`): procedural ambience with local CC0 music recordings. A low hum, traffic that follows the hour (rush hours at 8 and 17:30), bird calls by daylight, cricket bursts at night, water by a lake, muffled indoors, quieter traffic in a car. It starts after the first click or key press (browsers require that) and pauses when the tab is hidden.
+- **Sound** (`lib/game/soundscape.js`, `apps/web/components/SoundEngine.jsx`): procedural ambience with local CC0 music recordings. A low hum, traffic that follows the hour (rush hours at 8 and 17:30), bird calls by daylight, cricket bursts at night, water by a lake, muffled indoors, quieter traffic in a car. It starts after the first click or key press (browsers require that) and pauses when the tab is hidden.
 - Tests: `tests/ambient.test.mjs` (clock, light keyframes, sound levels), and the browser test checks the buttons and `?time=night`.
 
 ## Not built yet (a plan, in order of value)
 1. **Light pools on the road under each lamp** (an additive instanced disc per lamp, from the same lamp positions), so the streets look lit and not just dotted.
 2. **Window lights that differ by building**: a lit/dark pattern per floor by a hash of the plot, with some owners' offices dark after hours, and a shop's sign always lit. Needs a window mask on the model textures or a small shader on the glass.
-3. **Car headlights and brake lights** that come on with the lamps. The box cars have head and tail lights (`components/city/Traffic.jsx`), but they glow the same by day and night, and the 3D car models have none.
+3. **Car headlights and brake lights** that come on with the lamps. The box cars have head and tail lights (`apps/web/components/city/Traffic.jsx`), but they glow the same by day and night, and the 3D car models have none.
 4. **Neon trims** on `tokyo` style buildings (the exterior builder's palette) at their full strength only at night.
 5. **A sky** (stars and a moon, a colour at the horizon) instead of the plain dark background outside the land.
 6. **A time slider in the interior viewer**, so an owner can see their room by day and night (the interior has its own lights).
@@ -39,8 +39,8 @@ The **ambience** depends on where you are and how high you look: close to the gr
 - **Where "you" are**: in the original view it is the middle of the screen (what you are looking at, so you can scroll over the city and hear it), in the follow views it is the avatar (or where you look round to). How high you look comes from the zoom (original view: 14 or more is close, 5 is as far as it goes) or the camera distance (follow views: up to 40 is close, 160 is the Overview).
 - **At most four local sounds at once** (the loudest), so the mix stays clear and light. Indoors everything is muffled and quieter, the music too.
 - **Controls** (bottom right): the speaker button (on/off, volume slider), a **music** button (the city music on/off: `?music=0` starts without it), and a small label with the track and what you hear here ("♪ Sideways City · Arcade · Busy street"). `?sound=0` / `?sound=1` as before.
-- **Code**: the rules are pure and tested (`lib/game/soundZones.js` places, falloff, view height, the mix; `lib/game/musicRules.js` the notes), `lib/sim/listener.js` + `components/city/SoundListener.jsx` say where the listener is, `components/sound/engine.js` makes the sound with the browser's audio, `components/SoundEngine.jsx` ties them together. Tests: `tests/sound-zones.test.mjs` and the "presence-based sound" checks in `tests/browser.test.mjs` (arcade near, music far, the music button).
-- **The music: one soundtrack, like SimCity's** (`lib/game/musicDirector.js`, played by `components/sound/recordedMusic.js`).
+- **Code**: the rules are pure and tested (`lib/game/soundZones.js` places, falloff, view height, the mix; `lib/game/musicRules.js` the notes), `lib/sim/listener.js` + `apps/web/components/city/SoundListener.jsx` say where the listener is, `apps/web/components/sound/engine.js` makes the sound with the browser's audio, `apps/web/components/SoundEngine.jsx` ties them together. Tests: `tests/sound-zones.test.mjs` and the "presence-based sound" checks in `tests/browser.test.mjs` (arcade near, music far, the music button).
+- **The music: one soundtrack, like SimCity's** (`lib/game/musicDirector.js`, played by `apps/web/components/sound/recordedMusic.js`).
   - **What changed:** the music used to follow the camera. Zooming in and out crossed the thresholds where the arcade, cafe and city playlists took over, so each zoom cut the track and started another, and the music's volume rose and fell with the zoom.
   - **How it works now:**
     - The music is one continuous programme at a steady level: a track plays to its end, then about 3.5 s of quiet, then the next.
@@ -59,11 +59,11 @@ The **ambience** depends on where you are and how high you look: close to the gr
   - **Indoors:** the music is quieter, not cut.
   - **Controls:** the music button stops it and starts it again, and the volume slider applies.
   - **The label:** the small label shows the track ("♪ Sideways City · Arcade · Busy street").
-  - **The recordings:** 16 recordings from eight OpenGameArt releases, all CC0, in `public/audio/music/` and listed in `lib/content/music.js`.
+  - **The recordings:** 16 recordings from eight OpenGameArt releases, all CC0, in `apps/web/public/audio/music/` and listed in `lib/content/music.js`.
     - **Downloads:** only the track about to play downloads, after the audio is unlocked. At most two decoded tracks are kept, and a download no longer wanted is cancelled.
     - **Crossfades:** two decks, so one track fades out while the next fades in.
     - **Fallback:** while a track downloads, or if none of a playlist's tracks can play, the procedural tunes (`lib/game/musicRules.js`) stand in at the same steady level. They are silent in the quiet between tracks. A track that fails is skipped.
-  - **Evidence:** the source pages and CC0 text are in `docs/licences/music/`; the addresses and SHA-256 hashes are in `public/audio/music/manifest.json`.
+  - **Evidence:** the source pages and CC0 text are in `docs/licences/music/`; the addresses and SHA-256 hashes are in `apps/web/public/audio/music/manifest.json`.
   - **Tests:**
     - `tests/music-director.test.mjs` simulates the rules over time: tracks to the end with a quiet between, day to night at the end of a track, the car at once, the arcade only after a stay, the camera with no say, indoors, the music button, a failed track.
     - `tests/recorded-music.test.mjs` covers the assets and the player: hashes, CC0 evidence, the steady soundtrack, the car radio, mute, fallback, clean-up.

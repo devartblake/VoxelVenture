@@ -8,7 +8,7 @@ import { root, sleep } from './helpers.mjs';
 
 const PORT = 3991 + Math.floor(Math.random() * 500);
 const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-mp-log-')); // the test must not write into the real error log
-const server = spawn('node', ['server/multiplayer.mjs'], { cwd: root, env: { ...process.env, MP_PORT: String(PORT), MP_LOG_DIR: logDir, MP_LOG_MAX_BYTES: '1500', MP_MAX_PER_IP: '12', MP_MAX_VISIBLE: '5' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn('node', ['services/multiplayer/server.mjs'], { cwd: root, env: { ...process.env, MP_PORT: String(PORT), MP_LOG_DIR: logDir, MP_LOG_MAX_BYTES: '1500', MP_MAX_PER_IP: '12', MP_MAX_VISIBLE: '5' }, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverOut = '';
 server.stdout.on('data', (d) => (serverOut += d));
 server.stderr.on('data', (d) => (serverOut += d));

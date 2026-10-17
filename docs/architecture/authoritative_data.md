@@ -8,7 +8,7 @@ The rule: **with a game server, the server is the only source of truth, and noth
 
 | Review item | State | How |
 | --- | --- | --- |
-| Authentication | Server | Accounts, hashed passwords, 30-day sessions and bans (`server/api/core.mjs`). |
+| Authentication | Server | Accounts, hashed passwords, 30-day sessions and bans (`services/api/core.mjs`). |
 | Server-owned claims and leases | Server | Atomic claim and take-over, lease terms and renewal (`core.mjs`, `community.mjs`). Mall store renting and shared billboard slots exist only in the local game and are switched off when a server is set. |
 | Business configuration | **Server (new)** | The building's outside (floors, shape, colours, rooftop feature, back of the lot) is stored with the plot. It is cleaned against the plot's limits and catalogue, sent to every player, and editable by the owner (`PATCH /plots/{id}` with `exterior`). The logo editor saves to the server too. Before this, both were dropped on the way to the server. |
 | Verified statistics | **Server only (new)** | See [Verified figures only](#verified-figures-only) below. |
@@ -38,7 +38,7 @@ The rule: **with a game server, the server is the only source of truth, and noth
 
 ## The audit trail
 
-`server/api/audit.mjs` keeps an append-only `audit_log`.
+`services/api/audit.mjs` keeps an append-only `audit_log`.
 
 **What it records:**
 
@@ -62,7 +62,7 @@ The rule: **with a game server, the server is the only source of truth, and noth
 
 ## Deploying and verifying
 
-**Production settings check (`server/api/config.mjs`).** With `NODE_ENV=production` (or `API_STRICT=1`) the API **refuses to start** when any of these is true:
+**Production settings check (`services/api/config.mjs`).** With `NODE_ENV=production` (or `API_STRICT=1`) the API **refuses to start** when any of these is true:
 
 - A secret is missing, still the example placeholder, shorter than 32 characters, or the same as another secret.
 - `API_ORIGIN` is `*` or not https.

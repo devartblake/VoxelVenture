@@ -9,14 +9,14 @@ const docs = selectChecks(['docs/roadmap/tasks.md', 'README.md', 'services/messa
 check('a documentation edit runs nothing (no install, lint, freeze check or tests)', !docs.install && !docs.lint && !docs.freeze && !docs.python && docs.tests.length === 0, JSON.stringify(docs));
 const credits = selectChecks(['CREDITS.md']);
 check('CREDITS.md is not just documentation: its test runs', has(credits, 'credits.test.mjs') && credits.tests.length < 10);
-const model = selectChecks(['public/models/kenney/shop-new.glb']);
+const model = selectChecks(['apps/web/public/models/kenney/shop-new.glb']);
 check('a new model runs the model, credits and world tests and the freeze check, not the API or chat tests', has(model, 'models.test.mjs', 'kenney-models.test.mjs', 'credits.test.mjs') && lacks(model, 'api.test.mjs', 'messaging.test.mjs', 'live-browser.test.mjs') && model.freeze && !model.lint, model.tests.join(' '));
-const catalogue = selectChecks(['public/models/kenney/shop-new.glb', 'lib/content/modelCatalog.js']);
+const catalogue = selectChecks(['apps/web/public/models/kenney/shop-new.glb', 'lib/content/modelCatalog.js']);
 check('with its catalogue entry: the modules built on the catalogue, and the server (it checks building setups with it), not everything', catalogue.tests !== 'all' && has(catalogue, 'models.test.mjs', 'exterior.test.mjs', 'api.test.mjs', 'live-browser.test.mjs') && lacks(catalogue, 'traffic.test.mjs', 'business-profile.test.mjs'), `${catalogue.tests.length} tests`);
 check('lib/ dependents follow imports backwards', libDependents('content/modelCatalog').includes('game/exterior') && libDependents('content/modelCatalog').includes('content/models') && !libDependents('game/exterior').includes('content/modelCatalog'));
-const server = selectChecks(['server/api/social.mjs']);
+const server = selectChecks(['services/api/social.mjs']);
 check('a server change runs the tests that start the server, not the world-generation tests', has(server, 'api.test.mjs', 'social.test.mjs', 'migration.test.mjs') && lacks(server, 'traffic.test.mjs', 'models.test.mjs') && server.lint);
-const ui = selectChecks(['components/ui/Header.jsx']);
+const ui = selectChecks(['apps/web/components/ui/Header.jsx']);
 check('a game or page change runs the end-to-end browser test (it builds the app) and lint', has(ui, 'live-browser.test.mjs') && ui.lint && lacks(ui, 'traffic.test.mjs'));
 const py = selectChecks(['services/messaging/app/main.py']);
 check('a messaging service change runs the Python tests and the messaging tests against it', py.python && has(py, 'messaging-fastapi.test.mjs') && lacks(py, 'models.test.mjs'));
@@ -25,7 +25,7 @@ check('a script runs the tests that use it', has(selectChecks(['scripts/verify-l
 for (const f of ['package.json', 'package-lock.json', 'tests/helpers.mjs', 'scripts/lib-loader.mjs', '.github/workflows/ci.yml', 'patches/x.patch', 'next.config.mjs'])
   check(`${f} runs everything`, selectChecks([f]).tests === 'all');
 check('a file no rule knows runs everything', selectChecks(['somewhere/new-thing.yaml']).tests === 'all' && selectChecks(['somewhere/new-thing.yaml']).python);
-check('docs mixed with code: the code decides', has(selectChecks(['docs/a.md', 'server/api/core.mjs']), 'api.test.mjs'));
+check('docs mixed with code: the code decides', has(selectChecks(['docs/a.md', 'services/api/core.mjs']), 'api.test.mjs'));
 
 // the shared packages (docs/architecture/adr/0001-shared-package-boundaries.md)
 check('dependents follow a package file to its workspace name and the lib/ modules that import it', libDependents('../packages/business-core/src/plans').includes('@voxelventure/business-core') && libDependents('../packages/business-core/src/plans').includes('legal/facts') && !libDependents('../packages/shared-types/src/enums').includes('legal/facts'));

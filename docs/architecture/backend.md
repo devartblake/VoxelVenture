@@ -1,13 +1,13 @@
 # Backend (tasks 2-4): database, accounts and claiming, events and statistics
 
-Written for: whoever runs or extends the server. The stack is deliberately plain (Node + SQLite, no accounts to create) so it runs now; the schema is portable to Postgres/Supabase, and only `server/api/db.mjs` and the SQL in `core.mjs` would change.
+Written for: whoever runs or extends the server. The stack is deliberately plain (Node + SQLite, no accounts to create) so it runs now; the schema is portable to Postgres/Supabase, and only `services/api/db.mjs` and the SQL in `core.mjs` would change.
 
 ```
-npm run api          node --experimental-sqlite --no-warnings server/api/server.mjs  (port 3002)
+npm run api          node --experimental-sqlite --no-warnings services/api/server.mjs  (port 3002)
 ```
 The database is Node's built-in `node:sqlite`. On Node 24 (the development machine) it works without `--experimental-sqlite`; the flag is kept for older Node 22 releases and does no harm.
 
-`API_PORT`, `API_HOST` (default every interface; `127.0.0.1` behind a reverse proxy), `API_DB` (file or `:memory:`; default `server/data/voxelventure.db`, git-ignored), `API_SEED` (the world's seed), `API_ORIGIN` (CORS: set it in production).
+`API_PORT`, `API_HOST` (default every interface; `127.0.0.1` behind a reverse proxy), `API_DB` (file or `:memory:`; default `services/api/data/voxelventure.db`, git-ignored), `API_SEED` (the world's seed), `API_ORIGIN` (CORS: set it in production).
 
 ## What it does
 - **Seeds the world from the game's own generator** (`generateCity`, loaded through `scripts/lib-loader.mjs`), so plot ids, prices and starting businesses match the client exactly: 855 plots, 401 built, for the default seed (20260101).
@@ -17,10 +17,10 @@ The database is Node's built-in `node:sqlite`. On Node 24 (the development machi
 - **Edit your business:** `PATCH /plots/{id}` (logo, description; owner only; the price and owner cannot be changed).
 - **History:** `GET /plots/{id}/history`, from the ledger (every opening, claim and take-over, with who was paid out).
 - **Events and statistics:** `POST /events { plotId, kind: visit|click, source: street|billboard|banner|search|friends, seconds }` (a visitor's repeat within a minute is not counted again) and `GET /plots/{id}/stats` with thirty real days: visits, visitors, clicks, click rate, average time inside, busiest hour and day, sources. Same shape as the game's simulated figures, with `simulated: false`.
-- **Presence and site statistics** (`server/api/stats.mjs`): the game pings `POST /presence/ping` every 15 seconds while the tab is visible; `GET /stats/overview` (the Statistics panel: online now, arrivals, countries) and `GET /world/stats` read from it. Tested in `tests/stats.test.mjs`.
-- **Audit trail and production settings** (`server/api/audit.mjs`, `config.mjs`): every claim, take-over, edit, renewal, ad purchase, booking, report, moderation decision, ban and newsletter is recorded in an append-only, hash-chained `audit_log`, in the same transaction as the change; `GET /admin/audit?target_kind=&target_id=&action=&actor=&before=` and `GET /admin/audit/verify` (admin). In production the API refuses to start with unsafe settings. See [authoritative_data.md](authoritative_data.md). Tested in `tests/authoritative.test.mjs`.
-- **Free business profiles and referral links** (`server/api/business.mjs`): `POST /businesses`, `GET /businesses?category=&district=&q=`, `GET|PATCH /businesses/{slug}`, `PUT /businesses/{slug}/plot`, `POST /businesses/{slug}/events`, `POST /businesses/{slug}/interest`, `GET /businesses/{slug}/leads`, `GET /me/businesses`, `GET /me/referrals`, and `ref` on `POST /auth/signup`. See [business_funnel.md](../product/business_funnel.md). Tested in `tests/business-api.test.mjs`.
-- **Leases, voting, the hunt and the market** (`server/api/community.mjs`, `market.mjs`): see [community.md](../product/community.md) and [market.md](../product/market.md).
+- **Presence and site statistics** (`services/api/stats.mjs`): the game pings `POST /presence/ping` every 15 seconds while the tab is visible; `GET /stats/overview` (the Statistics panel: online now, arrivals, countries) and `GET /world/stats` read from it. Tested in `tests/stats.test.mjs`.
+- **Audit trail and production settings** (`services/api/audit.mjs`, `config.mjs`): every claim, take-over, edit, renewal, ad purchase, booking, report, moderation decision, ban and newsletter is recorded in an append-only, hash-chained `audit_log`, in the same transaction as the change; `GET /admin/audit?target_kind=&target_id=&action=&actor=&before=` and `GET /admin/audit/verify` (admin). In production the API refuses to start with unsafe settings. See [authoritative_data.md](authoritative_data.md). Tested in `tests/authoritative.test.mjs`.
+- **Free business profiles and referral links** (`services/api/business.mjs`): `POST /businesses`, `GET /businesses?category=&district=&q=`, `GET|PATCH /businesses/{slug}`, `PUT /businesses/{slug}/plot`, `POST /businesses/{slug}/events`, `POST /businesses/{slug}/interest`, `GET /businesses/{slug}/leads`, `GET /me/businesses`, `GET /me/referrals`, and `ref` on `POST /auth/signup`. See [business_funnel.md](../product/business_funnel.md). Tested in `tests/business-api.test.mjs`.
+- **Leases, voting, the hunt and the market** (`services/api/community.mjs`, `market.mjs`): see [community.md](../product/community.md) and [market.md](../product/market.md).
 - Limits: 150 KB bodies, 240 requests a minute per address, 20 auth calls a minute.
 
 ## Ad slots (billboards and aerial banners)
@@ -29,25 +29,25 @@ Tables `ad_slots`, `ad_ledger`, `ad_events`, seeded from the game's billboards a
 ## How the game uses it (task 5)
 Set `NEXT_PUBLIC_LIVE_API_URL=http://localhost:3002` and build. Then:
 - the game fetches `GET /plots/state` (every plot and ad slot) at once and every 15 seconds, so owners and ads are the server's (`lib/data/sync.js`);
-- **nobody has to sign in to look around**. The sign-in form (`components/ui/AuthDialog.jsx`) opens only when someone presses **Claim**, **Take over** or **buy an ad space**; after signing up or in, the action carries on by itself. The username field disappears from the forms: the account is the name. The header shows the signed-in name with *sign out*;
+- **nobody has to sign in to look around**. The sign-in form (`apps/web/components/ui/AuthDialog.jsx`) opens only when someone presses **Claim**, **Take over** or **buy an ad space**; after signing up or in, the action carries on by itself. The username field disappears from the forms: the account is the name. The header shows the signed-in name with *sign out*;
 - claims, take-overs and ad purchases go through the server; losing a race shows the winner at once;
 - visits, website clicks and ad views are sent to the server.
 Without the variable the game is single-player exactly as before. `tests/live.test.mjs` drives the client against a real server; `node tests/live-browser.test.mjs` does the whole thing in a real browser (it rebuilds the app with the server address: run `npm run build` afterwards).
 
 ## Engagement: offers, leads, feedback, quests and email
 
-All in `server/api/engage.mjs`; screens in `components/interior/LiveStorefront.jsx`, `components/ui/panel/AccountView.jsx` and the Online view. Tests: `tests/engage.test.mjs` (52 checks, starts the API, the presence server and a mail receiver) and the browser test.
+All in `services/api/engage.mjs`; screens in `apps/web/components/interior/LiveStorefront.jsx`, `apps/web/components/ui/panel/AccountView.jsx` and the Online view. Tests: `tests/engage.test.mjs` (52 checks, starts the API, the presence server and a mail receiver) and the browser test.
 
 - **Storefronts** (`GET/PUT /plots/{id}/storefront`): a business's coupon, visit quest, video and game demo, stored on the plot. The city's own businesses get the offers the generator made for them; a new owner starts with none. Videos and games go through the same embed rules as the game. A coupon's code is hidden until the visitor claims it.
 - **Coupons** (`POST /plots/{id}/coupon`): limited stock, one per visitor (account or anonymous), atomic: eight visitors racing for the last two coupons give exactly two winners. The owner cannot claim their own.
 - **Quests with budgets:** the owner moves Gold from their wallet into the business's quest budget (`quest/fund`); a visitor with an account starts the visit (the server keeps the clock), then completes it after the time the quest asks for, and is paid out of the budget (`quest/start`, `quest/complete`). Too early is refused, once per visitor per business, nothing is paid when the budget is empty (the quest then shows as stopped), and the owner cannot earn from their own. A take-over returns what is left in the budget to the old owner. New accounts start with 100 Gold; every movement is in `gold_ledger` (`GET /me/wallet`). **This wallet is the server's; the game's own Gold (daily chest, clothes) is still local.**
 - **Feedback board** (`POST /plots/{id}/feedback`): signed-in visitors, 3-280 characters, one every 20 seconds and 10 a day; the owner can hide a message (hidden ones vanish for visitors).
 - **Lead capture** (`POST /leads`): email sign-ups for a business, an ad space or the world newsletter, with **double opt-in**: a confirmation email goes out first and only confirmed addresses are ever used or shown to an owner (`GET /plots/{id}/leads`, `/ads/{id}/leads`; owners only). Links in the email confirm (`/leads/confirm`) and unsubscribe (`/leads/unsubscribe`).
-- **Email** (`outbox` table, delivery worker every 5 seconds, 3 tries): confirmation of a sign-up, verification of an account's email, a **take-over notice** to the old owner of a plot or an ad space (only to a verified address with notices on), and the **Plot of the Day newsletter** to confirmed world readers and to accounts with notices on (`POST /admin/newsletter` with `ADMIN_TOKEN`, or `npm run newsletter` from a scheduler; sent once a day). Transport: `MAIL_WEBHOOK_URL` (+ `MAIL_WEBHOOK_TOKEN`, `MAIL_FROM`) posts JSON to any mail API or relay; without it messages are written to `server/data/outbox/`. `PUBLIC_API_URL` is the address used in the links.
+- **Email** (`outbox` table, delivery worker every 5 seconds, 3 tries): confirmation of a sign-up, verification of an account's email, a **take-over notice** to the old owner of a plot or an ad space (only to a verified address with notices on), and the **Plot of the Day newsletter** to confirmed world readers and to accounts with notices on (`POST /admin/newsletter` with `ADMIN_TOKEN`, or `npm run newsletter` from a scheduler; sent once a day). Transport: `MAIL_WEBHOOK_URL` (+ `MAIL_WEBHOOK_TOKEN`, `MAIL_FROM`) posts JSON to any mail API or relay; without it messages are written to `services/api/data/outbox/`. `PUBLIC_API_URL` is the address used in the links.
 - **Social presence:** the API tells the presence server about every claim, take-over, ad purchase and storefront change (`MP_NOTIFY_URL`, `MP_NOTIFY_SECRET`) and it **pushes it to every connected game at once** (the game refreshes immediately; the 15-second poll remains as a fallback). A signed-in player's avatar name is their account name. **Spatial chat:** `chat` messages are heard by players within 60 units (`MP_CHAT_RADIUS`), one a second, in the Online view.
 - The game: signing up takes an optional email; the header shows your name and Gold and opens the **Account** view (email and its confirmation, notices on/off, wallet history).
 
-## Moderation, owner sign-ups and Credits (`server/api/moderation.mjs`)
+## Moderation, owner sign-ups and Credits (`services/api/moderation.mjs`)
 - **Content filter:** everything a player writes is checked before it is saved: a word list (a starter list; add more with `MODERATION_WORDS_FILE`, one per line; disguised words like `v1agra` and `v.i.a.g.r.a` are caught), limits on links (one in a feedback message or description, none in names and headlines), no all-capitals shouting and no long runs of one character. A refusal is a 422 with a message for that field. For pictures and harder cases, set `MODERATION_WEBHOOK_URL` and every text and uploaded logo image is also sent to an outside moderation service (`{ kind, text | image }` -> `{ allowed, reason }`); if it cannot be reached the content is allowed and left to reports.
 - **Reports:** a signed-in player reports a feedback message, a business or an ad space (spam, offensive, misleading, other), once each; you cannot report your own. (Chat messages are reported through `/messaging/reports`: see below.) Three different players reporting a message **hide it at once**; the owner cannot bring back a message a moderator hid.
 - **Admin queue:** `GET /admin/reports` (grouped, most reported first, with the text and author) and `POST /admin/reports/{id}/resolve` with `dismiss`, `remove` (a message hidden, a business's name, logo, description and offers reset, an ad space emptied for sale again) or `ban`. A **banned account** is signed out everywhere and cannot sign in. Use `npm run moderate` (`list`, `resolve <kind> <id> <action>`, `ban <account id>`, `unban`) with `ADMIN_TOKEN`. In the game there is a **Report** button on feedback messages, on a business's card and on ads.
@@ -55,7 +55,7 @@ All in `server/api/engage.mjs`; screens in `components/interior/LiveStorefront.j
 - **Credits:** the server's money for visit quests is now called **Credits** everywhere (quest wallet, budgets, rewards) so it is never confused with the **Gold** the game itself earns and spends (chest, hunt, clothes), which stays local. The two are separate currencies by design.
 - Tests: `tests/engage.test.mjs` (about 80 checks including the filter, reports, the auto-hide, the queue, a ban and the sign-ups list), `tests/csv.test.mjs`, and the browser test.
 
-## The pilot (`server/api/pilot.mjs`)
+## The pilot (`services/api/pilot.mjs`)
 
 The pilot dashboard for phase 6 ([pilot.md](../monetization/pilot.md)).
 
@@ -72,7 +72,7 @@ The pilot dashboard for phase 6 ([pilot.md](../monetization/pilot.md)).
 - **Command line:** `npm run moderate -- pilot [weeks | add <slug> [note] | remove <slug> | csv]`.
 - **Tests:** `tests/pilot.test.mjs`.
 
-## Chat and private messages (`server/api/messaging.mjs`)
+## Chat and private messages (`services/api/messaging.mjs`)
 Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The API keeps everything that lasts or needs an account; the presence server only passes nearby lines on.
 - **Signed-in chat:** `POST /messaging/ticket` gives a signed-in game a one-use ticket (a minute); the presence server redeems it (`/internal/messaging/redeem`, with `MP_NOTIFY_SECRET`) and from then on that connection speaks as the account. Every half minute it asks which bindings are still good (`/internal/messaging/bindings`): signing out or a ban ends them.
 - **Nearby lines:** before a signed-in player's line goes out, the presence server asks `/internal/messaging/nearby`: the word filter (and no links), 20 lines a minute per account across all their tabs, blocks both ways among the players in range, and a copy kept 7 days so a report can be checked. No endpoint lists these.

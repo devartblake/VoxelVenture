@@ -104,7 +104,7 @@ export function cleanProfile(input = {}, { partial = false } = {}) {
     value.website = clean(input.website, LIMITS.website) || null;
     if (value.website && !isHttpUrl(value.website)) errors.website = 'The website must start with http:// or https://';
   }
-  // the owner's X handle (optional) and whether VoxelVenture's X account may welcome them and tag it (server/api/social.mjs)
+  // the owner's X handle (optional) and whether VoxelVenture's X account may welcome them and tag it (services/api/social.mjs)
   if (has('xHandle')) {
     const h = clean(input.xHandle, 20).replace(/^@/, '');
     value.xHandle = h || null;
@@ -159,7 +159,7 @@ export function upgradePrompts(profile, stats) {
 }
 
 // ---- referral links ---------------------------------------------------------------------------------------------------------------
-// A referral code is "<account id in base 36>.<10 hex characters of a signature>" made by the server (server/api/business.mjs); the shape is
+// A referral code is "<account id in base 36>.<10 hex characters of a signature>" made by the server (services/api/business.mjs); the shape is
 // checked here and the signature there. Share links carry it as ?ref=.
 const REF = /^[0-9a-z]{1,10}\.[0-9a-f]{10}$/;
 export const isRefCode = (v) => REF.test(String(v ?? ''));
@@ -227,7 +227,7 @@ export function profileFromPlot(plot) {
 // ---- where a visitor came from ---------------------------------------------------------------------------------------------------
 // The source of a profile view from the page's referrer: a search engine, a social site, the 3D city (this site), or direct (anything else,
 // including no referrer). A referral link overrides this on the server. `host` is this site's own host name. A link from VoxelVenture's own
-// X posts carries utm_source=x (server/api/social.mjs) and counts as 'x' whatever the referrer, so an owner sees what the welcome post brought.
+// X posts carries utm_source=x (services/api/social.mjs) and counts as 'x' whatever the referrer, so an owner sees what the welcome post brought.
 const SEARCH = /(^|\.)(google|bing|duckduckgo|yahoo|ecosia|baidu|yandex|brave|startpage|kagi)\./i;
 const SOCIAL = /(^|\.)(facebook|fb|instagram|t|x|twitter|linkedin|lnkd|reddit|pinterest|tiktok|youtube|threads|mastodon|bsky|discord|whatsapp)\.(com|co|net|app|social|gg|in)$/i;
 export function sourceOf(referrer, host, search = '') {

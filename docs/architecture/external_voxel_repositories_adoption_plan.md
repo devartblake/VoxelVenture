@@ -57,12 +57,12 @@ The current code already includes:
 
 Relevant current files include:
 
-- `components/city/CityCanvas.jsx`
-- `components/city/StaticBatch.jsx`
-- `components/city/StreamedNetwork.jsx`
-- `components/city/GpuGuard.jsx`
-- `components/city/PerfProbe.jsx`
-- `components/ui/TouchControls.jsx`
+- `apps/web/components/city/CityCanvas.jsx`
+- `apps/web/components/city/StaticBatch.jsx`
+- `apps/web/components/city/StreamedNetwork.jsx`
+- `apps/web/components/city/GpuGuard.jsx`
+- `apps/web/components/city/PerfProbe.jsx`
+- `apps/web/components/ui/TouchControls.jsx`
 - `lib/dev/perfStats.js`
 
 ### 3.2 Existing realtime scale controls
@@ -84,7 +84,7 @@ The presence server already provides several capabilities comparable to the most
 
 Relevant files include:
 
-- `server/multiplayer.mjs`
+- `services/multiplayer/server.mjs`
 - `lib/net/multiplayer.js`
 - `scripts/load-test-presence.mjs`
 - `tests/multiplayer.test.mjs`
@@ -919,8 +919,8 @@ The repository already has an approved incremental modularization plan. The foll
 
 ```text
 VoxelVenture/
-├── app/                              # unchanged Next.js routes
-├── components/
+├── apps/web/app/                              # unchanged Next.js routes
+├── apps/web/components/
 │   ├── city/                         # existing world renderer; performance edits only
 │   └── ui/                           # existing UI and touch controls
 ├── lib/
@@ -960,9 +960,9 @@ The customization contract may be defined before the feature is enabled, but no 
 
 ```text
 VoxelVenture/
-├── app/
+├── apps/web/app/
 │   └── (owner)/...                   # owner-facing customization route
-├── components/
+├── apps/web/components/
 │   ├── customization/
 │   │   ├── CustomizerShell.jsx
 │   │   ├── AssetPalette.jsx
@@ -1036,7 +1036,7 @@ The following analysis compares the recommended target with the current project 
 | WASM meshing | Only if profiling proves geometry bottleneck | Three.js/React Three Fiber with static batches | No evidence of a meshing bottleneck | Deferred | Profile first; write ADR before any spike |
 | Rust authoritative server | Only if Node cannot meet certified requirements | Node server with interest management, limits, telemetry, and load testing | No demonstrated gap | Deferred | Keep Node until evidence justifies migration |
 | Third-party licensing | Automated provenance, credits, policy checks | Credits system and license tests already exist | External additions need source-specific review; Tiny is AGPL | P0 governance | Extend admission checklist and prohibit unreviewed copies |
-| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics`, and `business-core` exist; root app/services retained | `world-core`, agent/journey folders, performance policy modules not present | Incremental | Add only as each approved slice begins |
+| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics`, and `business-core` exist; root apps/web/app/services retained | `world-core`, agent/journey folders, performance policy modules not present | Incremental | Add only as each approved slice begins |
 | Commercial validation | Customization and scaling decisions supported by customer data | Phase 6 pilot tooling exists; external-feature demand unvalidated | No customer evidence that a builder increases payment or renewal | Highest product gap | Run pilot before customizer/engine expansion |
 
 ## 18. Gap conclusions

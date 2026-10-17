@@ -6,9 +6,9 @@ node_modules/
 *.log
 *.tsbuildinfo
 next-env.d.ts
-server/logs/
+services/multiplayer/logs/
 
-server/data/
+services/api/data/
 # the Python messaging service: its environment, its database, Python's caches
 services/messaging/.venv/
 services/messaging/data/

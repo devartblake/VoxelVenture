@@ -1,4 +1,4 @@
-"""The Python text checks must answer exactly like server/api/textcheck.mjs: both are run on the same awkward inputs."""
+"""The Python text checks must answer exactly like services/api/textcheck.mjs: both are run on the same awkward inputs."""
 import json
 import shutil
 import subprocess
@@ -25,7 +25,7 @@ class TextCheckParity(unittest.TestCase):
             "const cases = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
             "process.stdout.write(JSON.stringify(cases.map((c) => [checkText(c, { links: 0 }), checkText(c, { links: 1 }), cleanMessage(c, 140), cleanMessage(c, 1000, { lines: true })])));"
         )
-        module = (ROOT / 'server' / 'api' / 'textcheck.mjs').as_uri()
+        module = (ROOT / 'services' / 'api' / 'textcheck.mjs').as_uri()
         out = subprocess.run(['node', '--input-type=commonjs', '-e', f'(async () => {{ {script} }})()', module], input=json.dumps(CASES), capture_output=True, text=True, encoding='utf-8', check=True)
         js = json.loads(out.stdout)
         for case, (zero, one, short, long) in zip(CASES, js):

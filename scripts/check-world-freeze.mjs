@@ -1,8 +1,8 @@
 // Checks a branch against the world-expansion freeze (docs/roadmap/world_freeze.md).
 //   npm run check:freeze                     compare with origin/main (committed, staged and untracked files)
 //   npm run check:freeze -- --base main      compare with another branch or commit
-// Fails when a new file is added under a frozen folder (lib/city, lib/sim, components/city, the model, street and
-// study scripts, public/models). Changes to existing files pass. To let a change through, put
+// Fails when a new file is added under a frozen folder (lib/city, lib/sim, apps/web/components/city, the model, street and
+// study scripts, apps/web/public/models). Changes to existing files pass. To let a change through, put
 //   World-freeze-exception: <why>
 // on its own line in one of the branch's commit messages (or set WORLD_FREEZE_EXCEPTION for a local run).
 import { execFileSync } from 'node:child_process';

@@ -4,7 +4,7 @@ import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
-  { ignores: ['.next/**', 'node_modules/**', 'vendor/**', 'patches/**', 'public/**', 'server/logs/**', 'next-env.d.ts'] },
+  { ignores: ['**/.next/**', 'node_modules/**', 'vendor/**', 'patches/**', 'apps/web/public/**', 'services/multiplayer/logs/**', '**/next-env.d.ts'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx,mjs}'],

@@ -6,15 +6,15 @@ const dataModule = (src) => `data:text/javascript;base64,${Buffer.from(src).toSt
 const library = dataModule(fs.readFileSync('lib/content/music.js', 'utf8'));
 const { MUSIC_RELEASES } = await import(library);
 const director = dataModule(fs.readFileSync('lib/game/musicDirector.js', 'utf8'));
-const { createRecordedMusic } = await import(dataModule(fs.readFileSync('components/sound/recordedMusic.js', 'utf8').replace("'@/lib/content/music'", JSON.stringify(library)).replace("'@/lib/game/musicDirector'", JSON.stringify(director))));
-const manifest = JSON.parse(fs.readFileSync('public/audio/music/manifest.json'));
+const { createRecordedMusic } = await import(dataModule(fs.readFileSync('apps/web/components/sound/recordedMusic.js', 'utf8').replace("'@/lib/content/music'", JSON.stringify(library)).replace("'@/lib/game/musicDirector'", JSON.stringify(director))));
+const manifest = JSON.parse(fs.readFileSync('apps/web/public/audio/music/manifest.json'));
 assert.equal(MUSIC_RELEASES.length, 8);
 assert.equal(manifest.flatMap((r) => r.files).length, 16);
 for (const r of manifest) {
   assert.equal(r.license, 'CC0-1.0');
   assert.ok(fs.readFileSync(`docs/licences/music/${r.id}.html`, 'utf8').includes('creativecommons.org/publicdomain/zero'));
   for (const url of r.files) {
-    const bytes = fs.readFileSync(`public${url}`);
+    const bytes = fs.readFileSync(`apps/web/public${url}`);
     assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), r.fileHashes[url]);
     if (url.endsWith('.wav')) assert.equal(bytes.toString('ascii', 0, 4), 'RIFF');
     else if (url.endsWith('.ogg')) assert.equal(bytes.toString('ascii', 0, 4), 'OggS');
@@ -22,7 +22,7 @@ for (const r of manifest) {
   }
 }
 
-// The player (components/sound/recordedMusic.js) plays the music director's choices (lib/game/musicDirector.js, tested on its own in
+// The player (apps/web/components/sound/recordedMusic.js) plays the music director's choices (lib/game/musicDirector.js, tested on its own in
 // tests/music-director.test.mjs): the procedural fallback while a track downloads, the recording once it plays, mute, failures, cleanup.
 const nodes = [];
 const ctx = { state: 'running', currentTime: 0,

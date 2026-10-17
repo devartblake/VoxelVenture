@@ -1,4 +1,4 @@
-// Contracts of the business pages and the owner's dashboard (server/api/business.mjs, server/api/conversions.mjs; docs/monetization/conversions.md).
+// Contracts of the business pages and the owner's dashboard (services/api/business.mjs, services/api/conversions.mjs; docs/monetization/conversions.md).
 // Each is { id, version, schema }; see docs/architecture/adr/0001-shared-package-boundaries.md for how versions change.
 import { OUTCOME_FAMILIES, PROFILE_EVENT_KINDS, TRAFFIC_SOURCES } from '../enums.js';
 
@@ -86,7 +86,7 @@ export const OWNER_FIGURES = {
   },
 };
 
-// POST /businesses/<slug>/inquiries: a meeting or quote request from a profile's form (server/api/conversions.mjs createInquiry). `website`
+// POST /businesses/<slug>/inquiries: a meeting or quote request from a profile's form (services/api/conversions.mjs createInquiry). `website`
 // is the hidden field only a robot fills in (the server thanks it and keeps nothing).
 export const INQUIRY = {
   id: 'business.inquiry',
@@ -112,7 +112,7 @@ export const INQUIRY_RESULT = {
   schema: { type: 'object', required: ['sent'], properties: { sent: { type: 'boolean', enum: [true] }, id: { type: 'integer', minimum: 1 } } },
 };
 
-// POST /plots/<id>/coupon: a visitor claims a 3D storefront's coupon (server/api/engage.mjs claimCoupon). One per visitor; claiming again
+// POST /plots/<id>/coupon: a visitor claims a 3D storefront's coupon (services/api/engage.mjs claimCoupon). One per visitor; claiming again
 // answers the same code and ticket with `already`.
 export const COUPON_CLAIM = {
   id: 'business.coupon-claim',

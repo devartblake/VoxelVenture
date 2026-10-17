@@ -4,7 +4,7 @@ import path from 'node:path';
 import { imp, problemTally, root } from './helpers.mjs';
 const { parseVox, voxelMesh } = await imp('content/vox.js');
 const { bad, total } = problemTally();
-const pub = (...p) => path.join(root, 'public', 'models', ...p);
+const pub = (...p) => path.join(root, 'apps', 'web', 'public', 'models', ...p);
 
 for (const [name, minVox, maxFaces] of [['monument', 500, 6000], ['mall', 5000, 30000]]) {
   const file = pub('vox', `${name}.vox`);

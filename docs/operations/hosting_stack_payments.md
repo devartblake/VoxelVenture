@@ -9,8 +9,8 @@ Answers to the questions raised while planning task 1 in [tasks.md](../roadmap/t
 > **Since then (October 2026):** a later plan, [node_fastapi_architecture_plan.md](../architecture/node_fastapi_architecture_plan.md), splits out one bounded piece, persistent messaging, into a Python (FastAPI) service beside Node, while accounts, plots, businesses and presence stay in Node as recommended here. The service is built and tested (`services/messaging`) but not switched on; the deploy files install it alongside the Node processes.
 
 ### Why
-1. **The server shares code with the game.** `server/api/core.mjs` imports the game's own city generator and builds the world from `API_SEED`, and it reuses the rules in `lib/game/` (leases, skyline, voting, ad rotation). A port would have to reproduce the seeded generator (about 3,000 lines of deterministic code) exactly, or plot ids and positions would stop matching the browser and claiming would break. Every rule would also exist twice, and each change would have to be made twice.
-2. **It is already built and tested.** About 3,000 lines of server (`server/api/*.mjs`, `server/multiplayer.mjs`) and the API, community, market, engagement, statistics, moderation, messaging and multiplayer suites.
+1. **The server shares code with the game.** `services/api/core.mjs` imports the game's own city generator and builds the world from `API_SEED`, and it reuses the rules in `lib/game/` (leases, skyline, voting, ad rotation). A port would have to reproduce the seeded generator (about 3,000 lines of deterministic code) exactly, or plot ids and positions would stop matching the browser and claiming would break. Every rule would also exist twice, and each change would have to be made twice.
+2. **It is already built and tested.** About 3,000 lines of server (`services/api/*.mjs`, `services/multiplayer/server.mjs`) and the API, community, market, engagement, statistics, moderation, messaging and multiplayer suites.
 3. **One language, one pipeline.** Next.js, the API and the presence server are all Node: one build, one lint, one test run.
 4. **The workload is ordinary.** REST plus SQLite, and a WebSocket loop sending a few hundred bytes per player. Node handles that well.
 
@@ -36,7 +36,7 @@ Avoid Python in the live game loop (accounts, claims, presence): that is where t
 ## 2. Linode setup
 
 ### Two facts about the current server
-- **SQLite is a single-writer design.** `server/api/db.mjs` uses `node:sqlite` with synchronous calls and `BEGIN IMMEDIATE` transactions, which is what makes a claim atomic. Run **one** API process on **one** machine.
+- **SQLite is a single-writer design.** `services/api/db.mjs` uses `node:sqlite` with synchronous calls and `BEGIN IMMEDIATE` transactions, which is what makes a claim atomic. Run **one** API process on **one** machine.
 - **`node:sqlite` is still marked experimental.** `deploy/setup.sh` installs Node 22, and the API's service file (like `npm run api`) passes `--experimental-sqlite --no-warnings`; older Node 22 releases need the flag, and Node 24 (the development machine) runs it without one. `better-sqlite3` has the same synchronous style, so a move would be a small change, but it was tried and dropped (see Deployment files below).
 
 Moving to Postgres is a later step and not a one-line change: the schema is portable, but the code is synchronous, so the API would have to become async. Do it only when you need more than one API machine.
@@ -60,7 +60,7 @@ Around it:
 1. **Move up a size** when CPU or memory runs hot (Dedicated CPU 8 GB is about $72/mo).
 2. **Split presence onto its own Linode** when it becomes the busiest part: it holds players in memory per city room.
 3. **Managed Postgres** only if you need two API machines.
-4. **A CDN or Object Storage** for `public/items` (144 furniture folders) and the models, to take load off the box.
+4. **A CDN or Object Storage** for `apps/web/public/items` (144 furniture folders) and the models, to take load off the box.
 
 **Bandwidth is the number to watch**, more than CPU: presence sends each player a snapshot of nearby players about ten times a second, and a Shared 4 GB plan includes roughly 4 TB a month. These are estimates: measure with the client monitor (`/admin`) before launch.
 
@@ -101,4 +101,4 @@ Until this was added, owners had an Account page (email notices, sign-ups, Credi
 
 Without a game server the visitor figures are simulated and the dashboard says so; with a server they count verified human visits only.
 
-It also lists the ad spaces you hold (billboards and aerial banners) with their views and clicks, and each building shows its visits over the last fourteen days as small bars. Code: `lib/game/dashboard.js`, `components/ui/panel/DashboardView.jsx`, `tests/dashboard.test.mjs`.
+It also lists the ad spaces you hold (billboards and aerial banners) with their views and clicks, and each building shows its visits over the last fourteen days as small bars. Code: `lib/game/dashboard.js`, `apps/web/components/ui/panel/DashboardView.jsx`, `tests/dashboard.test.mjs`.

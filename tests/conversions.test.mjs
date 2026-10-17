@@ -1,7 +1,7 @@
-// Conversion measurement (server/api/conversions.mjs, business.mjs, docs/monetization/conversions.md): impressions in lists, qualified visits, store
+// Conversion measurement (services/api/conversions.mjs, business.mjs, docs/monetization/conversions.md): impressions in lists, qualified visits, store
 // entries, meeting and quote requests, purchases credited by click id (postback and pixel), coupon tickets and redemptions, spend and cost
 // per result, the renewal rate, and what the free plan sees. Every figure is verified like a view.
-import { createApi } from '../server/api/server.mjs';
+import { createApi } from '../services/api/server.mjs';
 import { imp } from '../scripts/lib-loader.mjs';
 
 let fails = 0;
@@ -148,7 +148,7 @@ try {
   check('the CSV export has the funnel, each outcome family with its cost, and revenue by trust', /"Qualified visits","1"/.test(csv) && /"Leads \(newsletter, meeting and quote requests\)","3"/.test(csv) && /"Browser-reported \(pixel, unverified\)"/.test(csv) && !/Cost per result/.test(csv), csv.slice(0, 200));
 
   // ---- retention: a request's contact details are wiped after INQUIRY_DAYS, the count stays
-  const { pruneInquiries } = await import('../server/api/conversions.mjs');
+  const { pruneInquiries } = await import('../services/api/conversions.mjs');
   const before = (await statsOf(amy.token, 'amy-cafe')).quoteRequests;
   check('nothing recent is wiped', pruneInquiries(api.db, 180).wiped === 0);
   const later = Date.now() + 181 * 86400000;

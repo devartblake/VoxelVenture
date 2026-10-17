@@ -63,7 +63,7 @@ Phase A of the [migration plan](architecture/modular_monorepo_migration_plan.md)
 | [02](competitive-research/voxelventure_idea_02.md), [03](competitive-research/voxelventure_idea_03.md), [04](competitive-research/voxelventure_idea_04.md), [05](competitive-research/voxelventure_idea_05.md), [06](competitive-research/voxelventure_idea_06.md) | The other idea documents: 02 search pages, city history, embeds and soundscapes; 03 Python vs .NET and OpenStreetMap street names; 04 ClaimAvenue's builder and a modern one; 05 a server-timed day and night; 06 a living city instead of ad space (each reviewed in ideas_review.md) |
 | [study_world_streaming.md](architecture/study_world_streaming.md) | Feasibility study: how big the map can get, streaming a world of several cities, an island with an ocean and a shipping yard (measurements, prototype, plan) |
 | [../scripts/study/README.md](../scripts/study/README.md) | The scripts that produced the study's numbers |
-| [../server/README.md](../server/README.md) | The multiplayer / monitor server: settings, endpoints, the error log |
+| [../server/README.md](../services/multiplayer/README.md) | The multiplayer / monitor server: settings, endpoints, the error log |
 | [../CREDITS.md](../CREDITS.md) | Who made the models, map data and code the game uses, their licences, and the rules for adding anything from outside (the in-game Credits panel shows the same list) |
 
 ## Additional architecture and research documents
@@ -71,6 +71,7 @@ Phase A of the [migration plan](architecture/modular_monorepo_migration_plan.md)
 - [architecture/modular_monorepo_migration_plan.md](architecture/modular_monorepo_migration_plan.md): Phases A and B are under way (status at the top).
 - [ADR 0001: Shared package boundaries](architecture/adr/0001-shared-package-boundaries.md): the three packages, what each may import, the adapters, contract versioning, and CI.
 - [ADR 0002: Workspaces](architecture/adr/0002-workspaces.md): Phase C step 1, the packages as npm workspaces imported by name, and the adapters retired.
+- [ADR 0003: The web app in apps/web, the Node servers in services/](architecture/adr/0003-apps-and-services.md): Phase C steps 2 to 5, the new layout, and what to move on a machine that ran the old one.
 - [../packages/README.md](../packages/README.md): the shared packages, with [shared-types](../packages/shared-types/README.md) (the contracts), [analytics](../packages/analytics/README.md) and [business-core](../packages/business-core/README.md).
 - [competitive-research/VoxelVenture_Competitive_Strategy_Viral_Monetization.md](competitive-research/VoxelVenture_Competitive_Strategy_Viral_Monetization.md)
 - [competitive_strategy_implementation_audit_2026-10-16.md](competitive-research/competitive_strategy_implementation_audit_2026-10-16.md)

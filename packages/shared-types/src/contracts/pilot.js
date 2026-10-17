@@ -1,4 +1,4 @@
-// Contracts of the pilot (server/api/pilot.mjs; docs/monetization/pilot.md): the merchant's weekly check-in, and the admin's dashboard.
+// Contracts of the pilot (services/api/pilot.mjs; docs/monetization/pilot.md): the merchant's weekly check-in, and the admin's dashboard.
 const WEEK = '^\\d{4}-\\d{2}-\\d{2}$';
 const count = { type: 'integer', minimum: 0 };
 

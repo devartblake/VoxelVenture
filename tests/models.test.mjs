@@ -11,14 +11,14 @@ const { bad, total } = problemTally();
 if (MODEL_CATALOG.length < 25) bad('the catalog lists the imported models', String(MODEL_CATALOG.length));
 for (const m of ALL_MODELS) {
   const vox = m.format === 'vox';
-  const file = path.join(root, 'public', m.url);
+  const file = path.join(root, 'apps', 'web', 'public', m.url);
   if (!fs.existsSync(file)) bad('every model file exists', m.url);
   else if (!vox && fs.readFileSync(file).readUInt32LE(0) !== 0x46546c67) bad('every model is a .glb', m.url);
   else if (vox && fs.readFileSync(file).subarray(0, 4).toString() !== 'VOX ') bad('every voxel model is a .vox', m.url);
   if (!(m.w > 0.2 && m.h > 0.2 && m.d > 0.2) || !(m.tris > 20 && m.tris < (vox ? 12000 : 8000))) bad('a model has a sane size and triangle count', m.id);
-  if (!vox && !fs.existsSync(path.join(root, 'public', 'models', 'kenney', m.kit, 'Textures', 'colormap.png'))) bad('each kit has its colour texture', m.kit);
+  if (!vox && !fs.existsSync(path.join(root, 'apps', 'web', 'public', 'models', 'kenney', m.kit, 'Textures', 'colormap.png'))) bad('each kit has its colour texture', m.kit);
 }
-if (!fs.existsSync(path.join(root, 'public', 'models', 'CREDITS.md'))) bad('the credits file exists', '');
+if (!fs.existsSync(path.join(root, 'apps', 'web', 'public', 'models', 'CREDITS.md'))) bad('the credits file exists', '');
 
 // ---- the choice
 let built = 0;

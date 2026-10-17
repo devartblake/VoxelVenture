@@ -1,4 +1,4 @@
-"""The messaging domain: a port of server/api/messaging.mjs, the same rules and the same answers.
+"""The messaging domain: a port of services/api/messaging.mjs, the same rules and the same answers.
 
 What differs from the Node version is only where facts come from: accounts, sign-ins, bans and plot owners are the Node API's
 (app/node.py), so they are asked for before a transaction starts, never inside one; everything stored here is this service's own.

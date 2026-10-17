@@ -49,8 +49,8 @@ const start = (cmd, args, env = {}) => {
   children.push(child);
   return child;
 };
-start(process.execPath, [path.join(root, 'node_modules', 'next', 'dist', 'bin', 'next'), 'start', '-p', String(webPort)]);
-start(process.execPath, [path.join(root, 'server', 'multiplayer.mjs')], { MP_PORT: String(mpPort), MP_LOG_DIR: logDir });
+start(process.execPath, [path.join(root, 'node_modules', 'next', 'dist', 'bin', 'next'), 'start', 'apps/web', '-p', String(webPort)]);
+start(process.execPath, [path.join(root, 'services', 'multiplayer', 'server.mjs')], { MP_PORT: String(mpPort), MP_LOG_DIR: logDir });
 
 async function stop() {
   for (const c of children) c.kill();

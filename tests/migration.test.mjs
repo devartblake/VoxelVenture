@@ -6,8 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { root } from './helpers.mjs';
-import { openDb } from '../server/api/db.mjs';
-import { createApi } from '../server/api/server.mjs';
+import { openDb } from '../services/api/db.mjs';
+import { createApi } from '../services/api/server.mjs';
 
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };

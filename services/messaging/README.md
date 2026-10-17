@@ -5,7 +5,7 @@ nearby chat, retention and "your inbox changed" notices), as its own service. Th
 [../../docs/architecture/node_fastapi_architecture_plan.md](../../docs/architecture/node_fastapi_architecture_plan.md): the Node API keeps accounts,
 sign-ins, plots, businesses and the presence server; this service owns messages.
 
-It is a port of `server/api/messaging.mjs` with the same routes, bodies and error shapes, so the game and the presence server work
+It is a port of `services/api/messaging.mjs` with the same routes, bodies and error shapes, so the game and the presence server work
 with either. **Today the Node API still serves messaging itself**; this service takes over only when the Node API is given
 `MESSAGING_SERVICE_URL` (then it forwards the messaging routes here and stops its own messaging jobs). The switch-over steps are in
 `deploy/README.md`.

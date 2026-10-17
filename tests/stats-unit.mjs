@@ -1,6 +1,6 @@
 // Run by stats.test.mjs with the sqlite flag: the presence and analytics rules with a controlled clock. Prints JSON lines { name, ok, extra }.
-import { openDb } from '../server/api/db.mjs';
-import { ONLINE_WINDOW_MS, countryOf, countryName, overview, ping, prunePresence } from '../server/api/stats.mjs';
+import { openDb } from '../services/api/db.mjs';
+import { ONLINE_WINDOW_MS, countryOf, countryName, overview, ping, prunePresence } from '../services/api/stats.mjs';
 
 const out = (name, ok, extra = '') => console.log(JSON.stringify({ name, ok: Boolean(ok), extra }));
 const db = openDb(':memory:');

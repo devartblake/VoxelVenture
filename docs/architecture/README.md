@@ -12,6 +12,7 @@ Documents are stored in their primary topic directories. Related service and dep
 | [external_voxel_repositories_adoption_plan.md](external_voxel_repositories_adoption_plan.md): selective implementation plan, project structure changes, licensing boundaries, and GAP analysis |
 | [adr/0001-shared-package-boundaries.md](adr/0001-shared-package-boundaries.md): the shared packages, what each may import, the adapters, contract versioning and CI |
 | [adr/0002-workspaces.md](adr/0002-workspaces.md): Phase C step 1, npm workspaces, imports by `@voxelventure/*` name, the adapters retired |
+| [adr/0003-apps-and-services.md](adr/0003-apps-and-services.md): Phase C steps 2 to 5, the app in `apps/web/`, the API and the presence server in `services/` |
 | [../../packages/README.md](../../packages/README.md): the shared packages and their contracts |
 | [authoritative_data.md](authoritative_data.md) |
 | [backend.md](backend.md) |

@@ -14,9 +14,9 @@ Conversion measurement: the journey from being seen to a verified result, what c
 
 **Used by:**
 
-- `server/api/business.mjs`, `server/api/conversions.mjs`;
-- `server/api/pilot.mjs`, which imports the package directly;
-- `components/business/{CtaButton,ManageProfiles,ProfileTracker}.jsx`;
+- `services/api/business.mjs`, `services/api/conversions.mjs`;
+- `services/api/pilot.mjs`, which imports the package directly;
+- `apps/web/components/business/{CtaButton,ManageProfiles,ProfileTracker}.jsx`;
 - `lib/data/sync.js`.
 
 All of them import it by name, `@voxelventure/analytics` ([ADR 0002](../../docs/architecture/adr/0002-workspaces.md)); the old adapter `lib/business/conversions.js` is gone.

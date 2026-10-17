@@ -1,5 +1,5 @@
 // Click-to-walk routes (lib/sim/pathfind.js): from where the avatar stands to a clicked point, round buildings and everything solid.
-// Each route is walked with the game's own movement (moveAvatar, the same steering as components/city/Avatar.jsx) and must arrive
+// Each route is walked with the game's own movement (moveAvatar, the same steering as apps/web/components/city/Avatar.jsx) and must arrive
 // without being stopped by a wall; a click on a building walks to the nearest free spot beside it. Several seeds, many clicks.
 import { imp } from './helpers.mjs';
 

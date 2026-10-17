@@ -73,9 +73,9 @@ The freeze can lift only when every criterion is met, and the pilot has at least
 
 Where the code is:
 
-- **Server:** `server/api/pilot.mjs`, and the dashboard hooks in `server/api/ownerActivity.mjs`.
-- **Tables:** `pilot_members`, `owner_activity` and `pilot_feedback` in `server/api/schema.sql`.
-- **Pages:** `app/admin/pilot/page.jsx`, and the check-in (`PilotFeedback`) in `components/business/ManageProfiles.jsx`.
+- **Server:** `services/api/pilot.mjs`, and the dashboard hooks in `services/api/ownerActivity.mjs`.
+- **Tables:** `pilot_members`, `owner_activity` and `pilot_feedback` in `services/api/schema.sql`.
+- **Pages:** `apps/web/app/admin/pilot/page.jsx`, and the check-in (`PilotFeedback`) in `apps/web/components/business/ManageProfiles.jsx`.
 - **Tests:** `tests/pilot.test.mjs`.
 
 ## Privacy

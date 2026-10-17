@@ -3,7 +3,7 @@
 # for 14 days, and optionally sent to an S3-compatible store (Linode Object Storage) with rclone.
 #
 # Settings (all optional), read from /etc/voxelventure/backup.env if it exists:
-#   API_DB          the database file         (default /srv/voxelventure/server/data/voxelventure.db)
+#   API_DB          the database file         (default /srv/voxelventure/services/api/data/voxelventure.db)
 #   MESSAGING_DB    the messaging service's   (default /srv/voxelventure/services/messaging/data/messaging.db; skipped if it is not there)
 #   BACKUP_DIR      where copies are kept     (default /var/backups/voxelventure)
 #   BACKUP_KEEP     how many days to keep     (default 14)
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 [ -f /etc/voxelventure/backup.env ] && . /etc/voxelventure/backup.env
-DB="${API_DB:-/srv/voxelventure/server/data/voxelventure.db}"
+DB="${API_DB:-/srv/voxelventure/services/api/data/voxelventure.db}"
 DIR="${BACKUP_DIR:-/var/backups/voxelventure}"
 KEEP="${BACKUP_KEEP:-14}"
 

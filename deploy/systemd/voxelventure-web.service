@@ -8,14 +8,14 @@ User=voxel
 WorkingDirectory=/srv/voxelventure
 EnvironmentFile=/etc/voxelventure/web.env
 # `npm run build` must have been run with web.env loaded: the NEXT_PUBLIC_ addresses are fixed into the build.
-ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start apps/web -H 127.0.0.1 -p 3000
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/srv/voxelventure/.next/cache
+ReadWritePaths=/srv/voxelventure/apps/web/.next/cache
 
 [Install]
 WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 """Copies the messaging data out of the Node API's database into this service's (docs/architecture/node_fastapi_architecture_plan.md, step 4).
 
-    python -m app.migrate_from_node --node-db server/data/voxelventure.db --messaging-db services/messaging/data/messaging.db
+    python -m app.migrate_from_node --node-db services/api/data/voxelventure.db --messaging-db services/messaging/data/messaging.db
 
 Run it on a backup copy while messaging writes are paused (the Node API with MESSAGING_INBOX=0 and MESSAGING_NEARBY=0, or stopped).
 It keeps every id, so read positions, retries (clientMessageId), pages and report references still line up; it refuses to write into a
