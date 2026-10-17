@@ -1,5 +1,13 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.3.0 (2026-10-17)
+
+New contracts, all version 1:
+
+- `business.coupon-claim` and `business.coupon-claim.result`;
+- `business.coupon-redeem` and `business.coupon-redeem.result`;
+- `business.purchase-pixel`: the pixel's query, with no key.
+
 ## 0.2.0 (2026-10-17)
 
 New contracts, all version 1, written from what the API accepts and answers today:

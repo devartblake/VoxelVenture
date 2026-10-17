@@ -175,13 +175,15 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 - a weekly merchant check-in on the owner's dashboard ([pilot.md](../monetization/pilot.md)).
 
 **Left:** recruit 10-20 businesses in two districts and run it for four weeks | the pilot (needs you) |
-| 48 | 🟡 Phase B ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). **Done:**
+| 48 | ✅ Phase B ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)), complete. **Done:**
+
+- 15 contracts, including coupon claims, redemptions and the pixel;
 
 - the profile rules moved into `business-core`, so the form and the server share one validation;
 - the pilot criteria in `analytics`;
 - contracts for meeting and quote requests, the pilot check-in and the pilot dashboard.
 
-**Left:** more contracts as new shapes appear (coupon claims, the pixel). Phase C (workspaces, moving the app and the API) waits for staging and Stripe certification | as needed |
+**Next:** Phase C (workspaces, moving the app and the API) waits for staging and Stripe certification. Its readiness is in the [plan](../architecture/modular_monorepo_migration_plan.md#phase-c-readiness-2026-10-17) | Phase C: 4-8 days, gated |
 | 39 | ✅ Outside music: 16 CC0 recordings from OpenGameArt (city, night, arcade, cafe and driving playlists), with the procedural tunes as fallback ([day_night_sound.md](../architecture/day_night_sound.md), `docs/licences/music/`). Left: a listening check on real speakers, loop points for the tracks that have none | listening check needs you |
 
 ## Priorities: by impact and by what sets VoxelVenture apart from ClaimAvenue

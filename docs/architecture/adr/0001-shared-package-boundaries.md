@@ -1,6 +1,6 @@
 # ADR 0001: Shared package boundaries (Phase B)
 
-- **Status:** accepted, 2026-10-16.
+- **Status:** accepted, 2026-10-16. Phase B complete, 2026-10-17.
 - **Context:** Phase B of the [modular monorepo migration plan](../modular_monorepo_migration_plan.md).
 - **Deciders:** the repository owner (via `CODEOWNERS`).
 
@@ -98,6 +98,19 @@ packages/
 
 - **Why all of `profile.js` moved:** its district list is a static list in the file itself, not the city generator's.
 - **One validation:** the web form (`components/business/ProfileForm.jsx`) and the server now check a profile with the very same `cleanProfile`.
+
+## The last contracts (2026-10-17)
+
+- `business.coupon-claim`, `business.coupon-redeem` and their results: a visitor's claim in a 3D storefront, and the owner's redemption at the till.
+- `business.purchase-pixel`: the pixel's query. A key in it is outside the contract.
+
+That makes 15 contracts, every shape that crosses a boundary today. A new one is added the same way when a new shape appears.
+
+## Decision: what stays out of the packages
+
+- **Signing referral codes** needs the server's secret and Node's `crypto`, so it stays in `server/api/business.mjs`. A package is code the browser may load, and the secret's code does not belong there.
+- **Keeping a referral code in the browser** (`localStorage`) stays in `lib/business/referral.js`.
+- **The world** (`lib/city`, `lib/game`, `lib/sim`) waits for the P2 `world-core` package, after the commercial gates.
 
 Not moved yet:
 

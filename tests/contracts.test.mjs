@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', Object.keys(CONTRACTS).length === 10);
+check('contract ids are unique', Object.keys(CONTRACTS).length === 15);
 
 // ---- the shared values are the ones the server and the funnel use
 const { OUTCOMES } = await imp('business/conversions.js');
@@ -67,6 +67,27 @@ try {
   const stats = (await call('GET', '/me/businesses', { token: bob.token })).data.profiles.find((p) => p.profile.slug === 'bob-builds').stats;
   holds('the owner\'s figures', types.OWNER_FIGURES, stats);
   check('they count what happened', stats.views === 1 && stats.ctaClicks === 1 && stats.outcomes.find((o) => o.id === 'purchases').count === 1 && stats.revenue.verifiedCents === 4500, JSON.stringify(stats).slice(0, 300));
+
+  // a coupon in Bob's 3D storefront: claimed by a visitor, redeemed at the till
+  const { generateCity: city } = await imp('city/cityGenerator.js');
+  const lot = city(20260101).plots.find((pl) => !pl.owner && pl.districtId !== 'suburb');
+  await call('POST', `/plots/${lot.id}/claim`, { token: bob.token, body: { title: 'Bob Builds', buildingType: 'shop', website: 'https://bob.test', logo: { kind: 'generated' } } });
+  await call('PUT', `/plots/${lot.id}/storefront`, { token: bob.token, body: { couponText: '10% off', couponCode: 'BOB-10', couponTotal: 5 } });
+  const claim = { visitor: 'coupon-visitor' };
+  holds('a coupon claim', types.COUPON_CLAIM, claim);
+  const claimed = (await call('POST', `/plots/${lot.id}/coupon`, { body: claim })).data;
+  holds('the claimed coupon', types.COUPON_CLAIM_RESULT, claimed);
+  holds('claiming it again', types.COUPON_CLAIM_RESULT, (await call('POST', `/plots/${lot.id}/coupon`, { body: claim })).data);
+  holds('a redemption', types.COUPON_REDEEM, { ticket: claimed.ticket });
+  holds('the redeemed coupon', types.COUPON_REDEEM_RESULT, (await call('POST', `/plots/${lot.id}/coupon/redeem`, { token: bob.token, body: { ticket: claimed.ticket } })).data);
+  check('a ticket the contract refuses, the server refuses too', !fits(types.COUPON_REDEEM, { ticket: 'no!' }).ok && (await call('POST', `/plots/${lot.id}/coupon/redeem`, { token: bob.token, body: { ticket: 'no!' } })).status === 400);
+
+  // the pixel: its query, and that a key in it is outside the contract
+  const pixel = { business: 'bob-builds', click: 'ContractClick01', value: '1200', order: 'P-1' };
+  holds('a pixel report', types.PURCHASE_PIXEL, pixel);
+  const gif = await fetch(`${base}/conversions/pixel.gif?${new URLSearchParams(pixel)}`);
+  check('the pixel answers an image', gif.status === 200 && (gif.headers.get('content-type') ?? '').startsWith('image/gif'));
+  check('a pixel with a key is outside the contract (the pixel never needs one)', !fits(types.PURCHASE_PIXEL, { ...pixel, key: 'vvck_x' }).ok);
 
   // a quote request from a profile's form
   await call('POST', '/businesses', { token: cat.token, body: { name: 'Cat Quotes', category: 'services', cta: { kind: 'quote' } } });

@@ -4,8 +4,12 @@
 **Status:**
 
 - **Phase A (documentation):** implemented.
-- **Phase B (shared packages):** first slices implemented, see [ADR 0001](adr/0001-shared-package-boundaries.md) and [`packages/`](../../packages/README.md). `lib/business/plans.js` and `lib/business/conversions.js` moved behind compatibility adapters; no public API changed.
-- **Phases C and D:** proposals.
+- **Phase B (shared packages):** complete (2026-10-17), see [ADR 0001](adr/0001-shared-package-boundaries.md) and [`packages/`](../../packages/README.md).
+  - Prices, plans, profile rules and the conversion funnel moved behind compatibility adapters.
+  - 15 versioned contracts are tested against the live API.
+  - No public API changed.
+- **Phase C (application and service separation):** not started. It is gated on staging and Stripe certification (section 6); see "Phase C readiness" below.
+- **Phase D:** a proposal.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
 
@@ -80,6 +84,12 @@ Moving business/world rules into `packages/` **will break that loader unless upd
 2. Later: package the shared modules as native ESM with explicit imports and test the Node/Next.js consumers.
 3. Avoid duplicate copies of business rules: use one canonical source for prices, entitlements and validation.
 
+*Done in Phase B (option 2, with 3):*
+
+- the moved modules are native ESM in `packages/`;
+- `scripts/lib-loader.mjs` points imports that leave `lib/` at the real files;
+- the old `lib/` paths are one-line adapters, so there is one copy of each rule ([ADR 0001](adr/0001-shared-package-boundaries.md)).
+
 ### 3.3 Change-aware CI
 
 `scripts/select-checks.mjs` explicitly analyzes `lib/`, `server/`, `tests/`, configuration and known source paths. The GitHub workflow uses this selector to decide which checks run. A new `packages/` path must be included in dependency discovery and impact selection **before** production code is moved there.
@@ -113,6 +123,17 @@ For migration PRs, **force full lint/build/tests/browser checks** instead of tru
 **Acceptance:** All relative links resolve, referenced docs are discoverable, README links work, no runtime files change, and docs-only CI is green.
 
 **Estimate:** 1–2 working days.
+
+**Implemented (2026-10-16), checked against its acceptance on 2026-10-17:**
+
+| Acceptance | State |
+| --- | --- |
+| All relative links resolve | Yes: a scan of all 76 markdown files finds none broken (one false alarm, a code snippet in `voxelventure_idea_03.md`) |
+| Referenced docs are discoverable | Yes: every document is in [docs/README.md](../README.md) or its topic index, including the later `external_voxel_repositories_adoption_plan.md` |
+| README links work | Yes |
+| Old paths | Nothing in the code, scripts, tests or docs still points at an old `docs/<name>.md` path; [documentation_path_map.md](documentation_path_map.md) maps each one |
+| No runtime files change | Partly. Only comments changed in runtime files, where they named a document's old path. They shipped in the same commits as other code, not as a docs-only change |
+| Docs-only CI is green | Not shown. Phase A was not a pull request of its own, so there is no docs-only run to point to. Confirm the CI on `main` (checklist below) |
 
 ### Phase B — Shared package foundations (P1)
 
@@ -157,7 +178,49 @@ Introduce `packages/shared-types/`, `packages/business-core/`, and `packages/ana
 - **Added:** the pilot's criteria (`packages/analytics/src/pilot.js`), and contracts for meeting and quote requests, the pilot check-in and the pilot dashboard.
 - **Stays in `lib/`:** `lib/business/referral.js`, the browser half. The shape of a referral code is in `business-core`.
 
-The next slices follow the ADR's recipe.
+**Phase B complete (2026-10-17).** Each Phase B task, and where it was done:
+
+| Phase B task | Done |
+| --- | --- |
+| Introduce `shared-types`, `business-core`, `analytics` | Three plain-ESM packages with READMEs and changelogs |
+| Document ownership and allowed dependencies | ADR 0001; `owner` and `dependsOn` in each `package.json`, enforced by `tests/packages.test.mjs`; `CODEOWNERS` |
+| Versioned API/event contracts and shared validation schemas | 15 contracts in `packages/shared-types`: profile events, purchase reports, the pixel, owner figures, meeting and quote requests, coupon claims and redemptions, the weekly vote, the pilot check-in and dashboard. Profile validation (`cleanProfile`) is shared by the form and the server |
+| Pure modules | Checked for every package file by `tests/packages.test.mjs` |
+| One vertical slice at a time, with adapters | plans, then conversions, then profile (and the new pilot rules), each behind a one-line adapter at its old path |
+| Identical prices and entitlements for API and web | One catalogue; the adapter and the package give the very same objects, and `billing.mjs` holds no prices (`tests/packages.test.mjs`) |
+| Contract tests; lib-loader only when modules move | `tests/contracts.test.mjs` against the live API; `scripts/lib-loader.mjs` rewrites out-of-`lib/` imports |
+| **Acceptance:** public APIs unchanged | No route, body or answer changed; the full suite passes |
+| **Acceptance:** imports resolve on Node and Next.js | The server loads the packages through the lib-loader; `live-browser` runs a production build |
+| **Acceptance:** parity and contract tests pass | `packages` and `contracts` suites |
+| **Acceptance:** CI selector covers new paths | `scripts/select-checks.mjs`, `tests/select-checks.test.mjs` |
+
+**Referral rules:** the pure part is shared: the shape of a code (`isRefCode`) and share links (`profileUrl`) are in `business-core`. Two parts stay where they are by design:
+
+- **Signing a code** needs the server's secret and Node's `crypto`. It stays in `server/api/business.mjs`; a package would put the signing code where no secret should be.
+- **Keeping a code in the browser** uses `localStorage`. It stays in `lib/business/referral.js`.
+
+**World modules** (`world-core`) are P2 and wait for the commercial gates, like the world freeze.
+
+New contracts are added as new shapes cross a boundary, by the ADR's recipe. That is ongoing upkeep, not an open Phase B task.
+
+### Phase C readiness (2026-10-17)
+
+Phase C is gated: *"Only after production/staging priorities are satisfied"* (section 6: staging deployment, Stripe test/live certification, policy review and pilot measurement first).
+
+| Gate | State |
+| --- | --- |
+| Staging deployment | Not yet: the host and domain are your choice ([tasks.md](../roadmap/tasks.md) tasks 1 and 46) |
+| Stripe test/live certification | Not yet: needs the Stripe account (task 46) |
+| Policy review | Drafted at `/legal`; review and approval are yours (task 45) |
+| Pilot measurement | The dashboard is built; the pilot has not run (task 47) |
+| CI green on `main` | To confirm on GitHub (checklist below) |
+
+What Phase C needs, once the gates allow, in its own branch and pull requests:
+
+1. **Workspace tooling:** npm workspaces for `packages/*`, so `@voxelventure/*` names resolve. Then the relative `../../packages/...` imports and the `lib/` adapters can go.
+2. **`apps/web/`:** the Next.js app moves there with `next.config.mjs`, `jsconfig.json`, `postcss.config.mjs`, `public/` and `patches/`. `patch-package` runs from the right root.
+3. **`services/api/` and `services/multiplayer/`:** the Node servers move without any rewrite. `deploy/systemd`, `deploy/Caddyfile` and the backup script take the new paths.
+4. **The rest follows:** `scripts/lib-loader.mjs`, `scripts/select-checks.mjs`, `tests/`, the CI workflow and the `deploy/` runbook are updated in the same change, with a full CI and browser run.
 
 ### Phase C — Application and service separation (P2)
 
@@ -246,11 +309,12 @@ The subtotal assumes an experienced developer, existing tests and manageable con
   - the profile rules into `business-core`, with the adapter `lib/business/profile.js`;
   - the pilot criteria into `analytics`;
   - contracts for meeting and quote requests and for the pilot.
-- [ ] Phase B, as needed: more contracts when a new shape crosses a boundary (coupon claims, the pixel). Then Phase C, after staging and Stripe certification.
+- [x] Phase B, the last contracts: coupon claims and redemptions, and the pixel (15 contracts in all). **Phase B is complete.**
+- [ ] Phase C, after staging and Stripe certification (see "Phase C readiness").
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation.
 
 ## 10. Final recommendation
 
 **Yes, apply the structure selectively.** Organize docs now, create shared contracts next, and move the runtime only when there is a clear maintainability or deployment payoff. This achieves cleaner ownership and easier AI-agent collaboration while preserving VoxelVenture's competitive differentiators and minimizing risk to commercial launch.
 
-**This document is a proposal, not evidence that migration has been executed.**
+**Phases A and B are done (see their sections). Phases C and D are still proposals.**

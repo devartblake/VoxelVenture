@@ -111,3 +111,50 @@ export const INQUIRY_RESULT = {
   version: 1,
   schema: { type: 'object', required: ['sent'], properties: { sent: { type: 'boolean', enum: [true] }, id: { type: 'integer', minimum: 1 } } },
 };
+
+// POST /plots/<id>/coupon: a visitor claims a 3D storefront's coupon (server/api/engage.mjs claimCoupon). One per visitor; claiming again
+// answers the same code and ticket with `already`.
+export const COUPON_CLAIM = {
+  id: 'business.coupon-claim',
+  version: 1,
+  schema: { type: 'object', properties: { visitor: { type: 'string', pattern: '^[A-Za-z0-9_-]{4,40}$' } } },
+};
+export const COUPON_CLAIM_RESULT = {
+  id: 'business.coupon-claim.result',
+  version: 1,
+  schema: {
+    type: 'object',
+    required: ['code', 'ticket', 'already', 'left'],
+    properties: { code: { type: 'string', minLength: 1 }, ticket: { type: ['string', 'null'], pattern: '^[A-Z0-9]{4,8}$' }, already: { type: 'boolean' }, left: { type: 'integer', minimum: 0 } },
+  },
+};
+
+// POST /plots/<id>/coupon/redeem: the owner marks a claim used at the till, by its ticket (conversions.mjs redeemCoupon).
+export const COUPON_REDEEM = {
+  id: 'business.coupon-redeem',
+  version: 1,
+  schema: { type: 'object', required: ['ticket'], properties: { ticket: { type: 'string', pattern: '^#?[A-Za-z0-9]{4,8}$' } } },
+};
+export const COUPON_REDEEM_RESULT = {
+  id: 'business.coupon-redeem.result',
+  version: 1,
+  schema: { type: 'object', required: ['redeemed', 'ticket', 'claimedAt'], properties: { redeemed: { type: 'boolean', enum: [true] }, ticket: { type: 'string', pattern: '^[A-Z0-9]{4,8}$' }, claimedAt: { type: 'integer', minimum: 0 } } },
+};
+
+// GET /conversions/pixel.gif?business=&click=&value=&order=: the pixel on a business's thank-you page (conversions.mjs purchasePixel). The
+// query, as strings. It needs no key and carries none (`key` is refused by this contract); it always answers a 1x1 GIF.
+export const PURCHASE_PIXEL = {
+  id: 'business.purchase-pixel',
+  version: 1,
+  schema: {
+    type: 'object',
+    required: ['business'],
+    additionalProperties: false,
+    properties: {
+      business: { type: 'string', pattern: '^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$' },
+      click: { type: 'string', pattern: '^[A-Za-z0-9]{10,32}$' },
+      value: { type: 'string', pattern: '^[0-9]{1,9}$' },
+      order: { type: 'string', pattern: '^[A-Za-z0-9_.:#-]{1,64}$' },
+    },
+  },
+};

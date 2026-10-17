@@ -22,6 +22,11 @@ Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-S
 | `business.inquiry.result` | 1 | `{ sent, id? }` | API | same |
 | `pilot.feedback` | 1 | `{ rating (1-5), wouldPay (yes, maybe or no), result?, missing? }` | Owner → `POST /businesses/<slug>/pilot-feedback` | [`contracts/pilot.js`](src/contracts/pilot.js) |
 | `pilot.summary` | 1 | The pilot dashboard: weeks, totals, the verdict on the five criteria, and each business week by week | `GET /admin/pilot` | same |
+| `business.coupon-claim` | 1 | `{ visitor? }`: a visitor claims a 3D storefront's coupon | Browser → `POST /plots/<id>/coupon` | [`contracts/business.js`](src/contracts/business.js) |
+| `business.coupon-claim.result` | 1 | `{ code, ticket, already, left }` | API | same |
+| `business.coupon-redeem` | 1 | `{ ticket }`: the owner marks a claim used | Owner → `POST /plots/<id>/coupon/redeem` | same |
+| `business.coupon-redeem.result` | 1 | `{ redeemed, ticket, claimedAt }` | API | same |
+| `business.purchase-pixel` | 1 | The pixel's query `{ business, click?, value?, order? }`, as strings. It never carries a key | A business's thank-you page → `GET /conversions/pixel.gif` | same |
 | `community.weekly-vote` | 1 | Building of the Week: the player's votes (one a week, a second for finding the gold stars), the top five, last week's winner, when voting closes | `GET /votes`, `POST /vote` | [`contracts/community.js`](src/contracts/community.js) |
 
 [`tests/contracts.test.mjs`](../../tests/contracts.test.mjs) starts the API and checks its real requests and answers against these contracts.
