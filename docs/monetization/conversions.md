@@ -18,7 +18,7 @@ The code is in:
 
 - `server/api/conversions.mjs`: impressions, requests, purchases, coupon redemptions and renewals.
 - `server/api/business.mjs`: profile events and the figures.
-- `packages/analytics/src/conversions.js` (imported through its old path `lib/business/conversions.js`): the funnel, the outcome families and their costs, return on spend, and click ids.
+- `packages/analytics/src/conversions.js` (imported as `@voxelventure/analytics`): the funnel, the outcome families and their costs, return on spend, and click ids.
 - `packages/shared-types/src/contracts/business.js`: the versioned contracts for profile events, purchase reports and the owner's figures. `tests/contracts.test.mjs` checks the API against them.
 
 The tests are in `tests/conversions.test.mjs`.

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BUSINESS_DISTRICTS, CATEGORIES, listJsonLd } from '@/lib/business/profile';
+import { BUSINESS_DISTRICTS, CATEGORIES, listJsonLd } from '@voxelventure/business-core';
 import { getBuildingOfWeek, getFeatured, isDemo, listBusinesses, siteUrl } from '@/lib/business/source';
 import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 import WeekFeature from '@/components/business/WeekFeature';

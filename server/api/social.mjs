@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { fail } from './core.mjs';
-import { imp } from '../../scripts/lib-loader.mjs';
 
 // Welcome posts on VoxelVenture's X account (idea 02, section 5; docs/operations/social_posts.md): when a business joins, the platform posts
 // "Welcome <name> to <district>! @<handle> <link>". Only for owners who opted in (the profile's "welcome my business on X" box), so their
@@ -11,7 +10,7 @@ import { imp } from '../../scripts/lib-loader.mjs';
 //   X_API_URL      the API address (default https://api.x.com; the tests use a stand-in)
 //   SOCIAL_MAX_PER_DAY   at most this many posts in 24 hours (default 20); the rest wait their turn
 //   PUBLIC_SITE_URL      the site's address for the links (falls back to API_ORIGIN)
-const { districtOf } = await imp('business/profile.js');
+import { districtOf } from '@voxelventure/business-core';
 const DAY = 86400000;
 const MAX_ATTEMPTS = 5;
 const now = () => Date.now();

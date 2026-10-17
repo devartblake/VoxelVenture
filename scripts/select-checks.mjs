@@ -38,12 +38,15 @@ function libGraph() {
   if (fs.existsSync(PACKAGES)) walk(PACKAGES);
   const id = (abs) => path.relative(LIB, abs).replace(/\\/g, '/').replace(/\.(js|jsx)$/, '');
   const users = new Map(); // module -> the modules that import it
+  const edge = (dep, user) => (users.get(dep) ?? users.set(dep, new Set()).get(dep)).add(user);
   for (const f of files) {
-    for (const m of fs.readFileSync(f, 'utf8').matchAll(/(?:from|import\()\s*'(\.{1,2}\/[^']+)'/g)) {
-      const dep = id(path.resolve(path.dirname(f), m[1]));
-      if (!users.has(dep)) users.set(dep, new Set());
-      users.get(dep).add(id(f));
-    }
+    const src = fs.readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/(?:from|import\()\s*'(\.{1,2}\/[^']+)'/g)) edge(id(path.resolve(path.dirname(f), m[1])), id(f));
+    // a workspace package by its name (docs/architecture/adr/0002-workspaces.md): the module depends on the package's name...
+    for (const m of src.matchAll(/(?:from|import\()\s*'(@voxelventure\/[a-z-]+)(?:\/[^']*)?'/g)) edge(m[1], id(f));
+    // ...and the name on every file of the package
+    const inPackage = path.relative(PACKAGES, f).split(path.sep);
+    if (!inPackage[0].startsWith('..') && inPackage[1] === 'src') edge(id(f), `@voxelventure/${inPackage[0]}`);
   }
   return users;
 }
@@ -57,8 +60,14 @@ const serverSource = () => {
   const dir = path.join(root, 'server');
   return fs.readdirSync(dir, { recursive: true }).filter((f) => /\.mjs$/.test(f)).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
 };
+// The pages and the 3D city's own code (not lib/, which libGraph follows), for which packages they import by name.
+const appSource = () =>
+  ['app', 'components']
+    .flatMap((d) => (fs.existsSync(path.join(root, d)) ? fs.readdirSync(path.join(root, d), { recursive: true }).map(String).filter((f) => /\.(js|jsx|mjs)$/.test(f)).map((f) => path.join(root, d, f)) : []))
+    .map((f) => fs.readFileSync(f, 'utf8'))
+    .join('\n');
 const serverUses = (mods, src = serverSource()) => mods.some((m) => src.includes(`${m}.js`) || src.includes(`lib/${m}`));
-// A test that imports one of these lib/ modules ('business/plans' matches imp('business/plans.js') and '@/lib/business/plans').
+// A test that imports one of these lib/ modules ('game/leases' matches imp('game/leases.js') and '@/lib/game/leases').
 const naming = (mods) => new RegExp(mods.map((m) => `(['"/]${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\.js)?['"])`).join('|'));
 
 // The decision for a list of changed files. `tests` is 'all', or a list of test file names (empty: no tests).
@@ -86,16 +95,24 @@ export function selectChecks(files, tests = testIndex()) {
       if (serverUses(mods)) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), `${f}: the server loads it`);
     }
     else if (/^packages\/[^/]+\/src\/.+\.js$/.test(f)) {
-      // a shared package (docs/architecture/adr/0001-shared-package-boundaries.md): what a change to the lib/ adapters re-exporting it
-      // would run, and every test that names the package. A package that neither lib/ nor a test uses yet: everything.
+      // a shared package, imported by its workspace name (docs/architecture/adr/0001-shared-package-boundaries.md, 0002-workspaces.md):
+      // the tests that import the package (or a package built on it) by name, the lib/ modules built on it and their tests, the server's
+      // tests if the server imports it, and the browser build if the pages do. A package that nothing uses yet: everything.
       const name = f.split('/')[1];
-      const mods = libDependents(`../${f.replace(/\.js$/, '')}`).filter((m) => !m.startsWith('../'));
-      const named = mentioning(tests, new RegExp(`packages/${name}/`));
-      if (!mods.length && !named.length) all(`${f} (nothing uses the package yet)`);
+      const deps = libDependents(`../${f.replace(/\.js$/, '')}`);
+      const names = deps.filter((m) => m.startsWith('@voxelventure/'));
+      const mods = deps.filter((m) => !m.startsWith('../') && !m.startsWith('@'));
+      const nameRe = new RegExp(`(${names.map((n) => n.replace('/', '\\/')).join('|') || '@voxelventure\\/' + name})(['/])|packages/${name}/`);
+      const named = mentioning(tests, nameRe);
+      const pages = appSource();
+      const inPages = names.some((n) => pages.includes(`'${n}`));
+      const inServer = names.some((n) => serverSource().includes(`'${n}`)) || (mods.length > 0 && serverUses(mods));
+      if (!mods.length && !named.length && !inPages && !inServer) all(`${f} (nothing uses the package yet)`);
       else {
-        add(['packages.test.mjs', ...named], `${f}: the package rules and the tests that name the package`);
-        if (mods.length) add(['live-browser.test.mjs', ...mentioning(tests, naming(mods))], `${f} (through ${mods.length} lib/ module(s) built on it)`);
-        if ((mods.length && serverUses(mods)) || serverSource().includes(`packages/${name}/`)) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), `${f}: the server loads it`);
+        add(['packages.test.mjs', ...named], `${f}: the package rules and the tests that import the package`);
+        if (mods.length) add(mentioning(tests, naming(mods)), `${f} (through ${mods.length} lib/ module(s) built on it)`);
+        if (mods.length || inPages) add(['live-browser.test.mjs'], `${f}: the pages use it`);
+        if (inServer) add(mentioning(tests, /server\/api|['"]server['"]|server\.mjs|multiplayer\.mjs/), `${f}: the server loads it`);
       }
     }
     else if (f === 'CREDITS.md') add(mentioning(tests, /CREDITS/), f);

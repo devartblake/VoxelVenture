@@ -11,8 +11,8 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const { RETENTION, LIMITS, MONEY, BROWSER_STORAGE } = await imp('legal/facts.js');
 const { POLICY_STATUS, policies } = await imp('legal/policies.js');
 const { operator } = await imp('legal/operator.js');
-const { ATTRIBUTION_DAYS } = await imp('business/conversions.js');
-const { PRODUCTS, PLACEMENTS } = await imp('business/plans.js');
+import { ATTRIBUTION_DAYS } from '@voxelventure/analytics';
+import { PRODUCTS, PLACEMENTS } from '@voxelventure/business-core';
 
 // ---- the numbers the policies quote are the code's
 const has = (file, re) => re.test(read(file));

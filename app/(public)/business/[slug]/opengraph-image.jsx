@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { categoryOf, districtOf, isSlug } from '@/lib/business/profile';
+import { categoryOf, districtOf, isSlug } from '@voxelventure/business-core';
 import { getBusiness } from '@/lib/business/source';
 
 // The picture a profile link shows when it is shared on a social site or in a chat. In a paid launch week (the Launch Pack,

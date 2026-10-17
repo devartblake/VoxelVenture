@@ -564,6 +564,11 @@ Their item-by-item status is in [alignment_status.md](alignment_status.md). This
 - **District street names** ([street_names.md](../architecture/street_names.md)): each district has a list of real names from a place with the same character (San Francisco for SaaS, the City of London for The Bazaar, Harrogate for the Meadow Quarter, …).
   - **In the generator:** the infill streets take the Meadow Quarter's, since their lots are in it. The avenues, the cross streets and the pun names keep theirs.
   - **In the editor:** it suggests names from the list of the road's district.
+- **Phase C, step 1** ([ADR 0002](../architecture/adr/0002-workspaces.md), branch `phase-c/workspaces`):
+  - the packages are npm workspaces, imported everywhere as `@voxelventure/*`;
+  - the `lib/business/` adapters above are gone;
+  - the server imports the business rules statically instead of through the lib-loader;
+  - the CI selector follows imports by package name.
 - **Phase B, second slices:** `lib/business/profile.js` moved to `packages/business-core`, so the web form and the server share one profile validation. The pilot's criteria are in `packages/analytics`. There are contracts for meeting and quote requests and the pilot ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md#the-second-slices-2026-10-17)).
 - **The pilot dashboard** ([pilot.md](../monetization/pilot.md)) and the **policy gap fixes** 1 and 3 ([policy_review.md](../monetization/policy_review.md)): see tasks.md.
 - **Click-to-walk finds its way** (`lib/sim/pathfind.js`, used by `components/city/Avatar.jsx`):

@@ -44,30 +44,45 @@ for (const name of packages) {
   check(`${name}: loads in plain Node`, !(mod instanceof Error) && Object.keys(mod).length > 0, mod instanceof Error ? mod.message : '');
 }
 
-// ---- the compatibility adapters: the old lib/ paths give the same objects as the packages
-const ADAPTERS = { 'business/plans.js': 'business-core', 'business/profile.js': 'business-core', 'business/conversions.js': 'analytics' };
-for (const [libPath, pkg] of Object.entries(ADAPTERS)) {
-  const src = fs.readFileSync(path.join(root, 'lib', libPath), 'utf8');
-  check(`lib/${libPath} is only an adapter (one re-export, no rules of its own)`, code(src).trim() === `export * from '../../packages/${pkg}/src/${path.basename(libPath)}';`, code(src).trim());
-  const viaLib = await imp(libPath); // what the server and the older tests load
-  const direct = await import(pathToFileURL(path.join(PKG, pkg, 'src', path.basename(libPath))).href);
-  const index = await import(pathToFileURL(path.join(PKG, pkg, 'src', 'index.js')).href);
-  const keys = Object.keys(direct);
-  check(`lib/${libPath} exports everything the package does`, JSON.stringify(Object.keys(viaLib).sort()) === JSON.stringify([...keys].sort()) && keys.every((k) => k in index));
-  check(`lib/${libPath} gives the very same objects (one copy of the rules)`, keys.every((k) => viaLib[k] === direct[k] && index[k] === direct[k]));
+// ---- the workspace (Phase C step 1, docs/architecture/adr/0002-workspaces.md): every package is reached by its name, and the name gives
+// the very same module as the package's own file, so the server, the pages and the tests share one copy of each rule
+const rootPkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+check('the root package.json declares packages/* as workspaces', JSON.stringify(rootPkg.workspaces) === JSON.stringify(['packages/*']));
+const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
+for (const name of packages) {
+  const meta = JSON.parse(fs.readFileSync(path.join(PKG, name, 'package.json'), 'utf8'));
+  check(`${meta.name} is in the lockfile as a link to packages/${name}`, lock.packages?.[`node_modules/${meta.name}`]?.link === true && lock.packages?.[`node_modules/${meta.name}`]?.resolved === `packages/${name}`);
+  const byName = await import(meta.name).catch((e) => e);
+  const byFile = await import(pathToFileURL(path.join(PKG, name, meta.exports['.'])).href);
+  check(`${meta.name} resolves by name`, !(byName instanceof Error), byName instanceof Error ? `${byName.message} (run npm install)` : '');
+  if (!(byName instanceof Error)) check(`${meta.name} by name is the very same module as its file (one copy of the rules)`, Object.keys(byFile).every((k) => byName[k] === byFile[k]));
 }
+const LIB = imp;
+const facts = await LIB('legal/facts.js'); // a lib/ module loaded the server's way (the lib-loader), which imports the package by name
+const direct = await import('@voxelventure/business-core');
+check('a lib/ module loaded through the lib-loader reads the same catalogue', facts.MONEY.launch.name === direct.PRODUCTS.launch.name && facts.MONEY.placements.length === Object.keys(direct.PLACEMENTS).length);
+check('the old lib/ adapters are gone', ['plans', 'conversions', 'profile'].every((m) => !fs.existsSync(path.join(root, 'lib', 'business', `${m}.js`))));
 
 // ---- prices: the API charges what the pages show, from the one catalogue
-const plans = await import(pathToFileURL(path.join(PKG, 'business-core', 'src', 'index.js')).href);
 const billingSrc = fs.readFileSync(path.join(root, 'server', 'api', 'billing.mjs'), 'utf8');
-check('the server reads prices from the catalogue, not its own numbers', /imp\('business\/plans\.js'\)/.test(billingSrc) && !/\b(900|1900|9900|2900|4900)\b/.test(code(billingSrc)));
-check('the catalogue\'s prices are whole cents', Object.values(plans.PRODUCTS).every((p) => p.cents == null || Number.isInteger(p.cents)) && Object.values(plans.PLACEMENTS).every((p) => Number.isInteger(p.cents)));
-for (const f of ['components/business/ManageProfiles.jsx']) check(`${f} takes its prices from the catalogue`, /from '@\/lib\/business\/plans'/.test(fs.readFileSync(path.join(root, f), 'utf8')));
+check('the server reads prices from the catalogue, not its own numbers', /from '@voxelventure\/business-core'/.test(billingSrc) && !/\b(900|1900|9900|2900|4900)\b/.test(code(billingSrc)));
+check('the catalogue\'s prices are whole cents', Object.values(direct.PRODUCTS).every((p) => p.cents == null || Number.isInteger(p.cents)) && Object.values(direct.PLACEMENTS).every((p) => Number.isInteger(p.cents)));
+for (const f of ['components/business/ManageProfiles.jsx']) check(`${f} takes its prices from the catalogue`, /from '@voxelventure\/business-core'/.test(fs.readFileSync(path.join(root, f), 'utf8')));
 
-// ---- nothing outside packages/ reaches into a package's private files other than src/
-const users = ['lib', 'app', 'components', 'server', 'scripts'].flatMap((d) => fs.readdirSync(path.join(root, d), { recursive: true }).filter((f) => /\.(js|jsx|mjs)$/.test(f) && !String(f).includes('node_modules')).map((f) => path.join(root, d, f)));
-const reaching = users.filter((f) => /['/]packages\/[\w-]+\/(?!src\/)[^'\s]*'/.test(code(fs.readFileSync(f, 'utf8')))).map(rel);
-check('imports of a package go through its src/', reaching.length === 0, reaching.join(', '));
+// ---- outside packages/, a package is imported by its name only: no relative paths into packages/, no old lib/ paths
+const users = ['lib', 'app', 'components', 'server', 'scripts', 'tests'].flatMap((d) => fs.readdirSync(path.join(root, d), { recursive: true }).filter((f) => /\.(js|jsx|mjs)$/.test(f) && !String(f).includes('node_modules')).map((f) => path.join(root, d, f)));
+const IMPORT = /(?:\bfrom|\bimport)\s*\(?\s*'([^']+)'/g;
+const relative = [];
+const old = [];
+for (const f of users) {
+  for (const [, spec] of code(fs.readFileSync(f, 'utf8')).matchAll(IMPORT)) {
+    if (/(^|\/)packages\//.test(spec)) relative.push(`${rel(f)}: ${spec}`);
+    if (/lib\/business\/(plans|conversions|profile)|^\.{1,2}\/(business\/)?(plans|conversions|profile)$/.test(spec)) old.push(`${rel(f)}: ${spec}`);
+  }
+  if (/imp\('business\/(plans|conversions|profile)\.js'\)/.test(code(fs.readFileSync(f, 'utf8')))) old.push(`${rel(f)}: imp()`);
+}
+check('no import reaches into packages/ by a relative path', relative.length === 0, relative.join(', '));
+check('nothing imports the old lib/business paths', old.length === 0, old.join(', '));
 
 console.log(fails ? `\n${fails} check(s) failed` : '\nall package checks passed');
 process.exit(fails ? 1 : 0);

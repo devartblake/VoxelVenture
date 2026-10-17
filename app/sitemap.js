@@ -1,4 +1,4 @@
-import { BUSINESS_DISTRICTS, CATEGORIES } from '@/lib/business/profile';
+import { BUSINESS_DISTRICTS, CATEGORIES } from '@voxelventure/business-core';
 import { isDemo, siteUrl, sitemapSlugs } from '@/lib/business/source';
 import { POLICY_STATUS, policies } from '@/lib/legal/policies';
 

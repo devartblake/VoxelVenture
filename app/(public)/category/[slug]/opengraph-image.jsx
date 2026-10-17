@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { categoryOf } from '@/lib/business/profile';
+import { categoryOf } from '@voxelventure/business-core';
 import { listBusinesses } from '@/lib/business/source';
 import ListShareImage, { SHARE_SIZE } from '@/components/business/ListShareImage';
 

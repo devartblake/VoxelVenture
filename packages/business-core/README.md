@@ -20,9 +20,9 @@ What VoxelVenture sells, and what each plan gets. It is pure and may depend on `
 - `server/api/billing.mjs`, `server/api/business.mjs`;
 - `components/business/ManageProfiles.jsx`;
 - `lib/legal/facts.js`;
-- through `lib/business/profile.js`: the public pages (`app/(public)/`), `components/business/`, the sitemap, and `server/api/{business,billing,social,pilot}.mjs`.
+- the public pages (`app/(public)/`), `components/business/`, the sitemap, `lib/business/{referral,source}.js`, and `server/api/{business,billing,social,pilot}.mjs`.
 
-The old paths `lib/business/plans.js` and `lib/business/profile.js` are adapters. [`tests/packages.test.mjs`](../../tests/packages.test.mjs) checks two things:
+All of them import it by name, `@voxelventure/business-core` ([ADR 0002](../../docs/architecture/adr/0002-workspaces.md)); the old adapters `lib/business/plans.js` and `lib/business/profile.js` are gone. [`tests/packages.test.mjs`](../../tests/packages.test.mjs) checks two things:
 
 - the server and the pages get the very same `PRODUCTS` object;
 - `server/api/billing.mjs` has no prices of its own.

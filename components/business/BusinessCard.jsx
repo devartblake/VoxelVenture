@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { categoryOf, districtOf } from '@/lib/business/profile';
+import { categoryOf, districtOf } from '@voxelventure/business-core';
 import ImpressionTracker from './ImpressionTracker';
 
 // One business in a list (Discover, a category or a district page). `badge` marks a paid card: "Sponsored" or "New this week".

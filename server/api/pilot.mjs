@@ -12,10 +12,10 @@ import { ApiError, fail, requireAccount, text } from './core.mjs';
 import { getRow, ownerView, ownRow, profileStats } from './business.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 import { feedbackView, markOwnerActive, memberStatus } from './ownerActivity.mjs';
-import { PILOT_CRITERIA, PILOT_WEEKS, hadInteraction, pilotVerdict, returnedWeekly } from '../../packages/analytics/src/pilot.js';
+import { PILOT_CRITERIA, PILOT_WEEKS, hadInteraction, pilotVerdict, returnedWeekly } from '@voxelventure/analytics';
 
 const { weekStartOf, addWeeks } = await imp('market/weeks.js');
-const { onboardingSteps, profileReady } = await imp('business/profile.js');
+import { onboardingSteps, profileReady } from '@voxelventure/business-core';
 const DAY = 86400000;
 const WOULD_PAY = ['yes', 'maybe', 'no'];
 const weekStart = (week) => Date.parse(`${week}T00:00:00Z`);

@@ -75,7 +75,7 @@ Concurrency measures: view-radius filtering (120 units), duplicate snapshots ski
 - The business and payment suites: `business-api`, `billing`, `billing-game` and `conversions`.
 - The policies: `legal`, which checks the numbers in the draft policies against the code.
 - The shared packages:
-  - `packages`: boundaries, purity, and that each adapter gives the very same objects as its package;
+  - `packages`: boundaries, purity, the workspace links, and that each package name gives the very same objects as its files;
   - `contracts`: the versioned contracts checked against the live API.
 - The CI selector: `select-checks`.
 - The pilot: `pilot`, the dashboard, retention, payments and the weekly check-in.
@@ -133,7 +133,7 @@ What remains:
 | Credits | `lib/content/credits.js`, `components/ui/panel/CreditsView.jsx`, `../CREDITS.md`, `tests/credits.test.mjs` |
 | Music | `lib/content/music.js` and `components/sound/recordedMusic.js` (CC0 recordings in `public/audio/music/`), `lib/game/musicRules.js` (the live fallback tunes) |
 | Business pages | `app/(public)/`, `components/business/` (the phone menu is `PublicNav.jsx`), `lib/business/` |
-| Prices, plans, conversion rules | `packages/business-core/`, `packages/analytics/` (old paths `lib/business/plans.js` and `conversions.js` re-export them) |
+| Prices, plans, conversion rules | `packages/business-core/`, `packages/analytics/`, imported as `@voxelventure/business-core` and `@voxelventure/analytics` |
 | Cross-boundary contracts | `packages/shared-types/` (`tests/contracts.test.mjs`) |
 | Policies | `lib/legal/`, `app/(public)/legal/`, `components/legal/PolicyBody.jsx` |
 | Tests | `tests/*.test.mjs`, `tests/run.mjs`, `tests/browser-driver.mjs`; CI's selector `scripts/select-checks.mjs` |

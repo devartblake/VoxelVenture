@@ -28,7 +28,7 @@ check('a file no rule knows runs everything', selectChecks(['somewhere/new-thing
 check('docs mixed with code: the code decides', has(selectChecks(['docs/a.md', 'server/api/core.mjs']), 'api.test.mjs'));
 
 // the shared packages (docs/architecture/adr/0001-shared-package-boundaries.md)
-check('lib/ dependents follow an adapter into its package', libDependents('../packages/business-core/src/plans').includes('business/plans') && libDependents('../packages/business-core/src/plans').includes('business/profile'));
+check('dependents follow a package file to its workspace name and the lib/ modules that import it', libDependents('../packages/business-core/src/plans').includes('@voxelventure/business-core') && libDependents('../packages/business-core/src/plans').includes('legal/facts') && !libDependents('../packages/shared-types/src/enums').includes('legal/facts'));
 const prices = selectChecks(['packages/business-core/src/plans.js']);
 check('a package module runs what its lib/ adapter would, the server\'s tests and the package rules', ['billing.test.mjs', 'business-profile.test.mjs', 'live-browser.test.mjs', 'packages.test.mjs', 'contracts.test.mjs', 'api.test.mjs'].every((t) => has(prices, t)), JSON.stringify(prices.tests));
 const contract = selectChecks(['packages/shared-types/src/contracts/business.js']);

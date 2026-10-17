@@ -3,7 +3,7 @@
 // its own lists drift from a contract, this fails; change the contract (and its version, see the package's CHANGELOG.md) on purpose.
 import { createApi } from '../server/api/server.mjs';
 import { imp } from '../scripts/lib-loader.mjs';
-import * as types from '../packages/shared-types/src/index.js';
+import * as types from '@voxelventure/shared-types';
 import { SOURCES, EVENT_KINDS } from '../server/api/business.mjs';
 
 const { check: fits, validate, CONTRACTS } = types;
@@ -26,7 +26,7 @@ for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survi
 check('contract ids are unique', Object.keys(CONTRACTS).length === 15);
 
 // ---- the shared values are the ones the server and the funnel use
-const { OUTCOMES } = await imp('business/conversions.js');
+import { OUTCOMES } from '@voxelventure/analytics';
 check('traffic sources are the server\'s', JSON.stringify(types.TRAFFIC_SOURCES) === JSON.stringify(SOURCES));
 check('profile event kinds are the server\'s', JSON.stringify(types.PROFILE_EVENT_KINDS) === JSON.stringify(EVENT_KINDS));
 check('outcome families are the funnel\'s', JSON.stringify(types.OUTCOME_FAMILIES) === JSON.stringify(OUTCOMES.map((o) => o.id)));

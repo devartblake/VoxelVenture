@@ -23,7 +23,7 @@ const statsOf = async (token, slug) => (await call('GET', '/me/businesses', { to
 const outbox = (kind) => api.db.prepare('SELECT * FROM outbox WHERE kind = ? ORDER BY id').all(kind);
 
 try {
-  const { withClickId, CLICK_PARAM, costPer, outcomesOf, returnOnSpend } = await imp('business/conversions.js');
+  const { withClickId, CLICK_PARAM, costPer, outcomesOf, returnOnSpend } = await import('@voxelventure/analytics');
   check('the click id is added to an https link and nothing else', withClickId('https://bob.test/shop?x=1', 'abcdefghij12') === `https://bob.test/shop?x=1&${CLICK_PARAM}=abcdefghij12` && withClickId('http://bob.test', 'abcdefghij12') === 'http://bob.test' && withClickId('https://bob.test', 'bad id') === 'https://bob.test');
   check('a cost needs both spend and a count', costPer(1900, 3) === 633 && costPer(0, 3) === null && costPer(1900, 0) === null);
   const fam = Object.fromEntries(outcomesOf({ newsletterSignups: 1, meetingRequests: 2, quoteRequests: 1, couponClaims: 3, couponRedemptions: 1, purchases: 2 }, 1200).map((o) => [o.id, o]));

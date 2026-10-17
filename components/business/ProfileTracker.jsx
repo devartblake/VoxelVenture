@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { apiOn, request } from '@/lib/data/api';
 import { visitorId } from '@/lib/data/visitor';
 import { captureRef } from '@/lib/business/referral';
-import { sourceOf } from '@/lib/business/profile';
-import { QUALIFIED_AFTER_MS } from '@/lib/business/conversions';
+import { sourceOf } from '@voxelventure/business-core';
+import { QUALIFIED_AFTER_MS } from '@voxelventure/analytics';
 
 const SEEN_AFTER_MS = 2000;
 // the campaign the link was tagged with (?utm_campaign=spring-sale); the server checks and cleans it

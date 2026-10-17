@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { apiOn, request } from '@/lib/data/api';
 import { visitorId } from '@/lib/data/visitor';
-import { newClickId, withClickId } from '@/lib/business/conversions';
+import { newClickId, withClickId } from '@voxelventure/analytics';
 import { trackCta } from './ProfileTracker';
 import { RETENTION } from '@/lib/legal/retention';
 

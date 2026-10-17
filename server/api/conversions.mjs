@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
 import { ApiError, fail, getPlot, requireAccount, text } from './core.mjs';
-import { imp } from '../../scripts/lib-loader.mjs';
 import { BOT_UA, campaignOf, getRow, ipHashOf, ownRow, SOURCES, visitorOf } from './business.mjs';
 import { cleanEmail, enqueue, noticeAddress } from './engage.mjs';
 
@@ -10,13 +9,13 @@ import { cleanEmail, enqueue, noticeAddress } from './engage.mjs';
 //   impressions   a profile's card was on screen in a list (Discover, a category, a district): sent in batches by the page
 //   inquiries     a meeting or quote request from the profile's own form: kept, emailed to the owner, listed for them
 //   purchases     the business's own site reports a sale (a signed postback or a pixel); it counts when it carries the click id of a verified
-//                 press of the profile's button in the 30 days before (the button's link carries it: lib/business/conversions.js)
+//                 press of the profile's button in the 30 days before (the button's link carries it: @voxelventure/analytics)
 //   coupons       the owner marks a claimed coupon redeemed by its ticket
 //   renewals      for the admin: how many Pro plans renewed and how many owners bought again
 //
 // Everything is verified like views: no bots, not the owner's own, a per-network daily cap. A request or a purchase that is not verified is
 // kept (and a request still emailed) but does not count as a result.
-const { ATTRIBUTION_DAYS, isTicket } = await imp('business/conversions.js');
+import { ATTRIBUTION_DAYS, isTicket } from '@voxelventure/analytics';
 const DAY = 86400000;
 const now = () => Date.now();
 const goodVisitor = (id) => /^[A-Za-z0-9_-]{4,40}$/.test(String(id ?? ''));

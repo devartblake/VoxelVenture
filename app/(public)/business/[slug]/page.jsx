@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { breadcrumbJsonLd, categoryOf, districtOf, isSlug, profileJsonLd } from '@/lib/business/profile';
+import { breadcrumbJsonLd, categoryOf, districtOf, isSlug, profileJsonLd } from '@voxelventure/business-core';
 import { getBuildingOfWeek, getBusiness, isDemo, siteUrl } from '@/lib/business/source';
 import VoteButton from '@/components/business/VoteButton';
 import CtaButton from '@/components/business/CtaButton';

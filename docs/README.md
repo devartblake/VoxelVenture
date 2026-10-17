@@ -70,6 +70,7 @@ Phase A of the [migration plan](architecture/modular_monorepo_migration_plan.md)
 
 - [architecture/modular_monorepo_migration_plan.md](architecture/modular_monorepo_migration_plan.md): Phases A and B are under way (status at the top).
 - [ADR 0001: Shared package boundaries](architecture/adr/0001-shared-package-boundaries.md): the three packages, what each may import, the adapters, contract versioning, and CI.
+- [ADR 0002: Workspaces](architecture/adr/0002-workspaces.md): Phase C step 1, the packages as npm workspaces imported by name, and the adapters retired.
 - [../packages/README.md](../packages/README.md): the shared packages, with [shared-types](../packages/shared-types/README.md) (the contracts), [analytics](../packages/analytics/README.md) and [business-core](../packages/business-core/README.md).
 - [competitive-research/VoxelVenture_Competitive_Strategy_Viral_Monetization.md](competitive-research/VoxelVenture_Competitive_Strategy_Viral_Monetization.md)
 - [competitive_strategy_implementation_audit_2026-10-16.md](competitive-research/competitive_strategy_implementation_audit_2026-10-16.md)

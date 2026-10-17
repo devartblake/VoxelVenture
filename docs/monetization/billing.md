@@ -5,7 +5,7 @@ Phase 4 of the [competitive alignment review](../competitive-research/claimavenu
 - **Business profiles:** the Launch Pack, Pro and sponsored placements.
 - **The game:** leases (claiming, taking over or renewing a plot) and market stalls ([below](#in-the-game-leases-and-market-stalls)).
 
-The code is in `server/api/billing.mjs`. The catalogue is in `packages/business-core/src/plans.js`, imported everywhere through its old path `lib/business/plans.js` ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). The tests are `tests/billing.test.mjs` and `tests/billing-game.test.mjs`, which run against a fake Stripe server.
+The code is in `server/api/billing.mjs`. The catalogue is in `packages/business-core/src/plans.js`, imported everywhere as `@voxelventure/business-core` ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). The tests are `tests/billing.test.mjs` and `tests/billing-game.test.mjs`, which run against a fake Stripe server.
 
 ## What is sold
 

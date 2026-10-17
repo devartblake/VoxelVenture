@@ -110,6 +110,6 @@ The facts come from an inventory of the code on 2026-10-17. The main sources are
 
 - `server/api/core.mjs`, `engage.mjs`, `business.mjs`, `conversions.mjs`, `messaging.mjs`, `moderation.mjs`, `billing.mjs`, `social.mjs`, `stats.mjs`, `schema.sql`
 - `server/multiplayer.mjs`
-- `lib/business/plans.js`, `lib/game/leases.js`, `lib/market/layout.js`, `lib/business/referral.js`
+- `packages/business-core/src/plans.js`, `lib/game/leases.js`, `lib/market/layout.js`, `lib/business/referral.js`
 - `deploy/backup.sh`
 - every `localStorage` key in `lib/`, `components/` and `app/`

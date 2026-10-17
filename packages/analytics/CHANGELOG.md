@@ -1,5 +1,10 @@
 # Changelog: @voxelventure/analytics
 
+## 0.3.0 (2026-10-17)
+
+- A workspace of the root `package.json`: import it by name (`@voxelventure/analytics`).
+- The old `lib/business/` adapters are removed.
+
 ## 0.2.0 (2026-10-16)
 
 - Added `pilot.js`: `PILOT_CRITERIA`, `pilotVerdict`, `returnedWeekly`, `hadInteraction`, `PILOT_WEEKS`.

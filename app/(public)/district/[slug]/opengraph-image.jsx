@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { districtOf } from '@/lib/business/profile';
+import { districtOf } from '@voxelventure/business-core';
 import { listBusinesses } from '@/lib/business/source';
 import ListShareImage, { SHARE_SIZE } from '@/components/business/ListShareImage';
 

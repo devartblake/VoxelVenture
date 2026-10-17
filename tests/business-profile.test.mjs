@@ -1,7 +1,7 @@
-// The rules of free business profiles (lib/business/profile.js): slugs, validation, calls to action, onboarding steps, upgrade prompts
+// The rules of free business profiles (@voxelventure/business-core): slugs, validation, calls to action, onboarding steps, upgrade prompts
 // (never from simulated figures), referral link shapes, structured data, traffic sources and the demo city's profiles.
 import { imp } from './helpers.mjs';
-const P = await imp('business/profile.js');
+import * as P from '@voxelventure/business-core';
 const { DISTRICTS, generateCity } = await imp('city/cityGenerator.js');
 let fails = 0;
 const check = (n, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', n, extra); };

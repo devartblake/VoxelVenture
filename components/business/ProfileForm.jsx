@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from 'react';
-import { BUSINESS_DISTRICTS, CATEGORIES, CTA_KINDS, LIMITS, cleanProfile } from '@/lib/business/profile';
+import { BUSINESS_DISTRICTS, CATEGORIES, CTA_KINDS, LIMITS, cleanProfile } from '@voxelventure/business-core';
 
 const INPUT = 'w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-white placeholder:text-slate-500 focus:border-sx-cyan focus:outline-none';
 const LABEL = 'mb-1 block text-sm font-medium text-slate-200';
 
-// The fields of a free profile, checked with the same rules as the server (lib/business/profile.js) before sending.
+// The fields of a free profile, checked with the same rules as the server (@voxelventure/business-core) before sending.
 // `onSubmit(values)` resolves, or throws an error with `errors` (the server's per-field messages).
 export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCancel }) {
   const [v, setV] = useState({

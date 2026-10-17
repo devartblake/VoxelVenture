@@ -141,7 +141,7 @@ export function onboardingSteps(profile, activity = null) {
 export const profileReady = (steps) => steps.filter((s) => !s.optional).every((s) => s.done);
 
 // ---- upgrade prompts --------------------------------------------------------------------------------------------------------------
-// The paid offers, from the one catalogue (lib/business/plans.js): a prompt offers checkout when billing is set up, and records interest
+// The paid offers, from the one catalogue (@voxelventure/business-core): a prompt offers checkout when billing is set up, and records interest
 // when it is not.
 export const PLANS = Object.fromEntries(['launch', 'pro', 'sponsored'].map((id) => [id, { id, name: PRODUCTS[id].name, price: priceLabel(id), pitch: PRODUCTS[id].pitch }]));
 

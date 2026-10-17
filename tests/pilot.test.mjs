@@ -2,7 +2,7 @@
 // return, the weekly figures, payments and renewals, the merchant's weekly feedback, and the criteria that lift the world freeze.
 import { createApi } from '../server/api/server.mjs';
 import { imp } from '../scripts/lib-loader.mjs';
-import { PILOT_CRITERIA, pilotVerdict, returnedWeekly, hadInteraction } from '../packages/analytics/src/pilot.js';
+import { PILOT_CRITERIA, pilotVerdict, returnedWeekly, hadInteraction } from '@voxelventure/analytics';
 import fs from 'node:fs';
 
 let fails = 0;

@@ -19,4 +19,4 @@ Conversion measurement: the journey from being seen to a verified result, what c
 - `components/business/{CtaButton,ManageProfiles,ProfileTracker}.jsx`;
 - `lib/data/sync.js`.
 
-The old path `lib/business/conversions.js` is an adapter, so all of these still import through it.
+All of them import it by name, `@voxelventure/analytics` ([ADR 0002](../../docs/architecture/adr/0002-workspaces.md)); the old adapter `lib/business/conversions.js` is gone.

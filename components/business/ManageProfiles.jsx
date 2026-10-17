@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { apiBase, getToken, request } from '@/lib/data/api';
-import { PLACEMENTS, PRODUCTS, dollars } from '@/lib/business/plans';
-import { CTA_KINDS, categoryOf, districtOf, profileUrl } from '@/lib/business/profile';
-import { FUNNEL, OUTCOMES, RESULTS, CLICK_PARAM } from '@/lib/business/conversions';
+import { PLACEMENTS, PRODUCTS, dollars } from '@voxelventure/business-core';
+import { CTA_KINDS, categoryOf, districtOf, profileUrl } from '@voxelventure/business-core';
+import { FUNNEL, OUTCOMES, RESULTS, CLICK_PARAM } from '@voxelventure/analytics';
 import AuthDialog from '@/components/ui/AuthDialog';
 import ProfileForm from './ProfileForm';
 import NotLive from './NotLive';
@@ -527,7 +527,7 @@ function Orders() {
   );
 }
 
-// The journey from being seen to a result, verified, for 30 days (lib/business/conversions.js), each step with its share of the step it
+// The journey from being seen to a result, verified, for 30 days (@voxelventure/analytics), each step with its share of the step it
 // follows from (visits, for everything after a visit).
 function Funnel({ stats, ctaLabel }) {
   const steps = FUNNEL.map((f) => ({ ...f, hint: f.id === 'ctaClicks' ? `Presses of “${ctaLabel}”.` : f.hint, value: stats[f.id] ?? 0 }));
@@ -555,7 +555,7 @@ function Funnel({ stats, ctaLabel }) {
   );
 }
 
-// What came of it, by outcome family (lib/business/conversions.js): leads, coupon claims, coupons redeemed and purchases, each with its own
+// What came of it, by outcome family (@voxelventure/analytics): leads, coupon claims, coupons redeemed and purchases, each with its own
 // cost, never added together (one customer can be in several). Then revenue by how far it can be trusted, and the return on what was spent.
 function Results({ stats }) {
   const cents = (c) => (c == null ? '–' : `$${(c / 100).toFixed(2)}`);

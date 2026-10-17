@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { breadcrumbJsonLd, districtOf, listJsonLd } from '@/lib/business/profile';
+import { breadcrumbJsonLd, districtOf, listJsonLd } from '@voxelventure/business-core';
 import { getFeatured, isDemo, listBusinesses, siteUrl } from '@/lib/business/source';
 import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 

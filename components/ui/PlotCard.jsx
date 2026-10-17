@@ -22,7 +22,7 @@ import { useWorld } from '@/lib/state/worldStore';
 import { interiorSummaryFor } from '@/lib/content/interiorScenes';
 import { addressOf, describeBusiness, rankByValue } from '@/lib/game/plotInfo';
 import { liveDataProvider } from '@/lib/data/liveData';
-import { slugify } from '@/lib/business/profile';
+import { slugify } from '@voxelventure/business-core';
 import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { apiOn } from '@/lib/data/api';
 import { claimRemote, openSiteLink, renewRemote, takeOverRemote, updateRemote } from '@/lib/data/sync';

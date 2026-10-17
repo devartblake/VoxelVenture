@@ -5,13 +5,12 @@ import * as community from './community.mjs';
 import * as market from './market.mjs';
 import { ApiError, fail, requireAccount } from './core.mjs';
 import { audit, ADMIN, SYSTEM, byAccount } from './audit.mjs';
-import { imp } from '../../scripts/lib-loader.mjs';
 
 // Payments through Stripe Checkout (phase 4, docs/monetization/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
 // each for one business profile; and, in the game, leases (claiming, taking over or renewing a plot) and market stalls. A lease or a stall
 // is held for the player while they pay and only happens once the payment is confirmed (step 2): what an order does is in fulfil().
 //
-//   1. checkout   the owner asks for a product; the server makes a pending order at the catalogue's price (lib/business/plans.js) and a
+//   1. checkout   the owner asks for a product; the server makes a pending order at the catalogue's price (@voxelventure/business-core) and a
 //                 Stripe Checkout session for exactly that amount, and sends the owner to Stripe's page
 //   2. webhook    Stripe tells the server what happened, signed with STRIPE_WEBHOOK_SECRET. Only this (or step 4) marks an order paid,
 //                 and each Stripe event is applied once however many times it is delivered
@@ -21,8 +20,8 @@ import { imp } from '../../scripts/lib-loader.mjs';
 //
 // Settings: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PUBLIC_SITE_URL (where Stripe sends the owner back), STRIPE_API_URL (tests only),
 // TERMS_URL and REFUND_POLICY_URL (shown at checkout; both required with a live key).
-const { PRODUCTS, placementOf, priceOf, planOf, DAY_MS } = await imp('business/plans.js');
-const { categoryOf, districtOf, isSlug } = await imp('business/profile.js');
+import { PRODUCTS, placementOf, priceOf, planOf, DAY_MS } from '@voxelventure/business-core';
+import { categoryOf, districtOf, isSlug } from '@voxelventure/business-core';
 
 const HOLD_MS = 30 * 60000; // Stripe's shortest checkout expiry: a sponsored spot, a plot or a stall is held this long for a checkout in progress
 const TOLERANCE_S = 300; // a webhook signed longer ago than this is refused (a replay)

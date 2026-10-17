@@ -7,7 +7,7 @@ import { markOwnerActive, memberStatus } from './ownerActivity.mjs';
 import { billingOn, planFor } from './billing.mjs';
 
 // Free business profiles, referral attribution and the owner's figures (docs/product/business_funnel.md). The rules (categories, districts, calls to
-// action, validation, onboarding steps, upgrade prompts) are lib/business/profile.js, shared with the public pages.
+// action, validation, onboarding steps, upgrade prompts) are @voxelventure/business-core, shared with the public pages.
 //
 //   profiles    any account can list up to MAX_PROFILES businesses for free; each gets a public page /business/<slug>
 //   events      a profile view, a qualified visit (15 s on the page), a store entry from the 3D city or a press of its call to action,
@@ -16,9 +16,9 @@ import { billingOn, planFor } from './billing.mjs';
 //   referrals   every account has a signed referral code; a link with ?ref=<code> credits the visits, presses, sign-ups and new
 //               profiles it brings to that account (never an account referring itself)
 //   interest    an owner asking for a paid plan before checkout exists is recorded: the demand signal for phase 4
-const { cleanProfile, uniqueSlug, isSlug, isRefCode, onboardingSteps, upgradePrompts, profileReady, PLANS } = await imp('business/profile.js');
-const { figuresFor, PRODUCTS } = await imp('business/plans.js');
-const { outcomesOf, returnOnSpend, isClickId } = await imp('business/conversions.js');
+import { cleanProfile, uniqueSlug, isSlug, isRefCode, onboardingSteps, upgradePrompts, profileReady, PLANS } from '@voxelventure/business-core';
+import { figuresFor, PRODUCTS } from '@voxelventure/business-core';
+import { outcomesOf, returnOnSpend, isClickId } from '@voxelventure/analytics';
 const { csvRows } = await imp('data/csv.js');
 
 export const MAX_PROFILES = 5;
