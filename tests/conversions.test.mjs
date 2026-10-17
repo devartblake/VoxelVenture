@@ -105,6 +105,7 @@ try {
   const lot = generateCity(20260101).plots.find((p) => !p.owner && p.districtId !== 'suburb');
   await call('POST', `/plots/${lot.id}/claim`, { token: bob.token, body: { title: 'Bob Builds', buildingType: 'shop', website: 'https://bob.test', logo: { kind: 'generated' } } });
   await call('PUT', '/businesses/bob-builds/plot', { token: bob.token, body: { plotId: lot.id } });
+  check('the building says which business page it has (a browser without 3D is sent there)', (await call('GET', `/plots/${lot.id}`)).data.profileSlug === 'bob-builds');
   await call('PUT', `/plots/${lot.id}/storefront`, { token: bob.token, body: { couponText: '10% off', couponCode: 'BOB-10', couponTotal: 5 } });
   const claimed = await call('POST', `/plots/${lot.id}/coupon`, { body: { visitor: 'buyer-1' } });
   check('a claimed coupon comes with its own ticket', claimed.data.code === 'BOB-10' && /^[0-9A-F]{6}$/.test(claimed.data.ticket));

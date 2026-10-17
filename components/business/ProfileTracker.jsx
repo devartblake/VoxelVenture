@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { apiOn, request } from '@/lib/data/api';
-import { visitorId } from '@/lib/data/sync';
+import { visitorId } from '@/lib/data/visitor';
 import { captureRef } from '@/lib/business/referral';
 import { sourceOf } from '@/lib/business/profile';
 import { QUALIFIED_AFTER_MS } from '@/lib/business/conversions';
