@@ -51,7 +51,7 @@ const base = `http://localhost:${api.server.address().port}`;
 const call = async (method, p, { token, body, headers = {} } = {}) => {
   const res = await fetch(base + p, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers }, body: body == null ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
   const text = await res.text();
-  let data = null;
+  let data;
   try { data = JSON.parse(text); } catch { data = text; }
   return { status: res.status, data, headers: res.headers };
 };

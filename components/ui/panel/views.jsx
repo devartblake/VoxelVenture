@@ -269,13 +269,14 @@ export function PlacesView() {
 
   return (
     <div className="text-slate-100">
-      {winner && (
-        <Section title="Building of the Week">
-          <ul className="space-y-1">
-            <PlaceRow title={winner.title} detail={`${botw.votes} vote${botw.votes === 1 ? '' : 's'} last week · ${winner.district}`} x={winner.x} z={winner.z} onOpen={() => setSelectedPlot(winner)} tone="text-yellow-300" />
-          </ul>
-        </Section>
-      )}
+      <Section title="Building of the Week">
+        <ul className="space-y-1">
+          {winner && <PlaceRow title={winner.title} detail={`${botw.votes} vote${botw.votes === 1 ? '' : 's'} last week · ${winner.district}`} x={winner.x} z={winner.z} onOpen={() => setSelectedPlot(winner)} tone="text-yellow-300" />}
+        </ul>
+        <button type="button" onClick={() => usePanel.getState().open('week')} className="mt-1 w-full rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1.5 text-left text-[11px] font-medium text-yellow-100 hover:bg-yellow-400/15">
+          {winner ? 'Vote for next week\'s: see this week\'s top 5 ›' : 'Vote for the first one: see this week\'s top 5 ›'}
+        </button>
+      </Section>
       <Section title="Mega malls">
         <ul className="space-y-1">
           {(layout.malls ?? []).map((m) => (

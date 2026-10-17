@@ -54,6 +54,8 @@ Written for: you, to plan the next stage. Status on 2026-10-17: `npm test` passe
 - [x] Feasibility study for a bigger authored world, with a streaming prototype [5v, study doc]
 - [x] Fixes: refCleanup crash, Play-view crash, bridge flicker, white water, unreachable park gates, stale road batch, the `<Html>` double-root warning
 - [x] `npm run dev:all` runs both servers with the same Node binary, no shell (no DEP0190 warning on Windows) [5z]
+- [x] **Building of the Week, the weekly vote** made visible and easier: one vote a week for everyone, a bonus for the three gold stars, a panel in the game, a section on Discover, badges and a Vote button on business pages, and a demo that works without the server [`docs/community.md`]
+- [x] **ESLint 10** (10.12.0, from the unsupported 9.39): `eslint-plugin-react` removed (it does not support ESLint 10, and ESLint now sees names used in JSX itself); the 8 places the new `no-useless-assignment` rule found are fixed
 - [x] **Python messaging service** (steps 1-5 of `node_fastapi_architecture_plan.md`): `services/messaging` (FastAPI) passes the same messaging contract as the Node API, Node's identity and ownership endpoints for it, the data copy with reconciliation, a read-only pause, the systemd unit and backups; not switched on yet [`services/messaging/README.md`]
 - [x] **Chat and private messages** (phases 0-3 of `chat_messaging_plan.md`): a Chat panel with Nearby and Inbox; signed-in identity on the presence server; sent / failed / Retry; blocks, reports, bans; requests, read positions, mute; "Message the owner" on a building's card [`docs/backend.md`, `server/README.md`]
 

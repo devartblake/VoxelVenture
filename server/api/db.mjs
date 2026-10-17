@@ -30,6 +30,11 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'plots', 'lease_notified', 'INTEGER NOT NULL DEFAULT 0');
   addColumn(db, 'plots', 'brand', 'TEXT');
   addColumn(db, 'plots', 'quest_budget', 'INTEGER NOT NULL DEFAULT 0');
+  upgradeVotes(db);
+  // purchase reporting (conversions.mjs): each business's own conversion key, stored as a hash only, and where a purchase report came from
+  addColumn(db, 'businesses', 'conv_key_hash', 'TEXT'); // sha256 of the business's conversion key (the key is shown to the owner once)
+  addColumn(db, 'businesses', 'conv_key_at', 'INTEGER'); // when it was made (a new one replaces it)
+  addColumn(db, 'business_events', 'report', 'TEXT'); // a purchase: 'server' (authenticated postback) or 'browser' (the pixel: unverified)
   addColumn(db, 'accounts', 'dm_requests', 'INTEGER NOT NULL DEFAULT 1'); // 0: nobody new can send this account a message request
   addColumn(db, 'reports', 'evidence', 'TEXT'); // a reported chat message as it was when reported (JSON)
   addColumn(db, 'business_events', 'campaign', 'TEXT'); // utm_campaign of the link the visitor came by (business.mjs)
@@ -49,6 +54,25 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'ad_events', 'verified', 'INTEGER NOT NULL DEFAULT 0'); // rows from before verification are not counted
   addColumn(db, 'accounts', 'referred_by', 'INTEGER REFERENCES accounts(id)'); // the account whose referral link brought this one (business.mjs)
   return db;
+}
+
+// Building of the Week once allowed one vote a player a week (key: week + account). Now a player can have two, for different buildings
+// (key: week + account + building). A database made before is rebuilt once, keeping every vote.
+function upgradeVotes(db) {
+  const key = db.prepare('PRAGMA table_info(votes)').all().filter((c) => c.pk > 0).length;
+  if (key !== 2) return;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(`CREATE TABLE votes_upgraded (week TEXT NOT NULL, account_id INTEGER NOT NULL REFERENCES accounts(id), plot_id INTEGER NOT NULL REFERENCES plots(id), at INTEGER NOT NULL, PRIMARY KEY (week, account_id, plot_id));
+      INSERT INTO votes_upgraded (week, account_id, plot_id, at) SELECT week, account_id, plot_id, at FROM votes;
+      DROP TABLE votes;
+      ALTER TABLE votes_upgraded RENAME TO votes;
+      CREATE INDEX IF NOT EXISTS votes_plot ON votes(week, plot_id);`);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
 }
 
 function addColumn(db, table, column, definition) {

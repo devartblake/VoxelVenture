@@ -31,7 +31,7 @@ for (const v of VARIANTS) {
   for (const seed of seeds) {
     for (let i = 0; i < 3; i++) {
       const t0 = performance.now();
-      city = generateCity(seed, { infill, amusement });
+      generateCity(seed, { infill, amusement }); // timed only: the city measured below is generated once more
       times.push(performance.now() - t0);
     }
   }

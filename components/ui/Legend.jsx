@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Map as MapIcon, Shuffle } from 'lucide-react';
+import { Crown, Map as MapIcon, Shuffle } from 'lucide-react';
+import { useCommunity } from '@/lib/state/communityStore';
+import { timeLeft } from '@/lib/game/buildingOfWeek';
 import { useCityStore } from '@/lib/state/store';
 import { useMap } from '@/lib/state/mapStore';
 import MiniMap, { ZOOMS, useMapZoom } from './MiniMap';
@@ -134,9 +136,27 @@ function HuntClues() {
   );
 }
 
+// The weekly vote, at the top of Today & quests: who leads, how long is left, and the way into the Building of the Week panel.
+function WeekTeaser() {
+  const votes = useCommunity((s) => s.votes);
+  if (!votes) return null;
+  const top = votes.leaders[0];
+  return (
+    <button type="button" onClick={() => usePanel.getState().open('week')} className="flex w-full items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-left hover:bg-yellow-400/15" data-testid="week-teaser">
+      <Crown className="h-4 w-4 shrink-0 text-yellow-300" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-bold text-yellow-100">Building of the Week: vote</span>
+        <span className="block truncate text-[10px] text-yellow-200/80">{top ? `${top.title} leads with ${top.votes}` : 'No votes yet'} · closes in {timeLeft(votes.endsAt)}{votes.votesLeft > 0 ? ` · ${votes.votesLeft} vote${votes.votesLeft === 1 ? '' : 's'} left` : ''}</span>
+      </span>
+      <span className="text-yellow-200/70">›</span>
+    </button>
+  );
+}
+
 function PlayTab({ billboards }) {
   return (
     <div className="space-y-2 text-[11px] text-slate-400">
+      <WeekTeaser />
       <HuntClues />
       <p><Em>Move:</Em> WASD / arrows (Shift runs), or click the ground. <Em>E</Em> interacts, <Em>1 2 3</Em> are emotes. On a phone: the joystick walks, the run and interact buttons sit beside it, tap the ground to walk there, drag to pan, pinch to zoom.</p>
       <p><Em>Today:</Em> a gold gem marks the Plot of the Day (walk in for +20 Gold; gold ring on the map). A gold dot is the daily chest (E to open).</p>

@@ -390,9 +390,12 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     }
     // conversion measurement (conversions.mjs, docs/conversions.md)
     if (m === 'POST' && p === '/businesses/impressions') return conversions.recordImpressions(db, account, await body(req), visitCtx(req));
-    if (m === 'POST' && p === '/conversions') return conversions.recordPurchase(db, await body(req), { secret: business.referralSecret(env) });
-    if (m === 'GET' && p === '/conversions/pixel.gif') return conversions.purchasePixel(db, Object.fromEntries(url.searchParams), { secret: business.referralSecret(env) });
+    // a business's server reports a sale with its own conversion key in the Authorization header (never in a URL); the pixel has no key and
+    // only ever counts as browser-reported
+    if (m === 'POST' && p === '/conversions') return conversions.recordPurchase(db, await body(req), { key: conversions.keyFromHeaders(req.headers) });
+    if (m === 'GET' && p === '/conversions/pixel.gif') return conversions.purchasePixel(db, Object.fromEntries(url.searchParams), visitCtx(req));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/tracking$/)) && m === 'GET') return conversions.trackingFor(db, account, r[1], env);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/tracking\/key$/)) && m === 'POST') return logged(A.byAccount(account), 'conversion_key.rotate', { kind: 'business', id: r[1] }, () => conversions.rotateConversionKey(db, account, r[1]));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/inquiries$/)) && m === 'POST') return conversions.createInquiry(db, account, r[1], await screened(req, { name: 0, message: 0, preferred: 0 }), { ...visitCtx(req), inquiryLimit: env.INQUIRY_LIMIT ? Number(env.INQUIRY_LIMIT) : undefined });
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/inquiries$/)) && m === 'GET') return conversions.listInquiries(db, account, r[1]);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/inquiries\/(\d+)$/)) && m === 'PATCH') return conversions.setInquiryStatus(db, account, r[1], r[2], (await body(req)).status);

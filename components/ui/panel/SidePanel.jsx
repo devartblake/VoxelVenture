@@ -16,6 +16,7 @@ import AccountView from './AccountView';
 import MallView from './MallView';
 import CreditsView from './CreditsView';
 import ChatView from '@/components/ui/chat/ChatView';
+import WeekView from './WeekView';
 import { OnlineView, PlacesView, SearchView, StatsView } from './views';
 
 const WIDTH = { normal: 440, expanded: 760 };
@@ -154,6 +155,7 @@ export default function SidePanel() {
         {view === 'places' && <PlacesView />}
         {view === 'online' && <OnlineView />}
         {view === 'chat' && <ChatView />}
+        {view === 'week' && <WeekView />}
         {view === 'play' && <PlayView />}
         {view === 'wardrobe' && <Wardrobe />}
         {view === 'plot' && <PlotCard />}

@@ -17,7 +17,7 @@ import { billingOn, planFor } from './billing.mjs';
 //   interest    an owner asking for a paid plan before checkout exists is recorded: the demand signal for phase 4
 const { cleanProfile, uniqueSlug, isSlug, isRefCode, onboardingSteps, upgradePrompts, profileReady, PLANS } = await imp('business/profile.js');
 const { figuresFor, PRODUCTS } = await imp('business/plans.js');
-const { conversionsOf, costPerResult, isClickId } = await imp('business/conversions.js');
+const { outcomesOf, returnOnSpend, isClickId } = await imp('business/conversions.js');
 const { csvRows } = await imp('data/csv.js');
 
 export const MAX_PROFILES = 5;
@@ -233,27 +233,32 @@ export function profileStats(db, businessId, at = now()) {
     // the coupon of the linked 3D storefront (claims are one per visitor and never the owner's own: engage.mjs)
     couponClaims: plotId ? count('SELECT COUNT(*) AS n FROM coupon_claims WHERE plot_id = ? AND at >= ?', plotId, since) : 0,
     couponRedemptions: plotId ? count('SELECT COUNT(*) AS n FROM coupon_claims WHERE plot_id = ? AND redeemed_at >= ?', plotId, since) : 0,
-    purchases: purchases.length,
+    purchases: purchases.length, // verified: reported by the business's server and credited to a verified press of the button
   };
-  const conversions = conversionsOf(results);
-  // what the owner paid for this profile in the period (Launch Pack, Pro, placements: billing.mjs) and what each result cost
+  // what the owner paid for this profile in the period (Launch Pack, Pro, placements: billing.mjs): each outcome family is costed on its own
   const spendCents = db.prepare("SELECT COALESCE(SUM(cents), 0) AS n FROM orders WHERE business_id = ? AND status = 'paid' AND paid_at >= ?").get(businessId, since).n;
-  const days = Array.from({ length: 30 }, (_, k) => ({ ago: 29 - k, views: 0, cta: 0, results: 0 }));
+  // revenue by how much it can be trusted: verified (server report, credited to a press), unattributed (server report, no press), and
+  // browser-reported (the pixel: no key, so never verified). Reports from before the split (no `report`) were keyed: they count as server.
+  const revenue = db.prepare("SELECT COALESCE(SUM(CASE WHEN COALESCE(report, 'server') = 'server' AND verified = 1 THEN value_cents END), 0) AS verified, COALESCE(SUM(CASE WHEN COALESCE(report, 'server') = 'server' AND verified = 0 THEN value_cents END), 0) AS unattributed, COALESCE(SUM(CASE WHEN report = 'browser' THEN value_cents END), 0) AS browser, SUM(report = 'browser') AS browserReports FROM business_events WHERE business_id = ? AND kind = 'purchase' AND at >= ?").get(businessId, since);
+  // leads and purchases (separate families) by day, by source and by campaign; newsletter sign-ups have no source, so leads here are requests
+  const days = Array.from({ length: 30 }, (_, k) => ({ ago: 29 - k, views: 0, cta: 0, leads: 0, purchases: 0 }));
   const dayOf = (t) => days[29 - Math.min(29, Math.floor((at - t) / DAY))];
+  const field = (kind) => ({ view: 'views', cta: 'ctaClicks', purchase: 'purchases' })[kind];
   for (const e of ev) {
     if (e.kind === 'view') dayOf(e.at).views++;
     else if (e.kind === 'cta') dayOf(e.at).cta++;
-    else if (e.kind === 'purchase') dayOf(e.at).results++;
+    else if (e.kind === 'purchase') dayOf(e.at).purchases++;
   }
-  for (const q of inquiries) dayOf(q.at).results++;
-  const bySource = Object.fromEntries(SOURCES.map((s) => [s, { id: s, views: 0, ctaClicks: 0, results: 0 }]));
-  for (const e of [...views, ...cta, ...purchases]) if (bySource[e.source]) bySource[e.source][e.kind === 'view' ? 'views' : e.kind === 'cta' ? 'ctaClicks' : 'results']++;
-  for (const q of inquiries) if (bySource[q.source]) bySource[q.source].results++;
-  // each tagged campaign's views, presses and results (the ten with most views)
+  for (const q of inquiries) dayOf(q.at).leads++;
+  const bySource = Object.fromEntries(SOURCES.map((s) => [s, { id: s, views: 0, ctaClicks: 0, leads: 0, purchases: 0 }]));
+  for (const e of [...views, ...cta, ...purchases]) if (bySource[e.source]) bySource[e.source][field(e.kind)]++;
+  for (const q of inquiries) if (bySource[q.source]) bySource[q.source].leads++;
+  // each tagged campaign's views, presses, leads and purchases (the ten with most views)
   const byCampaign = new Map();
-  const campaign = (id) => byCampaign.get(id) ?? byCampaign.set(id, { id, views: 0, ctaClicks: 0, results: 0 }).get(id);
-  for (const e of [...views, ...cta, ...purchases].filter((x) => x.campaign)) campaign(e.campaign)[e.kind === 'view' ? 'views' : e.kind === 'cta' ? 'ctaClicks' : 'results']++;
-  for (const q of inquiries.filter((x) => x.campaign)) campaign(q.campaign).results++;
+  const campaign = (id) => byCampaign.get(id) ?? byCampaign.set(id, { id, views: 0, ctaClicks: 0, leads: 0, purchases: 0 }).get(id);
+  for (const e of [...views, ...cta, ...purchases].filter((x) => x.campaign)) campaign(e.campaign)[field(e.kind)]++;
+  for (const q of inquiries.filter((x) => x.campaign)) campaign(q.campaign).leads++;
+  const outcomes = outcomesOf(results, spendCents);
   return {
     simulated: false,
     verified: true,
@@ -266,11 +271,10 @@ export function profileStats(db, businessId, at = now()) {
     ctr: views.length ? cta.length / views.length : 0,
     referralVisits: views.filter((e) => e.ref_account != null).length,
     ...results,
-    revenueCents: purchases.reduce((n, e) => n + (e.value_cents ?? 0), 0),
-    conversions,
-    conversionRate: views.length ? conversions / views.length : 0,
+    outcomes: outcomes.map(({ id, count, costCents }) => ({ id, count, costCents })), // leads, claims, redemptions, purchases: never summed
+    revenue: { verifiedCents: revenue.verified, unattributedCents: revenue.unattributed, browserCents: revenue.browser, browserReports: revenue.browserReports ?? 0 },
     spendCents,
-    costPerResultCents: costPerResult(spendCents, conversions),
+    returnOnSpend: returnOnSpend(revenue.verified, spendCents), // verified revenue only
     sources: Object.values(bySource),
     campaigns: [...byCampaign.values()].sort((a, b) => b.views - a.views || a.id.localeCompare(b.id)).slice(0, 10),
     days,
@@ -339,13 +343,18 @@ export function exportCsv(db, account, slug) {
   if (!planFor(db, row.id).pro) fail(402, `CSV export is part of ${PRODUCTS.pro.name}.`, 'needs_pro');
   const s = profileStats(db, row.id);
   const day = (ago) => new Date(Date.now() - ago * DAY).toISOString().slice(0, 10);
+  const usd = (c) => (c == null ? '' : (c / 100).toFixed(2));
+  const family = (id) => s.outcomes.find((o) => o.id === id);
   const rows = [
-    ['Date', 'Verified views', 'Call-to-action presses', 'Results'], ...s.days.map((d) => [day(d.ago), d.views, d.cta, d.results]),
+    ['Date', 'Verified views', 'Call-to-action presses', 'Leads (requests)', 'Purchases'], ...s.days.map((d) => [day(d.ago), d.views, d.cta, d.leads, d.purchases]),
     [], ['Funnel (30 days)', 'Count'], ['Seen in lists', s.impressions], ['Profile visits', s.views], ['Qualified visits', s.qualified], ['Store entries', s.storeEntries], ['Button presses', s.ctaClicks],
-    ['Newsletter sign-ups', s.newsletterSignups], ['Meeting requests', s.meetingRequests], ['Quote requests', s.quoteRequests], ['Coupons claimed', s.couponClaims], ['Coupons redeemed', s.couponRedemptions], ['Purchases', s.purchases],
-    ['Purchase value (USD)', (s.revenueCents / 100).toFixed(2)], ['Spent on VoxelVenture (USD)', (s.spendCents / 100).toFixed(2)], ['Cost per result (USD)', s.costPerResultCents == null ? '' : (s.costPerResultCents / 100).toFixed(2)],
-    [], ['Source', 'Views', 'Presses', 'Results'], ...s.sources.map((x) => [x.id, x.views, x.ctaClicks, x.results]),
-    [], ['Campaign', 'Views', 'Presses', 'Results'], ...s.campaigns.map((c) => [c.id, c.views, c.ctaClicks, c.results]),
+    [], ['Outcome', 'Count', 'Cost (USD)'],
+    ['Leads (newsletter, meeting and quote requests)', family('leads').count, usd(family('leads').costCents)], ['  Newsletter sign-ups', s.newsletterSignups, ''], ['  Meeting requests', s.meetingRequests, ''], ['  Quote requests', s.quoteRequests, ''],
+    ['Coupon claims', family('claims').count, usd(family('claims').costCents)], ['Coupons redeemed', family('redemptions').count, usd(family('redemptions').costCents)], ['Purchases (verified)', family('purchases').count, usd(family('purchases').costCents)],
+    [], ['Revenue (USD)', 'Amount'], ['Verified (your server, credited to a press)', usd(s.revenue.verifiedCents)], ['Unattributed (your server, no press found)', usd(s.revenue.unattributedCents)], ['Browser-reported (pixel, unverified)', usd(s.revenue.browserCents)],
+    ['Spent on VoxelVenture', usd(s.spendCents)], ['Return on spend (verified revenue / spend)', s.returnOnSpend ?? ''],
+    [], ['Source', 'Views', 'Presses', 'Leads (requests)', 'Purchases'], ...s.sources.map((x) => [x.id, x.views, x.ctaClicks, x.leads, x.purchases]),
+    [], ['Campaign', 'Views', 'Presses', 'Leads (requests)', 'Purchases'], ...s.campaigns.map((c) => [c.id, c.views, c.ctaClicks, c.leads, c.purchases]),
   ];
   return { __raw: { type: 'text/csv; charset=utf-8', filename: `${row.slug}-figures.csv`, body: csvRows(rows) } };
 }

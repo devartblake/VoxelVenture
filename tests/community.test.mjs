@@ -98,17 +98,37 @@ try {
   // ---- Building of the Week
   const cat = (await call('POST', '/auth/signup', { body: { username: 'Cat', password: 'longenough3' } })).data;
   const today = new Date().toISOString().slice(0, 10);
-  check('voting needs the daily collectibles first', (await call('POST', '/vote', { token: cat.token, body: { plotId: built[1].id } })).data.code === 'not_earned');
-  check('the collectibles must all be found, and it must be today', (await call('POST', '/hunt/complete', { token: cat.token, body: { day: today, found: [0, 1] } })).data.code === 'incomplete' && (await call('POST', '/hunt/complete', { token: cat.token, body: { day: '2020-01-01', found: [0, 1, 2] } })).data.code === 'bad_day' && (await call('POST', '/hunt/complete', { body: { day: today, found: [0, 1, 2] } })).status === 401);
-  const hunt = await call('POST', '/hunt/complete', { token: cat.token, body: { day: today, found: [0, 1, 2] } });
-  check('finding all three earns this week\'s vote', hunt.status === 200 && hunt.data.canVote === true && hunt.data.week === weekStartOf(), JSON.stringify(hunt.data));
-  check('a headquarters cannot be voted for', (await call('POST', '/vote', { token: cat.token, body: { plotId: hq.id } })).status === 400);
+  check('voting needs a sign-in', (await call('POST', '/vote', { body: { plotId: built[1].id } })).status === 401);
+  const fresh = (await call('GET', '/votes', { token: cat.token })).data;
+  check('every signed-in player has one vote a week without the stars', fresh.allowed === 1 && fresh.votesLeft === 1 && fresh.canVote === true && fresh.huntWon === false && fresh.week === weekStartOf(), JSON.stringify(fresh));
+  check('a headquarters cannot be voted for', (await call('POST', '/vote', { token: cat.token, body: { plotId: hq.id } })).data.code === 'bad_plot');
+  check('nor your own building', (await call('POST', '/vote', { token: bob.token, body: { plotId: lot.id } })).data.code === 'own_building');
   const voted = await call('POST', '/vote', { token: cat.token, body: { plotId: built[1].id } });
-  check('the vote counts and shows in the leaders', voted.status === 200 && voted.data.voted === built[1].id && voted.data.leaders[0].plotId === built[1].id && voted.data.leaders[0].votes === 1, JSON.stringify(voted.data));
-  check('one vote a week', (await call('POST', '/vote', { token: cat.token, body: { plotId: built[2].id } })).data.code === 'voted');
+  check('the vote counts and shows in the leaders', voted.status === 200 && voted.data.votedFor.join() === String(built[1].id) && voted.data.votesLeft === 0 && voted.data.leaders[0].plotId === built[1].id && voted.data.leaders[0].votes === 1, JSON.stringify(voted.data));
+  const noMore = (await call('POST', '/vote', { token: cat.token, body: { plotId: built[2].id } })).data;
+  check('with the one vote used, a second needs the stars (and says so)', noMore.code === 'no_votes_left' && /gold stars/.test(noMore.error), JSON.stringify(noMore));
+  check('the stars must all be found, and it must be today', (await call('POST', '/hunt/complete', { token: cat.token, body: { day: today, found: [0, 1] } })).data.code === 'incomplete' && (await call('POST', '/hunt/complete', { token: cat.token, body: { day: '2020-01-01', found: [0, 1, 2] } })).data.code === 'bad_day' && (await call('POST', '/hunt/complete', { body: { day: today, found: [0, 1, 2] } })).status === 401);
+  const hunt = await call('POST', '/hunt/complete', { token: cat.token, body: { day: today, found: [0, 1, 2] } });
+  check('finding all three stars earns a second vote this week', hunt.status === 200 && hunt.data.huntWon === true && hunt.data.allowed === 2 && hunt.data.votesLeft === 1 && hunt.data.canVote === true, JSON.stringify(hunt.data));
+  check('but not for the same building twice', (await call('POST', '/vote', { token: cat.token, body: { plotId: built[1].id } })).data.code === 'already_voted');
+  const second = await call('POST', '/vote', { token: cat.token, body: { plotId: built[2].id } });
+  check('the bonus vote goes to another building', second.status === 200 && second.data.votedFor.length === 2 && second.data.votesLeft === 0 && second.data.leaders.length === 2);
+  check('and then no more this week', (await call('POST', '/vote', { token: cat.token, body: { plotId: built[3].id } })).data.code === 'no_votes_left');
+  await call('POST', '/vote', { token: amy.token, body: { plotId: built[2].id } });
   const pub = (await call('GET', '/votes')).data;
-  check('anyone can see the votes, with no winner until a week has ended', pub.leaders.length === 1 && pub.winner === null && pub.canVote === false);
+  check('anyone can see the leaders, most votes first, with when voting closes and no winner until a week has ended', pub.leaders[0].plotId === built[2].id && pub.leaders[0].votes === 2 && pub.winner === null && pub.canVote === false && pub.signedIn === false && pub.endsAt > Date.now(), JSON.stringify(pub).slice(0, 200));
   check('the state list carries the Building of the Week (none yet)', (await call('GET', '/plots/state')).data.botw === null);
+  // last week's top becomes this week's Building of the Week (the votes are moved back a week here, as if the week had ended)
+  const { createApi } = await import(new URL('../server/api/server.mjs', import.meta.url).href);
+  const local = createApi({ deliverEveryMs: 0, env: {} });
+  const lastWeek = (await imp('market/weeks.js')).addWeeks(weekStartOf(), -1);
+  const a1 = local.db.prepare("INSERT INTO accounts (username, pass_salt, pass_hash, created_at) VALUES ('v1','s','h',0)").run().lastInsertRowid;
+  const a2 = local.db.prepare("INSERT INTO accounts (username, pass_salt, pass_hash, created_at) VALUES ('v2','s','h',0)").run().lastInsertRowid;
+  for (const [a, p, at] of [[a1, built[5].id, 1], [a2, built[5].id, 2], [a1, built[6].id, 3]]) local.db.prepare('INSERT INTO votes (week, account_id, plot_id, at) VALUES (?,?,?,?)').run(lastWeek, a, p, at);
+  const { buildingOfTheWeek } = await import(new URL('../server/api/community.mjs', import.meta.url).href);
+  const w = buildingOfTheWeek(local.db);
+  check('last week\'s most-voted building is this week\'s Building of the Week', w?.plotId === built[5].id && w.votes === 2 && w.week === lastWeek, JSON.stringify(w));
+  await local.close();
 } finally {
   proc.kill();
 }

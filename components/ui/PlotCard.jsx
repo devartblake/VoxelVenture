@@ -31,6 +31,7 @@ import { useCommunity } from '@/lib/state/communityStore';
 import ReportButton from './ReportButton';
 import { useAccount } from '@/lib/state/accountStore';
 import { composeTo } from '@/lib/state/chatStore';
+import { voteProblem } from '@/lib/game/buildingOfWeek';
 
 // A question for whoever owns this building now (it opens a new message in Chat; signing in first if needed).
 function MessageOwner({ plot }) {
@@ -327,7 +328,8 @@ function LeaseBox({ plot }) {
   );
 }
 
-// Vote for Building of the Week: earned by finding all three daily collectibles; one vote a week.
+// Vote for Building of the Week (lib/game/buildingOfWeek.js): one vote a week for everyone, a bonus one for the three gold stars, each for a
+// different building. Works without a game server too (a demo: the votes stay in this browser).
 function VoteBox({ plot }) {
   const account = useAccount((s) => s.account);
   const votes = useCommunity((s) => s.votes);
@@ -336,24 +338,28 @@ function VoteBox({ plot }) {
   const vote = useCommunity((s) => s.vote);
   useEffect(() => {
     loadVotes();
-  }, [loadVotes, account?.id]);
+    useCommunity.getState().clearNotice();
+  }, [loadVotes, account?.id, plot.id]);
   if (!votes) return null;
-  const mine = votes.voted === plot.id;
+  const mine = votes.votedFor.includes(plot.id);
   const here = votes.leaders?.find((l) => l.plotId === plot.id)?.votes ?? 0;
+  const needSignIn = apiOn() && !account;
+  const problem = voteProblem(plot, { votedFor: votes.votedFor, left: votes.votesLeft, ownPlot: Boolean(plot.userClaimed) });
   return (
     <div className="rounded-xl border border-yellow-400/25 bg-yellow-400/5 px-3 py-2 text-[11px] text-yellow-100" data-testid="vote-box">
       <div className="flex items-center justify-between gap-2">
         <span className="font-bold">Building of the Week{here ? ` · ${here} vote${here === 1 ? '' : 's'} this week` : ''}</span>
-        {votes.canVote ? (
-          <button type="button" onClick={() => vote(plot.id)} className="rounded-lg bg-yellow-400 px-3 py-1 font-bold text-yellow-950 hover:brightness-110">
-            Vote
-          </button>
-        ) : mine ? (
+        {mine ? (
           <span className="text-yellow-300">You voted for this</span>
+        ) : needSignIn ? (
+          <button type="button" onClick={() => useAccount.getState().ask(() => vote(plot.id))} className="rounded-lg bg-yellow-400 px-3 py-1 font-bold text-yellow-950 hover:brightness-110">Sign in to vote</button>
+        ) : !problem ? (
+          <button type="button" onClick={() => vote(plot.id)} className="rounded-lg bg-yellow-400 px-3 py-1 font-bold text-yellow-950 hover:brightness-110">Vote</button>
         ) : null}
       </div>
-      {!votes.canVote && !mine && <p className="mt-0.5 text-yellow-200/70">{votes.voted ? 'You have used your vote this week.' : account ? 'Find all three gold stars today to earn this week\'s vote.' : 'Sign in and find the three gold stars to earn a vote.'}</p>}
-      {notice && <p className={`mt-1 ${notice.ok ? 'text-emerald-300' : 'text-red-300'}`}>{notice.text}</p>}
+      {!mine && !needSignIn && problem && <p className="mt-0.5 text-yellow-200/70">{problem}{votes.votesLeft <= 0 && !votes.huntWon ? ' Find all three gold stars on any day this week for a bonus vote.' : ''}</p>}
+      {notice && <p className={`mt-1 ${notice.ok ? 'text-emerald-300' : 'text-red-300'}`} role="status">{notice.text}</p>}
+      <button type="button" onClick={() => usePanel.getState().open('week')} className="mt-1 text-yellow-200/80 underline hover:text-yellow-100">See this week's top 5{votes.demo ? ' (demo)' : ''}</button>
     </div>
   );
 }
@@ -535,7 +541,7 @@ export default function PlotCard() {
       {p.admin && <HqLive company={p.owner} />}
       {apiOn() && isClaimed && p.ownerAccount && !p.userClaimed && <MessageOwner plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
-      {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && <VoteBox plot={p} />}
+      {isClaimed && !isSuburb && !p.admin && !p.userClaimed && <VoteBox plot={p} />}
 
       <div className="flex flex-wrap gap-1.5">
         <Chip tone="border-cyan-500/40 text-sx-cyan" dot="bg-sx-cyan">Rank {info.rank} by value</Chip>

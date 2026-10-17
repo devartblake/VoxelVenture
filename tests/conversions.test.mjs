@@ -23,9 +23,12 @@ const statsOf = async (token, slug) => (await call('GET', '/me/businesses', { to
 const outbox = (kind) => api.db.prepare('SELECT * FROM outbox WHERE kind = ? ORDER BY id').all(kind);
 
 try {
-  const { withClickId, CLICK_PARAM, costPerResult, conversionsOf } = await imp('business/conversions.js');
+  const { withClickId, CLICK_PARAM, costPer, outcomesOf, returnOnSpend } = await imp('business/conversions.js');
   check('the click id is added to an https link and nothing else', withClickId('https://bob.test/shop?x=1', 'abcdefghij12') === `https://bob.test/shop?x=1&${CLICK_PARAM}=abcdefghij12` && withClickId('http://bob.test', 'abcdefghij12') === 'http://bob.test' && withClickId('https://bob.test', 'bad id') === 'https://bob.test');
-  check('cost per result needs both spend and results', costPerResult(1900, 3) === 633 && costPerResult(0, 3) === null && costPerResult(1900, 0) === null && conversionsOf({ meetingRequests: 2, purchases: 1, views: 50 }) === 3);
+  check('a cost needs both spend and a count', costPer(1900, 3) === 633 && costPer(0, 3) === null && costPer(1900, 0) === null);
+  const fam = Object.fromEntries(outcomesOf({ newsletterSignups: 1, meetingRequests: 2, quoteRequests: 1, couponClaims: 3, couponRedemptions: 1, purchases: 2 }, 1200).map((o) => [o.id, o]));
+  check('outcomes come in separate families, each with its own cost, never one total', fam.leads.count === 4 && fam.leads.costCents === 300 && fam.claims.count === 3 && fam.redemptions.count === 1 && fam.purchases.count === 2 && fam.purchases.costCents === 600 && Object.keys(fam).join() === 'leads,claims,redemptions,purchases');
+  check('return on spend counts verified revenue only, and needs spend', returnOnSpend(5000, 2000) === 2.5 && returnOnSpend(5000, 0) === null);
 
   const amy = await signup('Amy');
   const bob = await signup('Bob');
@@ -86,19 +89,33 @@ try {
   // ---- purchases credited by click id
   await ev('bob-builds', { kind: 'view', visitor: 'buyer-1', campaign: 'launch' });
   check('a press of a link button carries its click id', (await ev('bob-builds', { kind: 'cta', visitor: 'buyer-1', clickId: 'ClickOne12345' })).data.verified === true && api.db.prepare("SELECT click_id FROM business_events WHERE kind = 'cta' ORDER BY id DESC").get().click_id === 'ClickOne12345');
-  check('only the owner sees the conversion key', (await call('GET', '/businesses/bob-builds/tracking', { token: amy.token })).status === 403);
-  const tracking = (await call('GET', '/businesses/bob-builds/tracking', { token: bob.token })).data;
-  check('the owner gets a key, the postback address and a pixel', /^[0-9a-f]{24}$/.test(tracking.key) && tracking.postback.endsWith('/conversions') && tracking.pixel.includes('business=bob-builds'));
-  const sale = { business: 'bob-builds', key: tracking.key, click: 'ClickOne12345', value: 4500, order: 'A-1001' };
-  check('a wrong key is refused', (await call('POST', '/conversions', { body: { ...sale, key: 'f'.repeat(24) } })).status === 403);
-  check('a sale with the click id of a verified press is attributed', (await call('POST', '/conversions', { body: sale })).data.attributed === true);
-  check('the same order reported twice counts once', (await call('POST', '/conversions', { body: sale })).data.duplicate === true);
-  check('a sale with an unknown click is kept but not attributed', (await call('POST', '/conversions', { body: { ...sale, click: 'NotAClick99999', order: 'A-1002' } })).data.attributed === false);
-  const pixel = await call('GET', `/conversions/pixel.gif?business=bob-builds&key=${tracking.key}&click=ClickOne12345&value=1200&order=A-1003`);
-  const badPixel = await call('GET', '/conversions/pixel.gif?business=bob-builds&key=wrong&order=A-1004');
-  check('the pixel answers with an image either way, and counts only with the right key', pixel.status === 200 && pixel.type === 'image/gif' && badPixel.status === 200 && badPixel.type === 'image/gif' && api.db.prepare("SELECT COUNT(*) AS n FROM business_events WHERE kind = 'purchase' AND order_ref = 'A-1004'").get().n === 0);
+  check('only the owner sees the tracking set-up or makes a key', (await call('GET', '/businesses/bob-builds/tracking', { token: amy.token })).status === 403 && (await call('POST', '/businesses/bob-builds/tracking/key', { token: amy.token })).status === 403);
+  let tracking = (await call('GET', '/businesses/bob-builds/tracking', { token: bob.token })).data;
+  check('the set-up shows no key and puts none in any address', tracking.hasKey === false && tracking.key === undefined && tracking.postback.endsWith('/conversions') && tracking.pixel.includes('business=bob-builds') && !/key=/.test(tracking.pixel));
+  const sale = { business: 'bob-builds', click: 'ClickOne12345', value: 4500, order: 'A-1001' };
+  check('no sale counts before the business has a key', (await call('POST', '/conversions', { body: sale, token: 'vvck_anything' })).data.code === 'no_key');
+  const first = (await call('POST', '/businesses/bob-builds/tracking/key', { token: bob.token })).data;
+  check('the owner makes a random key of their own, shown once', /^vvck_[A-Za-z0-9_-]{32}$/.test(first.key) && (await call('GET', '/businesses/bob-builds/tracking', { token: bob.token })).data.key === undefined);
+  check('only its hash is stored, and it is not made from the referral secret', api.db.prepare("SELECT conv_key_hash FROM businesses WHERE slug = 'bob-builds'").get().conv_key_hash.length === 64 && !api.db.prepare("SELECT conv_key_hash FROM businesses WHERE slug = 'bob-builds'").get().conv_key_hash.includes(first.key));
+  check('making a key is in the audit trail', api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'conversion_key.rotate'").get().n === 1);
+  const key = (await call('POST', '/businesses/bob-builds/tracking/key', { token: bob.token })).data.key;
+  check('a new key replaces the old one at once', key !== first.key && (await call('POST', '/conversions', { body: sale, token: first.key })).data.code === 'bad_key');
+  check('a key in the body (the old way) is refused with how to send it', (await call('POST', '/conversions', { body: { ...sale, key } })).data.code === 'key_in_body');
+  check('a wrong key is refused', (await call('POST', '/conversions', { body: sale, token: 'vvck_' + 'x'.repeat(32) })).status === 403);
+  check('a sale from the server with the click id of a verified press is verified', (await call('POST', '/conversions', { body: sale, token: key })).data.attributed === true);
+  check('the same order reported twice counts once', (await call('POST', '/conversions', { body: sale, token: key })).data.duplicate === true);
+  check('a sale with an unknown click is kept, as unattributed', (await call('POST', '/conversions', { body: { ...sale, click: 'NotAClick99999', order: 'A-1002', value: 800 }, token: key })).data.attributed === false);
+  // the pixel: no key in the address, never verified, and the server's report of the same order replaces it
+  const pixel = await call('GET', '/conversions/pixel.gif?business=bob-builds&click=ClickOne12345&value=1200&order=A-1003');
+  const junk = await call('GET', '/conversions/pixel.gif?business=no-such-business&order=A-1004');
+  check('the pixel always answers with an image, and counts a sale as browser-reported only', pixel.status === 200 && pixel.type === 'image/gif' && junk.type === 'image/gif' && api.db.prepare("SELECT report, verified FROM business_events WHERE kind = 'purchase' AND order_ref = 'A-1003'").get()?.report === 'browser' && api.db.prepare("SELECT verified FROM business_events WHERE order_ref = 'A-1003'").get().verified === 0);
   let bobStats = await statsOf(bob.token, 'bob-builds');
-  check('purchases and their value are in the figures', bobStats.purchases === 2 && bobStats.revenueCents === 5700, JSON.stringify({ p: bobStats.purchases, v: bobStats.revenueCents }));
+  check('revenue is split: verified, unattributed and browser-reported; only verified sales are purchases', bobStats.purchases === 1 && bobStats.revenue.verifiedCents === 4500 && bobStats.revenue.unattributedCents === 800 && bobStats.revenue.browserCents === 1200, JSON.stringify({ p: bobStats.purchases, r: bobStats.revenue }));
+  await call('GET', '/conversions/pixel.gif?business=bob-builds&order=A-1005&value=999');
+  const reconciled = (await call('POST', '/conversions', { body: { business: 'bob-builds', click: 'ClickOne12345', order: 'A-1005', value: 2000 }, token: key })).data;
+  check('the server reporting an order the pixel saw first replaces it (counted once)', reconciled.reconciled === true && api.db.prepare("SELECT COUNT(*) AS n FROM business_events WHERE order_ref = 'A-1005'").get().n === 1 && api.db.prepare("SELECT report, value_cents FROM business_events WHERE order_ref = 'A-1005'").get().value_cents === 2000);
+  bobStats = await statsOf(bob.token, 'bob-builds');
+  check('...and it moves from browser-reported to verified', bobStats.purchases === 2 && bobStats.revenue.verifiedCents === 6500 && bobStats.revenue.browserCents === 1200, JSON.stringify(bobStats.revenue));
 
   // ---- coupons: a ticket per claim, redeemed by the owner
   const { generateCity } = await imp('city/cityGenerator.js');
@@ -118,16 +135,17 @@ try {
   // ---- spend and cost per result
   api.db.prepare("INSERT INTO orders (account_id, business_id, product, cents, status, created_at, paid_at) VALUES (?, (SELECT id FROM businesses WHERE slug = 'bob-builds'), 'pro', 1900, 'paid', ?, ?)").run(bob.account.id, Date.now(), Date.now());
   bobStats = await statsOf(bob.token, 'bob-builds');
-  check('results add up: purchases, coupons claimed and redeemed', bobStats.couponClaims === 1 && bobStats.couponRedemptions === 1 && bobStats.conversions === 4, JSON.stringify(bobStats).slice(0, 300));
-  check('what was spent and what one result cost', bobStats.spendCents === 1900 && bobStats.costPerResultCents === 475);
+  const fams = Object.fromEntries(bobStats.outcomes.map((o) => [o.id, o]));
+  check('each outcome family is counted on its own: claims, redemptions, purchases', fams.claims.count === 1 && fams.redemptions.count === 1 && fams.purchases.count === 2 && bobStats.conversions === undefined && bobStats.costPerResultCents === undefined, JSON.stringify(bobStats.outcomes));
+  check('what was spent, each family\'s cost, and the return on verified revenue', bobStats.spendCents === 1900 && fams.purchases.costCents === 950 && fams.claims.costCents === 1900 && fams.leads.costCents === null && bobStats.returnOnSpend === Math.round((6500 / 1900) * 100) / 100);
   const amyStats = await statsOf(amy.token, 'amy-cafe');
   check('the funnel: impressions, views, qualified visits, store entries, presses', amyStats.impressions === 1 && amyStats.views === 1 && amyStats.qualified === 1 && amyStats.storeEntries === 1 && amyStats.ctaClicks === 1, JSON.stringify({ i: amyStats.impressions, v: amyStats.views, q: amyStats.qualified, s: amyStats.storeEntries }));
-  check('the free plan sees the funnel and results, not sources or campaigns', amyStats.conversions === 3 && amyStats.sources === undefined && amyStats.campaigns === undefined);
+  check('the free plan sees the funnel and the outcomes, not sources or campaigns', amyStats.outcomes.find((o) => o.id === 'leads').count === 3 && amyStats.sources === undefined && amyStats.campaigns === undefined);
   await call('POST', '/admin/billing/grant/amy-cafe', { token: ADMIN, body: { product: 'pro' } });
   const pro = await statsOf(amy.token, 'amy-cafe');
-  check('with Pro, a campaign shows its results', pro.campaigns.find((c) => c.id === 'spring')?.results === 3 && pro.sources.find((s) => s.id === 'city').views === 0);
+  check('with Pro, a campaign shows its leads and purchases apart', pro.campaigns.find((c) => c.id === 'spring')?.leads === 3 && pro.campaigns.find((c) => c.id === 'spring')?.purchases === 0 && pro.sources.find((s) => s.id === 'city').views === 0);
   const csv = await fetch(`${base}/businesses/amy-cafe/export.csv`, { headers: { Authorization: `Bearer ${amy.token}` } }).then((r) => r.text());
-  check('the CSV export has the funnel and the results', /"Qualified visits","1"/.test(csv) && /"Quote requests","3"/.test(csv) && /"Cost per result \(USD\)"/.test(csv), csv.slice(0, 200));
+  check('the CSV export has the funnel, each outcome family with its cost, and revenue by trust', /"Qualified visits","1"/.test(csv) && /"Leads \(newsletter, meeting and quote requests\)","3"/.test(csv) && /"Browser-reported \(pixel, unverified\)"/.test(csv) && !/Cost per result/.test(csv), csv.slice(0, 200));
 
   // ---- retention: a request's contact details are wiped after INQUIRY_DAYS, the count stays
   const { pruneInquiries } = await import('../server/api/conversions.mjs');

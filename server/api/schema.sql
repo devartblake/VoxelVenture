@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS votes (
   account_id INTEGER NOT NULL REFERENCES accounts(id),
   plot_id INTEGER NOT NULL REFERENCES plots(id),
   at INTEGER NOT NULL,
-  PRIMARY KEY (week, account_id)
+  PRIMARY KEY (week, account_id, plot_id)        -- a player's votes of a week (one, two with the stars), each for a different building
 );
 CREATE INDEX IF NOT EXISTS votes_plot ON votes(week, plot_id);
 

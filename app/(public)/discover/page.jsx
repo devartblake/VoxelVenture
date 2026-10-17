@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { BUSINESS_DISTRICTS, CATEGORIES, listJsonLd } from '@/lib/business/profile';
-import { getFeatured, isDemo, listBusinesses, siteUrl } from '@/lib/business/source';
+import { getBuildingOfWeek, getFeatured, isDemo, listBusinesses, siteUrl } from '@/lib/business/source';
 import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
+import WeekFeature from '@/components/business/WeekFeature';
 
 export async function generateMetadata({ searchParams }) {
   const { q } = await searchParams;
@@ -19,7 +20,7 @@ export async function generateMetadata({ searchParams }) {
 export default async function Discover({ searchParams }) {
   const { q: raw } = await searchParams;
   const q = String(raw ?? '').slice(0, 60).trim();
-  const [{ total, profiles }, featured] = await Promise.all([listBusinesses({ q, limit: 30 }), q ? { sponsored: [], launches: [] } : getFeatured('discover')]);
+  const [{ total, profiles }, featured, week] = await Promise.all([listBusinesses({ q, limit: 30 }), q ? { sponsored: [], launches: [] } : getFeatured('discover'), q ? null : getBuildingOfWeek()]);
   return (
     <>
       {!q && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: listJsonLd({ name: 'Discover businesses on VoxelVenture', description: 'Independent shops, studios, software and creators, with free pages and 3D storefronts.', url: `${siteUrl()}/discover` }, profiles, siteUrl()) }} />}
@@ -33,6 +34,7 @@ export default async function Discover({ searchParams }) {
         </form>
       </section>
 
+      {!q && <WeekFeature week={week} />}
       <FeaturedList title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
       <FeaturedList title="New this week" profiles={featured.launches} badge="New this week" />
 

@@ -6,8 +6,9 @@ import { imp } from '../../scripts/lib-loader.mjs';
 // Leases (renewing, notices, an admin way to end one) and Building of the Week (the daily collectibles earn a vote). The rules are the game's own, in
 // lib/game/leases.js; this is the part that needs the database.
 const { DAY_MS, GRACE_DAYS, RENEWAL_WINDOW_DAYS, leaseState, renewalPrice, termOf, extendedEnd } = await imp('game/leases.js');
-const { weekStartOf, addWeeks, weekWindow } = await imp('market/weeks.js');
+const { weekStartOf, addWeeks } = await imp('market/weeks.js');
 const { HUNT_COUNT } = await imp('game/daily.js');
+const { votesAllowed, votingClosesAt, LEADERS_SHOWN } = await imp('game/buildingOfWeek.js');
 const now = () => Date.now();
 
 // ---- leases ---------------------------------------------------------------------------------------------------------
@@ -77,34 +78,40 @@ export function completeHunt(db, account, input = {}) {
   return { ok: true, ...votingStatus(db, account) };
 }
 
+// The rules are in lib/game/buildingOfWeek.js: one vote a week for every signed-in player, one more for finding all three stars on a day of
+// the week, each for a different building, never your own.
 function votingStatus(db, account) {
   const week = weekStartOf();
   const next = addWeeks(week, 1);
-  const won = account ? db.prepare('SELECT COUNT(*) AS n FROM hunt_wins WHERE account_id = ? AND day >= ? AND day < ?').get(account.id, week, next).n > 0 : false;
-  const mine = account ? db.prepare('SELECT plot_id FROM votes WHERE week = ? AND account_id = ?').get(week, account.id) : null;
-  return { week, earned: won, voted: mine ? mine.plot_id : null, canVote: won && !mine };
+  const huntWon = account ? db.prepare('SELECT COUNT(*) AS n FROM hunt_wins WHERE account_id = ? AND day >= ? AND day < ?').get(account.id, week, next).n > 0 : false;
+  const votedFor = account ? db.prepare('SELECT plot_id FROM votes WHERE week = ? AND account_id = ? ORDER BY at').all(week, account.id).map((r) => r.plot_id) : [];
+  const allowed = account ? votesAllowed(huntWon) : 0;
+  return { week, signedIn: Boolean(account), huntWon, allowed, votedFor, votesLeft: Math.max(0, allowed - votedFor.length), canVote: votedFor.length < allowed };
 }
 
+// The votes of a week, most first, with the business page of each building when it has one (for the Discover page).
 const tally = (db, week) =>
   db
-    .prepare("SELECT v.plot_id AS plotId, p.title, p.owner_name AS owner, COUNT(*) AS votes, MAX(v.at) AS last FROM votes v JOIN plots p ON p.id = v.plot_id WHERE v.week = ? GROUP BY v.plot_id ORDER BY votes DESC, last ASC, plotId ASC")
-    .all(week);
+    .prepare("SELECT v.plot_id AS plotId, p.title, p.owner_name AS owner, COUNT(*) AS votes, MAX(v.at) AS last, (SELECT b.slug FROM businesses b WHERE b.plot_id = v.plot_id AND b.status = 'published') AS slug FROM votes v JOIN plots p ON p.id = v.plot_id WHERE v.week = ? GROUP BY v.plot_id ORDER BY votes DESC, last ASC, plotId ASC")
+    .all(week)
+    .map(({ last: _l, ...r }) => r);
 
-// This week's votes so far, the winner of last week, and whether this player can vote.
+// This week's leaders, last week's winner (this week's Building of the Week), when voting closes, and what this player can still do.
 export function votesView(db, account) {
   const week = weekStartOf();
   const last = tally(db, addWeeks(week, -1))[0] ?? null;
-  return { ...votingStatus(db, account), leaders: tally(db, week).slice(0, 5).map(({ last: _l, ...r }) => r), winner: last ? { plotId: last.plotId, title: last.title, votes: last.votes, week: addWeeks(week, -1) } : null, endsAt: weekWindow(addWeeks(week, 1)).start };
+  return { ...votingStatus(db, account), leaders: tally(db, week).slice(0, LEADERS_SHOWN), winner: last ? { ...last, week: addWeeks(week, -1) } : null, endsAt: votingClosesAt(week) };
 }
 
 export function castVote(db, account, plotId) {
   requireAccount(account);
   return transaction(db, () => {
     const status = votingStatus(db, account);
-    if (!status.earned) fail(403, 'Find all three daily collectibles to earn this week\'s vote.', 'not_earned');
-    if (status.voted) fail(409, 'You have already voted this week.', 'voted');
     const p = getPlot(db, plotId);
     if (!p.owner_name || p.building_type === 'house' || !p.claimable) fail(400, 'Vote for a business that people can visit.', 'bad_plot');
+    if (p.owner_account === account.id) fail(400, 'You cannot vote for your own building.', 'own_building');
+    if (status.votedFor.includes(p.id)) fail(409, 'You already voted for this building this week.', 'already_voted');
+    if (!status.canVote) fail(409, status.huntWon ? 'You have used your votes this week.' : 'You have used this week\'s vote. Find all three gold stars on any day this week for one more.', 'no_votes_left');
     db.prepare('INSERT INTO votes (week, account_id, plot_id, at) VALUES (?,?,?,?)').run(status.week, account.id, p.id, now());
     return votesView(db, account);
   });
@@ -114,5 +121,5 @@ export function castVote(db, account, plotId) {
 export function buildingOfTheWeek(db) {
   const week = weekStartOf();
   const w = tally(db, addWeeks(week, -1))[0];
-  return w ? { plotId: w.plotId, title: w.title, votes: w.votes, week: addWeeks(week, -1) } : null;
+  return w ? { ...w, week: addWeeks(week, -1) } : null;
 }

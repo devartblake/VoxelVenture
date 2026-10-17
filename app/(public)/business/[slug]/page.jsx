@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { breadcrumbJsonLd, categoryOf, districtOf, isSlug, profileJsonLd } from '@/lib/business/profile';
-import { getBusiness, isDemo, siteUrl } from '@/lib/business/source';
+import { getBuildingOfWeek, getBusiness, isDemo, siteUrl } from '@/lib/business/source';
+import VoteButton from '@/components/business/VoteButton';
 import CtaButton from '@/components/business/CtaButton';
 import ProfileTracker from '@/components/business/ProfileTracker';
 import ShareProfile from '@/components/business/ShareProfile';
@@ -33,6 +34,10 @@ export default async function BusinessPage({ params }) {
   const category = categoryOf(p.category);
   const district = districtOf(p.district);
   const url = `${siteUrl()}/business/${p.slug}`;
+  // Building of the Week: a badge for the winner, the rank of a building in this week's top 5 (only a business with a building takes votes)
+  const week = p.plotId != null ? await getBuildingOfWeek() : null;
+  const isWinner = week?.winner?.plotId === p.plotId;
+  const rank = week ? week.leaders.findIndex((l) => l.plotId === p.plotId) : -1;
   return (
     <article>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: profileJsonLd(p, url) }} />
@@ -53,6 +58,12 @@ export default async function BusinessPage({ params }) {
           )}
         </p>
         {p.launch && <p className="mt-3 inline-block rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-300">New this week</p>}
+        {(isWinner || rank >= 0) && (
+          <p className="mt-3 flex flex-wrap gap-2" data-testid="week-badges">
+            {isWinner && <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-950">Building of the Week</span>}
+            {rank >= 0 && <Link href="/discover#botw" className="rounded-full border border-yellow-400/50 px-3 py-1 text-xs font-semibold text-yellow-200 hover:bg-yellow-400/10">#{rank + 1} in this week's vote · {week.leaders[rank].votes} vote{week.leaders[rank].votes === 1 ? '' : 's'}</Link>}
+          </p>
+        )}
         <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{p.name}</h1>
         {p.tagline && <p className="mt-2 text-lg text-slate-200">{p.tagline}</p>}
         {p.offer && (
@@ -66,6 +77,7 @@ export default async function BusinessPage({ params }) {
           {p.plotId != null && (
             <Link href={`/b/${p.plotId}`} className="rounded-xl border border-sx-stroke px-5 py-3 font-semibold text-slate-100 hover:border-sx-cyan">Step inside the 3D storefront</Link>
           )}
+          {p.plotId != null && <VoteButton plotId={p.plotId} name={p.name} />}
         </div>
       </header>
       {p.description && (

@@ -15,6 +15,7 @@ import InteriorModal from '@/components/interior/InteriorModal';
 import TouchControls from '@/components/ui/TouchControls';
 import AuthDialog from '@/components/ui/AuthDialog';
 import { useAccount } from '@/lib/state/accountStore';
+import { useCommunity } from '@/lib/state/communityStore';
 import { startSync } from '@/lib/data/sync';
 import { hydrateMarket } from '@/lib/state/marketStore';
 import { startPresence } from '@/lib/data/presence';
@@ -43,7 +44,9 @@ export default function Home() {
   useEffect(() => {
     let alive = true;
     Promise.resolve(useCityStore.persist.rehydrate()).then(() => {
-      if (alive) useCityStore.getState().setDay(dayKey());
+      if (!alive) return;
+      useCityStore.getState().setDay(dayKey());
+      useCommunity.getState().loadVotes(); // Building of the Week (the demo's needs the city's plots, so after they are loaded)
     });
     const timer = setInterval(() => {
       const today = dayKey();

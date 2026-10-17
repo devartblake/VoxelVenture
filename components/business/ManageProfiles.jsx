@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiBase, getToken, request } from '@/lib/data/api';
 import { PLACEMENTS, PRODUCTS, dollars } from '@/lib/business/plans';
 import { CTA_KINDS, categoryOf, districtOf, profileUrl } from '@/lib/business/profile';
-import { FUNNEL, RESULTS, CLICK_PARAM } from '@/lib/business/conversions';
+import { FUNNEL, OUTCOMES, RESULTS, CLICK_PARAM } from '@/lib/business/conversions';
 import AuthDialog from '@/components/ui/AuthDialog';
 import ProfileForm from './ProfileForm';
 import NotLive from './NotLive';
@@ -176,10 +176,10 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
             <div className="mt-4">
               <h3 className="mb-2 text-sm font-semibold text-slate-200">Campaigns</h3>
               <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-sx-muted"><th className="font-normal">Campaign</th><th className="font-normal">Views</th><th className="font-normal">Presses</th><th className="font-normal">Results</th></tr></thead>
+                <thead><tr className="text-left text-xs text-sx-muted"><th className="font-normal">Campaign</th><th className="font-normal">Views</th><th className="font-normal">Presses</th><th className="font-normal">Leads</th><th className="font-normal">Purchases</th></tr></thead>
                 <tbody>
                   {stats.campaigns.map((c) => (
-                    <tr key={c.id} className="border-t border-sx-stroke/60"><td className="py-1 text-slate-200">{c.id}</td><td className="text-slate-300">{c.views}</td><td className="text-slate-300">{c.ctaClicks}</td><td className="text-slate-300">{c.results ?? 0}</td></tr>
+                    <tr key={c.id} className="border-t border-sx-stroke/60"><td className="py-1 text-slate-200">{c.id}</td><td className="text-slate-300">{c.views}</td><td className="text-slate-300">{c.ctaClicks}</td><td className="text-slate-300">{c.leads ?? 0}</td><td className="text-slate-300">{c.purchases ?? 0}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -473,24 +473,46 @@ function Funnel({ stats, ctaLabel }) {
   );
 }
 
-// What came of it: each kind of result, the purchases' value, what the profile cost and what one result cost.
+// What came of it, by outcome family (lib/business/conversions.js): leads, coupon claims, coupons redeemed and purchases, each with its own
+// cost, never added together (one customer can be in several). Then revenue by how far it can be trusted, and the return on what was spent.
 function Results({ stats }) {
   const cents = (c) => (c == null ? '–' : `$${(c / 100).toFixed(2)}`);
-  const tiles = [
-    ...RESULTS.filter((r) => r.id !== 'couponRedemptions' || stats.couponClaims > 0).map((r) => [r.label, stats[r.id] ?? 0]),
-    ...(stats.purchases ? [['Purchase value', cents(stats.revenueCents)]] : []),
-    ['Spent here', cents(stats.spendCents)],
-    ['Cost per result', cents(stats.costPerResultCents)],
-  ];
+  const byId = Object.fromEntries((stats.outcomes ?? []).map((o) => [o.id, o]));
+  const leadsDetail = RESULTS.filter((r) => ['newsletterSignups', 'meetingRequests', 'quoteRequests'].includes(r.id) && stats[r.id]).map((r) => `${stats[r.id]} ${r.label.toLowerCase()}`).join(', ');
+  const rev = stats.revenue ?? { verifiedCents: 0, unattributedCents: 0, browserCents: 0 };
   return (
-    <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5" data-testid="results">
-      {tiles.map(([k, val]) => (
-        <div key={k} className="rounded-xl bg-sx-alt p-3">
-          <dt className="text-xs text-sx-muted">{k}</dt>
-          <dd className="mt-1 text-xl font-semibold text-white">{val}</dd>
+    <div className="mt-4" data-testid="results">
+      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {OUTCOMES.map((o) => (
+          <div key={o.id} className="rounded-xl bg-sx-alt p-3" title={o.hint}>
+            <dt className="text-xs text-sx-muted">{o.label}</dt>
+            <dd className="mt-1 text-xl font-semibold text-white">{(byId[o.id]?.count ?? 0).toLocaleString()}</dd>
+            <dd className="mt-0.5 text-xs text-slate-400">{o.cost}: {cents(byId[o.id]?.costCents)}</dd>
+            {o.id === 'leads' && leadsDetail && <dd className="mt-0.5 text-xs text-sx-muted">{leadsDetail}</dd>}
+          </div>
+        ))}
+      </dl>
+      <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="revenue">
+        <div className="rounded-xl bg-sx-alt p-3" title="Reported by your server with your conversion key, and credited to a press of your button.">
+          <dt className="text-xs text-sx-muted">Verified revenue</dt>
+          <dd className="mt-1 text-xl font-semibold text-white">{cents(rev.verifiedCents)}</dd>
         </div>
-      ))}
-    </dl>
+        <div className="rounded-xl bg-sx-alt p-3" title="Reported by your server, but no press of your button was found for it.">
+          <dt className="text-xs text-sx-muted">Unattributed revenue</dt>
+          <dd className="mt-1 text-xl font-semibold text-slate-300">{cents(rev.unattributedCents)}</dd>
+        </div>
+        <div className="rounded-xl bg-sx-alt p-3" title="From the pixel on your thank-you page. It cannot be verified, so it is shown apart; the same order from your server replaces it.">
+          <dt className="text-xs text-sx-muted">Browser-reported revenue</dt>
+          <dd className="mt-1 text-xl font-semibold text-slate-300">{cents(rev.browserCents)}</dd>
+        </div>
+        <div className="rounded-xl bg-sx-alt p-3" title="Verified revenue for each dollar spent here.">
+          <dt className="text-xs text-sx-muted">Spent here · return</dt>
+          <dd className="mt-1 text-xl font-semibold text-white">{cents(stats.spendCents)}</dd>
+          <dd className="mt-0.5 text-xs text-slate-400">{stats.returnOnSpend == null ? 'No spend yet' : `${stats.returnOnSpend.toFixed(2)}× back (verified)`}</dd>
+        </div>
+      </dl>
+      <p className="mt-2 text-xs text-sx-muted">Each kind of outcome is counted and costed on its own: one customer can sign up, claim a coupon and buy, so they are never added into one total.</p>
+    </div>
   );
 }
 
@@ -528,27 +550,67 @@ function Inquiries({ slug }) {
   );
 }
 
-// Counting purchases on the owner's own site: the button's link carries a click id; their site reports the sale with it.
+// Counting purchases on the owner's own site: the button's link carries a click id; their site reports the sale with it. Verified purchases
+// come only from the owner's server, with a conversion key of this business's own in the Authorization header. The key is shown once when
+// it is made (only its hash is kept), and making a new one stops the old. The pixel needs no key and is counted apart, as browser-reported.
 function PurchaseTracking({ slug }) {
   const [open, setOpen] = useState(false);
   const [t, setT] = useState(null);
+  const [fresh, setFresh] = useState(null); // the key just made: shown this once
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState('');
   useEffect(() => {
     if (open && !t) request('GET', `/businesses/${slug}/tracking`).then(setT, () => {});
   }, [open, t, slug]);
+  const makeKey = async () => {
+    setError('');
+    try {
+      const out = await request('POST', `/businesses/${slug}/tracking/key`);
+      setFresh(out.key);
+      setConfirm(false);
+      setT((x) => ({ ...x, hasKey: true, keyCreatedAt: out.createdAt }));
+    } catch (e) {
+      setError(e?.message ?? 'That did not work.');
+    }
+  };
+  const keyShown = fresh ?? '<your conversion key>';
   return (
-    <details className="mt-4 rounded-xl border border-sx-stroke p-3 text-sm" onToggle={(e) => setOpen(e.currentTarget.open)}>
+    <details className="mt-4 rounded-xl border border-sx-stroke p-3 text-sm" onToggle={(e) => setOpen(e.currentTarget.open)} data-testid="purchase-tracking">
       <summary className="cursor-pointer font-semibold text-slate-200">Count purchases on your own site</summary>
       <p className="mt-2 text-slate-300">
-        Your button&apos;s link carries <code className="text-sx-cyan">{CLICK_PARAM}</code>. Keep it with the order, and when the order is paid, report it with one of these.
-        A purchase counts as a result when it comes from a press of your button in the 30 days before.
+        Your button&apos;s link carries <code className="text-sx-cyan">{CLICK_PARAM}</code>. Keep it with the order, and when the order is paid, report it from your server.
+        A purchase is verified when it comes with a press of your button in the 30 days before.
       </p>
       {t ? (
-        <div className="mt-2 space-y-2 text-xs">
-          <p className="text-slate-400">Your key (keep it private): <code className="break-all text-slate-200">{t.key}</code></p>
-          <p className="text-slate-400">From your server:</p>
-          <pre className="overflow-x-auto rounded bg-sx-alt p-2 text-slate-200">{`curl -X POST ${t.postback} -H 'Content-Type: application/json' \\
-  -d '{"business":"${slug}","key":"${t.key}","click":"<vv_click>","value":<cents>,"order":"<order number>"}'`}</pre>
-          <p className="text-slate-400">Or on your thank-you page:</p>
+        <div className="mt-3 space-y-3 text-xs">
+          <div className="rounded-lg border border-sx-stroke p-2.5">
+            <p className="font-semibold text-slate-200">Your conversion key</p>
+            {fresh ? (
+              <>
+                <p className="mt-1 text-amber-200">Copy it now: it is shown only this once. Keep it on your server, never in a web page or a link.</p>
+                <code className="mt-1 block break-all rounded bg-sx-alt p-2 text-slate-100" data-testid="new-key">{fresh}</code>
+              </>
+            ) : (
+              <p className="mt-1 text-slate-400">{t.hasKey ? `Made ${new Date(t.keyCreatedAt).toLocaleDateString()}. For safety it is not shown again.` : 'You do not have one yet.'}</p>
+            )}
+            {t.hasKey && !fresh && !confirm ? (
+              <button type="button" onClick={() => setConfirm(true)} className="mt-2 rounded-lg border border-sx-stroke px-3 py-1.5 text-slate-200 hover:border-sx-cyan">Make a new key…</button>
+            ) : t.hasKey && confirm ? (
+              <span className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-amber-200">The old key will stop working at once.</span>
+                <button type="button" onClick={makeKey} className="rounded-lg bg-sx-purple px-3 py-1.5 font-semibold text-white">Make a new key</button>
+                <button type="button" onClick={() => setConfirm(false)} className="text-slate-400 underline">Cancel</button>
+              </span>
+            ) : !t.hasKey ? (
+              <button type="button" onClick={makeKey} className="mt-2 rounded-lg bg-sx-purple px-3 py-1.5 font-semibold text-white">Make my conversion key</button>
+            ) : null}
+            {error && <p className="mt-1 text-red-300" role="alert">{error}</p>}
+          </div>
+          <p className="text-slate-400">From your server (verified):</p>
+          <pre className="overflow-x-auto rounded bg-sx-alt p-2 text-slate-200">{`curl -X POST ${t.postback} \\
+  -H 'Authorization: Bearer ${keyShown}' -H 'Content-Type: application/json' \\
+  -d '{"business":"${slug}","click":"<vv_click>","value":<cents>,"order":"<order number>"}'`}</pre>
+          <p className="text-slate-400">Or a pixel on your thank-you page (no key; shown apart as browser-reported, because a browser&apos;s report cannot be verified; the same order from your server replaces it):</p>
           <pre className="overflow-x-auto rounded bg-sx-alt p-2 text-slate-200">{`<img src="${t.pixel}" width="1" height="1" alt="">`}</pre>
         </div>
       ) : open ? <p className="mt-2 text-xs text-sx-muted">Loading…</p> : null}

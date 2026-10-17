@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
 import { ApiError, fail, getPlot, requireAccount, text } from './core.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
-import { BOT_UA, campaignOf, getRow, ipHashOf, ownRow, referralSecret, SOURCES, visitorOf } from './business.mjs';
+import { BOT_UA, campaignOf, getRow, ipHashOf, ownRow, SOURCES, visitorOf } from './business.mjs';
 import { cleanEmail, enqueue, noticeAddress } from './engage.mjs';
 
 // Conversion measurement (phase 5, docs/conversions.md): the parts of the funnel that are not a profile event of business.mjs.
@@ -45,47 +45,94 @@ export function recordImpressions(db, account, input = {}, ctx = {}) {
 }
 
 // ---- purchases --------------------------------------------------------------------------------------------------------------------
-// The key a business's site signs its purchase reports with (shown to the owner; changing REFERRAL_SECRET changes every key).
-export const conversionKey = (businessId, secret) => crypto.createHmac('sha256', secret).update(`conv:${businessId}`).digest('hex').slice(0, 24);
-const sameKey = (a, b) => typeof a === 'string' && a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+// Two ways a business's site reports a sale, trusted differently (docs/voxelventure_core_concept_reassessment_2026-10-17.md):
+//   server   POST /conversions from the business's own server, with its conversion key in the Authorization header. The key is random, one per
+//            business, shown to the owner once and stored only as a hash; a new one can be made at any time (the old one stops working).
+//            Never derived from REFERRAL_SECRET and never in a URL. Only these can be verified revenue.
+//   browser  the pixel (an <img> on the thank-you page): it carries no key (anything in a URL leaks into histories, logs and referrers), so
+//            it is only "browser-reported": counted apart, never as verified. The same order reported later from the server replaces it.
+// A server report is verified when it carries the click id of a verified press of the profile's button in the 30 days before; otherwise it
+// is kept as unattributed revenue.
+const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
+const sameHash = (a, b) => typeof a === 'string' && typeof b === 'string' && a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+const cleanClick = (v) => (/^[A-Za-z0-9]{10,32}$/.test(String(v ?? '')) ? String(v) : null);
+const cleanOrder = (v) => (/^[A-Za-z0-9_.:#-]{1,64}$/.test(String(v ?? '')) ? String(v) : null);
+const cleanValue = (v) => Math.max(0, Math.min(100000000, Math.round(Number(v) || 0)));
+const BROWSER_CAP = 30; // pixel reports a day from one network for one business (it needs no key, so it is capped)
 
-// { business: slug, key, click, value (cents), order }: a sale on the business's own site. Counted once per order (or, without an order
-// number, once per click), and verified only with the click id of a verified press of the button in the 30 days before.
+// A new conversion key for the owner's business: returned this once, stored as a hash.
+export function rotateConversionKey(db, account, slug) {
+  const row = ownRow(db, account, slug);
+  const key = `vvck_${crypto.randomBytes(24).toString('base64url')}`;
+  db.prepare('UPDATE businesses SET conv_key_hash = ?, conv_key_at = ? WHERE id = ?').run(sha(key), now(), row.id);
+  return { key, createdAt: now(), note: 'Copy it now: it is shown only once. Anything using the old key stops working.' };
+}
+
+// The key from a request's headers: Authorization: Bearer <key>, or X-Conversion-Key.
+export const keyFromHeaders = (headers = {}) => String(headers.authorization ?? '').replace(/^Bearer\s+/i, '') || String(headers['x-conversion-key'] ?? '');
+
+// { business: slug, click, value (cents), order } from the business's server, with `ctx.key` from the headers. Counted once per order (or,
+// without an order number, once per click).
 export function recordPurchase(db, input = {}, ctx = {}) {
   const row = getRow(db, String(input.business ?? ''));
-  if (!sameKey(String(input.key ?? ''), conversionKey(row.id, ctx.secret ?? referralSecret()))) fail(403, 'That conversion key is not right for this business.', 'bad_key');
-  const click = /^[A-Za-z0-9]{10,32}$/.test(String(input.click ?? '')) ? String(input.click) : null;
-  const order = /^[A-Za-z0-9_.:#-]{1,64}$/.test(String(input.order ?? '')) ? String(input.order) : null;
-  const value = Math.max(0, Math.min(100000000, Math.round(Number(input.value) || 0)));
+  if (input.key && !ctx.key) fail(401, 'Send the conversion key in the Authorization header (Bearer), not in the body. Make a new key in your dashboard.', 'key_in_body');
+  if (!row.conv_key_hash) fail(403, 'This business has no conversion key yet: make one in the dashboard.', 'no_key');
+  if (!sameHash(sha(ctx.key ?? ''), row.conv_key_hash)) fail(403, 'That conversion key is not right for this business.', 'bad_key');
+  const click = cleanClick(input.click);
+  const order = cleanOrder(input.order);
+  const value = cleanValue(input.value);
   return transaction(db, () => {
-    const dupe = order
-      ? db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND kind = 'purchase' AND order_ref = ?").get(row.id, order)
-      : click && db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND kind = 'purchase' AND click_id = ? AND order_ref IS NULL").get(row.id, click);
-    if (dupe) return { recorded: false, duplicate: true };
     const press = click ? db.prepare("SELECT * FROM business_events WHERE business_id = ? AND kind = 'cta' AND click_id = ? AND at >= ? ORDER BY id DESC LIMIT 1").get(row.id, click, now() - ATTRIBUTION_DAYS * DAY) : null;
     const attributed = Boolean(press?.verified);
-    db.prepare("INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at, campaign, click_id, value_cents, order_ref) VALUES (?, 'purchase', ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)")
+    const earlier = order
+      ? db.prepare("SELECT id, report FROM business_events WHERE business_id = ? AND kind = 'purchase' AND order_ref = ?").get(row.id, order)
+      : click && db.prepare("SELECT id, report FROM business_events WHERE business_id = ? AND kind = 'purchase' AND click_id = ? AND order_ref IS NULL").get(row.id, click);
+    if (earlier && earlier.report !== 'browser') return { recorded: false, duplicate: true };
+    if (earlier) {
+      // the pixel saw this order first: the server's report replaces it (its value and click are the ones that count)
+      db.prepare("UPDATE business_events SET report = 'server', verified = ?, source = ?, ref_account = ?, visitor = ?, campaign = ?, click_id = ?, value_cents = ? WHERE id = ?")
+        .run(attributed ? 1 : 0, press?.source ?? 'direct', press?.ref_account ?? null, press?.visitor ?? 'postback', press?.campaign ?? null, click, value, earlier.id);
+      return { recorded: true, attributed, reconciled: true };
+    }
+    db.prepare("INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at, campaign, click_id, value_cents, order_ref, report) VALUES (?, 'purchase', ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, 'server')")
       .run(row.id, press?.source ?? 'direct', press?.ref_account ?? null, press?.visitor ?? 'postback', attributed ? 1 : 0, now(), press?.campaign ?? null, click, value, order);
     return { recorded: true, attributed };
   });
 }
-// The pixel form of the same report (an <img> on the thank-you page): always answers with a 1x1 transparent GIF, so a page never shows a
-// broken image; a bad key or a duplicate is simply not counted.
+
+// The pixel: no key, never verified, capped per network. Always answers with a 1x1 transparent GIF, so a page never shows a broken image.
 const GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
-export function purchasePixel(db, query, ctx) {
+export function purchasePixel(db, query = {}, ctx = {}) {
   try {
-    recordPurchase(db, query, ctx);
+    const row = getRow(db, String(query.business ?? ''));
+    const click = cleanClick(query.click);
+    const order = cleanOrder(query.order);
+    const ipHash = ipHashOf(ctx);
+    const seen = order
+      ? db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND kind = 'purchase' AND order_ref = ?").get(row.id, order)
+      : click && db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND kind = 'purchase' AND click_id = ? AND order_ref IS NULL").get(row.id, click);
+    const busy = ipHash && db.prepare("SELECT COUNT(*) AS n FROM business_events WHERE business_id = ? AND kind = 'purchase' AND report = 'browser' AND ip_hash = ? AND at >= ?").get(row.id, ipHash, now() - DAY).n >= BROWSER_CAP;
+    if (!seen && !busy && (order || click)) {
+      const press = click ? db.prepare("SELECT source, campaign FROM business_events WHERE business_id = ? AND kind = 'cta' AND click_id = ? AND at >= ? ORDER BY id DESC LIMIT 1").get(row.id, click, now() - ATTRIBUTION_DAYS * DAY) : null;
+      db.prepare("INSERT INTO business_events (business_id, kind, source, visitor, ip_hash, verified, at, campaign, click_id, value_cents, order_ref, report) VALUES (?, 'purchase', ?, 'pixel', ?, 0, ?, ?, ?, ?, ?, 'browser')")
+        .run(row.id, press?.source ?? 'direct', ipHash, now(), press?.campaign ?? null, click, cleanValue(query.value), order);
+    }
   } catch (e) {
     if (!(e instanceof ApiError)) throw e;
   }
   return { __raw: { type: 'image/gif', body: GIF, cache: 'no-store' } };
 }
-// What the owner needs to report purchases from their site.
+
+// What the owner needs to report purchases from their site. The key itself is never shown again after it is made.
 export function trackingFor(db, account, slug, env = process.env) {
   const row = ownRow(db, account, slug);
   const api = String(env.PUBLIC_API_URL || `http://localhost:${env.API_PORT || 3002}`).replace(/\/+$/, '');
-  const key = conversionKey(row.id, referralSecret(env));
-  return { key, postback: `${api}/conversions`, pixel: `${api}/conversions/pixel.gif?business=${row.slug}&key=${key}&click={vv_click}&value={cents}&order={order}` };
+  return {
+    hasKey: Boolean(row.conv_key_hash),
+    keyCreatedAt: row.conv_key_at ?? null,
+    postback: `${api}/conversions`,
+    pixel: `${api}/conversions/pixel.gif?business=${row.slug}&click={vv_click}&value={cents}&order={order}`,
+  };
 }
 
 // ---- meeting and quote requests -----------------------------------------------------------------------------------------------------

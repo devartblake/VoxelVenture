@@ -1,7 +1,6 @@
 // Lint rules for the app's own code (not the vendored editor, patches or build output).
 import js from '@eslint/js';
 import globals from 'globals';
-import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
@@ -15,15 +14,13 @@ export default [
       parserOptions: { ecmaFeatures: { jsx: true } },
       globals: { ...globals.browser, ...globals.node },
     },
-    plugins: { react, 'react-hooks': reactHooks },
+    plugins: { 'react-hooks': reactHooks },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      'no-unused-vars': ['warn', { args: 'none', ignoreRestSiblings: true, varsIgnorePattern: '^_' }],
+      // ESLint 10 sees names used in JSX by itself; `React` is still imported in many files though the JSX transform no longer needs it
+      'no-unused-vars': ['warn', { args: 'none', ignoreRestSiblings: true, varsIgnorePattern: '^(_|React$)' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
-      // the base unused-variable rule cannot see names used only in JSX
-      'react/jsx-uses-vars': 'error',
-      'react/jsx-uses-react': 'error',
       'no-undef': 'error',
     },
   },
