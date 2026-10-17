@@ -18,6 +18,10 @@ Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-S
 | `business.purchase-report` | 1 | `{ business, click?, value?, order? }` from the business's own server. The key goes in `Authorization: Bearer`, never in the body. | Business server → `POST /conversions` | same |
 | `business.purchase-report.result` | 1 | `{ recorded, attributed?, duplicate?, reconciled? }` | API | same |
 | `business.owner-figures` | 1 | The verified funnel (impressions → views → qualified → store entries → button presses), the four outcome families with their own cost, revenue (verified, unattributed, pixel-only), spend, return on spend, and on Pro the breakdowns by source and campaign | `GET /me/businesses` → `profiles[].stats` | same |
+| `business.inquiry` | 1 | A meeting or quote request from a profile's form. `website` is the hidden field for robots and must be empty. | Browser → `POST /businesses/<slug>/inquiries` | [`contracts/business.js`](src/contracts/business.js) |
+| `business.inquiry.result` | 1 | `{ sent, id? }` | API | same |
+| `pilot.feedback` | 1 | `{ rating (1-5), wouldPay (yes, maybe or no), result?, missing? }` | Owner → `POST /businesses/<slug>/pilot-feedback` | [`contracts/pilot.js`](src/contracts/pilot.js) |
+| `pilot.summary` | 1 | The pilot dashboard: weeks, totals, the verdict on the five criteria, and each business week by week | `GET /admin/pilot` | same |
 | `community.weekly-vote` | 1 | Building of the Week: the player's votes (one a week, a second for finding the gold stars), the top five, last week's winner, when voting closes | `GET /votes`, `POST /vote` | [`contracts/community.js`](src/contracts/community.js) |
 
 [`tests/contracts.test.mjs`](../../tests/contracts.test.mjs) starts the API and checks its real requests and answers against these contracts.

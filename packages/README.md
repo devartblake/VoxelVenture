@@ -7,8 +7,8 @@ They were introduced in Phase B of the [modular monorepo migration plan](../docs
 | Package | What it holds | May import | Old path (adapter) |
 | --- | --- | --- | --- |
 | [`shared-types`](shared-types/README.md) | Versioned contracts (JSON-Schema shapes) and shared enums for what crosses a boundary, and a small validator | nothing | none (new) |
-| [`analytics`](analytics/README.md) | The conversion funnel, outcome families, cost per outcome, return on spend, click ids, coupon tickets | `shared-types` | `lib/business/conversions.js` |
-| [`business-core`](business-core/README.md) | Products, prices, sponsored placements, plans, entitlements, the Pro fields | `shared-types` | `lib/business/plans.js` |
+| [`analytics`](analytics/README.md) | The conversion funnel, outcome families, cost per outcome, return on spend, click ids, coupon tickets; the pilot's criteria | `shared-types` | `lib/business/conversions.js` |
+| [`business-core`](business-core/README.md) | Products, prices, sponsored placements, plans, entitlements, the Pro fields; profile rules (categories, districts, calls to action, slugs, validation, onboarding, upgrade prompts) | `shared-types` | `lib/business/plans.js`, `lib/business/profile.js` |
 
 ## Rules in short
 

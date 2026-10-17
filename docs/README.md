@@ -51,12 +51,12 @@ Phase A of the [migration plan](architecture/modular_monorepo_migration_plan.md)
 | [infill_and_land.md](architecture/infill_and_land.md) | Free land, new streets (inside the county road and outer blocks), the amusement park, how many lots and what it costs |
 | [city_editor.md](architecture/city_editor.md) | The `/editor` page: add, move and remove roads, streets, lots and parks, validate, save and open in the game |
 | [behind_the_building.md](product/behind_the_building.md) | The "Behind the building" option in the plot menu: car park, garden, patio, storage, pool |
-| [street_names.md](architecture/street_names.md) | The offline OpenStreetMap street-name script and its output |
+| [street_names.md](architecture/street_names.md) | The offline OpenStreetMap street-name script, the city name sets, and each district's own list (the Meadow Quarter's streets use theirs; the editor suggests by district) |
 | [chat_messaging_plan.md](architecture/chat_messaging_plan.md) | Nearby chat and private messages: the plan, what is built (phases 0-3) and the launch checks and decisions still open |
 | [policy_review.md](monetization/policy_review.md) | The draft policies at `/legal`: what to fill in, what to decide, and where the product does not yet match them, before a lawyer's review and approval |
 | [node_fastapi_architecture_plan.md](architecture/node_fastapi_architecture_plan.md) | Moving messaging into a Python (FastAPI) service beside Node: who owns what, the internal boundaries, and what is built (steps 1-5) and left (the switch-over) |
 | [../services/messaging/README.md](../services/messaging/README.md) | The Python messaging service: running it, its settings, how it talks to Node, moving the data, its tests |
-| [day_night_sound.md](architecture/day_night_sound.md) | The shared day and night, street and window lights, ambient sound: what is built and what is next |
+| [day_night_sound.md](architecture/day_night_sound.md) | The shared day and night, street and window lights, the ambience of the places round you, and the soundtrack (the music director: playlists by driving, place and time of day, never by the zoom) |
 | [pricing_analysis.md](monetization/pricing_analysis.md) | Land prices: the rules (real-estate grounds, location grades), the numbers on a whole city at full occupancy, heatmaps, floors and the claim form |
 | [world_map.md](product/world_map.md) | The world map (M): controls, waypoints and routes, and how it stays fast |
 | [voxelventure_idea_01.md](competitive-research/voxelventure_idea_01.md) | The strategic differentiation plan (what is built is in community.md) |

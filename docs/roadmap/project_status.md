@@ -467,10 +467,16 @@ A summary of the later work; the detail is in the documents named.
 
   | Where | Playlist |
   | --- | --- |
-  | High above the map | the city playlist by day, a night playlist after dark |
-  | Near the arcade | chiptunes |
-  | At a coffee shop | jazz |
+  | Anywhere | the city playlist by day, a night playlist after dark |
+  | On foot at the arcade, for a few seconds | chiptunes |
+  | On foot at a coffee shop, for a few seconds | jazz |
   | In a car you drive | funk |
+
+  The music director (`lib/game/musicDirector.js`) plays it as one soundtrack, like SimCity's:
+
+  - each track plays to its end, then a short quiet, then the next;
+  - day and night change at the end of a track, and a car or a place with a crossfade;
+  - the camera's zoom does not change it (it used to, and every zoom cut the track).
 
   Only the active track downloads. The live WebAudio tunes (`lib/game/musicRules.js`) cover loading and failures. Details: [day_night_sound.md](../architecture/day_night_sound.md).
 - **Tests:** `tests/credits.test.mjs` checks that `CREDITS.md` names every maker and licence in `credits.js` and that the Credits view exists. 60 test files in `tests/` now.
@@ -548,7 +554,28 @@ Their item-by-item status is in [alignment_status.md](alignment_status.md). This
   - **Tests:**
     - `tests/packages.test.mjs`: boundaries, purity, and that the adapter and the package export identical objects;
     - `tests/contracts.test.mjs`: real API answers checked against the contracts, and the server's lists against the enums.
-- **Recorded music:** see 5z.
+- **Recorded music:** see 5z. Since then the **music director** (`lib/game/musicDirector.js`) plays it as one SimCity-style soundtrack:
+  - tracks play to their end with a short quiet between;
+  - day and night change at the end of a track, and a car or a stay at the arcade or a cafe with a crossfade;
+  - the camera's zoom no longer changes the music (it used to cut the track);
+  - the label shows the track.
+
+  See [day_night_sound.md](../architecture/day_night_sound.md).
+- **District street names** ([street_names.md](../architecture/street_names.md)): each district has a list of real names from a place with the same character (San Francisco for SaaS, the City of London for The Bazaar, Harrogate for the Meadow Quarter, …).
+  - **In the generator:** the infill streets take the Meadow Quarter's, since their lots are in it. The avenues, the cross streets and the pun names keep theirs.
+  - **In the editor:** it suggests names from the list of the road's district.
+- **Phase B, second slices:** `lib/business/profile.js` moved to `packages/business-core`, so the web form and the server share one profile validation. The pilot's criteria are in `packages/analytics`. There are contracts for meeting and quote requests and the pilot ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md#the-second-slices-2026-10-17)).
+- **The pilot dashboard** ([pilot.md](../monetization/pilot.md)) and the **policy gap fixes** 1 and 3 ([policy_review.md](../monetization/policy_review.md)): see tasks.md.
+- **Click-to-walk finds its way** (`lib/sim/pathfind.js`, used by `components/city/Avatar.jsx`):
+  - **Before:** a click on the ground sent the avatar straight at the point. It slid along the first wall in the way and gave up.
+  - **Planning:** a click now plans a route over the same collision map the avatar moves against.
+    - Near the two points it runs a grid search (A*, eight directions, never squeezing diagonally between two solids), leaving a little room from the walls. The corners a straight line can skip are dropped.
+    - A walk longer than 30 units, or one the grid cannot solve within its budget (a lake or river in the way), follows the road graph of `lib/city/routing.js` with its bridges. Only the legs that are not straight (onto and off the road, round a circle's island) go on the grid.
+  - **Clicks on a building:** the walk ends at the nearest free spot beside it, and the ground marker shows that spot.
+  - **Walking the route:** the avatar walks corner to corner, reaching each corner within 0.06. A looser tolerance let the next leg clip a building. If something blocks it, it plans again once from where it stands, then gives up as before.
+  - **World-map routes:** "Go there" (`RouteFollower`) hands it road corners one at a time, and each leg is planned the same way.
+  - **Speed:** a bucket index over the solids, built when the collision map changes, keeps a click at about 1 ms (20 ms for a walk across the whole map).
+  - **Tests:** `tests/pathfind.test.mjs` walks 180 random clicks on three cities with the game's own `moveAvatar`. Every one arrives without touching a wall. A headless-browser check in the running game also walked round six buildings.
 
 ## 6. Progress against `../product/voxelventure_blueprint.md`
 

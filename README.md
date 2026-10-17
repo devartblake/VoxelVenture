@@ -25,12 +25,17 @@ Since then:
 - draft policies at `/legal` (not yet approved);
 - `CODEOWNERS`;
 - the documentation sorted by topic;
-- the first shared packages (`packages/`).
+- the shared packages (`packages/`): prices, plans, profile rules and the conversion funnel, with versioned contracts the API is tested against;
+- the pilot dashboard (`/admin/pilot`) and a weekly check-in for pilot businesses;
+- network addresses kept only scrambled, and take-over emails that say the payout is game value;
+- click-to-walk that finds its way round buildings;
+- a SimCity-style soundtrack of 16 CC0 recordings that the camera's zoom no longer interrupts;
+- district street names for the Meadow Quarter's streets.
 
 Still to do:
 
 - going live: host and domain, the Stripe account, policy approval, a mail service;
-- then a pilot with 10 to 20 businesses (phase 6). The item-by-item status is in [docs/roadmap/alignment_status.md](docs/roadmap/alignment_status.md), and the full list in [docs/roadmap/tasks.md](docs/roadmap/tasks.md).
+- then the pilot with 10 to 20 businesses (phase 6), measured on the pilot dashboard. The item-by-item status is in [docs/roadmap/alignment_status.md](docs/roadmap/alignment_status.md), and the full list in [docs/roadmap/tasks.md](docs/roadmap/tasks.md).
 
 ## Run it
 

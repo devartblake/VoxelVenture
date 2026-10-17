@@ -45,7 +45,7 @@ for (const name of packages) {
 }
 
 // ---- the compatibility adapters: the old lib/ paths give the same objects as the packages
-const ADAPTERS = { 'business/plans.js': 'business-core', 'business/conversions.js': 'analytics' };
+const ADAPTERS = { 'business/plans.js': 'business-core', 'business/profile.js': 'business-core', 'business/conversions.js': 'analytics' };
 for (const [libPath, pkg] of Object.entries(ADAPTERS)) {
   const src = fs.readFileSync(path.join(root, 'lib', libPath), 'utf8');
   check(`lib/${libPath} is only an adapter (one re-export, no rules of its own)`, code(src).trim() === `export * from '../../packages/${pkg}/src/${path.basename(libPath)}';`, code(src).trim());

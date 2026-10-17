@@ -57,7 +57,8 @@ A seed gives the same city every time (`lib/city/cityGenerator.js`, a seeded ran
 - **UI** (`components/ui/panel/`): one movable side panel that every toolbar icon and every selection opens into, with back, expand and close. [5o] The **Credits** view (who made the models, data and code, and their licences; from `lib/content/credits.js`) opens from *Credits & licences* at the bottom of the City map & guide view; `CREDITS.md` at the repo root says the same in long form. [5z]
 - **Chat** (`components/ui/chat/`, state in `lib/state/chatStore.js`, API calls in `lib/data/messaging.js`): the toolbar's *Chat and messages* button (with a badge for unread messages) opens **Nearby** and **Inbox** tabs. The Online view lists players with a verified mark and a Message button, and a player-owned building's card has *Message the owner*. [5za; [chat_messaging_plan.md](../architecture/chat_messaging_plan.md)]
 - **Music:** 16 CC0 recordings (`lib/content/music.js`, played by `components/sound/recordedMusic.js`).
-  - The city playlist plays high above the map, with a night playlist after dark. Chiptunes play by the arcade, jazz at coffee shops, and funk while driving.
+  - One soundtrack, like SimCity's, chosen by the music director (`lib/game/musicDirector.js`): the city playlist, with a night playlist after dark; chiptunes once you stay at the arcade, jazz at a coffee shop, funk while driving.
+  - Tracks play to their end. The camera's zoom does not change the music.
   - The live WebAudio tunes (`lib/game/musicRules.js`) fill in while a track loads, or if it fails.
 
 ## 5. Multiplayer and the monitor
@@ -68,7 +69,7 @@ Concurrency measures: view-radius filtering (120 units), duplicate snapshots ski
 
 ## 6. Testing
 
-`tests/` holds the suites (all pass): `topology` (roads, junctions, river, lakes over many seeds), `lots-and-walking` (lots, reachability on foot, hunt and park access), `diagonal`, `estates`, `parks`, `landscape`, `flight` (planes, banners), `malls` (the two mega malls and their stores), `logos` (roof banner logos), `plotinfo` (the building card's figures), `vehicles` (cars, boats and fishing), `traffic` and `traffic-stress`, `multiplayer`, and `browser` (console errors, draw calls, clicking plots, regenerating and claiming, the joystick, every panel view and dragging it, the monitor). The browser test caught the crash behind a player's `refCleanup` report and the Play-view crash. There are 80 test files now. The newer ones include:
+`tests/` holds the suites (all pass): `topology` (roads, junctions, river, lakes over many seeds), `lots-and-walking` (lots, reachability on foot, hunt and park access), `diagonal`, `estates`, `parks`, `landscape`, `flight` (planes, banners), `malls` (the two mega malls and their stores), `logos` (roof banner logos), `plotinfo` (the building card's figures), `vehicles` (cars, boats and fishing), `traffic` and `traffic-stress`, `multiplayer`, and `browser` (console errors, draw calls, clicking plots, regenerating and claiming, the joystick, every panel view and dragging it, the monitor). The browser test caught the crash behind a player's `refCleanup` report and the Play-view crash. There are 83 test files now. The newer ones include:
 
 - The server suites: `api`, `engage`, `community`, `market-api`, `stats` and `live`.
 - The business and payment suites: `business-api`, `billing`, `billing-game` and `conversions`.
@@ -77,6 +78,9 @@ Concurrency measures: view-radius filtering (120 units), duplicate snapshots ski
   - `packages`: boundaries, purity, and that each adapter gives the very same objects as its package;
   - `contracts`: the versioned contracts checked against the live API.
 - The CI selector: `select-checks`.
+- The pilot: `pilot`, the dashboard, retention, payments and the weekly check-in.
+- Click-to-walk: `pathfind`, 180 clicks walked round buildings on three cities.
+- The soundtrack: `music-director`, the music's rules simulated over time.
 
 The others include `messaging` (chat and private messages against both servers) `credits` (the Credits panel and `CREDITS.md` agree), `recorded-music` (the CC0 recordings, their hashes and playlists) and `votes-upgrade` (an older `votes` table is upgraded keeping its votes). `live-browser` also runs chat between two signed-in browsers.
 
@@ -108,7 +112,7 @@ What remains:
 | Area | Files |
 | :--- | :--- |
 | City generation | `lib/city/cityGenerator.js`, `lib/city/parkGeometry.js` |
-| Walking and collisions | `lib/sim/collision.js`, `lib/sim/avatarState.js`, `components/city/Avatar.jsx` |
+| Walking and collisions | `lib/sim/collision.js`, `lib/sim/pathfind.js` (click-to-walk routes round buildings), `lib/sim/avatarState.js`, `components/city/Avatar.jsx` |
 | Traffic | `lib/sim/traffic.js`, `components/city/Traffic.jsx`, `IntersectionControl.jsx` |
 | Malls | `lib/city/cityGenerator.js` (`planMalls`), `components/city/Malls.jsx`, `components/ui/panel/MallView.jsx` |
 | Vehicles, boats, fishing | `lib/sim/vehicles.js`, `lib/state/fleetStore.js`, `components/city/Vehicles.jsx`, `components/ui/VehicleHud.jsx` |

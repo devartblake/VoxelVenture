@@ -9,14 +9,20 @@ What VoxelVenture sells, and what each plan gets. It is pure and may depend on `
 | `priceOf(product, placement)`, `dollars(cents)`, `priceLabel(product)` | The price a checkout uses, and how a page shows it |
 | `planOf(entitlements, at)`, `PRO_FIELDS`, `figuresFor(stats, plan)` | Which plan an owner is on, and which figures it shows (the breakdowns by source, campaign and day are Pro) |
 | `DAY_MS` | One day in milliseconds |
+| `CATEGORIES`, `BUSINESS_DISTRICTS`, `CTA_KINDS`, `categoryOf`, `districtOf`, `ctaKindOf` | What a profile can be (from `profile.js`) |
+| `isSlug`, `slugify`, `uniqueSlug`, `RESERVED_SLUGS`, `cleanProfile`, `LIMITS`, `isHttpUrl` | A profile's address and fields, checked the same way by the form and the server |
+| `onboardingSteps`, `profileReady`, `PLANS`, `upgradePrompts` | The set-up checklist, and the paid offers it suggests from verified figures only |
+| `isRefCode`, `profilePath`, `profileUrl`, `sourceOf` | Share links with a referral code, and where a visitor came from |
+| `profileJsonLd`, `breadcrumbJsonLd`, `listJsonLd`, `profileFromPlot` | Structured data for search engines, and the demo profiles of the generated city |
 
 **Used by:**
 
 - `server/api/billing.mjs`, `server/api/business.mjs`;
 - `components/business/ManageProfiles.jsx`;
-- `lib/business/profile.js`, `lib/legal/facts.js`.
+- `lib/legal/facts.js`;
+- through `lib/business/profile.js`: the public pages (`app/(public)/`), `components/business/`, the sitemap, and `server/api/{business,billing,social,pilot}.mjs`.
 
-The old path `lib/business/plans.js` is an adapter. [`tests/packages.test.mjs`](../../tests/packages.test.mjs) checks two things:
+The old paths `lib/business/plans.js` and `lib/business/profile.js` are adapters. [`tests/packages.test.mjs`](../../tests/packages.test.mjs) checks two things:
 
 - the server and the pages get the very same `PRODUCTS` object;
 - `server/api/billing.mjs` has no prices of its own.

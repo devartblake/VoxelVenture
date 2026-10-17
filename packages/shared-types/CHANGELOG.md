@@ -1,5 +1,13 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.2.0 (2026-10-17)
+
+New contracts, all version 1, written from what the API accepts and answers today:
+
+- `business.inquiry` and `business.inquiry.result`: a meeting or quote request;
+- `pilot.feedback`: the merchant's weekly check-in;
+- `pilot.summary`: the admin's pilot dashboard.
+
 ## 0.1.0 (2026-10-16)
 
 The first contracts, written from what the API sends and accepts today; no behaviour changed. All six are version 1:

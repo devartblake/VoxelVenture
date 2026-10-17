@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', Object.keys(CONTRACTS).length === 6);
+check('contract ids are unique', Object.keys(CONTRACTS).length === 10);
 
 // ---- the shared values are the ones the server and the funnel use
 const { OUTCOMES } = await imp('business/conversions.js');
@@ -67,6 +67,22 @@ try {
   const stats = (await call('GET', '/me/businesses', { token: bob.token })).data.profiles.find((p) => p.profile.slug === 'bob-builds').stats;
   holds('the owner\'s figures', types.OWNER_FIGURES, stats);
   check('they count what happened', stats.views === 1 && stats.ctaClicks === 1 && stats.outcomes.find((o) => o.id === 'purchases').count === 1 && stats.revenue.verifiedCents === 4500, JSON.stringify(stats).slice(0, 300));
+
+  // a quote request from a profile's form
+  await call('POST', '/businesses', { token: cat.token, body: { name: 'Cat Quotes', category: 'services', cta: { kind: 'quote' } } });
+  await call('POST', '/businesses/cat-quotes/events', { body: { kind: 'view', visitor: 'quote-visitor' } });
+  const quote = { kind: 'quote', name: 'Dee', email: 'dee@example.test', message: 'Forty coffees on Friday', visitor: 'quote-visitor', website: '' };
+  holds('a quote request', types.INQUIRY, quote);
+  holds('the answer to it', types.INQUIRY_RESULT, (await call('POST', '/businesses/cat-quotes/inquiries', { body: quote })).data);
+  check('a request the contract refuses (no email), the server refuses too', !fits(types.INQUIRY, { ...quote, email: undefined }).ok && (await call('POST', '/businesses/cat-quotes/inquiries', { body: { ...quote, email: 'nope' } })).status === 400);
+
+  // the pilot: the merchant's check-in and the admin's dashboard
+  await call('POST', '/admin/pilot/members', { token: 'admin', body: { slug: 'bob-builds' } });
+  const answers = { rating: 4, wouldPay: 'maybe', result: 'One order from the city', missing: 'Opening hours' };
+  holds('a pilot check-in', types.PILOT_FEEDBACK, answers);
+  check('the server takes it', (await call('POST', '/businesses/bob-builds/pilot-feedback', { token: bob.token, body: answers })).status === 200);
+  check('a check-in the contract refuses, the server refuses too', !fits(types.PILOT_FEEDBACK, { rating: 6, wouldPay: 'yes' }).ok && (await call('POST', '/businesses/bob-builds/pilot-feedback', { token: bob.token, body: { rating: 6, wouldPay: 'yes' } })).status === 400);
+  holds('the pilot dashboard', types.PILOT_SUMMARY, (await call('GET', '/admin/pilot', { token: 'admin' })).data);
 
   // the weekly vote, signed out and signed in, before and after a vote
   holds('the vote signed out', types.WEEKLY_VOTE, (await call('GET', '/votes')).data);

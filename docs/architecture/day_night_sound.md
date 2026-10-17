@@ -19,7 +19,7 @@
 7. **Sound**: footsteps, a door when entering a building, and a stronger crowd murmur near busy plazas; recorded loops can replace the synthesised ones later.
 
 ## Presence-based sound (like the SimCity games)
-What you hear depends on **where you are and how high you look**. Close to the ground you hear the places round you; high above the map you hear the city's music, with only a faint murmur under it; in between the two crossfade. This is the "positional audio" plan in [voxelventure_idea_02.md](../competitive-research/voxelventure_idea_02.md) section 6 (retro 8-bit music at Arcade Alley, jazz at a coffee shop), originally built with procedural audio; recorded CC0 playlists now complement those layers.
+The **ambience** depends on where you are and how high you look: close to the ground you hear the places round you, high above the map only a faint murmur of the city, and in between the two crossfade. The **music** is a soundtrack over all of it, at a steady level, picked from what the player is doing (below). This is the "positional audio" plan in [voxelventure_idea_02.md](../competitive-research/voxelventure_idea_02.md) section 6 (retro 8-bit music at Arcade Alley, jazz at a coffee shop), originally built with procedural audio; recorded CC0 playlists now complement those layers.
 
 | Where you are | What you hear |
 | :--- | :--- |
@@ -34,28 +34,41 @@ What you hear depends on **where you are and how high you look**. Close to the g
 | At the **amusement park** (carries 34) | a carousel organ waltz, a crowd, the coaster's rush and screams |
 | In the **countryside** (outside the built-up area, more the further out) | wind, cows, birds, crickets at night |
 | Beside a **busy street** | traffic by how noisy the road is (arterials most) and the hour, with a horn now and then |
-| **High above the map** (zoomed out, the Overview view, or the world map open) | the city's **music**: a pad, a bass and a gentle arpeggio whose mood follows the time of day (bright by day, warm at dusk and dawn, calm at night) |
+| **High above the map** (zoomed out, the Overview view, or the world map open) | the places fade and the city's hum stays under the soundtrack (the music itself does not change with the zoom: see below). The procedural city music (a pad, a bass and a gentle arpeggio whose mood follows the time of day) is the soundtrack's stand-in while a recording downloads |
 
 - **Where "you" are**: in the original view it is the middle of the screen (what you are looking at, so you can scroll over the city and hear it), in the follow views it is the avatar (or where you look round to). How high you look comes from the zoom (original view: 14 or more is close, 5 is as far as it goes) or the camera distance (follow views: up to 40 is close, 160 is the Overview).
-- **At most four local sounds at once** (the loudest), so the mix stays clear and light. Indoors everything is muffled and quieter, and there is no music.
-- **Controls** (bottom right): the speaker button (on/off, volume slider), a **music** button (the city music on/off: `?music=0` starts without it), and a small label of what you hear here ("Arcade · Busy street", "City music"). `?sound=0` / `?sound=1` as before.
+- **At most four local sounds at once** (the loudest), so the mix stays clear and light. Indoors everything is muffled and quieter, the music too.
+- **Controls** (bottom right): the speaker button (on/off, volume slider), a **music** button (the city music on/off: `?music=0` starts without it), and a small label with the track and what you hear here ("♪ Sideways City · Arcade · Busy street"). `?sound=0` / `?sound=1` as before.
 - **Code**: the rules are pure and tested (`lib/game/soundZones.js` places, falloff, view height, the mix; `lib/game/musicRules.js` the notes), `lib/sim/listener.js` + `components/city/SoundListener.jsx` say where the listener is, `components/sound/engine.js` makes the sound with the browser's audio, `components/SoundEngine.jsx` ties them together. Tests: `tests/sound-zones.test.mjs` and the "presence-based sound" checks in `tests/browser.test.mjs` (arcade near, music far, the music button).
-- **Recorded music (CC0)**: 16 recordings from eight OpenGameArt releases, all CC0, served from `public/audio/music/`. They play over the same zones; no new zones were added.
-  - **Code:** `lib/content/music.js` lists the releases and the playlists. `recordedMusicChoice` picks one from the mix:
+- **The music: one soundtrack, like SimCity's** (`lib/game/musicDirector.js`, played by `components/sound/recordedMusic.js`).
+  - **What changed:** the music used to follow the camera. Zooming in and out crossed the thresholds where the arcade, cafe and city playlists took over, so each zoom cut the track and started another, and the music's volume rose and fell with the zoom.
+  - **How it works now:**
+    - The music is one continuous programme at a steady level: a track plays to its end, then about 3.5 s of quiet, then the next.
+    - The camera never changes it. Only the ambience of the places round you follows the camera.
+    - What plays is picked from criteria about the player, read from where the **avatar** is:
 
-    | Where | Playlist |
-    | --- | --- |
-    | High above the map, by day | `city`: Wednesday Night, Sideways City |
-    | High above the map, at night (lamps on, or no sun) | `night`: Moil |
-    | Near the arcade | `arcade`: Happy Chiptunes |
-    | At a coffee shop | `jazz`: Fusion Jazz |
-    | In a car you drive | `driving`: Barriers, Funked Up, the Funk collection |
+    | Criterion | Playlist | When it changes |
+    | --- | --- | --- |
+    | Driving a car | `driving`: Barriers, Funked Up, the Funk collection (the radio) | At once, with a 2 s crossfade (and back when you get out) |
+    | On foot at the arcade | `arcade`: Happy Chiptunes | After 6 s there, with a 4 s crossfade. Walking past changes nothing, and leaving gives the city back 6 s later |
+    | On foot at a restaurant or cafe | `jazz`: Fusion Jazz | The same |
+    | Night (the street lamps on, or no sun) | `night`: Moil | At the end of the track playing |
+    | Otherwise | `city`: Wednesday Night, Sideways City | At the end of the track playing |
 
-  - **Playback:** `components/sound/recordedMusic.js` plays the choice. It downloads only the active track, once the audio is unlocked, keeps at most two decoded tracks, and cancels downloads that are no longer needed.
-  - **Fallbacks and controls:** the procedural tunes (`lib/game/musicRules.js`) play while a track loads and whenever one fails. The music button and the volume apply to the recordings too.
+  - **Track order:** each playlist is shuffled once and played round, never the same track twice in a row. Coming back to a playlist goes on with its next track.
+  - **Indoors:** the music is quieter, not cut.
+  - **Controls:** the music button stops it and starts it again, and the volume slider applies.
+  - **The label:** the small label shows the track ("♪ Sideways City · Arcade · Busy street").
+  - **The recordings:** 16 recordings from eight OpenGameArt releases, all CC0, in `public/audio/music/` and listed in `lib/content/music.js`.
+    - **Downloads:** only the track about to play downloads, after the audio is unlocked. At most two decoded tracks are kept, and a download no longer wanted is cancelled.
+    - **Crossfades:** two decks, so one track fades out while the next fades in.
+    - **Fallback:** while a track downloads, or if none of a playlist's tracks can play, the procedural tunes (`lib/game/musicRules.js`) stand in at the same steady level. They are silent in the quiet between tracks. A track that fails is skipped.
   - **Evidence:** the source pages and CC0 text are in `docs/licences/music/`; the addresses and SHA-256 hashes are in `public/audio/music/manifest.json`.
-  - **Tests:** `tests/recorded-music.test.mjs` (hashes, evidence, playlists, mute, fallback, clean-up). `tests/credits.test.mjs` checks the tracks are in `lib/content/credits.js` and `CREDITS.md`.
-  - **Known limit:** tracks without loop points can have a short gap between plays.
+  - **Tests:**
+    - `tests/music-director.test.mjs` simulates the rules over time: tracks to the end with a quiet between, day to night at the end of a track, the car at once, the arcade only after a stay, the camera with no say, indoors, the music button, a failed track.
+    - `tests/recorded-music.test.mjs` covers the assets and the player: hashes, CC0 evidence, the steady soundtrack, the car radio, mute, fallback, clean-up.
+    - `tests/credits.test.mjs` checks the tracks are credited.
+  - **Known limit:** tracks without loop points end and the next begins after the quiet. That is intended, like a radio programme.
 - **Not built**: a district's own chosen tracks (owners picking music), footsteps and doors, other players' voices and vehicles, rain and weather, the creak of a boat, recorded loops for the remaining places (offices, market, parks, mall, airport, the fun park), seamless loop points.
 
 ## Recorded music

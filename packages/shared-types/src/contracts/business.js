@@ -85,3 +85,29 @@ export const OWNER_FIGURES = {
     },
   },
 };
+
+// POST /businesses/<slug>/inquiries: a meeting or quote request from a profile's form (server/api/conversions.mjs createInquiry). `website`
+// is the hidden field only a robot fills in (the server thanks it and keeps nothing).
+export const INQUIRY = {
+  id: 'business.inquiry',
+  version: 1,
+  schema: {
+    type: 'object',
+    required: ['kind', 'name', 'email'],
+    properties: {
+      kind: { type: 'string', enum: ['meeting', 'quote'] },
+      name: { type: 'string', minLength: 1, maxLength: 60 },
+      email: { type: 'string', pattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$', maxLength: 200 },
+      phone: { type: 'string', pattern: '^[0-9 +().-]{5,30}$' },
+      message: { type: 'string', maxLength: 1000 },
+      preferred: { type: 'string', maxLength: 120 },
+      visitor: { type: 'string', pattern: '^[A-Za-z0-9_-]{4,40}$' },
+      website: { type: 'string', maxLength: 0 },
+    },
+  },
+};
+export const INQUIRY_RESULT = {
+  id: 'business.inquiry.result',
+  version: 1,
+  schema: { type: 'object', required: ['sent'], properties: { sent: { type: 'boolean', enum: [true] }, id: { type: 'integer', minimum: 1 } } },
+};

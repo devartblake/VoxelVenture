@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { devToolsOn } from '@/lib/dev/devTools';
 import { generateCity } from '@/lib/city/cityGenerator';
 import { EDIT_PLOT_BASE, HALF_CORRIDOR, ROAD_CLASSES, ROAD_KINDS, applyEdits, corridorOf, fillFrontage, fromDocument, makeLot, makePark, makeRoad, plotBox, refitLots, summarizeEdits, toDocument, validate } from '@/lib/city/cityEdit';
-import { STREET_NAME_ATTRIBUTION, STREET_NAME_SETS } from '@/lib/content/streetNames';
+import { DISTRICT_STREET_NAMES, STREET_NAME_ATTRIBUTION, STREET_NAME_SETS } from '@/lib/content/streetNames';
 import { clearEdits, loadEdits, saveEdits } from '@/lib/city/editedWorld';
 
 // DESIGN TOOL (not in release builds): the city editor. A top-down map of the generated city where roads, lots and parks can be added, moved, resized, changed and removed,
@@ -33,7 +33,27 @@ function Field({ label, children }) {
     </label>
   );
 }
-const ALL_STREET_NAMES = [...new Set(Object.values(STREET_NAME_SETS).flatMap((s) => s.names))].sort();
+const ALL_STREET_NAMES = [...new Set([...Object.values(STREET_NAME_SETS), ...Object.values(DISTRICT_STREET_NAMES)].flatMap((s) => s.names))].sort();
+// The district a road runs through, for its name: the district of the nearest lot to its middle (docs/architecture/street_names.md).
+function districtOfRoad(road, plots) {
+  const mx = road.axis === 'x' ? (road.from + road.to) / 2 : road.center;
+  const mz = road.axis === 'x' ? road.center : (road.from + road.to) / 2;
+  let best = null;
+  let bd = Infinity;
+  for (const p of plots) {
+    const d = Math.hypot(p.x - mx, p.z - mz);
+    if (d < bd && DISTRICT_STREET_NAMES[p.districtId]) (bd = d), (best = p.districtId);
+  }
+  return best;
+}
+// A real name no road uses yet: from the road's own district's list first, then any list.
+function suggestStreetName(road, city) {
+  const used = new Set(city.layout.roads.map((r) => r.name));
+  const own = DISTRICT_STREET_NAMES[districtOfRoad(road, city.plots)]?.names ?? [];
+  const free = (list) => list.filter((n) => !used.has(n) && n.length <= 22);
+  const pick = free(own).length ? free(own) : free(ALL_STREET_NAMES);
+  return pick.length ? pick[Math.floor(Math.random() * pick.length)] : null;
+}
 const INPUT = 'w-28 rounded bg-slate-800 px-2 py-0.5 text-right text-white';
 function Num({ value, onCommit, step = 0.5, width = 'w-24' }) {
   const [text, setText] = useState(String(value));
@@ -629,7 +649,7 @@ export default function CityEditor() {
                 <Field label="Name"><input list="street-names" onBlur={(e) => e.target.value !== selRoad.name && setRoad({ name: e.target.value })} defaultValue={selRoad.name} key={selRoad.id + selRoad.name} className={INPUT} /></Field>
                 <datalist id="street-names">{ALL_STREET_NAMES.map((n) => <option key={n} value={n} />)}</datalist>
                 {ALL_STREET_NAMES.length > 0 && (
-                  <button className={btn} title={STREET_NAME_ATTRIBUTION} onClick={() => { const used = new Set(city.layout.roads.map((r) => r.name)); const free = ALL_STREET_NAMES.filter((n) => !used.has(n) && n.length <= 22); if (free.length) setRoad({ name: free[Math.floor(Math.random() * free.length)] }); }}>Suggest a real street name</button>
+                  <button className={btn} title={STREET_NAME_ATTRIBUTION} onClick={() => { const name = suggestStreetName(selRoad, city); if (name) setRoad({ name }); }}>Suggest a {DISTRICT_STREET_NAMES[districtOfRoad(selRoad, city.plots)]?.theme ?? 'real'} street name</button>
                 )}
                 <Field label="Kind"><select value={selRoad.kind} onChange={(e) => setRoad({ kind: e.target.value })} className={INPUT}>{[...new Set([selRoad.kind, ...ROAD_KINDS, 'county', 'drive', 'lake', 'spur'])].map((k) => <option key={k}>{k}</option>)}</select></Field>
                 <Field label="Class"><select value={selRoad.class} onChange={(e) => setRoad({ class: e.target.value })} className={INPUT}>{ROAD_CLASSES.map((k) => <option key={k}>{k}</option>)}</select></Field>

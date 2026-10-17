@@ -55,6 +55,23 @@ All in `server/api/engage.mjs`; screens in `components/interior/LiveStorefront.j
 - **Credits:** the server's money for visit quests is now called **Credits** everywhere (quest wallet, budgets, rewards) so it is never confused with the **Gold** the game itself earns and spends (chest, hunt, clothes), which stays local. The two are separate currencies by design.
 - Tests: `tests/engage.test.mjs` (about 80 checks including the filter, reports, the auto-hide, the queue, a ban and the sign-ups list), `tests/csv.test.mjs`, and the browser test.
 
+## The pilot (`server/api/pilot.mjs`)
+
+The pilot dashboard for phase 6 ([pilot.md](../monetization/pilot.md)).
+
+| Route | Who | What |
+| --- | --- | --- |
+| `GET /admin/pilot?weeks=4&all=0` | Admin | Each pilot business week by week: activation, the owner's weekly return, verified views, qualified visits, presses, leads, coupon claims and redemptions, purchases, verified revenue, payments and renewals, and the merchant's feedback. Also the verdict on the five criteria that lift the world freeze. |
+| `GET /admin/pilot.csv` | Admin | The same, as a spreadsheet |
+| `POST /admin/pilot/members`, `DELETE /admin/pilot/members/<slug>` | Admin | Who takes part. Recorded in the audit trail. |
+| `POST /businesses/<slug>/pilot-feedback` | The owner of a pilot business | The weekly check-in. One per week; sending again replaces it. |
+
+- **Owner activity:** loading `GET /me/businesses` or changing a profile records the owner's visit for that week (`owner_activity`).
+- **The pilot box:** each profile there has `pilot` (`null` unless it is in the pilot).
+- **Tables:** `pilot_members`, `owner_activity`, `pilot_feedback`.
+- **Command line:** `npm run moderate -- pilot [weeks | add <slug> [note] | remove <slug> | csv]`.
+- **Tests:** `tests/pilot.test.mjs`.
+
 ## Chat and private messages (`server/api/messaging.mjs`)
 Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The API keeps everything that lasts or needs an account; the presence server only passes nearby lines on.
 - **Signed-in chat:** `POST /messaging/ticket` gives a signed-in game a one-use ticket (a minute); the presence server redeems it (`/internal/messaging/redeem`, with `MP_NOTIFY_SECRET`) and from then on that connection speaks as the account. Every half minute it asks which bindings are still good (`/internal/messaging/bindings`): signing out or a ban ends them.

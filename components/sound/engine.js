@@ -324,13 +324,16 @@ export function createEngine(ctx, { rand = Math.random } = {}) {
     state.birds = extras.birds ?? 0;
     state.crickets = extras.crickets ?? 0;
     state.zones = { ...mix.local, street: mix.street };
-    const recordedLayer = recordings.update(mix, extras);
-    const want = { hum: mix.city, street: mix.street, music: mix.music };
+    // The music is the director's (components/sound/recordedMusic.js, lib/game/musicDirector.js): one soundtrack at a steady level, whatever
+    // the camera does. The procedural tunes stand in only while a track downloads or when none can play.
+    const rec = recordings.update(mix, extras);
+    const want = { hum: mix.city, street: mix.street, music: 0 };
     for (const zone of Object.keys(ZONE_LAYERS)) {
       const v = mix.local[zone] ?? 0;
       for (const [layer, share] of ZONE_LAYERS[zone]) want[layer] = Math.max(want[layer] ?? 0, v * share);
     }
-    if (recordedLayer) want[recordedLayer] = 0;
+    if (rec.layer && rec.sounding) want[rec.layer] = 0; // the recording plays instead of its procedural layer
+    if (rec.layer && rec.fallback) want[rec.layer] = Math.max(want[rec.layer] ?? 0, rec.level / 0.5); // level 0.5 is full
     // The music switch silences local tunes as well as the city soundtrack.
     if (extras.musicOn === false) for (const key of ['music', 'arcade', 'jazz', 'mall', 'funfair']) want[key] = 0;
     for (const L of Object.values(layers)) {
@@ -386,6 +389,7 @@ export function createEngine(ctx, { rand = Math.random } = {}) {
     update,
     tick,
     levels: state.levels,
+    nowPlaying: () => recordings.nowPlaying(), // the recording sounding now (its url), or null
     close: () => {
       recordings.close();
       for (const L of Object.values(layers)) stop(L);

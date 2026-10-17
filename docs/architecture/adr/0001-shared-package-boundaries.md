@@ -88,10 +88,23 @@ packages/
 | Products, prices, placements, plans, entitlements, Pro fields | `lib/business/plans.js` | `packages/business-core/src/plans.js` | `lib/business/plans.js` |
 | Event kinds, traffic sources, outcome family ids; contracts for business events, purchase reports, the owner's figures and the weekly vote | (new) | `packages/shared-types/src/` | none |
 
+## The second slices (2026-10-17)
+
+| Moved | From | To | Adapter |
+| --- | --- | --- | --- |
+| Profile rules: categories, districts, calls to action, slugs, validation (`cleanProfile`), onboarding steps, upgrade prompts, referral-code shape, structured data, the demo profiles, traffic sources | `lib/business/profile.js` | `packages/business-core/src/profile.js` | `lib/business/profile.js` |
+| The pilot's criteria and how each business counts | (new) | `packages/analytics/src/pilot.js` | none: `server/api/pilot.mjs` imports the package directly |
+| Contracts for meeting and quote requests, the pilot check-in and the pilot dashboard | (new) | `packages/shared-types/src/contracts/` | none |
+
+- **Why all of `profile.js` moved:** its district list is a static list in the file itself, not the city generator's.
+- **One validation:** the web form (`components/business/ProfileForm.jsx`) and the server now check a profile with the very same `cleanProfile`.
+
 Not moved yet:
 
-- `lib/business/profile.js`: large, and it reaches into the city generator's districts.
-- `lib/business/referral.js`: it uses `localStorage`.
+- `lib/business/referral.js`: the browser half of referrals.
+  - It keeps the code in `localStorage`, so it stays in `lib/`.
+  - Its pure part, the shape of a code (`isRefCode`), is in `business-core`.
+  - Signing a code is server-only (`server/api/business.mjs`, with Node's `crypto`).
 - Everything in `lib/city`, `lib/game` and `lib/sim`: the world-core package is P2.
 
 ## Consequences

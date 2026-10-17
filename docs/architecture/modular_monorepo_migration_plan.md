@@ -148,9 +148,14 @@ Introduce `packages/shared-types/`, `packages/business-core/`, and `packages/ana
 
 | Module | Why |
 | --- | --- |
-| `lib/business/profile.js` | It depends on the city generator's districts |
 | `lib/business/referral.js` | It uses `localStorage` |
 | World modules | `world-core` is P2 |
+
+**Second slices (2026-10-17):**
+
+- **Moved:** `lib/business/profile.js`. Its districts are a static list of its own, not the generator's.
+- **Added:** the pilot's criteria (`packages/analytics/src/pilot.js`), and contracts for meeting and quote requests, the pilot check-in and the pilot dashboard.
+- **Stays in `lib/`:** `lib/business/referral.js`, the browser half. The shape of a referral code is in `business-core`.
 
 The next slices follow the ADR's recipe.
 
@@ -237,7 +242,11 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 - [x] Write package-boundary ADR before extraction ([ADR 0001](adr/0001-shared-package-boundaries.md)).
 - [x] Update `scripts/select-checks.mjs` before introducing executable `packages/` modules.
 - [x] Phase B first slices: `shared-types` contracts, `business-core` (plans), `analytics` (conversions), with adapters, parity and contract tests.
-- [ ] Phase B next slices: profile validation (after separating it from the district lookup) and referral signing (after separating it from `localStorage`).
+- [x] Phase B second slices ([ADR 0001](adr/0001-shared-package-boundaries.md#the-second-slices-2026-10-17)):
+  - the profile rules into `business-core`, with the adapter `lib/business/profile.js`;
+  - the pilot criteria into `analytics`;
+  - contracts for meeting and quote requests and for the pilot.
+- [ ] Phase B, as needed: more contracts when a new shape crosses a boundary (coupon claims, the pixel). Then Phase C, after staging and Stripe certification.
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation.
 
 ## 10. Final recommendation
