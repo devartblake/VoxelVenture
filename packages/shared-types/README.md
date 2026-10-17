@@ -31,6 +31,25 @@ Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-S
 
 [`tests/contracts.test.mjs`](../../tests/contracts.test.mjs) starts the API and checks its real requests and answers against these contracts.
 
+## The presence protocol
+
+The WebSocket messages between the game (`lib/net/multiplayer.js`) and the presence server (`services/multiplayer/server.mjs`), protocol 2 ([ADR 0004](../../docs/architecture/adr/0004-presence-protocol-contracts.md)):
+
+| Export | What |
+| --- | --- |
+| `PRESENCE_CLIENT` | What a game sends: `hello`, `auth`, `auth.clear`, `state`, `parked`, `profile`, `chat.send`, `chat` (the old form), `perf`, `error` |
+| `PRESENCE_SERVER` | What the server sends: `welcome`, `snapshot`, `online`, `parked`, `profile`, `world`, `chat`, `chat.accepted`, `chat.rejected`, `inbox.changed`, `auth.ok`, `auth.failed`, `auth.revoked`, `invalid`, `protocol.unsupported` |
+| `PRESENCE_PROTOCOL` | 2, the protocol's version: the server's `PROTOCOL` comes from here |
+| `presenceContract(from, message)` | The contract of a message (`from` is `'client'` or `'server'`), or `null` if its type is not in the protocol |
+
+- **Checked strictly:** `hello`, `auth` and `auth.clear` (`strict: true`) are checked by the server as they arrive.
+- **Clamped:** the other client messages keep the server's field-by-field clamping.
+- **Tested:** the golden examples are in `tests/fixtures/presence-v2.json`. `tests/presence-contracts.test.mjs` and `tests/messaging.test.mjs` hold the real traffic to the contracts.
+
+## Test scenarios
+
+`TEST_SCENARIO` (`test.scenario`, version 1, [`contracts/test-scenario.js`](src/contracts/test-scenario.js)) is the shape of a business journey's scenario: the seed, the device, the participants, the starting accounts and businesses, the milestones in order, the timeout, the allowed links and the budgets. The scenarios are in [`tests/fixtures/deterministic-pilot-city.mjs`](../../tests/fixtures/deterministic-pilot-city.mjs), and [`tests/journeys/`](../../tests/journeys/README.md) runs them. A scenario has no place for a password or a token, and its links must use the example domains. `TEST_SCENARIO` is in `CONTRACTS` but not in `API_CONTRACTS`, because it never travels over the wire.
+
 ## Enums
 
 | Name | Values | Must equal |

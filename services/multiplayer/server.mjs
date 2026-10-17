@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { WebSocketServer } from 'ws';
 import { checkText, cleanMessage } from '../api/textcheck.mjs';
+import { PRESENCE_CLIENT, PRESENCE_PROTOCOL, check } from '@voxelventure/shared-types';
 
 // Settings (all optional environment variables):
 //   MP_PORT          port to listen on                      (default 3001)
@@ -59,7 +60,7 @@ const netOf = (ip) => (ip ? crypto.createHash('sha256').update(`${IP_SALT}|${ip}
 const LOG_MAX_BYTES = Number(process.env.MP_LOG_MAX_BYTES || 2_000_000);
 // Protocol 2 (interest management): a client is only told about the players near it (`enter` when one comes into range, `exit` when one leaves it,
 // and only the changed positions after that), the nearest MAX_VISIBLE of them, so what a client costs does not grow with the size of the crowd.
-const PROTOCOL = 2; // bump when the messages change in a way old clients cannot follow
+const PROTOCOL = PRESENCE_PROTOCOL; // 2. Bump it (in packages/shared-types, with the contracts and their CHANGELOG) when the messages change in a way old clients cannot follow
 const TICK_MS = 100; // positions go out ten times a second
 const MAX_MESSAGE = 16 * 1024;
 const CHAT_RADIUS = Number(process.env.MP_CHAT_RADIUS || 60);
@@ -225,8 +226,30 @@ function answerChat(p, clientMessageId, out) {
   if (out.type === 'chat.accepted') p.chatAnswers.set(clientMessageId, out);
   else p.chatAnswers.delete(clientMessageId);
   if (p.chatAnswers.size > 50) p.chatAnswers.delete(p.chatAnswers.keys().next().value);
+  if (out.type === 'chat.accepted' && p.account) rememberForAccount(p.account.id, p.room, clientMessageId, out);
   send(p, out);
 }
+// A signed-in player's accepted lines, by account, for a few minutes: a phone that lost its connection just after a line went out never got
+// the answer, so the game retries the line on its new connection, and it must get the same answer, not be said again (found by the
+// reconnect-and-recovery journey, tests/journeys/). Guests have no identity that survives a reconnect, so theirs stay per connection.
+const ACCOUNT_ANSWER_MS = 5 * 60 * 1000;
+const accountAnswers = new Map(); // account id -> Map(clientMessageId -> { out, room, at })
+function rememberForAccount(accountId, room, clientMessageId, out) {
+  const mine = accountAnswers.get(accountId) ?? accountAnswers.set(accountId, new Map()).get(accountId);
+  mine.set(clientMessageId, { out, room, at: Date.now() });
+  if (mine.size > 50) mine.delete(mine.keys().next().value);
+}
+function answeredForAccount(p, clientMessageId) {
+  const hit = p.account && accountAnswers.get(p.account.id)?.get(clientMessageId);
+  return hit && hit.room === p.room && Date.now() - hit.at < ACCOUNT_ANSWER_MS ? hit.out : null;
+}
+setInterval(() => {
+  const old = Date.now() - ACCOUNT_ANSWER_MS;
+  for (const [id, mine] of accountAnswers) {
+    for (const [cid, a] of mine) if (a.at < old) mine.delete(cid);
+    if (!mine.size) accountAnswers.delete(id);
+  }
+}, 60 * 1000).unref();
 const rejected = (clientMessageId, code, message, retryAfterMs) => ({ type: 'chat.rejected', clientMessageId, code, message, ...(retryAfterMs ? { retryAfterMs: Math.ceil(retryAfterMs) } : {}) });
 let guestLines = 0;
 
@@ -240,6 +263,12 @@ function handleChat(p, m, now) {
   const v2 = m.type === 'chat.send';
   const cid = v2 ? str(m.clientMessageId, 64) : '';
   if (v2 && !/^[\w-]{8,64}$/.test(cid)) return send(p, rejected(cid, 'bad_request', 'Each message needs its own id.'));
+  const earlier = v2 && !p.chatAnswers.has(cid) && answeredForAccount(p, cid);
+  if (earlier) {
+    // a line this account said on a connection that has since gone: the same answer, not said again
+    p.chatAnswers.set(cid, earlier);
+    return send(p, earlier);
+  }
   if (v2 && p.chatAnswers.has(cid)) {
     const before = p.chatAnswers.get(cid);
     if (before) send(p, before); // the same send again: the same answer (nothing is said twice)
@@ -278,6 +307,8 @@ function handleChat(p, m, now) {
 function handleAuth(p, m) {
   p.authSeq = (p.authSeq ?? 0) + 1; // a newer auth (or sign-out) wins over one still being checked
   if (m.type === 'auth.clear') return unbindAccount(p, 'signed_out');
+  // a sign-in is held to its contract: a ticket of the right shape, or the API is not asked at all
+  if (!check(PRESENCE_CLIENT.auth, m).ok) return send(p, { type: 'auth.failed', code: 'bad_request', message: 'A sign-in needs its ticket.' });
   if (!ACCOUNTS) return send(p, { type: 'auth.failed', code: 'unavailable', message: 'Accounts are not set up on this server.' });
   if (Date.now() - (p.lastAuth ?? 0) < 1000) return send(p, { type: 'auth.failed', code: 'rate_limited', message: 'Wait a moment and try again.' });
   p.lastAuth = Date.now();
@@ -449,6 +480,15 @@ wss.on('connection', (ws, req) => {
     if (!m || typeof m.type !== 'string') return;
 
     if (m.type === 'hello') {
+      // another protocol: say which one this server speaks, and close (a game that sends no `v` is taken to speak this one)
+      if (m.v != null && Math.trunc(Number(m.v)) !== PROTOCOL) {
+        send(p, { type: 'protocol.unsupported', protocol: PROTOCOL, supported: [PROTOCOL], message: `This server speaks presence protocol ${PROTOCOL}; reload the page to get the current game.` });
+        ws.close(4002, 'protocol not supported');
+        return;
+      }
+      // a hello is held to its contract (packages/shared-types, ADR 0004): one that does not fit is answered and goes no further
+      const fit = check(PRESENCE_CLIENT.hello, m);
+      if (!fit.ok) return send(p, { type: 'invalid', of: 'hello', errors: fit.errors.slice(0, 5) });
       const first = !p.hello;
       const room = str(m.room, 40) || 'default';
       if (p.hello && p.room !== room) p.known = new Map(); // moved to another city: the players there are all new to us (and the old city's players see us go on their next tick)

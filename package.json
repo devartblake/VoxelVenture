@@ -24,7 +24,8 @@
     "postinstall": "patch-package",
     "test": "node tests/run.mjs",
     "test:browser": "node tests/run.mjs --only-browser",
-    "test:all": "node tests/run.mjs --browser"
+    "test:all": "node tests/run.mjs --browser",
+    "test:journeys": "node tests/run.mjs journeys/"
   },
   "dependencies": {
     "@pascal-app/core": "^1.0.4",

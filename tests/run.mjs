@@ -5,6 +5,7 @@
 //   npm run test:all          both
 //   node tests/run.mjs lots   only the tests whose file name contains "lots"
 //   node tests/run.mjs api.test.mjs market-api.test.mjs   exactly these files (a full file name matches only itself; CI picks them, scripts/select-checks.mjs)
+//   npm run test:journeys     the business journeys only (tests/journeys/, run by tests/agents/scenario.mjs; they are part of npm test too)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,7 +17,9 @@ const withBrowser = args.includes('--browser');
 const only = args.includes('--only-browser');
 const filters = args.filter((a) => !a.startsWith('--'));
 
-let files = fs.readdirSync(here).filter((f) => f.endsWith('.test.mjs')).sort();
+// the suites in tests/, then the journeys in tests/journeys/ (named journeys/<file>)
+const journeys = fs.existsSync(path.join(here, 'journeys')) ? fs.readdirSync(path.join(here, 'journeys')).filter((f) => f.endsWith('.test.mjs')).sort().map((f) => `journeys/${f}`) : [];
+let files = [...fs.readdirSync(here).filter((f) => f.endsWith('.test.mjs')).sort(), ...journeys];
 files = files.filter((f) => (only ? f.startsWith('browser') : withBrowser || !f.startsWith('browser')));
 if (filters.length) files = files.filter((f) => filters.some((x) => (x.endsWith('.test.mjs') ? f === x : f.includes(x))));
 

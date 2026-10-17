@@ -4,6 +4,8 @@ node_modules/
 .env.*
 !.env.example
 *.log
+# the journeys' reports, logs and screenshots (tests/agents/scenario.mjs)
+artifacts/
 *.tsbuildinfo
 next-env.d.ts
 services/multiplayer/logs/

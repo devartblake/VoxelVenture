@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', Object.keys(CONTRACTS).length === 15);
+check('contract ids are unique', types.API_CONTRACTS.length === 15 && Object.keys(CONTRACTS).length === 15 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
 
 // ---- the shared values are the ones the server and the funnel use
 import { OUTCOMES } from '@voxelventure/analytics';

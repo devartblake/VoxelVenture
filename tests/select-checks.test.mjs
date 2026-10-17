@@ -27,6 +27,13 @@ for (const f of ['package.json', 'package-lock.json', 'tests/helpers.mjs', 'scri
 check('a file no rule knows runs everything', selectChecks(['somewhere/new-thing.yaml']).tests === 'all' && selectChecks(['somewhere/new-thing.yaml']).python);
 check('docs mixed with code: the code decides', has(selectChecks(['docs/a.md', 'services/api/core.mjs']), 'api.test.mjs'));
 
+// the business journeys (tests/journeys/, Track A of the adoption plan)
+const JOURNEYS = ['journeys/attribution-deduplication.test.mjs', 'journeys/merchant-onboarding.test.mjs', 'journeys/reconnect-and-recovery.test.mjs', 'journeys/visitor-discovery-to-storefront.test.mjs'];
+check('a changed journey runs itself', JSON.stringify(selectChecks(['tests/journeys/merchant-onboarding.test.mjs']).tests) === '["journeys/merchant-onboarding.test.mjs"]');
+check('a change to the agents or the scenarios runs every journey and the runner test, not everything', ['tests/agents/presence-agent.mjs', 'tests/fixtures/deterministic-pilot-city.mjs'].every((f) => [...JOURNEYS, 'journey-runner.test.mjs'].every((t) => has(selectChecks([f]), t))));
+check('a change to the pages or a server runs the journeys', JOURNEYS.every((t) => has(selectChecks(['apps/web/components/ui/Header.jsx']), t) && has(selectChecks(['services/multiplayer/server.mjs']), t)));
+check('a change to a test or the docs does not', lacks(selectChecks(['tests/api.test.mjs']), ...JOURNEYS) && JSON.stringify(selectChecks(['docs/a.md']).tests) === '[]');
+
 // the shared packages (docs/architecture/adr/0001-shared-package-boundaries.md)
 check('dependents follow a package file to its workspace name and the lib/ modules that import it', libDependents('../packages/business-core/src/plans').includes('@voxelventure/business-core') && libDependents('../packages/business-core/src/plans').includes('legal/facts') && !libDependents('../packages/shared-types/src/enums').includes('legal/facts'));
 const prices = selectChecks(['packages/business-core/src/plans.js']);
