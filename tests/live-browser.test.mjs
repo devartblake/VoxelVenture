@@ -36,7 +36,7 @@ try {
     console.log(`--- next build failed (status ${build.status}); the last ${Math.min(80, lines.length)} lines:\n${lines.slice(-80).join('\n')}\n---`);
     throw new Error('build failed');
   }
-  children.push(spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { cwd: root, env: { ...env, API_PORT: String(apiPort), API_DB: ':memory:', MP_NOTIFY_URL: `http://localhost:${mpPort}/notify`, ...(FASTAPI ? { MESSAGING_SERVICE_URL: `http://localhost:${msgPort}` } : {}) }, stdio: 'ignore' }));
+  children.push(spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'server', 'api', 'server.mjs')], { cwd: root, env: { ...env, API_PORT: String(apiPort), API_DB: ':memory:', PROFILE_CTA_CAP: '5', MP_NOTIFY_URL: `http://localhost:${mpPort}/notify`, ...(FASTAPI ? { MESSAGING_SERVICE_URL: `http://localhost:${msgPort}` } : {}) }, stdio: 'ignore' }));
   if (FASTAPI) children.push(spawn(python, ['-m', 'app'], { cwd: msgDir, env: { ...env, MESSAGING_PORT: String(msgPort), MESSAGING_DB: ':memory:', NODE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_URL: `http://localhost:${mpPort}/notify` }, stdio: 'ignore' }));
   console.log(`messaging served by ${FASTAPI ? 'the FastAPI service' : 'the Node API'}`);
   children.push(spawn(process.execPath, [path.join(root, 'server', 'multiplayer.mjs')], { cwd: root, env: { ...env, MP_PORT: String(mpPort), MP_LOG_DIR: logDir, MP_API_URL: `http://localhost:${apiPort}` }, stdio: 'ignore' }));
@@ -153,6 +153,35 @@ try {
   check('the owner is told at once', await waitFor(page, `Boolean(document.querySelector('[data-testid="chat-badge"]'))`, 8));
   check('no console errors on either page during chat', page.problems().length === 0 && other.problems().length === 0, [...page.problems(), ...other.problems()].slice(0, 2).join(' | '));
   check('no console errors during the storefront, account and chat steps either', other.problems().length === 0, other.problems().slice(0, 2).join(' | '));
+
+  // ---- conversion measurement (docs/conversions.md): the owner of Browser Bakery gives it a business profile linked to the building,
+  // then a fresh visitor sees it in a list, stays on its page, presses its button, and another walks into the 3D storefront
+  const api = async (method, p, body) => (await fetch(`http://localhost:${apiPort}${p}`, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bakerToken}` }, body: body && JSON.stringify(body) })).json();
+  const bakerToken = await page.eval(`localStorage.getItem('voxelventure-token')`);
+  await api('POST', '/businesses', { name: 'Browser Bakery', category: 'food', website: 'https://bakery.test', cta: { kind: 'order', url: 'https://bakery.test/shop' } });
+  await api('PUT', '/businesses/browser-bakery/plot', { plotId: lot.id });
+  const figures = async () => (await api('GET', '/me/businesses')).profiles.find((x) => x.profile.slug === 'browser-bakery').stats;
+  const until = async (test, seconds = 30) => { for (let i = 0; i < seconds * 2; i++) { if (test(await figures())) return true; await sleep(500); } return false; };
+  // (an ordinary browser's user agent: the server does not count headless Chrome as a human visitor)
+  const visitor = await openPage(`http://localhost:${webPort}/discover`, { width: 1200, height: 1400, userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' });
+  check('a card on screen in Discover counts as an impression', await until((f) => f.impressions >= 1));
+  await visitor.eval(`location.href = '/business/browser-bakery'; 1`);
+  check('opening the profile counts a visit', await until((f) => f.views >= 1));
+  check('staying 15 seconds makes it a qualified visit', await until((f) => f.qualified >= 1, 40));
+  const href = await visitor.eval(`(() => { const a = [...document.querySelectorAll('a')].find((x) => x.textContent.includes('Order online')); a.click(); return a.href; })()`);
+  const pressedAt = Date.now();
+  check('pressing the button counts it, and its link carries the click id', /^https:\/\/bakery\.test\/shop\?vv_click=[A-Za-z0-9]{10,32}$/.test(href) && (await until((f) => f.ctaClicks >= 1)), href);
+  check('no console errors on the business pages', visitor.problems().length === 0, visitor.problems().slice(0, 2).join(' | '));
+  // the same visitor goes into the 3D city: walking into the building and pressing its website link count for the profile too
+  await visitor.eval(`location.href = '/?diag=1&view=iso&mp=${mpPort}'; 1`);
+  check('the city knows the building is linked to the profile', await waitFor(visitor, `Boolean(window.__vvStore) && window.__vvStore.getState().plots.find((q) => q.id === ${lot.id})?.profileSlug === 'browser-bakery'`, 60));
+  await visitor.eval(`window.__vvStore.getState().openInterior(window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}))`);
+  check('walking into the 3D storefront is a store entry for the profile', await until((f) => f.storeEntries >= 1));
+  await sleep(Math.max(0, pressedAt + 61000 - Date.now())); // the same visitor pressing twice within a minute is one press
+  const cityHref = (await waitFor(visitor, `Boolean([...document.querySelectorAll('a')].find((x) => /Visit Official Website/.test(x.textContent)))`)) && (await visitor.eval(`(() => { const a = [...document.querySelectorAll('a')].find((x) => /Visit Official Website/.test(x.textContent)); a.click(); return a.href; })()`));
+  check('pressing the website link inside it is a press for the profile, from the city', /vv_click=/.test(String(cityHref)) && (await until((f) => f.ctaClicks >= 2)), String(cityHref));
+  check('no console errors in the city during these steps', visitor.problems().length === 0, visitor.problems().slice(0, 2).join(' | '));
+  await visitor.close();
   await page.close();
   await other.close();
 } catch (e) {

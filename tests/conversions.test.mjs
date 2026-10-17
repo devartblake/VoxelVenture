@@ -50,6 +50,11 @@ try {
   check('walking into the 3D storefront is a store entry', (await ev('amy-cafe', { kind: 'store', visitor: 'walker-1' })).data.verified === true);
   check('an unknown kind is refused', (await ev('amy-cafe', { kind: 'purchase', visitor: 'visitor-one' })).status === 400);
 
+  // ---- a press of the website link in the 3D city (a building linked to the profile)
+  check('a press in the city without walking in or viewing first is kept, not counted', (await ev('amy-cafe', { kind: 'cta', visitor: 'walker-2', source: 'city', clickId: 'CityClick0001' })).data.verified === false);
+  check('after walking into the storefront it counts, from the city, with its click id', (await ev('amy-cafe', { kind: 'cta', visitor: 'walker-1', source: 'city', clickId: 'CityClick0002' })).data.verified === true && api.db.prepare("SELECT source, click_id FROM business_events WHERE kind = 'cta' ORDER BY id DESC").get().source === 'city');
+  check('a qualified visit still needs a profile view, not a store entry', (await ev('amy-cafe', { kind: 'engaged', visitor: 'walker-1' })).data.verified === false);
+
   // ---- quote and meeting requests
   const quote = { kind: 'quote', name: 'Dee', email: 'dee@example.test', message: 'Coffee for 40 people on Friday', visitor: 'visitor-one' };
   check('a profile only takes the kind of request it offers', (await call('POST', '/businesses/amy-cafe/inquiries', { body: { ...quote, kind: 'meeting' } })).data.code === 'not_offered');
@@ -115,13 +120,23 @@ try {
   check('results add up: purchases, coupons claimed and redeemed', bobStats.couponClaims === 1 && bobStats.couponRedemptions === 1 && bobStats.conversions === 4, JSON.stringify(bobStats).slice(0, 300));
   check('what was spent and what one result cost', bobStats.spendCents === 1900 && bobStats.costPerResultCents === 475);
   const amyStats = await statsOf(amy.token, 'amy-cafe');
-  check('the funnel: impressions, views, qualified visits, store entries', amyStats.impressions === 1 && amyStats.views === 1 && amyStats.qualified === 1 && amyStats.storeEntries === 1, JSON.stringify({ i: amyStats.impressions, v: amyStats.views, q: amyStats.qualified, s: amyStats.storeEntries }));
+  check('the funnel: impressions, views, qualified visits, store entries, presses', amyStats.impressions === 1 && amyStats.views === 1 && amyStats.qualified === 1 && amyStats.storeEntries === 1 && amyStats.ctaClicks === 1, JSON.stringify({ i: amyStats.impressions, v: amyStats.views, q: amyStats.qualified, s: amyStats.storeEntries }));
   check('the free plan sees the funnel and results, not sources or campaigns', amyStats.conversions === 3 && amyStats.sources === undefined && amyStats.campaigns === undefined);
   await call('POST', '/admin/billing/grant/amy-cafe', { token: ADMIN, body: { product: 'pro' } });
   const pro = await statsOf(amy.token, 'amy-cafe');
   check('with Pro, a campaign shows its results', pro.campaigns.find((c) => c.id === 'spring')?.results === 3 && pro.sources.find((s) => s.id === 'city').views === 0);
   const csv = await fetch(`${base}/businesses/amy-cafe/export.csv`, { headers: { Authorization: `Bearer ${amy.token}` } }).then((r) => r.text());
   check('the CSV export has the funnel and the results', /"Qualified visits","1"/.test(csv) && /"Quote requests","3"/.test(csv) && /"Cost per result \(USD\)"/.test(csv), csv.slice(0, 200));
+
+  // ---- retention: a request's contact details are wiped after INQUIRY_DAYS, the count stays
+  const { pruneInquiries } = await import('../server/api/conversions.mjs');
+  const before = (await statsOf(amy.token, 'amy-cafe')).quoteRequests;
+  check('nothing recent is wiped', pruneInquiries(api.db, 180).wiped === 0);
+  const later = Date.now() + 181 * 86400000;
+  const wiped = pruneInquiries(api.db, 180, later);
+  const row = api.db.prepare('SELECT * FROM business_inquiries WHERE id = ?').get(sent.data.id);
+  check('after 180 days the name, email, phone and message are wiped, with the email to the owner', wiped.wiped >= 3 && wiped.mails >= 1 && row.email === '' && row.name === '(removed)' && row.message === null && row.ip_hash === null && outbox('inquiry').length === 0);
+  check('the record stays, so the figures do not change', row.verified === 1 && row.kind === 'quote' && (await statsOf(amy.token, 'amy-cafe')).quoteRequests === before && pruneInquiries(api.db, 180, later).wiped === 0);
 
   // ---- renewals (admin)
   api.db.prepare("UPDATE orders SET renewals = 2 WHERE product = 'pro' AND cents > 0").run();

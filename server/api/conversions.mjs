@@ -146,6 +146,18 @@ export function setInquiryStatus(db, account, slug, id, status) {
   return inquiryView(db.prepare('SELECT * FROM business_inquiries WHERE id = ?').get(q.id));
 }
 
+// The contact details in a request are kept only so long (INQUIRY_DAYS, 180 by default): after that the name, email, phone, message and
+// network are wiped, along with the email that told the owner. The row stays (its kind, date, source and whether it was verified), so
+// past figures do not change. Run every hour by the server.
+export const INQUIRY_DAYS = 180;
+export function pruneInquiries(db, days = INQUIRY_DAYS, at = now()) {
+  const cutoff = at - Math.max(1, Number(days) || INQUIRY_DAYS) * DAY;
+  return transaction(db, () => ({
+    wiped: Number(db.prepare("UPDATE business_inquiries SET name = '(removed)', email = '', phone = NULL, message = NULL, preferred = NULL, visitor = 'removed', ip_hash = NULL WHERE created_at < ? AND email != ''").run(cutoff).changes),
+    mails: Number(db.prepare("DELETE FROM outbox WHERE kind = 'inquiry' AND created_at < ?").run(cutoff).changes),
+  }));
+}
+
 // ---- coupon redemptions -----------------------------------------------------------------------------------------------------------
 // The owner marks a claimed coupon used, by the ticket the visitor shows with the code.
 export function redeemCoupon(db, account, plotId, input = {}) {

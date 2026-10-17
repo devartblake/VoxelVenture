@@ -191,12 +191,14 @@ export function recordProfileEvent(db, account, slug, input, ctx = {}) {
   if (last && now() - last.at < 60000) return { counted: false };
   let ref = referrerOf(db, input.ref, ctx.secret ?? referralSecret());
   if (ref && account && ref === account.id) ref = null; // nobody is credited for their own visits
-  const source = kind === 'store' ? 'city' : ref ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
+  const source = kind === 'store' || (kind === 'cta' && input.source === 'city') ? 'city' : ref ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
   const campaign = campaignOf(input.campaign);
   const clickId = kind === 'cta' && isClickId(input.clickId) ? String(input.clickId) : null;
   const ipHash = ipHashOf(ctx);
   let verified = (account || wellFormed) && !BOT_UA.test(String(ctx.userAgent ?? '')) && !(account && account.id === row.account_id);
-  if (verified && NEEDS_VIEW.includes(kind)) verified = Boolean(db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND visitor = ? AND kind = 'view' AND at >= ?").get(row.id, visitor, now() - DAY));
+  // a press needs a look at the business first: its profile, or (a press in the 3D city) walking into its storefront
+  const looked = kind === 'cta' ? "kind IN ('view', 'store')" : "kind = 'view'";
+  if (verified && NEEDS_VIEW.includes(kind)) verified = Boolean(db.prepare(`SELECT 1 FROM business_events WHERE business_id = ? AND visitor = ? AND ${looked} AND at >= ?`).get(row.id, visitor, now() - DAY));
   if (verified && ipHash) {
     const cap = kind === 'cta' ? ctx.ctaCap ?? 1 : ctx.viewCap ?? 3;
     const used = db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE business_id = ? AND kind = ? AND ip_hash = ? AND verified = 1 AND at >= ?').get(row.id, kind, ipHash, now() - DAY).n;

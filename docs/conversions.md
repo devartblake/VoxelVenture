@@ -30,7 +30,7 @@ The tests are in `tests/conversions.test.mjs`.
 | Profile visits | The profile page has been visible for 2 seconds (as in phase 2) | Not a bot or the owner, within the per-network cap |
 | Qualified visits | The page has been visible for 15 seconds in all | As a visit, and only after a visit by the same visitor |
 | Store entries | Walking into the building the profile is linked to, in the 3D city | Not a bot or the owner, within the cap |
-| Button presses | Pressing the call to action. A link button also carries a click id. | As in phase 2: after a visit, within the cap |
+| Button presses | Pressing the call to action. A link button also carries a click id. In the 3D city, pressing the website link of a building linked to the profile counts too: on its card, in the directory or inside its storefront. | After a visit, within the cap. A press in the city counts after a visit or after walking into the storefront. |
 | Newsletter sign-ups | Confirmed sign-ups (double opt-in) | Confirmed by email |
 | Meeting requests, quote requests | The profile's own request form | Not a bot or the owner, after a visit, within 3 a day per network and profile. One that the owner marks as spam stops counting. |
 | Coupons claimed and redeemed | Each claim gets a ticket. The owner marks it used at the till. | One claim per visitor; never the owner's own |
@@ -65,6 +65,7 @@ How a request is handled:
   - Links in the text are refused.
   - The usual word filter runs.
   - A network can send at most 10 requests a day across every profile (`INQUIRY_LIMIT`).
+- **Retention.** After 180 days (`INQUIRY_DAYS`), a request's contact details and message are wiped, along with the email that told the owner. The record itself stays, so past figures don't change. Owners who want to keep a contact should reply or copy it before then. The privacy notice should say this.
 
 ## Counting purchases on the owner's site
 

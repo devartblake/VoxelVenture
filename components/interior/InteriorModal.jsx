@@ -6,6 +6,7 @@ import { X, ExternalLink, Paintbrush } from 'lucide-react';
 import { useCityStore } from '@/lib/state/store';
 import { interiorSummaryFor } from '@/lib/content/interiorScenes';
 import StorefrontPanel from './StorefrontPanel';
+import { openSiteLink } from '@/lib/data/sync';
 
 // The Pascal viewer is WebGL/WebGPU only, so load it on demand, in the browser.
 const InteriorViewer = dynamic(() => import('./InteriorViewer'), {
@@ -98,6 +99,7 @@ export default function InteriorModal() {
               href={shownPlot.website}
               target="_blank"
               rel="noreferrer"
+              onClick={(e) => openSiteLink(e, shownPlot)}
               className="absolute bottom-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sx-panel/90 hover:bg-sx-alt text-xs font-medium text-white transition border border-sx-stroke"
             >
               Visit Official Website <ExternalLink className="w-3.5 h-3.5" />
