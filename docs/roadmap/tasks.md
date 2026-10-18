@@ -105,6 +105,14 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Staging:** `JOURNEY_*_URL` and `JOURNEY_ALLOW_WRITES=1` point the suite at a running stack.
   - **Defect found:** a chat line retried after a reconnect was said twice. The presence server now remembers answers per account too.
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
+- [x] **Walking inside a storefront** (a freeze exception, [world_freeze.md](world_freeze.md)):
+  - **The avatar:** the visitor's own avatar, in its Wardrobe colours, comes in at the door of the interior viewer. A tap or click on the floor walks it there, round the furniture of the floor shown (a redesign too), and never through the walls or the stairwell.
+  - **Unreachable floor:** a tap there walks it as near as it can get.
+  - **Storefront tie-in:** choosing a spot in "Look at" walks it there too, and walking up to an offer lights that part of the storefront panel.
+  - **Walk:** the "Walk" switch beside the wall views hides it.
+  - **Code:** `lib/content/interiorWalk.js` (the floor plan, the arrival spot, routes through the city's walk planner) and `apps/web/components/interior/RoomWalker.jsx`.
+  - **Tests:** `tests/interior-walk.test.mjs` (48 seeded rooms, 480 routes) and the browser test (the real rooms).
+- [x] **"Look at" on phones:** the interior's "Look at" menu sits in the storefront panel, above the feedback board, instead of covering half the room (`apps/web/components/interior/LookAt.jsx`). Wider screens keep it over the room.
 - [x] **Music director, a SimCity-style soundtrack** (`lib/game/musicDirector.js`):
   - **What changed:** the music no longer changes with the zoom. Zooming used to cut the track, swap playlists and change the volume.
   - **How it plays:** each track plays to its end, then a short quiet, then the next. Day and night change at the end of a track. Getting into a car switches to the radio at once with a crossfade, and so does staying at the arcade or a cafe for a few seconds; walking past changes nothing.

@@ -13,7 +13,9 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { buildInteriorScene } from '@/lib/content/interiorScenes';
 import { describeScene, useDesigns } from '@/lib/state/designStore';
 import { hotspotsFor, viewFor } from '@/lib/content/interiorHotspots';
-import { focusSection } from '@/lib/state/interiorFocus';
+import { focusSection, useInteriorSpots } from '@/lib/state/interiorFocus';
+import LookAt from './LookAt';
+import RoomWalker, { useRoomWalk, walkTo } from './RoomWalker';
 import { businessById, useCityStore } from '@/lib/state/store';
 
 // How the walls are drawn (the viewer's wall mode): "Cut" is the cutaway view, where the walls between the camera and the room are cut away
@@ -74,7 +76,27 @@ export default function InteriorViewer({ plot }) {
     const { eye, look } = viewFor(h, scene.room, useRigTarget.getState().targetY);
     useRigTarget.setState({ focus: { eye, look } });
     focusSection(h.section);
+    if (useRoomWalk.getState().on) walkTo(h.pos[0], h.pos[2]); // the avatar walks over there too
   };
+  // the visitor's avatar in the room (RoomWalker): what it walks on, and lighting the "Look at" spot it has walked up to
+  const walking = useRoomWalk((s) => s.on);
+  const reached = useRoomWalk((s) => s.reached);
+  useEffect(() => {
+    useRoomWalk.setState({ spots: hotspots });
+  }, [hotspots]);
+  useEffect(() => {
+    if (reached) setActiveSpot(reached);
+  }, [reached]);
+  // the menu itself is <LookAt>: over the room on wider screens, in the storefront panel on a phone; both read the spots from here
+  const lookRef = useRef(lookAt);
+  lookRef.current = lookAt;
+  useEffect(() => {
+    useInteriorSpots.setState({ spots: scene && plot ? hotspots : [], look: scene && plot ? (h) => lookRef.current(h) : null });
+  }, [scene, plot, hotspots]);
+  useEffect(() => {
+    useInteriorSpots.setState({ active: activeSpot });
+  }, [activeSpot]);
+  useEffect(() => () => useInteriorSpots.setState({ spots: [], active: null, look: null }), []);
   const wallMode = useViewer((s) => s.wallMode);
   const designVersion = useDesigns((s) => s.version); // changes when the player saves or resets a redesign in the editor
   // Created once (and again only when the player reloads the view or switches the effects), so the element does not change while the room is on screen
@@ -91,6 +113,7 @@ export default function InteriorViewer({ plot }) {
       <Viewer key={`${viewerKey}-${fx ? 'fx' : 'plain'}`} selectionManager="custom" transparent disablePostFx={!fx}>
         <Rig />
         <WallCutout />
+        <RoomWalker />
       </Viewer>
     ),
     [viewerKey, fx]
@@ -127,6 +150,7 @@ export default function InteriorViewer({ plot }) {
       if (!plot) {
         useScene.getState().clearScene();
         useRigTarget.setState({ room: null, plotKey: null });
+        useRoomWalk.setState({ room: null, levelId: null, request: null, reached: null });
         setScene(null);
         return;
       }
@@ -139,6 +163,7 @@ export default function InteriorViewer({ plot }) {
       setActiveSpot('overview');
       useRigTarget.setState({ room: built.room, plotKey: `${plot.id}-${designVersion}`, targetY: 0, focus: null });
       setScene({ buildingId: built.buildingId, levelIds: built.levelIds, room: built.room, floors: built.floors, doorX: built.doorX ?? built.room.width / 2 });
+      useRoomWalk.setState({ room: built.room, floors: built.floors, doorX: built.doorX ?? built.room.width / 2, key: `${plot.id}-${designVersion}`, levelId: null, floor: 0, request: null, reached: null });
     }, 0);
     return () => {
       clearTimeout(load);
@@ -158,7 +183,9 @@ export default function InteriorViewer({ plot }) {
         shownCut.current = true;
       }
       viewer.setSelection({ buildingId: scene.buildingId, levelId });
-      useRigTarget.setState({ targetY: getLevelElevations(useScene.getState().nodes).get(levelId)?.baseY ?? 0 });
+      const baseY = getLevelElevations(useScene.getState().nodes).get(levelId)?.baseY ?? 0;
+      useRigTarget.setState({ targetY: baseY });
+      useRoomWalk.setState({ levelId, floor, baseY, request: null }); // the avatar walks on the floor shown
     }, 0);
     return () => clearTimeout(t);
   }, [scene, floor]);
@@ -180,22 +207,24 @@ export default function InteriorViewer({ plot }) {
               {v.label}
             </button>
           ))}
+          <span className="mx-0.5 h-4 w-px bg-slate-700" aria-hidden />
+          <button
+            type="button"
+            title={walking ? 'Your avatar is in the room: tap the floor to walk there. Press to hide it.' : 'Show your avatar in the room, and walk it around'}
+            aria-pressed={walking}
+            onClick={() => useRoomWalk.setState({ on: !walking })}
+            className={`rounded-lg px-2.5 py-1 font-medium ${walking ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800'}`}
+            data-testid="room-walk"
+          >
+            Walk
+          </button>
         </div>
       )}
 
       {scene && plot && (
-        <div className="absolute left-3 top-14 flex max-w-[11rem] flex-col gap-1 rounded-xl border border-slate-700 bg-slate-900/90 p-1.5 text-xs text-slate-200 shadow-lg" role="group" aria-label="Look at" data-testid="hotspots">
-          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Look at</span>
-          {hotspots.map((h) => (
-            <button
-              key={h.id}
-              onClick={() => lookAt(h)}
-              aria-pressed={activeSpot === h.id}
-              className={`rounded-lg px-2 py-1 text-left font-medium ${activeSpot === h.id ? 'bg-indigo-600 text-white' : h.offer ? 'text-amber-200 hover:bg-slate-800' : 'hover:bg-slate-800'}`}
-            >
-              {h.label}
-            </button>
-          ))}
+        // a phone has the menu in the storefront panel instead (StorefrontPanel), where it does not cover the room
+        <div className="absolute left-3 top-14 hidden sm:block">
+          <LookAt layout="overlay" />
         </div>
       )}
 
