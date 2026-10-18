@@ -112,7 +112,7 @@ export default function InteriorModal() {
         {/* Footer info */}
         <div className="hidden px-6 py-3 border-t border-sx-alt bg-sx-page/40 justify-between text-xs text-slate-400 sm:flex">
           <span>
-            {summary.label} · {summary.floors} floor{summary.floors === 1 ? '' : 's'} · {summary.width}×{summary.depth} m · drag to orbit, scroll to zoom
+            {summary.label} · {summary.floors} floor{summary.floors === 1 ? '' : 's'} · {summary.width}×{summary.depth} m · drag to orbit, scroll to zoom, click the floor to walk
           </span>
           <span>Close to return to City View</span>
         </div>

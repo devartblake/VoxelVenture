@@ -7,6 +7,7 @@ import { EMBED_SANDBOX } from '@/lib/content/embeds';
 import { businessById, useCityStore } from '@/lib/state/store';
 import { apiOn } from '@/lib/data/api';
 import LiveStorefront from './LiveStorefront';
+import LookAt from './LookAt';
 
 const INPUT = 'w-full rounded border border-sx-stroke bg-sx-alt px-2.5 py-1.5 text-xs text-white focus:border-sx-cyan focus:outline-none';
 const Error = ({ children }) => (children ? <p className="mt-0.5 text-[11px] text-rose-400">{children}</p> : null);
@@ -215,6 +216,8 @@ function LocalStorefront({ plotId }) {
       ) : (
         <p className="text-xs text-slate-500">{plot.userClaimed ? 'Nothing here yet. Press Edit to add a coupon, a video, a game demo or a visit reward.' : 'This business has no offers right now.'}</p>
       )}
+      {/* a phone's "Look at" menu: here rather than over the room (no feedback board without a game server, so it goes last) */}
+      {!editing && <div className="sm:hidden"><LookAt layout="inline" /></div>}
     </aside>
   );
 }
