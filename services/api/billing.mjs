@@ -387,12 +387,18 @@ export async function refundOrder(db, orderId, actor = ADMIN, env = process.env,
   let paymentIntent = order.stripe_payment_intent;
   if (order.product === 'pro' && order.stripe_subscription) {
     const invoices = await stripe(env, 'GET', '/invoices', { subscription: order.stripe_subscription, limit: 1 }, { fetchImpl });
-    paymentIntent = invoices.data?.[0]?.payment_intent ?? paymentIntent;
+    paymentIntent = invoices.data?.[0]?.payment_intent ?? (await lastInvoicePayment(env, order.stripe_subscription, fetchImpl)) ?? paymentIntent;
     await stripe(env, 'DELETE', `/subscriptions/${encodeURIComponent(order.stripe_subscription)}`, null, { fetchImpl });
   }
   if (paymentIntent) await stripe(env, 'POST', '/refunds', { payment_intent: paymentIntent }, { idempotencyKey: `vv-refund-${order.id}`, fetchImpl });
   transaction(db, () => revoke(db, orderById(db, order.id), actor, why));
   return { refunded: true };
+}
+
+// Since Stripe's API version 2025-03-31 an invoice has no payment_intent: its payments list carries it, and only when asked for (expand).
+async function lastInvoicePayment(env, subscription, fetchImpl) {
+  const invoices = await stripe(env, 'GET', '/invoices', { subscription, limit: 1, expand: { 0: 'data.payments' } }, { fetchImpl });
+  return invoices.data?.[0]?.payments?.data?.find((p) => p.payment?.payment_intent)?.payment.payment_intent ?? null;
 }
 
 // The owner stops Pro: it runs to the end of the month already paid, then ends (Stripe sends customer.subscription.deleted).

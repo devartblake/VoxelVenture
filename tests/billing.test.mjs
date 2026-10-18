@@ -36,6 +36,8 @@ const stripeServer = http.createServer((req, res) => {
       S.subs.set(m[1], sub);
       return reply(200, sub);
     }
+    // a subscription named sub_new_* answers in Stripe's newer shape (2025-03-31 on): the payment intent only in the expanded payments
+    if (url.pathname === '/v1/invoices' && params.subscription?.startsWith('sub_new')) return reply(200, { data: [params['expand[0]'] === 'data.payments' ? { id: 'in_new', payments: { data: [{ payment: { type: 'payment_intent', payment_intent: `pi_for_${params.subscription}` } }] } } : { id: 'in_new' }] });
     if (url.pathname === '/v1/invoices') return reply(200, { data: [{ payment_intent: `pi_for_${params.subscription}` }] });
     if (url.pathname === '/v1/refunds') return (S.refunds.push(params), reply(200, { id: `re_${S.refunds.length}`, status: 'succeeded' }));
     return reply(404, { error: { message: 'unknown' } });
@@ -149,6 +151,14 @@ try {
   check('a refund made in the Stripe dashboard ends the Launch Pack too', (await call('GET', '/me/businesses', { token: amy.token })).data.profiles[0].plan.launch === false);
   await webhook('checkout.session.completed', completed(launch.data.orderId), { id: 'evt_late_retry' });
   check('a late retry of the payment event does not bring a refunded order back', (await call('GET', `/me/orders/${launch.data.orderId}`, { token: amy.token })).data.status === 'refunded');
+
+  // an admin refund of Pro: the subscription ends and its last payment goes back, on Stripe's older and newer invoice shapes
+  for (const [name, sub] of [['older', 'sub_old_bob'], ['newer', 'sub_new_bob']]) {
+    const bobPro = (await call('POST', '/businesses/bob-builds/checkout', { token: bob.token, body: { product: 'pro' } })).data.orderId;
+    await webhook('invoice.paid', { object: 'invoice', subscription: sub, subscription_details: { metadata: { order: String(bobPro) } }, lines: { data: [{ period: { end: Math.floor((Date.now() + 30 * DAY) / 1000) } }] } });
+    const r = await call('POST', `/admin/billing/orders/${bobPro}/refund`, { token: 'admin' });
+    check(`an admin refund of Pro cancels it and refunds its payment (${name} invoices)`, r.data.refunded && S.subs.get(sub)?.status === 'canceled' && S.refunds.at(-1).payment_intent === `pi_for_${sub}` && (await call('GET', '/me/businesses', { token: bob.token })).data.profiles[0].plan.pro === false, JSON.stringify(S.refunds.at(-1)));
+  }
 
   // ---- reconciliation: the webhook never arrived
   const lost = (await call('POST', '/businesses/bob-builds/checkout', { token: bob.token, body: { product: 'launch' } })).data.orderId;
