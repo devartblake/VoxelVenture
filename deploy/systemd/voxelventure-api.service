@@ -5,18 +5,19 @@ After=network.target
 [Service]
 Type=simple
 User=voxel
-WorkingDirectory=/srv/voxelventure
+# the live release (deploy/production.sh switches this link)
+WorkingDirectory=/srv/voxelventure/current
 EnvironmentFile=/etc/voxelventure/api.env
 # One API process only: the database is SQLite, which has a single writer.
 ExecStart=/usr/bin/node --experimental-sqlite --no-warnings services/api/server.mjs
 Restart=always
 RestartSec=3
-# Hardening: the process can write only to its data folder.
+# Hardening: the process can write only to the shared data folder (the database, its snapshots and the email outbox: API_DB, MAIL_DIR).
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/srv/voxelventure/services/api/data
+ReadWritePaths=/srv/voxelventure/shared/data
 
 [Install]
 WantedBy=multi-user.target

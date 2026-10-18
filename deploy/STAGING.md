@@ -162,7 +162,10 @@ Do this once now, then before any risky release. Write down each time in the log
 5. **The database:** a rollback leaves the database as it is. The API only ever adds columns, so the older code still reads a newer database. To also put the database back as it was before B, run the `restore` command that `rollback` prints (`before-<B's date>.db`).
 6. Note how long steps 3–4 took. That is the time to undo a bad release.
 
-**For production:** production still deploys in place (`deploy/README.md`, "Updating"). Once this rehearsal works, production can move to the same release layout. It is the same script with production's folders, ports and units.
+**For production:** the same release layout is `deploy/production.sh` (`deploy/README.md`, "Updating").
+- **`migrate`:** moves production onto releases once. It undoes itself if the new layout does not come up.
+- **`migrate --check`:** shows what it would do, and changes nothing.
+- **After the move:** `deploy` and `rollback` work as they do here.
 
 ## 6. Prove a production backup restores
 

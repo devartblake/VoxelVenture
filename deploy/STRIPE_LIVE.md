@@ -117,7 +117,7 @@ REFUND_POLICY_URL=https://voxelventure.app/legal/refunds
 Then check the settings and restart:
 
 ```sh
-cd /srv/voxelventure && node scripts/check-env.mjs /etc/voxelventure/api.env   # must say: ok
+cd /srv/voxelventure/current && node scripts/check-env.mjs /etc/voxelventure/api.env   # must say: ok
 systemctl restart voxelventure-api
 systemctl is-active voxelventure-api                                            # must say: active
 ```
@@ -130,7 +130,7 @@ systemctl is-active voxelventure-api                                            
 1. **Pay for the cheapest thing:** sign in on `https://voxelventure.app` with your own account, and rent a pop-up market stall ($2 to $5) with your own card.
 2. **Check it arrived once.** In Stripe (live), under **Payments**, you should see one payment. On the server, these counts must each have gone up by one, and the order must be `paid`:
    ```sh
-   sqlite3 /srv/voxelventure/services/api/data/voxelventure.db "SELECT COUNT(*) FROM orders WHERE status = 'paid'; SELECT COUNT(*) FROM stripe_events; SELECT product, status, cents FROM orders ORDER BY created_at DESC LIMIT 1;"
+   sqlite3 /srv/voxelventure/shared/data/voxelventure.db "SELECT COUNT(*) FROM orders WHERE status = 'paid'; SELECT COUNT(*) FROM stripe_events; SELECT product, status, cents FROM orders ORDER BY created_at DESC LIMIT 1;"
    ```
 3. **Refund it** with the admin route. It uses an idempotency key, so a retry never refunds twice. This reads the admin token from the settings file, so it never appears on screen; put the order's number in place of `ORDER_ID`:
    ```sh
@@ -140,7 +140,7 @@ systemctl is-active voxelventure-api                                            
 4. **Check the refund:** the order shows `refunded`, Stripe shows the refund, and what was bought is taken back, as [billing.md](../docs/monetization/billing.md) describes for each product.
 5. **Run the live check:**
    ```sh
-   cd /srv/voxelventure
+   cd /srv/voxelventure/current
    VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
      npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
    ```

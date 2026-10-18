@@ -3,7 +3,7 @@
 # for 14 days, and optionally sent to an S3-compatible store (Linode Object Storage) with rclone.
 #
 # Settings (all optional), read from /etc/voxelventure/backup.env if it exists:
-#   API_DB          the database file         (default /srv/voxelventure/services/api/data/voxelventure.db)
+#   API_DB          the database file         (default /srv/voxelventure/shared/data/voxelventure.db on releases, else the old in-place path)
 #   MESSAGING_DB    the messaging service's   (default /srv/voxelventure/services/messaging/data/messaging.db; skipped if it is not there)
 #   BACKUP_DIR      where copies are kept     (default /var/backups/voxelventure)
 #   BACKUP_KEEP     how many days to keep     (default 14)
@@ -18,7 +18,11 @@ set -euo pipefail
 heartbeat() { if [ -n "${HEALTHCHECK_URL:-}" ]; then curl -fsS -m 10 --retry 3 -o /dev/null "${HEALTHCHECK_URL%/}$1" || echo "Could not reach $HEALTHCHECK_URL"; fi; }
 trap 'if [ $? -eq 0 ]; then heartbeat ""; else heartbeat /fail; fi' EXIT
 UPLOAD_FAILED=0
-DB="${API_DB:-/srv/voxelventure/services/api/data/voxelventure.db}"
+# the release layout keeps it in shared/ (deploy/production.sh); the old in-place layout beside the code
+if [ -z "${API_DB:-}" ]; then
+  if [ -f /srv/voxelventure/shared/data/voxelventure.db ]; then API_DB=/srv/voxelventure/shared/data/voxelventure.db; else API_DB=/srv/voxelventure/services/api/data/voxelventure.db; fi
+fi
+DB="$API_DB"
 DIR="${BACKUP_DIR:-/var/backups/voxelventure}"
 KEEP="${BACKUP_KEEP:-14}"
 if [ -z "${RCLONE_CONFIG:-}" ] && [ -f /etc/voxelventure/rclone.conf ]; then export RCLONE_CONFIG=/etc/voxelventure/rclone.conf; fi

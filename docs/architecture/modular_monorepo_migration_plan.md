@@ -15,7 +15,7 @@
   - **Staging:** it runs on the production Linode ([deploy/STAGING.md](../../deploy/STAGING.md)). The business journeys pass against it, 41 of 41.
   - **Rehearsals:** a rollback took 2.2 s, and production's first backup restored.
   - **Stripe test mode:** a test checkout and its refund work.
-  - **Left:** a Pro renewal in test mode, and moving production to the release layout. See the progress table under Phase D.
+  - **Left:** a Pro renewal in test mode, and switching production to the release layout. That is built (`deploy/production.sh`) and its read-only check passes on production. See the progress table under Phase D.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
 
@@ -283,8 +283,9 @@ Run the **full** test suite and real-browser suite, not only change-selected tes
 | Secrets | Partly. Fresh secrets on each stack, never printed by the runbook's commands, and SSH keys only. Secret scanning, push protection and branch protection need GitHub Pro or a public repository: GitHub refuses them on a private repository on the free plan (task 44) |
 | Backup and restore | ✅ Nightly backups, uploaded off the machine to Linode Object Storage, plus Linode Backups. Production's first backup restored into staging in 2.3 s |
 | Rollback | ✅ Rehearsed on staging: 2.2 s for the code, 2.2 s to put the database back |
+| Production on the same release layout | Built: `deploy/production.sh`, tested by `tests/production-deploy.test.mjs`. `migrate --check` passes on production, read-only (the settings check is ok, nothing changed). The one-time `migrate` (a few seconds down, undone by itself on failure) waits for the owner's go-ahead |
 
-**Still to do for the acceptance:** a Pro renewal in Stripe test mode on staging, then a documented production deploy using the same release layout. Production still deploys in place.
+**Still to do for the acceptance:** a Pro renewal in Stripe test mode on staging, then the switch of production to the release layout (`production.sh migrate`, built and checked) and a deploy with it.
 
 ## 5. Suggested PR sequence
 
@@ -352,7 +353,7 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 - [x] Merge `phase-c/apps-services` (merged; production deployed on this layout, 2026-10-17).
 - [ ] Phase D, integration certification ([progress above](#phase-d--integration-certification)):
   - done: staging, the rollback rehearsal, the journeys against staging, a restored production backup;
-  - left: a Pro renewal in Stripe test mode (a checkout and a refund are done), and production on the release layout.
+  - left: a Pro renewal in Stripe test mode (a checkout and a refund are done), and the switch of production to the release layout (built and checked).
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation. Staging is done; Stripe and the pilot are left.
 
 ## 10. Final recommendation
@@ -361,4 +362,4 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 
 **Phases A, B and C are done. Phase D is under way:**
 - **Done:** staging is up, a rollback and a backup restore are rehearsed, and the journeys pass against staging.
-- **Left:** a Pro renewal in Stripe test mode (a checkout and a refund work), and moving production to the release layout.
+- **Left:** a Pro renewal in Stripe test mode (a checkout and a refund work), and switching production to the release layout (built and checked, `deploy/production.sh`).
