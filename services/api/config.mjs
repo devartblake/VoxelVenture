@@ -39,8 +39,9 @@ export function checkApiEnv(env = {}) {
   if (env.STRIPE_SECRET_KEY) {
     if (!env.STRIPE_WEBHOOK_SECRET) errors.push('STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is not: payments would never be confirmed.');
     if (!https(env.PUBLIC_SITE_URL || env.API_ORIGIN)) errors.push('Payments send the owner back to the site: set PUBLIC_SITE_URL to its https:// address.');
-    if (/^sk_live_/.test(env.STRIPE_SECRET_KEY) && (!https(env.TERMS_URL) || !https(env.REFUND_POLICY_URL))) errors.push('A live Stripe key needs TERMS_URL and REFUND_POLICY_URL (https://): customers must see the terms and the refund policy before paying.');
-    if (/^sk_test_/.test(env.STRIPE_SECRET_KEY)) warnings.push('STRIPE_SECRET_KEY is a test key: no real money moves.');
+    // a live key: a full secret key (sk_live_) or a restricted one (rk_live_, deploy/STRIPE_LIVE.md); the same rules for both
+    if (/^(sk|rk)_live_/.test(env.STRIPE_SECRET_KEY) && (!https(env.TERMS_URL) || !https(env.REFUND_POLICY_URL))) errors.push('A live Stripe key needs TERMS_URL and REFUND_POLICY_URL (https://): customers must see the terms and the refund policy before paying.');
+    if (/^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY)) warnings.push('STRIPE_SECRET_KEY is a test key: no real money moves.');
   }
   if (!env.TRUST_PROXY) warnings.push('TRUST_PROXY is not set: behind a reverse proxy every visitor looks like one network, and the per-network limits stop counting real visitors.');
   if (!env.MP_NOTIFY_URL) warnings.push('MP_NOTIFY_URL is not set: players see changes only on the 15-second refresh.');

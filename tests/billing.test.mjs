@@ -171,6 +171,8 @@ try {
   // ---- settings
   const live = { ADMIN_TOKEN: 'a'.repeat(40), IP_SALT: 'b'.repeat(40), MP_NOTIFY_SECRET: 'c'.repeat(40), REFERRAL_SECRET: 'd'.repeat(40), API_ORIGIN: 'https://voxel.test', PUBLIC_API_URL: 'https://api.voxel.test', API_DB: '/srv/db', STRIPE_SECRET_KEY: 'sk_live_x', STRIPE_WEBHOOK_SECRET: 'whsec_x' };
   check('a live Stripe key needs the terms and refund policy addresses', checkApiEnv(live).errors.some((e) => /TERMS_URL and REFUND_POLICY_URL/.test(e)) && !checkApiEnv({ ...live, TERMS_URL: 'https://v.test/t', REFUND_POLICY_URL: 'https://v.test/r' }).errors.length);
+  check('so does a restricted live key (rk_live_), the kind deploy/STRIPE_LIVE.md recommends', checkApiEnv({ ...live, STRIPE_SECRET_KEY: 'rk_live_x' }).errors.some((e) => /TERMS_URL and REFUND_POLICY_URL/.test(e)) && !checkApiEnv({ ...live, STRIPE_SECRET_KEY: 'rk_live_x', TERMS_URL: 'https://v.test/t', REFUND_POLICY_URL: 'https://v.test/r' }).errors.length);
+  check('a restricted test key is a test key, and says so', checkApiEnv({ ...live, STRIPE_SECRET_KEY: 'rk_test_x' }).errors.length === 0 && checkApiEnv({ ...live, STRIPE_SECRET_KEY: 'rk_test_x' }).warnings.some((w) => /test key/.test(w)));
   check('a Stripe key without the webhook secret is refused', checkApiEnv({ ...live, STRIPE_WEBHOOK_SECRET: '' }).errors.some((e) => /STRIPE_WEBHOOK_SECRET/.test(e)));
 } catch (e) {
   fails++;

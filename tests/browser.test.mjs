@@ -622,6 +622,18 @@ try {
   const after = await (await fetch(`http://localhost:${mpPort}/status`)).json();
   check('an error from an injected wallet script is labelled as such', after.recentErrors.some((e) => e.kind === 'injected' && e.message.includes('window.ethereum')), JSON.stringify(after.recentErrors.map((e) => e.kind)));
 
+  // ---- a browser without WebGL (switched off, as on a locked-down or very old machine): the plain fallback page, not a broken city
+  const noGl = await openPage(url, { width: 1000, height: 800, webgl: false });
+  const fallback = await waitFor(noGl, `/The 3D city cannot open in this browser/.test(document.body.innerText)`, 30);
+  check('without WebGL the city shows its fallback page, not a blank or broken canvas', fallback && (await noGl.eval(`document.querySelectorAll('canvas').length === 0`)));
+  const ways = JSON.parse(await noGl.eval(`JSON.stringify([...document.querySelectorAll('main a')].map((a) => ({ text: a.innerText.trim(), href: a.getAttribute('href'), tab: a.tabIndex })))`));
+  check('it offers Discover and listing a business, as ordinary links a keyboard reaches', ['/discover', '/business/new'].every((h) => ways.some((w) => w.href === h && w.tab >= 0)), JSON.stringify(ways));
+  check('the fallback page has one main heading, for screen readers', (await noGl.eval(`document.querySelectorAll('h1').length`)) === 1);
+  await noGl.eval(`document.querySelector('main a[href="/discover"]').click(); 1`);
+  check('and Discover opens without WebGL', await waitFor(noGl, `location.pathname === '/discover' && Boolean(document.querySelector('h1'))`, 30));
+  check('no console errors or uncaught exceptions without WebGL', noGl.problems().length === 0, noGl.problems().slice(0, 3).join(' | '));
+  await noGl.close();
+
   await page.close();
   await phone.close();
 } catch (error) {

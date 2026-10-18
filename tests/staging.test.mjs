@@ -59,7 +59,7 @@ check('production\'s Caddyfile has no staging blocks (setup imports them, so the
 
 // ---- the script's guards
 const script = read('deploy', 'staging.sh');
-check('deploy refuses a live Stripe key and an email service', /sk_live_/.test(script) && /MAIL_WEBHOOK_URL=\.\+/.test(script));
+check('deploy refuses a live Stripe key (full or restricted) and an email service', script.includes("STRIPE_SECRET_KEY=(sk|rk)_live_") && /MAIL_WEBHOOK_URL=\.\+/.test(script));
 check('deploy runs the settings check, copies the database first, and switches back if the release does not come up', /check-env\.mjs/.test(script) && /snapshot "\$stamp"\s*\n\s*switch_to "\$rel"/.test(script) && /did not come up: switching back/.test(script));
 const deployFiles = ['staging.sh', 'push.ps1', 'setup.sh', 'README.md'].map((f) => read('deploy', f)).join('\n');
 check('every build goes through build-web.sh, never `sudo -E` (sudo-rs ignores -E: the site would build as a demo)', /build-web\.sh/.test(script) && !/sudo -E -u voxel npm/.test(deployFiles) && /grep -rqF "\$API_URL" apps\/web\/\.next\/static/.test(read('deploy', 'build-web.sh')));

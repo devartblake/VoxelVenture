@@ -9,8 +9,8 @@ The production release of payments on voxelventure.app: from test mode on stagin
 | | Item | State |
 | :-: | :--- | :--- |
 | 1 | Checkout, webhook and hand-over in test mode | ✅ On staging: a building lease paid with the test card arrived through one webhook and gave the buyer the plot |
-| 1 | Refund in test mode | ✅ On staging: that order was refunded |
-| 1 | Pro renewal in test mode | ❌ Not yet: step 1 |
+| 1 | Refund in test mode | ✅ On staging: that order was refunded, and its lease was ended |
+| 1 | Pro renewal in test mode | ❌ Not yet: staging has a Pro order with no renewal. Step 1 does it |
 | 2 | Policies reviewed and approved (task 45) | ❌ The drafts at `/legal` are yours to review |
 | 2 | Operator details on the policies | ❌ None of the `NEXT_PUBLIC_LEGAL_*` settings is set on production |
 | 2 | `TERMS_URL`, `REFUND_POLICY_URL` | ❌ Not set on production |
@@ -79,7 +79,7 @@ Leave every other resource on **None**, then copy the key (`rk_live_…`). Strip
 
 If a payment later fails with "The payment service refused: … permission …", Stripe's message names the missing permission. Add it to the key on the same page; there is no need for a new key.
 
-> **Until the server knows restricted keys:** its safety check (no live key without the policy addresses) recognises only full secret keys, `sk_live_…`, so an `rk_live_` key would skip it. Either use the full **Secret key** (`sk_live_…`) on the same page, or set the policy addresses in step 6 regardless. Both are fine once step 2 is done.
+> The server treats a restricted live key (`rk_live_`) exactly like a full one (`sk_live_`): it refuses to start without the two policy addresses in step 6, and staging refuses both kinds.
 
 ## 5. Create the live webhook
 
