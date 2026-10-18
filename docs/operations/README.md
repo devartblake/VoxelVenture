@@ -15,6 +15,7 @@ Related runbooks:
 
 - [Deployment and rollback](../../deploy/README.md)
 - [Staging: releases, rollback, journeys and restore rehearsals](../../deploy/STAGING.md)
+- [Going live with payments (Stripe)](../../deploy/STRIPE_LIVE.md)
 - [Multiplayer server](../../services/multiplayer/README.md)
 - [Python messaging service](../../services/messaging/README.md)
 - [Measurement scripts](../../scripts/study/README.md)

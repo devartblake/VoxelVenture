@@ -43,6 +43,8 @@ The files are filled in for **voxelventure.app** (the game), **api.voxelventure.
 - Add a DMARC record too: TXT `_dmarc` with `v=DMARC1; p=none; rua=mailto:hello@voxelventure.app`.
 
 ### Payments (when you are ready to charge)
+**The full release, step by step, is [STRIPE_LIVE.md](STRIPE_LIVE.md):** finishing test mode on staging, the policies, the restricted live key and its webhook, the first real payment and refund, and switching payments off in an emergency. In short:
+
 In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/billing/webhook`, with the events in [docs/monetization/billing.md](../docs/monetization/billing.md). Put the secret key and the endpoint's signing secret in `api.env`. A live key also needs `TERMS_URL=https://voxelventure.app/legal/terms` and `REFUND_POLICY_URL=https://voxelventure.app/legal/refunds`, and those policies need the `NEXT_PUBLIC_LEGAL_*` lines in `web.env` filled in.
 
 ## First deployment
