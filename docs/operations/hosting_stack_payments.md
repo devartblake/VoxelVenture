@@ -85,13 +85,13 @@ voxelventure.app has been live on a Shared CPU 4 GB Linode since 2026-10-17, as 
 | systemd units with `Restart=always` | ✅ |
 | Environment and secrets | ✅ Checked by `check:env` and by the API at start. The admin token has been changed twice since launch, after it was printed on screen |
 | Nightly database copies on the machine | ✅ `voxelventure-backup` at 03:15 into `/var/backups/voxelventure`, kept 14 days. A restore is proven ([STAGING.md](../../deploy/STAGING.md#rehearsal-log)) |
-| Off-site copies (Object Storage) | ❌ Not set up: no `RCLONE_REMOTE` in `/etc/voxelventure/backup.env`, and rclone is not installed. Until then, the backups are only on the machine they protect |
-| Linode Backups | To check in the Linode dashboard |
+| Off-site copies (Object Storage) | ✅ Since 2026-10-18. Each nightly copy is uploaded to the Linode Object Storage bucket `voxelventure-backups` with rclone. The remote is in `/etc/voxelventure/rclone.conf` (readable by `voxel`, which runs the backup), and `backup.env` sets `RCLONE_REMOTE` and `RCLONE_CONFIG`. The 03:15 run is checked uploading. To run rclone by hand, name the file: `rclone --config /etc/voxelventure/rclone.conf lsl linode:voxelventure-backups` ([deploy/README.md](../../deploy/README.md)). The bucket is pruned after `RCLONE_KEEP` days (30) once the server's installed `voxelventure-backup` is refreshed from `deploy/backup.sh` |
+| Linode Backups | ✅ Turned on in the Linode dashboard by the owner (2026-10-18) |
 | Error reporting, uptime checks and alerts | Built ([MONITORING.md](../../deploy/MONITORING.md)): Sentry for errors, UptimeRobot for uptime, Healthchecks.io for the nightly backup. The three accounts, `SENTRY_DSN` and `HEALTHCHECK_URL` are not set up yet |
-| Firewall | ✅ `ufw` on the machine allows only SSH, 80 and 443. The Linode Cloud Firewall in front is to check in the dashboard |
-| SSH keys only | ❌ Not yet: key sign-in works, but password sign-in for root is still on (`PasswordAuthentication yes`, `PermitRootLogin yes`) |
-| Bandwidth and load measured with the monitor (`/admin`) | ❌ Not yet: the `/admin` password line in `/etc/caddy/Caddyfile` needs a `caddy hash-password` hash |
-| Payments | Built (section 3); the Stripe account, test mode and the live key are not set up yet |
+| Firewall | ✅ `ufw` on the machine allows only SSH, 80 and 443. The owner added the Linode Cloud Firewall in front of it (2026-10-18) |
+| SSH keys only | ✅ Since 2026-10-18 (`/etc/ssh/sshd_config.d/00-keys-only.conf`): `PasswordAuthentication no`, `PermitRootLogin prohibit-password`. A password attempt is refused, and the deploy key signs in. Keep a copy of the private key somewhere safe. Without it, the way in is the Linode LISH console |
+| Bandwidth and load measured with the monitor (`/admin`) | The monitor is ready: `/admin` has its password (a `caddy hash-password` hash, 2026-10-18). Measuring under real traffic waits for the pilot |
+| Payments | Built (section 3). **Test mode works on staging** (2026-10-18): a building lease ($1,049.00) paid with Stripe's test card arrived through one webhook and gave the buyer the plot for 365 days. Left: a refund and a Pro renewal in test mode, then the live key on production after the policies are approved |
 | Email | Written to files until a mail service key is set (`MAIL_WEBHOOK_URL`, [deploy/README.md](../../deploy/README.md#email)) |
 
 ## 3. Payments: Stripe or PayPal
