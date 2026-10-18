@@ -10,7 +10,7 @@ The production release of payments on voxelventure.app: from test mode on stagin
 | :-: | :--- | :--- |
 | 1 | Checkout, webhook and hand-over in test mode | ✅ On staging: a building lease paid with the test card arrived through one webhook and gave the buyer the plot |
 | 1 | Refund in test mode | ✅ On staging: that order was refunded, and its lease was ended |
-| 1 | Pro renewal in test mode | ❌ Not yet: staging has a Pro order with no renewal. Step 1 does it |
+| 1 | Pro renewal in test mode | ✅ On staging with `npm run verify:stripe` (2026-10-18): 33 of 33, including a renewal on a test clock |
 | 2 | Policies reviewed and approved (task 45) | ❌ The drafts at `/legal` are yours to review |
 | 2 | Operator details on the policies | ❌ None of the `NEXT_PUBLIC_LEGAL_*` settings is set on production |
 | 2 | `TERMS_URL`, `REFUND_POLICY_URL` | ❌ Not set on production |
@@ -20,7 +20,7 @@ The production release of payments on voxelventure.app: from test mode on stagin
 
 ## 1. Finish test mode on staging
 
-The Pro renewal is the one billing path with no evidence yet. The check script covers it with a Stripe test clock, along with checkout, refunds, reconciliation and a webhook delivered twice. Run it from your machine, in PowerShell, from the project folder:
+Done on 2026-10-18: 33 of 33, with the Pro renewal on a test clock. Run it again after any change to billing. It checks checkout, refunds, reconciliation, a webhook delivered twice and a Pro renewal on a test clock:
 
 ```powershell
 $env:E2E_STRIPE_SECRET_KEY = "sk_test_..."        # staging's test key (from /etc/voxelventure/staging/api.env)

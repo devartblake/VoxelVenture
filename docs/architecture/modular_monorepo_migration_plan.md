@@ -11,11 +11,11 @@
 - **Phase C (application and service separation):**
   - **Step 1** is merged: workspaces, imports by `@voxelventure/*` name, adapters retired ([ADR 0002](adr/0002-workspaces.md)).
   - **Steps 2 to 5** are merged: `apps/web/`, `services/api/` and `services/multiplayer/`, with the tests, CI and deploy files ([ADR 0003](adr/0003-apps-and-services.md)). Production (voxelventure.app) runs this layout since 2026-10-17.
-- **Phase D:** under way.
+- **Phase D:** its acceptance is met (2026-10-18): the required checks pass, and the deploy and rollback rehearsal is documented, on staging and on production.
   - **Staging:** it runs on the production Linode ([deploy/STAGING.md](../../deploy/STAGING.md)). The business journeys pass against it, 41 of 41.
-  - **Rehearsals:** a rollback took 2.2 s, and production's first backup restored.
-  - **Stripe test mode:** a test checkout and its refund work.
-  - **Left:** a Pro renewal in test mode, and switching production to the release layout. That is built (`deploy/production.sh`) and its read-only check passes on production. See the progress table under Phase D.
+  - **Production on releases:** it moved with about half a second of stopped services. A production rollback took 2.2 s, and a deploy forward followed.
+  - **Stripe test mode:** certified on staging, 33 of 33 checks: checkout, signed webhooks, idempotency, refunds, a Pro renewal on a test clock, reconciliation.
+  - **Owner follow-ups:** real phones and tablets, device performance budgets (adoption plan Track C), and GitHub's protection settings (they need GitHub Pro or a public repository).
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
 
@@ -216,7 +216,7 @@ Phase C is gated: *"Only after production/staging priorities are satisfied"* (se
 | Gate | State (updated 2026-10-18) |
 | --- | --- |
 | Staging deployment | ✅ Production on voxelventure.app since 2026-10-17, and staging beside it ([deploy/STAGING.md](../../deploy/STAGING.md)) |
-| Stripe test/live certification | Test mode on staging works (a checkout and its refund). Left: a Pro renewal, then the live key ([deploy/STRIPE_LIVE.md](../../deploy/STRIPE_LIVE.md)) |
+| Stripe test/live certification | ✅ Test mode certified on staging (2026-10-18, 33 of 33). The live key follows [deploy/STRIPE_LIVE.md](../../deploy/STRIPE_LIVE.md) once the policies are approved |
 | Policy review | Drafted at `/legal`; review and approval are yours (task 45) |
 | Pilot measurement | The dashboard is built; the pilot has not run (task 47) |
 | CI green on `main` | ✅ Every merge to `main` since PR #27 has passed CI |
@@ -274,7 +274,7 @@ Run the **full** test suite and real-browser suite, not only change-selected tes
 | --- | --- |
 | The full suite and the real-browser suite | ✅ The full suite passes (88 suites, including the four journeys). The browser test passes in full on a fresh build. Its one failure, a stall booking on the last day of a market week, was a timing bug in the test and is fixed |
 | Node API auth, permissions, claims and leases, data migration | ✅ The API, authoritative-data and migration suites; `verify:live` against production and staging |
-| Stripe test-mode checkout, webhooks, idempotency, refunds, renewals, reconciliation | Partly. On staging in test mode (2026-10-18), a building lease paid with the test card arrived through exactly one webhook, the order is paid, and the plot is the buyer's for 365 days. Its refund went through, and the lease was ended. A Pro renewal is still to try (`npm run verify:stripe`). The code and its tests cover all of it (`billing`, `billing-game`) |
+| Stripe test-mode checkout, webhooks, idempotency, refunds, renewals, reconciliation | ✅ `npm run verify:stripe` against staging, **33 of 33** (2026-10-18). It covers: the Launch Pack and Pro paid on Stripe's page; an unsigned webhook refused; an event delivered twice applied once; a refund from Stripe's dashboard and one from the admin route, each taking back what was bought; the subscription cancelled and the $19 refunded; Pro renewed on a test clock and shown once; an expired page leaving a paid order paid; reconciliation keeping the renewed month; and a cancelled Pro running to the end of its month |
 | Business profiles, referral attribution, analytics, CTA events | ✅ The visitor, merchant and attribution journeys pass against staging, 26 milestones |
 | WebGL and non-WebGL paths, mobile layout | Partly. The WebGL path and the phone layout are in the browser test (desktop and phone pages, the interior on a phone). The no-WebGL page is tested too: the browser test starts a browser with WebGL switched off, and checks the fallback page, its links (keyboard-reachable), its single heading, that Discover opens, and that nothing errors. Real phones and tablets are still to try (tasks 25-27) |
 | Accessibility and performance | Partly: draw-call budgets in the browser test, and the presence load test. Device budgets wait for real devices (adoption plan, Track C) |
@@ -283,9 +283,12 @@ Run the **full** test suite and real-browser suite, not only change-selected tes
 | Secrets | Partly. Fresh secrets on each stack, never printed by the runbook's commands, and SSH keys only. Secret scanning, push protection and branch protection need GitHub Pro or a public repository: GitHub refuses them on a private repository on the free plan (task 44) |
 | Backup and restore | ✅ Nightly backups, uploaded off the machine to Linode Object Storage, plus Linode Backups. Production's first backup restored into staging in 2.3 s |
 | Rollback | ✅ Rehearsed on staging: 2.2 s for the code, 2.2 s to put the database back |
-| Production on the same release layout | Built: `deploy/production.sh`, tested by `tests/production-deploy.test.mjs`. `migrate --check` passes on production, read-only (the settings check is ok, nothing changed). The one-time `migrate` (a few seconds down, undone by itself on failure) waits for the owner's go-ahead |
+| Production on the same release layout | ✅ Since 2026-10-18 (`deploy/production.sh`). The move stopped the services for about half a second. The live API reads the moved database, and `verify:live` passes. Rehearsed on production: a deploy (built while live, a backup, the switch), a **rollback in 2.2 s**, and a deploy forward. A probe of 150 requests during the rollback saw 3 errors (502 for about 0.6 s while the web app restarted) |
 
-**Still to do for the acceptance:** a Pro renewal in Stripe test mode on staging, then the switch of production to the release layout (`production.sh migrate`, built and checked) and a deploy with it.
+**The acceptance is met.** All required checks pass, and the deploy and rollback rehearsal is documented on staging and on production ([STAGING.md](../../deploy/STAGING.md#rehearsal-log)). Three items stay open as the owner's follow-ups:
+- real phones and tablets (tasks 25-27);
+- device performance budgets (adoption plan, Track C);
+- GitHub's protection settings, which need GitHub Pro or a public repository.
 
 ## 5. Suggested PR sequence
 
@@ -351,15 +354,15 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 - [x] Phase C step 1: workspaces and imports by package name, on the branch `phase-c/workspaces` (to review and merge).
 - [x] Phase C steps 2 to 5 (`apps/web/`, `services/api/`, `services/multiplayer/`), done on the branch `phase-c/apps-services` ([ADR 0003](adr/0003-apps-and-services.md)).
 - [x] Merge `phase-c/apps-services` (merged; production deployed on this layout, 2026-10-17).
-- [ ] Phase D, integration certification ([progress above](#phase-d--integration-certification)):
-  - done: staging, the rollback rehearsal, the journeys against staging, a restored production backup;
-  - left: a Pro renewal in Stripe test mode (a checkout and a refund are done), and the switch of production to the release layout (built and checked).
-- [ ] Prioritize staging, Stripe and real-customer validation before app relocation. Staging is done; Stripe and the pilot are left.
+- [x] Phase D, integration certification ([progress above](#phase-d--integration-certification)): the acceptance is met (2026-10-18).
+  - done: staging, production on releases, rollbacks rehearsed on both, the journeys against staging, a restored production backup, Stripe test mode certified (33 of 33);
+  - owner follow-ups: real devices, device performance budgets, GitHub's protection settings.
+- [ ] Prioritize staging, Stripe and real-customer validation before app relocation. Staging and Stripe test mode are done. The live key (after the policy approval) and the pilot are left.
 
 ## 10. Final recommendation
 
 **Yes, apply the structure selectively.** Organize docs now, create shared contracts next, and move the runtime only when there is a clear maintainability or deployment payoff. This achieves cleaner ownership and easier AI-agent collaboration while preserving VoxelVenture's competitive differentiators and minimizing risk to commercial launch.
 
-**Phases A, B and C are done. Phase D is under way:**
-- **Done:** staging is up, a rollback and a backup restore are rehearsed, and the journeys pass against staging.
-- **Left:** a Pro renewal in Stripe test mode (a checkout and a refund work), and switching production to the release layout (built and checked, `deploy/production.sh`).
+**Phases A, B, C and D are done.**
+- **Phase D:** staging and production run on releases, rollbacks and a backup restore are rehearsed, the journeys pass against staging, and Stripe test mode is certified.
+- **Next (section 6):** the live Stripe key once the policies are approved ([deploy/STRIPE_LIVE.md](../../deploy/STRIPE_LIVE.md)), then the pilot.
