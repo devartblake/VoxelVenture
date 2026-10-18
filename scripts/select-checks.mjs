@@ -137,7 +137,8 @@ export function selectChecks(files, tests = testIndex()) {
     } else if (/^apps\/web\/public\//.test(f) || /^scripts\/(models|streets)\//.test(f)) {
       // models, textures, sounds and the scripts that make them: the catalogue, model, credits and world tests
       add(mentioning(tests, /public\/|['"]public['"]|models|\.glb|\.vox|CREDITS|credits|streetNames|streets/), f);
-    } else if (/^scripts\/[^/]+\.mjs$/.test(f)) add(mentioning(tests, new RegExp(path.basename(f).replace(/\./g, '\\.'))), f);
+    } else if (/^scripts\/props\//.test(f)) add(mentioning(tests, /scripts\/props\/|'scripts', 'props'/), `${f}: the interior props' manifest and upload`);
+    else if (/^scripts\/[^/]+\.mjs$/.test(f)) add(mentioning(tests, new RegExp(path.basename(f).replace(/\./g, '\\.'))), f);
     else if (/^deploy\//.test(f)) add(mentioning(tests, /deploy\//), f);
     else all(`${f} (no rule for it)`);
   }
