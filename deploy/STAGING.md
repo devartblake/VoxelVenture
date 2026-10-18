@@ -195,6 +195,17 @@ Staging is where payments are tried before production takes a live key.
 
    Check that each shows up once in the owner's dashboard.
 
+5. **Or let the check do all of step 4** (`scripts/stripe-e2e.mjs`). It signs up two test owners, pays the Launch Pack and Pro on Stripe's page with the test card, refunds the Launch Pack the way the dashboard does and Pro the way an admin does, renews Pro a month ahead on a Stripe test clock, runs reconciliation, and checks each step in the owner's dashboard and in Stripe. Run it from your machine (it needs Edge or Chrome; `--pay manual` prints each page for you to pay by hand instead):
+
+   ```sh
+   export E2E_STRIPE_SECRET_KEY=sk_test_...        # the key in staging's api.env
+   export E2E_STRIPE_WEBHOOK_SECRET=whsec_...      # optional: delivers one of Stripe's events twice
+   export VERIFY_ADMIN_TOKEN="$(ssh root@SERVER 'grep ^ADMIN_TOKEN= /etc/voxelventure/staging/api.env | cut -d= -f2')"
+   npm run verify:stripe -- --api https://api.staging.voxelventure.app --site https://staging.voxelventure.app
+   ```
+
+   It refuses a live key and production's API. It leaves two test businesses behind; `reset --yes` clears them.
+
 ## Commands
 
 | | |
