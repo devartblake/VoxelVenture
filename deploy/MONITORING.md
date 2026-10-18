@@ -62,4 +62,4 @@ UptimeRobot's free plan is, at the time of writing, for non-commercial use only;
 
 - **Sentry:** the issue shows the stack and the route. `journalctl -u voxelventure-<service> --since "10 min ago"` has the surrounding log lines. Mark it resolved once the fix is deployed: it emails again only if it comes back.
 - **UptimeRobot:** `systemctl status voxelventure-api voxelventure-presence voxelventure-web caddy`, then the logs. If the Linode itself does not answer, use Lish in the Linode dashboard. A bad deploy: roll back as in [README.md](README.md#updating).
-- **Healthchecks.io:** run `sudo -u voxel voxelventure-backup` and read what it prints; `rclone lsf "$RCLONE_REMOTE"` shows whether the upload reached the bucket.
+- **Healthchecks.io:** run `sudo -u voxel voxelventure-backup` and read what it prints; `RCLONE_CONFIG=/etc/voxelventure/rclone.conf rclone lsf linode:voxelventure-backups` shows whether the upload reached the bucket.

@@ -100,6 +100,8 @@ export async function openPage(url, { width = 1200, height = 800, mobile = false
       await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
       await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
     },
+    /** Types text into whatever has the focus, as the keyboard would (pages that format what is typed, like Stripe's card field, see real input). */
+    type: (text) => call('Input.insertText', { text }),
     drag: async (x, y, toX, toY) => {
       await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
       await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });

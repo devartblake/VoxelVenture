@@ -4,7 +4,7 @@ A runbook for one server running everything: the web app, the API and the presen
 
 | File | What it is |
 | :--- | :--- |
-| `setup.sh` | First-time setup of a fresh Ubuntu 24.04 server: Node 22, Caddy, SQLite tools, Python with the messaging service's environment, the `voxel` user, the services, the firewall, nightly backups |
+| `setup.sh` | First-time setup of a fresh Ubuntu server (24.04 or newer): Node 22, Caddy, SQLite tools, Python with the messaging service's environment, the `voxel` user, the services, the firewall, nightly backups |
 | `Caddyfile` | HTTPS and the reverse proxy for the three addresses |
 | `systemd/*.service` | The three processes, restarted automatically, and the messaging service (installed, not enabled until the switch-over below) |
 | `env/*.env.example` | The settings for each process (copied to `/etc/voxelventure/`) |
@@ -16,7 +16,7 @@ A runbook for one server running everything: the web app, the API and the presen
 The files are filled in for **voxelventure.app** (the game), **api.voxelventure.app** (the API) and **play.voxelventure.app** (presence), with `www.voxelventure.app` and `voxelventure.net` redirecting to the game. Only the secrets are left as `CHANGE_ME`.
 
 ## What you need first
-- A Linode (Shared CPU 4 GB to start, about $24 a month) running Ubuntu 24.04, with your SSH key and Backups switched on (about $5 a month). Note its IPv4 address (and IPv6, if you want AAAA records too).
+- A Linode (Shared CPU 4 GB to start, about $24 a month) running Ubuntu 24.04 or newer, with your SSH key and Backups switched on (about $5 a month). Note its IPv4 address (and IPv6, if you want AAAA records too).
 - The DNS records below, made at GoDaddy (Domain > DNS > Add New Record), each pointing at the Linode. Make them before step 5: Caddy asks for the certificates as soon as it starts.
 - A Cloud Firewall in the Linode dashboard: allow 80 and 443 to everyone and SSH (22) from your own address only.
 
@@ -46,16 +46,25 @@ The files are filled in for **voxelventure.app** (the game), **api.voxelventure.
 In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/billing/webhook`, with the events in [docs/monetization/billing.md](../docs/monetization/billing.md). Put the secret key and the endpoint's signing secret in `api.env`. A live key also needs `TERMS_URL=https://voxelventure.app/legal/terms` and `REFUND_POLICY_URL=https://voxelventure.app/legal/refunds`, and those policies need the `NEXT_PUBLIC_LEGAL_*` lines in `web.env` filled in.
 
 ## First deployment
-1. **Copy the project** to `/srv/voxelventure` (without `node_modules`, `.next` or `services/api/data`), e.g. `rsync -a --exclude node_modules --exclude .next --exclude services/api/data ./ root@SERVER:/srv/voxelventure/` (`root@SERVER` is `root@` and the Linode's IP). From Windows, which has no rsync (PowerShell, in the project folder; it unpacks and never deletes anything):
-   ```powershell
-   git -c core.autocrlf=false -c core.eol=lf archive --format=tar.gz -o "$env:TEMP\vv.tar.gz" HEAD
-   scp "$env:TEMP\vv.tar.gz" "root@SERVER:/tmp/vv.tar.gz"
-   ssh root@SERVER "mkdir -p /srv/voxelventure && tar -xzf /tmp/vv.tar.gz -C /srv/voxelventure && rm /tmp/vv.tar.gz"
-   ```
-   After the first deployment, `deploy/push.ps1 production` does this (see Updating).
-2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`.
+1. **Get the project** into `/srv/voxelventure`, as root on the server.
+   - **With git (recommended; updates are then a `git pull`).** The repository is private, so give the server a read-only deploy key: `ssh-keygen -t ed25519 -N "" -f ~/.ssh/voxelventure_deploy`, add the `.pub` file's line on GitHub under the repository's Settings > Deploy keys (leave write access off), then:
+     ```
+     printf 'Host github.com\n  IdentityFile ~/.ssh/voxelventure_deploy\n' >> ~/.ssh/config
+     apt install -y git
+     git clone git@github.com:devartblake/VoxelVenture.git /srv/voxelventure
+     ```
+   - **Or copy it** from your machine (without `node_modules`, `.next` or `services/api/data`): `rsync -a --exclude node_modules --exclude .next --exclude services/api/data ./ root@SERVER:/srv/voxelventure/` (`root@SERVER` is `root@` and the Linode's IP). From Windows, which has no rsync (PowerShell, in the project folder; it unpacks and never deletes anything):
+     ```powershell
+     git -c core.autocrlf=false -c core.eol=lf archive --format=tar.gz -o "$env:TEMP\vv.tar.gz" HEAD
+     scp "$env:TEMP\vv.tar.gz" "root@SERVER:/tmp/vv.tar.gz"
+     ssh root@SERVER "mkdir -p /srv/voxelventure && tar -xzf /tmp/vv.tar.gz -C /srv/voxelventure && rm /tmp/vv.tar.gz"
+     ```
+     After the first deployment, `deploy/push.ps1 production` does this (see Updating).
+
+   On a 4 GB plan, add 2 GB of swap first so the build cannot run out of memory: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab`.
+2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`. Among the rest, it gives the project folder to the `voxel` user (which installs and builds it) and lets root's git work in it.
 3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env` (the addresses are already voxelventure.app). `setup.sh` has already put a long random value in `ADMIN_TOKEN`, `IP_SALT`, `MP_NOTIFY_SECRET`, `REFERRAL_SECRET` and `INTERNAL_SECRET`, a different one each and the same one in every file that shares it; to change one by hand, use `openssl rand -hex 32` and change it in every file it appears in. `API_SEED` must match the game's seed. `presence.env` also needs the same `IP_SALT` as `api.env`, and `TRUST_PROXY=1`. Network addresses are only ever kept as that salted hash, and behind Caddy the presence server must read each player's address from `X-Forwarded-For`, or everyone shares one per-network connection limit. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
-   Then **check them**: `cd /srv/voxelventure && sudo -u voxel npm ci && npm run check:env -- /etc/voxelventure/api.env /etc/voxelventure/web.env` must say `ok` for both (it lists anything still a placeholder, too short, a test setting, or not https). The API checks the same again when it starts and **refuses to start in production** until they are fixed (`journalctl -u voxelventure-api` says why).
+   Then **check them**: `cd /srv/voxelventure && sudo -u voxel npm ci && node scripts/check-env.mjs /etc/voxelventure/api.env /etc/voxelventure/web.env` must say `ok` for both (it lists anything still a placeholder, too short, a test setting, or not https). The API checks the same again when it starts and **refuses to start in production** until they are fixed (`journalctl -u voxelventure-api` says why).
 4. **Install and build**, with the web settings loaded (the `NEXT_PUBLIC_` addresses are fixed into the build):
    ```
    cd /srv/voxelventure
@@ -94,10 +103,12 @@ $env:VV_SERVER = "root@SERVER"
 - **SSH keys:** see [STAGING.md](STAGING.md#copying-the-project-to-the-server) to set them up, so it doesn't ask for the password each time.
 - **Try it on staging first:** `.\deploy\push.ps1 staging -Deploy`.
 
-By hand, on the server (after copying the files, as in step 1 or with `push.ps1 production`):
+By hand, on the server:
 
 ```
 cd /srv/voxelventure
+git pull                      # with a git clone; otherwise copy the files as in step 1 or with push.ps1 production
+chown -R voxel:voxel /srv/voxelventure
 sudo -u voxel voxelventure-backup
 sudo -u voxel npm ci
 bash deploy/build-web.sh /etc/voxelventure/web.env
@@ -122,8 +133,31 @@ The app is in `apps/web/`, and the servers are in `services/api/` and `services/
 5. Check `/health` on the API and the presence server, sign in, claim, and open `/admin`.
 
 ## Backups and restoring
-- Nightly at 03:15 (`/etc/cron.d/voxelventure-backup`): a compressed copy in `/var/backups/voxelventure`, kept 14 days. For off-machine copies, install `rclone`, run `rclone config` once for your Linode Object Storage, and put `RCLONE_REMOTE=linode:your-bucket` in `/etc/voxelventure/backup.env`. Also switch on Linode's own Backups. `HEALTHCHECK_URL` in the same file emails you when a night's backup or upload fails ([MONITORING.md](MONITORING.md#healthchecksio-the-nightly-backup)).
-- **Restore:** `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/services/api/data/voxelventure.db`, make sure the `voxel` user owns it, then `systemctl start voxelventure-api`.
+- Nightly at 03:15 (`/etc/cron.d/voxelventure-backup`): a compressed copy in `/var/backups/voxelventure`, kept 14 days. Also switch on Linode's own Backups.
+- **Off-machine copies with rclone** (Linode Object Storage, $5 a month for 250 GB):
+  1. In the Linode dashboard: Object Storage > Create Bucket (e.g. `voxelventure-backups`, same region as the server) and note the endpoint in its hostname (e.g. `us-ord-1.linodeobjects.com`). Then Access Keys > Create Access Key with **Limited Access**, Read/Write on that bucket only.
+  2. On the server, put the remote where the `voxel` user (which runs the backup) can read it. A plain `rclone config` as root saves it in root's home, where the nightly job cannot see it.
+     ```
+     apt install -y rclone
+     cat > /etc/voxelventure/rclone.conf <<'EOF'
+     [linode]
+     type = s3
+     provider = Other
+     endpoint = us-ord-1.linodeobjects.com
+     access_key_id = PASTE_ACCESS_KEY
+     secret_access_key = PASTE_SECRET_KEY
+     acl = private
+     no_check_bucket = true
+     EOF
+     echo 'RCLONE_REMOTE=linode:voxelventure-backups' > /etc/voxelventure/backup.env
+     chown root:voxel /etc/voxelventure/rclone.conf /etc/voxelventure/backup.env
+     chmod 640 /etc/voxelventure/rclone.conf /etc/voxelventure/backup.env
+     ```
+     `provider = Other` works with every rclone version (older ones do not know `Linode`); `no_check_bucket` is needed because a limited key may not create buckets. `backup.sh` uses `/etc/voxelventure/rclone.conf` by itself when it is there (or set `RCLONE_CONFIG` in `backup.env`).
+  3. Test: `sudo -u voxel voxelventure-backup` must end `Uploaded to linode:voxelventure-backups`, and `RCLONE_CONFIG=/etc/voxelventure/rclone.conf rclone ls linode:voxelventure-backups` lists the file.
+  4. The bucket keeps copies for `RCLONE_KEEP` days (default 30, set it in `backup.env`); only the backup's own files are ever deleted there.
+- **Restore:** to fetch a copy from the bucket first, `RCLONE_CONFIG=/etc/voxelventure/rclone.conf rclone copy linode:voxelventure-backups/voxelventure-DATE.db.gz /var/backups/voxelventure/`. Then `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/services/api/data/voxelventure.db`, make sure the `voxel` user owns it, then `systemctl start voxelventure-api`.
+- **Alerts:** `HEALTHCHECK_URL` in `backup.env` emails you when a night's backup or upload fails ([MONITORING.md](MONITORING.md#healthchecksio-the-nightly-backup)).
 - Do a restore on a spare machine once, before you rely on it.
 
 ## Things to know
