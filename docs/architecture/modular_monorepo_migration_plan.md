@@ -14,7 +14,8 @@
 - **Phase D:** under way.
   - **Staging:** it runs on the production Linode ([deploy/STAGING.md](../../deploy/STAGING.md)). The business journeys pass against it, 41 of 41.
   - **Rehearsals:** a rollback took 2.2 s, and production's first backup restored.
-  - **Left:** Stripe test mode (it waits on the Stripe account), and moving production to the release layout. See the progress table under Phase D.
+  - **Stripe test mode:** a test checkout works.
+  - **Left:** a refund and a renewal in test mode, and moving production to the release layout. See the progress table under Phase D.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
 
@@ -273,17 +274,17 @@ Run the **full** test suite and real-browser suite, not only change-selected tes
 | --- | --- |
 | The full suite and the real-browser suite | ✅ The full suite passes (88 suites, including the four journeys). The browser test passes in full on a fresh build. Its one failure, a stall booking on the last day of a market week, was a timing bug in the test and is fixed |
 | Node API auth, permissions, claims and leases, data migration | ✅ The API, authoritative-data and migration suites; `verify:live` against production and staging |
-| Stripe test-mode checkout, webhooks, idempotency, refunds, renewals, reconciliation | Not yet: the code and its tests are done (`billing`, `billing-game`); test mode on staging needs the Stripe account (STAGING.md section 7) |
+| Stripe test-mode checkout, webhooks, idempotency, refunds, renewals, reconciliation | Partly. On staging in test mode (2026-10-18), a building lease paid with the test card arrived through exactly one webhook, the order is paid, and the plot is the buyer's for 365 days. Refunds and a Pro renewal are still to try (STAGING.md section 7). The code and its tests cover all of it (`billing`, `billing-game`) |
 | Business profiles, referral attribution, analytics, CTA events | ✅ The visitor, merchant and attribution journeys pass against staging, 26 milestones |
 | WebGL and non-WebGL paths, mobile layout | Partly. The WebGL path and the phone layout are in the browser test (desktop and phone pages, the interior on a phone). The no-WebGL page has no automated test yet. Real phones and tablets are still to try (tasks 25-27) |
 | Accessibility and performance | Partly: draw-call budgets in the browser test, and the presence load test. Device budgets wait for real devices (adoption plan, Track C) |
 | Multiplayer presence and Python messaging contracts | ✅ The presence contracts and the reconnect journey against staging (15 milestones). The Python messaging suites pass; the service itself is not switched on (task 42) |
 | CI, staging smoke tests | ✅ CI green on `main`; `verify:live` on both stacks |
-| Secrets | Partly: fresh secrets on each stack, never printed by the runbook's commands. Secret scanning and push protection are GitHub settings (task 44) |
-| Backup and restore | ✅ Nightly backups. Production's first backup restored into staging in 2.3 s. Off-site copies (`RCLONE_REMOTE`) are not set up yet |
+| Secrets | Partly. Fresh secrets on each stack, never printed by the runbook's commands, and SSH keys only. Secret scanning, push protection and branch protection need GitHub Pro or a public repository: GitHub refuses them on a private repository on the free plan (task 44) |
+| Backup and restore | ✅ Nightly backups, uploaded off the machine to Linode Object Storage, plus Linode Backups. Production's first backup restored into staging in 2.3 s |
 | Rollback | ✅ Rehearsed on staging: 2.2 s for the code, 2.2 s to put the database back |
 
-**Still to do for the acceptance:** Stripe test mode on staging, then a documented production deploy using the same release layout. Production still deploys in place.
+**Still to do for the acceptance:** a refund and a renewal in Stripe test mode on staging, then a documented production deploy using the same release layout. Production still deploys in place.
 
 ## 5. Suggested PR sequence
 
@@ -351,7 +352,7 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 - [x] Merge `phase-c/apps-services` (merged; production deployed on this layout, 2026-10-17).
 - [ ] Phase D, integration certification ([progress above](#phase-d--integration-certification)):
   - done: staging, the rollback rehearsal, the journeys against staging, a restored production backup;
-  - left: Stripe test mode, and production on the release layout.
+  - left: a refund and a renewal in Stripe test mode (a test checkout is done), and production on the release layout.
 - [ ] Prioritize staging, Stripe and real-customer validation before app relocation. Staging is done; Stripe and the pilot are left.
 
 ## 10. Final recommendation
@@ -360,4 +361,4 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 
 **Phases A, B and C are done. Phase D is under way:**
 - **Done:** staging is up, a rollback and a backup restore are rehearsed, and the journeys pass against staging.
-- **Left:** Stripe test mode, and moving production to the release layout.
+- **Left:** a refund and a renewal in Stripe test mode (a test checkout works), and moving production to the release layout.
