@@ -136,7 +136,7 @@ cmd_deploy() {
   local src="$BASE/incoming"
   [ -f "$src/package.json" ] || die "nothing to deploy: copy the project to $src/ first"
   [ -f "$ETC/api.env" ] || die "no settings: run setup first"
-  if grep -Eq '^STRIPE_SECRET_KEY=sk_live_' "$ETC/api.env"; then die "$ETC/api.env has a live Stripe key: staging takes test keys (sk_test_) only"; fi
+  if grep -Eq '^STRIPE_SECRET_KEY=(sk|rk)_live_' "$ETC/api.env"; then die "$ETC/api.env has a live Stripe key: staging takes test keys (sk_test_ or rk_test_) only"; fi
   if grep -Eq '^MAIL_WEBHOOK_URL=.+' "$ETC/api.env"; then die "$ETC/api.env sends email (MAIL_WEBHOOK_URL): staging must not, remove it"; fi
 
   say "settings check"

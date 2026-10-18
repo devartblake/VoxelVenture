@@ -24,14 +24,16 @@ let nextPort = 9300 + Math.floor(Math.random() * 400);
 // Each page gets its own temporary profile and debugging port, so it never touches (or hands off to)
 // a browser you already have open.
 // `userAgent`: browse as an ordinary browser (headless Chrome names itself, and the server rightly does not count its visits as human).
-export async function openPage(url, { width = 1200, height = 800, mobile = false, userAgent = null } = {}) {
+// webgl: false starts a browser with WebGL switched off (as on a locked-down or very old machine), for the city's fallback page
+export async function openPage(url, { width = 1200, height = 800, mobile = false, userAgent = null, webgl = true } = {}) {
   const exe = findBrowser();
   if (!exe) throw new Error('no browser found (set BROWSER_PATH)');
   const port = nextPort++;
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-browser-'));
   const proc = spawn(exe, [
     '--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-extensions',
-    '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--window-size=${width},${height}`, 'about:blank',
+    ...(webgl ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : ['--disable-webgl', '--disable-3d-apis']),
+    `--window-size=${width},${height}`, 'about:blank',
   ], { stdio: 'ignore' });
 
   let target;
