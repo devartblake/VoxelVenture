@@ -1,6 +1,7 @@
 // A small validator for the JSON-Schema subset the contracts use (docs/architecture/adr/0001-shared-package-boundaries.md):
 // type (one or a list: string, number, integer, boolean, object, array, null), enum, pattern, minLength, maxLength, minimum, maximum,
-// required, properties, additionalProperties (false: no other keys), items, prefixItems (a fixed-position array, a "tuple": the schema of
+// required, properties, additionalProperties (false: no other keys; a schema: what every other key's value must fit), propertyNames,
+// maxProperties, items, prefixItems (a fixed-position array, a "tuple": the schema of
 // each position in turn), minItems, maxItems, and anyOf (one of several schemas). Plain JSON, so other languages (the Python messaging
 // service) can read the same contracts with a standard JSON-Schema library (prefixItems and anyOf are JSON Schema 2020-12).
 
@@ -30,6 +31,9 @@ export function validate(schema, value, at = '$') {
     for (const k of schema.required ?? []) if (!(k in value)) errors.push(`${at}.${k}: missing`);
     for (const [k, sub] of Object.entries(schema.properties ?? {})) if (k in value) errors.push(...validate(sub, value[k], `${at}.${k}`));
     if (schema.additionalProperties === false) for (const k of Object.keys(value)) if (!(k in (schema.properties ?? {}))) errors.push(`${at}.${k}: not allowed`);
+    if (typeOf(schema.additionalProperties) === 'object') for (const k of Object.keys(value)) if (!(k in (schema.properties ?? {}))) errors.push(...validate(schema.additionalProperties, value[k], `${at}.${k}`));
+    if (schema.propertyNames) for (const k of Object.keys(value)) errors.push(...validate(schema.propertyNames, k, `${at}[${JSON.stringify(k)}]`));
+    if (schema.maxProperties != null && Object.keys(value).length > schema.maxProperties) errors.push(`${at}: more than ${schema.maxProperties} properties`);
   }
   if (Array.isArray(value)) {
     if (schema.minItems != null && value.length < schema.minItems) errors.push(`${at}: fewer than ${schema.minItems} items`);

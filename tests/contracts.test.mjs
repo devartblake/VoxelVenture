@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', types.API_CONTRACTS.length === 15 && Object.keys(CONTRACTS).length === 15 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
+check('contract ids are unique', types.API_CONTRACTS.length === 18 && Object.keys(CONTRACTS).length === 18 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
 
 // ---- the shared values are the ones the server and the funnel use
 import { OUTCOMES } from '@voxelventure/analytics';
@@ -88,6 +88,21 @@ try {
   const gif = await fetch(`${base}/conversions/pixel.gif?${new URLSearchParams(pixel)}`);
   check('the pixel answers an image', gif.status === 200 && (gif.headers.get('content-type') ?? '').startsWith('image/gif'));
   check('a pixel with a key is outside the contract (the pixel never needs one)', !fits(types.PURCHASE_PIXEL, { ...pixel, key: 'vvck_x' }).ok);
+
+  // Bob's redesigned interior: none at first, then published, as every visitor reads it
+  holds('a plot with no redesign', types.INTERIOR_STATE, (await call('GET', `/plots/${lot.id}/interior`)).data);
+  const room = { b: { object: 'node', id: 'b', type: 'building', parentId: null, visible: true, children: ['l'], position: [0, 0, 0], rotation: [0, 0, 0] }, l: { object: 'node', id: 'l', type: 'level', parentId: 'b', visible: true, children: ['s', 'i'], level: 0, height: 2.5 }, s: { object: 'node', id: 's', type: 'slab', parentId: 'l', visible: true, polygon: [[0, 0], [8, 0], [8, 6], [0, 6]], elevation: 0.05 }, i: { object: 'node', id: 'i', type: 'item', parentId: 'l', visible: true, position: [2, 0, 3], rotation: [0, 0, 0], asset: { id: 'sofa' } } };
+  const save = { design: { nodes: room, rootNodeIds: ['b'] }, revision: 0 };
+  holds('a design to publish', types.INTERIOR_SAVE, save);
+  const saved = await call('PUT', `/plots/${lot.id}/interior`, { token: bob.token, body: save });
+  holds('the published design', types.INTERIOR_STATE, saved.data);
+  holds('the design as a visitor reads it', types.INTERIOR_STATE, (await call('GET', `/plots/${lot.id}/interior`)).data);
+  holds('the stored design', types.INTERIOR_DESIGN, (await call('GET', `/plots/${lot.id}/interior`)).data.design);
+  const odd = { ...save, revision: saved.data.revision, design: { ...save.design, nodes: { ...room, i: { ...room.i, type: 'roof' } } } };
+  check('a node type the contract refuses, the server refuses too', !fits(types.INTERIOR_SAVE, odd).ok && (await call('PUT', `/plots/${lot.id}/interior`, { token: bob.token, body: odd })).status === 400);
+  const url = { ...save, revision: saved.data.revision, design: { ...save.design, nodes: { ...room, i: { ...room.i, asset: { id: 'sofa', src: 'https://elsewhere.test/sofa.glb' } } } } };
+  check('an asset with a URL is outside the contract (the server keeps the id only)', !fits(types.INTERIOR_SAVE, url).ok);
+  holds('going back to the generated interior', types.INTERIOR_STATE, (await call('DELETE', `/plots/${lot.id}/interior`, { token: bob.token, body: {} })).data);
 
   // a quote request from a profile's form
   await call('POST', '/businesses', { token: cat.token, body: { name: 'Cat Quotes', category: 'services', cta: { kind: 'quote' } } });

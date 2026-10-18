@@ -206,6 +206,7 @@ export function claimPlot(db, account, id, input) {
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=? AND owner_name IS NULL')
       .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exteriorOf(input, p, b.buildingType), Math.round(p.value * 1.25), term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'claim', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, now());
+    db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // a new owner starts from the generated interior (interiors.mjs)
     return plotView(db, getPlot(db, p.id));
   });
 }
@@ -233,6 +234,7 @@ export function takeOverPlot(db, account, id, input) {
     }
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, takeovers=takeovers+1, brand=NULL, quest_budget=0, updated_at=? WHERE id=?')
       .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exteriorOf(input, p, b.buildingType), Math.round(p.value * TAKEOVER_MULTIPLIER), term, now(), now() + term * LEASE_DAY, now(), p.id);
+    db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // the old owner's interior goes with them (interiors.mjs)
     return { plot: plotView(db, getPlot(db, p.id)), paidOut: price, previousOwner: p.owner_name, previousAccount: p.owner_account };
   });
 }

@@ -10,8 +10,8 @@ import { Viewer, WallCutout, useViewer } from '@pascal-app/viewer';
 import { CameraControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { buildInteriorScene } from '@/lib/content/interiorScenes';
-import { describeScene, useDesigns } from '@/lib/state/designStore';
+import { buildInteriorScene, withCatalogAssets } from '@/lib/content/interiorScenes';
+import { describeScene, designOnServer, fetchPublished, useDesigns } from '@/lib/state/designStore';
 import { hotspotsFor, viewFor } from '@/lib/content/interiorHotspots';
 import { focusSection, useInteriorSpots } from '@/lib/state/interiorFocus';
 import LookAt from './LookAt';
@@ -98,7 +98,7 @@ export default function InteriorViewer({ plot }) {
   }, [activeSpot]);
   useEffect(() => () => useInteriorSpots.setState({ spots: [], active: null, look: null }), []);
   const wallMode = useViewer((s) => s.wallMode);
-  const designVersion = useDesigns((s) => s.version); // changes when the player saves or resets a redesign in the editor
+  const designVersion = useDesigns((s) => s.version); // changes when the player saves or resets a redesign in the editor, or the server's changed
   // Created once (and again only when the player reloads the view or switches the effects), so the element does not change while the room is on screen
   // and React skips re-rendering <Viewer>.
   // `transparent`: the room sits on the app's own dark background. The viewer's heavy post-processing (ambient occlusion and denoising) is OFF unless the
@@ -141,6 +141,12 @@ export default function InteriorViewer({ plot }) {
     setViewerKey((k) => k + 1);
   };
 
+  // With a game server, ask it for the building's published design. The scene opens at once with what is cached (or the generated interior);
+  // if the server's answer is different, the store bumps `designVersion` and the effect below loads the scene again, on its own deferred tick.
+  useEffect(() => {
+    if (plot && designOnServer(plot.id)) fetchPublished(plot.id).catch(() => {}); // offline: the cached or the generated interior stays
+  }, [plot]);
+
   // Scene changes unmount Pascal's drei <Html> helpers, which unmount a React root synchronously.
   // Doing that inside an effect (while React DOM is still flushing effects) triggers "Attempted
   // to synchronously unmount a root while React was already rendering", so run them on the next
@@ -154,8 +160,11 @@ export default function InteriorViewer({ plot }) {
         setScene(null);
         return;
       }
-      // the player's own redesign if there is one, otherwise the interior generated for this kind of business
-      const saved = useDesigns.getState().designs[plot.id];
+      // the owner's redesign if there is one, otherwise the interior generated for this kind of business. With a game server it is the one
+      // published there (cached by the effect below), its furniture filled in from the catalogue by id; without one, the player's own.
+      const server = designOnServer(plot.id);
+      const stored = server ? useDesigns.getState().published[plot.id]?.design : useDesigns.getState().designs[plot.id];
+      const saved = stored && server ? withCatalogAssets(stored) : stored;
       const mine = saved ? describeScene(saved) : null;
       const built = mine ? { ...saved, ...mine } : buildInteriorScene(plot);
       applySceneGraphToEditor(built);

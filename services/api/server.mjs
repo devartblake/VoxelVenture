@@ -41,6 +41,7 @@ import * as social from './social.mjs';
 import * as billing from './billing.mjs';
 import * as conversions from './conversions.mjs';
 import * as pilot from './pilot.mjs';
+import * as interiors from './interiors.mjs';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 import { createReporter } from '../../lib/net/sentry.mjs';
@@ -107,13 +108,14 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   };
   setInterval(() => { for (const [ip, h] of hits) if (Date.now() - h.start > 60000) hits.delete(ip); }, 60000).unref();
 
-  const body = (req) =>
+  // a request's JSON body, at most `max` bytes (a redesigned interior may be larger than anything else: interiors.mjs)
+  const body = (req, max = 150_000) =>
     new Promise((resolve, reject) => {
       let size = 0;
       const chunks = [];
       req.on('data', (c) => {
         size += c.length;
-        if (size > 150_000) {
+        if (size > max) {
           reject(new core.ApiError(413, 'That is too large.', 'too_large'));
           req.destroy();
         } else chunks.push(c);
@@ -250,6 +252,16 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const out = logged(A.byAccount(account), 'plot.update', { kind: 'plot', id: r[1] }, () => core.updateBusiness(db, account, r[1], b), () => ({ fields: ['logo', 'description', 'exterior'].filter((k) => b[k] !== undefined) }));
       push('plot', [Number(r[1])]); // everyone sees the new logo or outside at once
       return out;
+    }
+    // the owner's redesigned interior (interiors.mjs): anyone reads it, only the owner changes it
+    if ((r = p.match(/^\/plots\/(\d+)\/interior$/)) && m === 'GET') return interiors.getInterior(db, r[1]);
+    if ((r = p.match(/^\/plots\/(\d+)\/interior$/)) && m === 'PUT') {
+      const b = await body(req, interiors.MAX_BODY_BYTES);
+      return logged(A.byAccount(account), 'plot.interior_save', { kind: 'plot', id: r[1] }, () => interiors.saveInterior(db, account, r[1], b), (o) => ({ revision: o.revision, nodes: Object.keys(o.design.nodes).length, bytes: JSON.stringify(o.design).length }));
+    }
+    if ((r = p.match(/^\/plots\/(\d+)\/interior$/)) && m === 'DELETE') {
+      const b = await body(req);
+      return logged(A.byAccount(account), 'plot.interior_delete', { kind: 'plot', id: r[1] }, () => interiors.deleteInterior(db, account, r[1], b), (o) => ({ revision: o.revision }));
     }
     if (m === 'POST' && p === '/events') {
       const b = await body(req);
@@ -516,7 +528,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   }
 
   const server = http.createServer(async (req, res) => {
-    const headers = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS', 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+    const headers = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
     const send = (status, data) => {
       res.writeHead(status, headers);
       res.end(JSON.stringify(data));

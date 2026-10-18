@@ -9,7 +9,7 @@ check(PURCHASE_REPORT, body); // { ok, errors: ['$.value: below 0', ...] }
 
 ## Contracts
 
-Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-Schema subset: `type` (one or a list), `enum`, `pattern`, `minLength`/`maxLength`, `minimum`/`maximum`, `required`, `properties`, `additionalProperties: false`, `items`, `minItems`/`maxItems`. Another language can read the same schema with a standard JSON-Schema library.
+Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-Schema subset: `type` (one or a list), `enum`, `pattern`, `minLength`/`maxLength`, `minimum`/`maximum`, `required`, `properties`, `additionalProperties` (`false`, or a schema for every other key's value), `propertyNames`, `maxProperties`, `items`, `prefixItems`, `minItems`/`maxItems`, `anyOf`. Another language can read the same schema with a standard JSON-Schema library.
 
 | Id | Version | What | Made by | File |
 | --- | --- | --- | --- | --- |
@@ -28,6 +28,9 @@ Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-S
 | `business.coupon-redeem.result` | 1 | `{ redeemed, ticket, claimedAt }` | API | same |
 | `business.purchase-pixel` | 1 | The pixel's query `{ business, click?, value?, order? }`, as strings. It never carries a key | A business's thank-you page → `GET /conversions/pixel.gif` | same |
 | `community.weekly-vote` | 1 | Building of the Week: the player's votes (one a week, a second for finding the gold stars), the top five, last week's winner, when voting closes | `GET /votes`, `POST /vote` | [`contracts/community.js`](src/contracts/community.js) |
+| `interior.design` | 1 | An owner's redesigned interior: the scene graph (`nodes` by id, one building in `rootNodeIds`), only the node types an interior uses, furniture by catalogue id (`asset: { id }`) and never by file URL | Stored by the API, inside `interior.state` and `interior.save` | [`contracts/interior.js`](src/contracts/interior.js) |
+| `interior.state` | 1 | `{ plotId, version, design, revision, updatedAt }`: the design every visitor sees, or `design: null` for the generated interior | `GET /plots/<id>/interior`, and the answer to `PUT` and `DELETE` | same |
+| `interior.save` | 1 | `{ design, revision }`: the owner publishes a design based on the revision they loaded; an older one gets 409 | Owner → `PUT /plots/<id>/interior` | same |
 
 [`tests/contracts.test.mjs`](../../tests/contracts.test.mjs) starts the API and checks its real requests and answers against these contracts.
 
