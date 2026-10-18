@@ -1,4 +1,4 @@
-// What do the new streets and the amusement park cost? (docs/architecture/infill_and_land.md) Compares three cities: the old one (no new streets, no park), with the new
+// What do the new streets and the amusement park cost? (docs/world/infill_and_land.md) Compares three cities: the old one (no new streets, no park), with the new
 // streets, and with the new streets and the park: in Node the generator, the collision map and the traffic simulation, and with --browser the game itself in
 // headless Edge (it builds the app three times, with NEXT_PUBLIC_INFILL / NEXT_PUBLIC_AMUSEMENT set to 0 or 1: run `npm run build` afterwards). Nothing in the project is changed. Headless Edge draws in software, so frame rates only compare.
 //

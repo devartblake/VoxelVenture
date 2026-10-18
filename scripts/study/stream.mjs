@@ -1,4 +1,4 @@
-// Feasibility study (see docs/architecture/study_world_streaming.md): the streamed road network against the whole network, at a given map scale.
+// Feasibility study (see docs/world/study_world_streaming.md): the streamed road network against the whole network, at a given map scale.
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import net from 'node:net';

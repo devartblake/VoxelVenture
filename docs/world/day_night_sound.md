@@ -19,7 +19,7 @@
 7. **Sound**: footsteps, a door when entering a building, and a stronger crowd murmur near busy plazas; recorded loops can replace the synthesised ones later.
 
 ## Presence-based sound (like the SimCity games)
-The **ambience** depends on where you are and how high you look: close to the ground you hear the places round you, high above the map only a faint murmur of the city, and in between the two crossfade. The **music** is a soundtrack over all of it, at a steady level, picked from what the player is doing (below). This is the "positional audio" plan in [voxelventure_idea_02.md](../competitive-research/voxelventure_idea_02.md) section 6 (retro 8-bit music at Arcade Alley, jazz at a coffee shop), originally built with procedural audio; recorded CC0 playlists now complement those layers.
+The **ambience** depends on where you are and how high you look: close to the ground you hear the places round you, high above the map only a faint murmur of the city, and in between the two crossfade. The **music** is a soundtrack over all of it, at a steady level, picked from what the player is doing (below). This is the "positional audio" plan in [voxelventure_idea_02.md](../competitive-research/ideas/voxelventure_idea_02.md) section 6 (retro 8-bit music at Arcade Alley, jazz at a coffee shop), originally built with procedural audio; recorded CC0 playlists now complement those layers.
 
 | Where you are | What you hear |
 | :--- | :--- |

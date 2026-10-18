@@ -1,6 +1,6 @@
 # Strategic differentiation: what is built
 
-From `../competitive-research/voxelventure_idea_01.md`, the five recommendations that need no outside service. All of it needs the game server (`NEXT_PUBLIC_LIVE_API_URL`); without one the game stays single-player and none of these rules apply.
+From `../competitive-research/ideas/voxelventure_idea_01.md`, the five recommendations that need no outside service. All of it needs the game server (`NEXT_PUBLIC_LIVE_API_URL`); without one the game stays single-player and none of these rules apply.
 
 ## 1. Proof-of-human traffic
 Every visit (entering a building) and click (Visit website) is stored, but only **verified** events count in the statistics, the dashboard, the skyline and the world totals. An event is verified when:
@@ -28,7 +28,7 @@ The rules are in `lib/game/buildingOfWeek.js`, shared by the game, the business 
 The fourth avenue district (formerly Agency Boulevard) is now **The Bazaar**: e-commerce and merchandise, mostly shops, orange, with names like Crate Shop and Trade Emporium. The pop-up market is "in The Bazaar".
 
 ## Not built (needs outside services)
-An in-store checkout, calendar booking (Cal.com) and the creator asset marketplace; see `../competitive-research/voxelventure_idea_01.md`. Stripe payments for leases, stalls and business plans are built ([billing.md](../monetization/billing.md)), and so are meeting and quote requests ([conversions.md](../monetization/conversions.md)).
+An in-store checkout, calendar booking (Cal.com) and the creator asset marketplace; see `../competitive-research/ideas/voxelventure_idea_01.md`. Stripe payments for leases, stalls and business plans are built ([billing.md](../monetization/billing.md)), and so are meeting and quote requests ([conversions.md](../monetization/conversions.md)).
 
 ## Tests
 `tests/rules.test.mjs` (the shared rules), `tests/community.test.mjs` (proof of human, skyline, leases, voting against a real server), and the existing `api`, `engage`, `live`, `stats` tests, which now ping presence before sending events and end a lease (admin call) before a take-over.

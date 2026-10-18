@@ -1,4 +1,4 @@
-// Feasibility study (see docs/architecture/study_world_streaming.md): what does a bigger map cost in the browser? Builds the app at each map scale, loads it in headless
+// Feasibility study (see docs/world/study_world_streaming.md): what does a bigger map cost in the browser? Builds the app at each map scale, loads it in headless
 // Edge and measures the time to the first frame, draw calls, triangles, geometries, the JS heap and the frame rate.
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';

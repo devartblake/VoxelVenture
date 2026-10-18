@@ -37,4 +37,4 @@ Along the river drive, on the land side (the riverwalk is on the other side), tw
 ![Fishing from the boat](../img/boat-fishing.png)
 
 ## Not built yet
-Boat and pier sounds beyond the water (water lapping at a lake, the river and each pier is now built: the `water` zone in `lib/game/soundZones.js`, see [day_night_sound.md](../architecture/day_night_sound.md); the creak of the deck or a boat is not), a ferry or taxi between piers, renting a boat, fishing competitions, a promenade round the lakes (they only have the pier landings), and other players seeing your boat dock.
+Boat and pier sounds beyond the water (water lapping at a lake, the river and each pier is now built: the `water` zone in `lib/game/soundZones.js`, see [day_night_sound.md](../world/day_night_sound.md); the creak of the deck or a boat is not), a ferry or taxi between piers, renting a boat, fishing competitions, a promenade round the lakes (they only have the pier landings), and other players seeing your boat dock.

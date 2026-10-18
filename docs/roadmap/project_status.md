@@ -11,7 +11,7 @@ Everything added to the project so far, on top of the original Next.js + React T
 | Route | What it is |
 | :--- | :--- |
 | `/` | The voxel city: roads, districts, park, plots, legend |
-| `/editor` | The city editor (`apps/web/components/dev/CityEditor.jsx`, see [city_editor.md](../architecture/city_editor.md)). It was the Pascal building editor at first; the Pascal editor now opens inside a building (*Redesign inside*) |
+| `/editor` | The city editor (`apps/web/components/dev/CityEditor.jsx`, see [city_editor.md](../world/city_editor.md)). It was the Pascal building editor at first; the Pascal editor now opens inside a building (*Redesign inside*) |
 | `/viewer` | Pascal 3D viewer (`<Viewer selectionManager="custom">` + drei `CameraControls`). Shows whatever scene is in the Pascal store; a fresh store is empty |
 | `/admin` | Client monitor (5i) |
 | `/b/[id]` | Link to one building in the city (see tasks.md, links and badges). A building linked to a business page shares that page instead |
@@ -24,7 +24,7 @@ Everything added to the project so far, on top of the original Next.js + React T
 | `/curves` | Curved-road sandbox (5d) |
 | `/reference` | Road design reference (5e) |
 | `/pricing` | Land price heatmap tool (`docs/monetization/pricing_analysis.md`) |
-| `/models` | Preview of the imported models (`docs/architecture/kenney_assets.md`) |
+| `/models` | Preview of the imported models (`docs/world/kenney_assets.md`) |
 | `/land` | Free-land and new-streets designer (development tool, `apps/web/components/dev/LandMap.jsx`) |
 
 ---
@@ -239,7 +239,7 @@ State also holds `billboards`, `selectedBillboardId`, `gold` and `completedQuest
 - The city now stands on an explicit, visible piece of land: a grass-green slab with a soil edge, sized to hold everything with **16 units of ground all the way round**: roads (including the county road), plots, billboards, the reserved site and the lakes. It now comes out about 243 x 196 units, with the built-up area on a darker paved base. The dark backdrop grid is now only visible beyond its edge, so ponds sit on land instead of out in the void.
 - The whole land is walkable (ponds block themselves, one unit is kept at the very edge), so you can reach every pond and every corner on foot; the mini-map draws the land under everything and fits it in view. Checked over 100 cities: everything lies inside the land, every pond keeps at least 16 units round it, and the shore at both ends of both axes of each pond, and all four corners of the land, are reachable.
 
-**Road design reference** (`/reference`, `docs/architecture/road_design_reference.md`, `apps/web/public/reference/*.svg`)
+**Road design reference** (`/reference`, `docs/world/road_design_reference.md`, `apps/web/public/reference/*.svg`)
 - Road maps of Midtown Manhattan, Market Street (San Francisco) and downtown Washington DC, drawn at one scale from OpenStreetMap data (c) OpenStreetMap contributors, ODbL, next to this city drawn the same way. Street directions were measured from the data (Manhattan: one grid tilted ~28 degrees; San Francisco: two grids ~35 degrees apart; Washington: a plain grid with ~7% diagonal avenues), and the doc lists what each would add to our roads and what it would take.
 
 **Storefronts (start of brand-specific interiors)** (`apps/web/components/interior/StorefrontPanel.jsx`, `lib/content/embeds.js`)
@@ -418,7 +418,7 @@ The layout was redesigned (`lib/city/cityGenerator.js`) to read like a SimCity m
 ## 5v. An international airport, and the world-size study
 
 - **International airport.** One of the two airports (the first, so the one the first banner plane is based at) is now international (`AIRPORT_INTL` in `lib/city/cityGenerator.js`): a **116 × 7 runway** (the regional one is 64 × 4.6), a 24 × 6 terminal and a taller control tower, **four hangars**, a wider apron and **two parked airliners** (scenery: solid, drawn in `apps/web/components/city/Airports.jsx`), and its own name ("Capital International", "Voxel International", ...) in amber on the map. It covers more than twice the ground, so it is placed first and may take another side of the county road if its own is full (all 60 test cities still get two airports). The flight paths scale with the runway automatically. Tests: `tests/flight.test.mjs` checks there is exactly one international airport, that its runway, ground, terminal and hangars are bigger, and that the airliners stand on the apron clear of the buildings and the banner planes' parking. Side effects: the bigger airport takes room, so a few cities now get two waterfront luxury estates instead of three and the malls may stand a little closer (the tests allow it).
-- **World-size study** (`docs/architecture/study_world_streaming.md`). Measured the generator, collision and traffic in Node and the whole game in headless Edge at 1×, 2× and 4× the map, built a chunk-streaming prototype, and wrote up the design for an authored world of several cities with an island, ocean and shipping yard. Findings: the practical limit today is about **2× the area** (what grows is the number of objects in memory, 40,463 and 487 MB at 4×, not draw calls); a streamed prototype cut that to 12,935 objects (3 × 3 chunks of 64) and to ~900 after walking to a quiet corner; the save (all plots in the browser) hits the storage limit above 6×; the island, ocean and port are all feasible (about 6–8 days on top of the world format). What was added: `NEXT_PUBLIC_MAP_SCALE` (the grid, streets and avenues scale; default 1), numbered street names when a bigger map runs out of names (it crashed the road labels), the `?stream=<chunk size>[&radius=<chunks>]` prototype (`apps/web/components/city/StreamedNetwork.jsx`) and the measuring scripts in `scripts/study/`. Nothing else changes at the default scale.
+- **World-size study** (`docs/world/study_world_streaming.md`). Measured the generator, collision and traffic in Node and the whole game in headless Edge at 1×, 2× and 4× the map, built a chunk-streaming prototype, and wrote up the design for an authored world of several cities with an island, ocean and shipping yard. Findings: the practical limit today is about **2× the area** (what grows is the number of objects in memory, 40,463 and 487 MB at 4×, not draw calls); a streamed prototype cut that to 12,935 objects (3 × 3 chunks of 64) and to ~900 after walking to a quiet corner; the save (all plots in the browser) hits the storage limit above 6×; the island, ocean and port are all feasible (about 6–8 days on top of the world format). What was added: `NEXT_PUBLIC_MAP_SCALE` (the grid, streets and avenues scale; default 1), numbered street names when a bigger map runs out of names (it crashed the road labels), the `?stream=<chunk size>[&radius=<chunks>]` prototype (`apps/web/components/city/StreamedNetwork.jsx`) and the measuring scripts in `scripts/study/`. Nothing else changes at the default scale.
 
 ## 5w. A wider side panel and a fuller building card
 
@@ -478,7 +478,7 @@ A summary of the later work; the detail is in the documents named.
   - day and night change at the end of a track, and a car or a place with a crossfade;
   - the camera's zoom does not change it (it used to, and every zoom cut the track).
 
-  Only the active track downloads. The live WebAudio tunes (`lib/game/musicRules.js`) cover loading and failures. Details: [day_night_sound.md](../architecture/day_night_sound.md).
+  Only the active track downloads. The live WebAudio tunes (`lib/game/musicRules.js`) cover loading and failures. Details: [day_night_sound.md](../world/day_night_sound.md).
 - **Tests:** `tests/credits.test.mjs` checks that `CREDITS.md` names every maker and licence in `credits.js` and that the Credits view exists. 60 test files in `tests/` now.
 - **`npm run dev:all` without a shell.** `scripts/dev-all.mjs` starts both servers with `process.execPath` (the same Node binary) and finds Next's bin with `createRequire` (`next/dist/bin/next`), instead of spawning through a shell. This removed Node's DEP0190 warning on Windows.
 - **Versions.** The development machine has Node.js 24.20.0 LTS and npm 12.2.0 (installed with winget). Next is 16.4.0; 16.4.2 is out but the project stays on 16.4.0 for now. Next 16's `next dev` writes an `AGENTS.md` at the repo root on start-up (`next.config.mjs` does not set `agentRules`, so it is on by default; set it to `false` to stop it).
@@ -560,8 +560,8 @@ Their item-by-item status is in [alignment_status.md](alignment_status.md). This
   - the camera's zoom no longer changes the music (it used to cut the track);
   - the label shows the track.
 
-  See [day_night_sound.md](../architecture/day_night_sound.md).
-- **District street names** ([street_names.md](../architecture/street_names.md)): each district has a list of real names from a place with the same character (San Francisco for SaaS, the City of London for The Bazaar, Harrogate for the Meadow Quarter, …).
+  See [day_night_sound.md](../world/day_night_sound.md).
+- **District street names** ([street_names.md](../world/street_names.md)): each district has a list of real names from a place with the same character (San Francisco for SaaS, the City of London for The Bazaar, Harrogate for the Meadow Quarter, …).
   - **In the generator:** the infill streets take the Meadow Quarter's, since their lots are in it. The avenues, the cross streets and the pun names keep theirs.
   - **In the editor:** it suggests names from the list of the road's district.
 - **Phase C, step 1** ([ADR 0002](../architecture/adr/0002-workspaces.md), branch `phase-c/workspaces`):

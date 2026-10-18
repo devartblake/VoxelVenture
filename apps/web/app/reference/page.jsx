@@ -1,6 +1,6 @@
 // Road-design reference: real street networks next to this city, at the same scale.
 // The three real maps are drawn from OpenStreetMap data (see apps/web/public/reference/*.svg and
-// docs/architecture/road_design_reference.md for how they were made and what was measured).
+// docs/world/road_design_reference.md for how they were made and what was measured).
 
 const MAPS = [
   {
@@ -58,7 +58,7 @@ export default function ReferencePage() {
         <h1 className="text-2xl font-bold">Road design reference</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-400">
           Three real street networks, drawn from OpenStreetMap data at one scale (500 m scale bar on each), next to this city drawn the same way.
-          What each one does well, and what we could borrow. Full notes: <code className="text-slate-300">docs/architecture/road_design_reference.md</code>.
+          What each one does well, and what we could borrow. Full notes: <code className="text-slate-300">docs/world/road_design_reference.md</code>.
         </p>
 
         <div className="mt-8 space-y-10">
