@@ -229,9 +229,27 @@ try {
   check('the market draws its stalls (three instanced meshes)', await page.eval(`(() => { let n = 0; window.__vvScene.traverse((o) => { if (o.name === 'market') n = o.children.filter((c) => c.isInstancedMesh && c.count > 0).length; }); return n >= 2; })()`));
   const market = JSON.parse(await page.eval(`(() => { const m = window.__vvMarket.getState(); const stall = m.data.stalls.find((s) => s.tier === 'prime'); return JSON.stringify({ total: m.data.stalls.length, id: stall.id, cents: stall.cents, week: m.data.week, end: m.data.window.end }); })()`));
   check('the market has plenty of stalls, priced $2 to $5', market.total >= 40 && market.cents >= 200 && market.cents <= 500, JSON.stringify(market));
-  const booked = await page.eval(`(async () => { const m = window.__vvMarket.getState(); const t = Math.ceil(Date.now() / 3600000) * 3600000 + 3600000; const ok = await m.book({ stallId: '${market.id}', hours: 24, start: t, brand: 'Test Stall', product: 'Things' }); return JSON.stringify({ ok, mine: window.__vvMarket.getState().mine.length, taken: window.__vvMarket.getState().data.bookings.length }); })()`);
-  check('booking a stall works and shows in "your stalls"', JSON.parse(booked).ok && JSON.parse(booked).mine === 1 && JSON.parse(booked).taken === 1, booked);
-  const again = await page.eval(`(async () => { const m = window.__vvMarket.getState(); const t = Math.ceil(Date.now() / 3600000) * 3600000 + 3600000; return String(await m.book({ stallId: '${market.id}', hours: 24, start: t, brand: 'Second', product: '' })); })()`);
+  // a 24-hour booking from the next hour but one; a market week ends on Monday 00:00 UTC, so in its last day that would run past the end,
+  // and the booking goes in the first day of next week instead (this check failed every Sunday before)
+  const booked = await page.eval(`(async () => {
+    const m0 = window.__vvMarket.getState();
+    const weekEnd = Date.parse(m0.week + 'T00:00:00Z') + 7 * 86400000;
+    let start = Math.ceil(Date.now() / 3600000) * 3600000 + 3600000;
+    if (start + 24 * 3600000 > weekEnd) {
+      m0.setWeek(new Date(weekEnd).toISOString().slice(0, 10));
+      for (let i = 0; i < 60 && !(window.__vvMarket.getState().data && !window.__vvMarket.getState().busy); i++) await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 500));
+      start = weekEnd;
+    }
+    const m = window.__vvMarket.getState();
+    const stall = m.data.stalls.find((s) => s.tier === 'prime');
+    const ok = await m.book({ stallId: stall.id, hours: 24, start, brand: 'Test Stall', product: 'Things' });
+    const after = window.__vvMarket.getState();
+    return JSON.stringify({ ok, mine: after.mine.length, taken: after.data.bookings.length, stallId: stall.id, start, week: after.week, notice: after.notice?.text ?? null });
+  })()`);
+  const slot = JSON.parse(booked);
+  check('booking a stall works and shows in "your stalls"', slot.ok && slot.mine === 1 && slot.taken === 1, booked);
+  const again = await page.eval(`(async () => { const m = window.__vvMarket.getState(); return String(await m.book({ stallId: '${slot.stallId}', hours: 24, start: ${slot.start}, brand: 'Second', product: '' })); })()`);
   check('the same stall cannot be booked twice at the same time', again === 'false');
   await page.eval(`document.querySelector('[aria-label="Close"]').click()`);
   await sleep(300);
