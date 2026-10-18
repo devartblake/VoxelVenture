@@ -1,6 +1,6 @@
 # ADR 0003: The web app in apps/web, the Node servers in services/ (Phase C, steps 2 to 5)
 
-- **Status:** accepted, 2026-10-17. On the branch `phase-c/apps-services`. Held until the staging deploy has been rehearsed, by the owner's choice.
+- **Status:** accepted and merged, 2026-10-17. Production (voxelventure.app) has run this layout since that day, and staging since 2026-10-17 ([deploy/STAGING.md](../../../deploy/STAGING.md)).
 - **Context:** Phase C of the [modular monorepo migration plan](../modular_monorepo_migration_plan.md), after [ADR 0002](0002-workspaces.md) (workspaces).
 
 ## Context
@@ -52,5 +52,13 @@ styles/                shared CSS (unchanged; apps/web/app/globals.css imports i
   - Move `server/data/voxelventure.db` (and `outbox/`) to `services/api/data/`, or set `API_DB`.
   - Move `server/logs/` to `services/multiplayer/logs/`, if you want the old error log.
   - On a server, stop the services before moving the folders.
-- **Not verified here:** a real deployment of the new layout. The systemd units, `setup.sh` and the runbook are updated, but only a staging deploy proves them. That is why the branch waits for the staging rehearsal (plan section 6).
+- **Verified since (2026-10-17 and 18):** the new layout is deployed on a real server.
+  - Production runs it, and `verify:live` passes all 17 checks.
+  - Staging runs it with a release-and-switch layout.
+  - A rollback took 2.2 s, and a production backup restored.
+  - The four business journeys pass against staging.
+
+  Two server-only problems turned up there and are fixed:
+  - sudo-rs ignores `sudo -E`, so the build lost `web.env` (`deploy/build-web.sh` now builds it);
+  - Windows checkouts sent CRLF scripts (`deploy/push.ps1` and `.gitattributes` force LF).
 - **Generated file:** `next dev` writes its agent notes (`AGENTS.md`) beside the app it serves, so it may create `apps/web/AGENTS.md`. The root `AGENTS.md` stays.

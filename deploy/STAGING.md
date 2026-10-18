@@ -211,6 +211,7 @@ Staging is where payments are tried before production takes a live key.
 
 | Date | What | Result | Time to undo |
 | :--- | :--- | :--- | :--- |
-| | Rollback (section 5) | | |
-| | Production backup restored (section 6) | | |
+| 2026-10-17 | Rollback (section 5) | Release `232927` back to `232237`: switched, the three services restarted, and `verify:live` passed straight after. The older `231800` was not used: it was the build without the API address (`build-web.sh` now refuses such a build) | 2.2 s (2.8 s with `verify:live`) |
+| 2026-10-17 | Database put back as it was before a release (section 5, step 5) | The snapshot `before-20261017-232927.db` was checked (855 plots, 7 accounts), the current database was copied aside, the copy put in place and the API restarted | 2.2 s |
+| 2026-10-18 | Production backup restored (section 6) | `voxelventure-20261018-002021.db.gz`, production's first backup (taken by that day's deploy), passed the integrity check and holds production's 855 plots. The staging API started on it and answered, then staging was reset. Production had no accounts yet, so this proves the backup and the restore, not a full customer database: do it again once the pilot has data | 2.3 s |
 | 2026-10-17 | Journeys against staging (section 4) | 41 of 41 milestones, all four journeys, in strict mode. The first run stopped at `malformed-input`: it read presence's `/status`, which Caddy rightly hides. It now checks what a watching player sees | |

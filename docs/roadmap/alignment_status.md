@@ -109,7 +109,7 @@ Still to check once the site is live: a Lighthouse run on a real phone and netwo
 | Environment validation | ✅ | The API refuses to start in production with unsafe settings; `npm run check:env` |
 | Production smoke tests | ✅ | `npm run verify:live` |
 | Privacy, refund, advertising and placement terms | Drafted (✅ + 👤) | Six draft policies at `/legal` (terms, privacy, refunds, advertising and placements, retention, merchant responsibilities), with numbers taken from the code and checked by `tests/legal.test.mjs`, consent lines at sign-up and on request forms ✅. Left for you and counsel: the placeholders, the decisions and product gaps in [policy_review.md](../monetization/policy_review.md), legal review, then `POLICY_STATUS` approved and `TERMS_URL` / `REFUND_POLICY_URL` set 👤 |
-| Preview deployments | 👤 | Depends on the host you choose |
+| Preview deployments | ✅ (staging) | staging.voxelventure.app beside production, with any branch deployed by `.\deploy\push.ps1 staging -Deploy -Ref <branch>` ([deploy/STAGING.md](../../deploy/STAGING.md)). There are no per-pull-request previews |
 | Stripe Checkout and webhook idempotency | ✅ | [billing.md](../monetization/billing.md): signed webhooks applied once, idempotency keys, hourly reconciliation. The Stripe account is 👤 |
 
 ## Not done on purpose

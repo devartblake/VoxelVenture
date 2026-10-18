@@ -66,7 +66,8 @@ if ($Target -eq 'staging') {
   $unpack = "set -e; rm -rf $dest; mkdir -p $dest; tar -xzf $remote -C $dest --no-same-owner; rm -f $remote; echo $commit > $dest/.commit"
 } else {
   # in place: the database, node_modules, .next and the Python environment live in this folder, so nothing is removed
-  $unpack = "set -e; test -f $dest/package.json || { echo 'no project at ${dest}: see deploy/README.md, First deployment'; exit 1; }; tar -xzf $remote -C $dest --no-same-owner; rm -f $remote; echo $commit > $dest/.commit"
+  $unpack = "set -e; test -f $dest/package.json || { echo 'no project at ${dest}: see deploy/README.md, First deployment'; exit 1; }; tar -xzf $remote -C $dest --no-same-owner; rm -f $remote; echo $commit > $dest/.commit; chown -R voxel:voxel $dest"
+  # (the unpacked files would otherwise belong to root, and npm ci and the build run as voxel, which owns the rest of the folder)
 }
 Run "unpack into $dest" { ssh $Server $unpack }
 

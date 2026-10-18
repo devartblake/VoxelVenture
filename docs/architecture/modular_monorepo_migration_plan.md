@@ -11,7 +11,10 @@
 - **Phase C (application and service separation):**
   - **Step 1** is merged: workspaces, imports by `@voxelventure/*` name, adapters retired ([ADR 0002](adr/0002-workspaces.md)).
   - **Steps 2 to 5** are merged: `apps/web/`, `services/api/` and `services/multiplayer/`, with the tests, CI and deploy files ([ADR 0003](adr/0003-apps-and-services.md)). Production (voxelventure.app) runs this layout since 2026-10-17.
-- **Phase D:** under way. Staging on the production Linode ([deploy/STAGING.md](../../deploy/STAGING.md)): the business journeys against it, a release layout with a rollback, and restoring a production backup. Stripe test mode waits on the Stripe account.
+- **Phase D:** under way.
+  - **Staging:** it runs on the production Linode ([deploy/STAGING.md](../../deploy/STAGING.md)). The business journeys pass against it, 41 of 41.
+  - **Rehearsals:** a rollback took 2.2 s, and production's first backup restored.
+  - **Left:** Stripe test mode (it waits on the Stripe account), and moving production to the release layout. See the progress table under Phase D.
 **Repository:** `devartblake/VoxelVenture`  
 **Related work:** Competitive strategy and implementation audit, PR #22.
 
@@ -53,7 +56,7 @@ VoxelVenture/
 └── README.md
 ```
 
-**Important:** This is a *target* tree. `services/messaging/` existed before the migration and stays as it is. `packages/` (shared-types, business-core, analytics) exists since Phase B. `apps/web/`, `services/api/` and `services/multiplayer/` exist on the `phase-c/apps-services` branch ([ADR 0003](adr/0003-apps-and-services.md)) until it is merged. `world-core` is still P2. `lib/` and `styles/` stay at the root, shared by the app, the servers and the tests.
+**Important:** This is a *target* tree. `services/messaging/` existed before the migration and stays as it is. `packages/` (shared-types, business-core, analytics) exists since Phase B. `apps/web/`, `services/api/` and `services/multiplayer/` exist since Phase C was merged ([ADR 0003](adr/0003-apps-and-services.md)), and production runs them. `world-core` is still P2. `lib/` and `styles/` stay at the root, shared by the app, the servers and the tests.
 
 ## 2. Recommended migration priorities
 
@@ -209,13 +212,13 @@ New contracts are added as new shapes cross a boundary, by the ADR's recipe. Tha
 
 Phase C is gated: *"Only after production/staging priorities are satisfied"* (section 6: staging deployment, Stripe test/live certification, policy review and pilot measurement first).
 
-| Gate | State |
+| Gate | State (updated 2026-10-18) |
 | --- | --- |
-| Staging deployment | Not yet: the host and domain are your choice ([tasks.md](../roadmap/tasks.md) tasks 1 and 46) |
+| Staging deployment | ✅ Production on voxelventure.app since 2026-10-17, and staging beside it ([deploy/STAGING.md](../../deploy/STAGING.md)) |
 | Stripe test/live certification | Not yet: needs the Stripe account (task 46) |
 | Policy review | Drafted at `/legal`; review and approval are yours (task 45) |
 | Pilot measurement | The dashboard is built; the pilot has not run (task 47) |
-| CI green on `main` | To confirm on GitHub (checklist below) |
+| CI green on `main` | ✅ Every merge to `main` since PR #27 has passed CI |
 
 Step 1 was taken early, by the owner's choice, because it moves no runtime paths. Its record is [ADR 0002](adr/0002-workspaces.md):
 
@@ -226,7 +229,7 @@ Step 1 was taken early, by the owner's choice, because it moves no runtime paths
 - **CI:** `scripts/select-checks.mjs` follows imports by package name.
 - **To merge:** run `npm install` after pulling, so the names resolve.
 
-The rest of Phase C, done on the branch `phase-c/apps-services` ([ADR 0003](adr/0003-apps-and-services.md)) and held until the staging deploy has been rehearsed:
+The rest of Phase C, done on the branch `phase-c/apps-services` ([ADR 0003](adr/0003-apps-and-services.md)) and merged on 2026-10-17 (the owner chose to merge before staging existed; production then deployed on it):
 
 1. ✅ **Workspace tooling** (the branch above): npm workspaces for `packages/*`, so `@voxelventure/*` names resolve. Then the relative `../../packages/...` imports and the `lib/` adapters can go.
 2. ✅ **`apps/web/`:** the app moved with `app/`, `components/`, `public/`, `next.config.mjs`, `jsconfig.json` and `postcss.config.mjs`.
@@ -235,7 +238,7 @@ The rest of Phase C, done on the branch `phase-c/apps-services` ([ADR 0003](adr/
    - `npm run dev`, `build` and `start` pass `apps/web` to Next.
 3. ✅ **`services/api/` and `services/multiplayer/`:** the Node servers moved without a rewrite. The API's data is in `services/api/data/`, and the presence server is `services/multiplayer/server.mjs` with its log in `logs/`. The systemd units, `setup.sh`, `backup.sh` and the settings templates take the new paths. The Caddyfile needed no change (it proxies ports, not paths).
 4. ✅ **The rest follows:** `scripts/select-checks.mjs`, the world-freeze paths, `tests/`, `CODEOWNERS`, the Python parity test and the docs are updated. The lib-loader and the CI workflow needed no change. The full suite, including the production build, passes on the branch.
-5. **To prove before merging:** a staging deploy of the branch with `deploy/README.md`, then the move of any existing data folders, as in ADR 0003's consequences.
+5. ✅ **Proven on a real server:** production was set up on this layout from the start (no old data folders to move), and staging runs it too. See Phase D below.
 
 ### Phase C — Application and service separation (P2)
 
@@ -263,6 +266,24 @@ Run the **full** test suite and real-browser suite, not only change-selected tes
 - CI, staging smoke tests, secrets, backup/restore and rollback.
 
 **Acceptance:** All required checks green and a documented deployment/rollback rehearsal.
+
+**Progress (2026-10-18).** Staging is on the production Linode ([deploy/STAGING.md](../../deploy/STAGING.md), with its rehearsal log):
+
+| Item | State |
+| --- | --- |
+| The full suite and the real-browser suite | ✅ The full suite passes (88 suites, including the four journeys). The browser test passes in full on a fresh build. Its one failure, a stall booking on the last day of a market week, was a timing bug in the test and is fixed |
+| Node API auth, permissions, claims and leases, data migration | ✅ The API, authoritative-data and migration suites; `verify:live` against production and staging |
+| Stripe test-mode checkout, webhooks, idempotency, refunds, renewals, reconciliation | Not yet: the code and its tests are done (`billing`, `billing-game`); test mode on staging needs the Stripe account (STAGING.md section 7) |
+| Business profiles, referral attribution, analytics, CTA events | ✅ The visitor, merchant and attribution journeys pass against staging, 26 milestones |
+| WebGL and non-WebGL paths, mobile layout | Partly. The WebGL path and the phone layout are in the browser test (desktop and phone pages, the interior on a phone). The no-WebGL page has no automated test yet. Real phones and tablets are still to try (tasks 25-27) |
+| Accessibility and performance | Partly: draw-call budgets in the browser test, and the presence load test. Device budgets wait for real devices (adoption plan, Track C) |
+| Multiplayer presence and Python messaging contracts | ✅ The presence contracts and the reconnect journey against staging (15 milestones). The Python messaging suites pass; the service itself is not switched on (task 42) |
+| CI, staging smoke tests | ✅ CI green on `main`; `verify:live` on both stacks |
+| Secrets | Partly: fresh secrets on each stack, never printed by the runbook's commands. Secret scanning and push protection are GitHub settings (task 44) |
+| Backup and restore | ✅ Nightly backups. Production's first backup restored into staging in 2.3 s. Off-site copies (`RCLONE_REMOTE`) are not set up yet |
+| Rollback | ✅ Rehearsed on staging: 2.2 s for the code, 2.2 s to put the database back |
+
+**Still to do for the acceptance:** Stripe test mode on staging, then a documented production deploy using the same release layout. Production still deploys in place.
 
 ## 5. Suggested PR sequence
 
@@ -316,7 +337,7 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 - [x] Inventory current `docs/` files and cross-references ([path map and audit](documentation_path_map.md)).
 - [x] Create `docs/README.md` and category indexes without moving code.
 - [x] Map existing docs to target categories; preserve stable links.
-- [ ] Confirm the existing CI workflow is green.
+- [x] Confirm the existing CI workflow is green (every merge to `main` since PR #27).
 - [x] Write package-boundary ADR before extraction ([ADR 0001](adr/0001-shared-package-boundaries.md)).
 - [x] Update `scripts/select-checks.mjs` before introducing executable `packages/` modules.
 - [x] Phase B first slices: `shared-types` contracts, `business-core` (plans), `analytics` (conversions), with adapters, parity and contract tests.
@@ -328,11 +349,15 @@ The subtotal assumes an experienced developer, existing tests and manageable con
 - [x] Phase C step 1: workspaces and imports by package name, on the branch `phase-c/workspaces` (to review and merge).
 - [x] Phase C steps 2 to 5 (`apps/web/`, `services/api/`, `services/multiplayer/`), done on the branch `phase-c/apps-services` ([ADR 0003](adr/0003-apps-and-services.md)).
 - [x] Merge `phase-c/apps-services` (merged; production deployed on this layout, 2026-10-17).
-- [ ] Phase D, integration certification: staging is written ([deploy/STAGING.md](../../deploy/STAGING.md)). Still to do: the rollback rehearsal, the journeys against staging, a restored production backup, Stripe test mode.
-- [ ] Prioritize staging, Stripe and real-customer validation before app relocation.
+- [ ] Phase D, integration certification ([progress above](#phase-d--integration-certification)):
+  - done: staging, the rollback rehearsal, the journeys against staging, a restored production backup;
+  - left: Stripe test mode, and production on the release layout.
+- [ ] Prioritize staging, Stripe and real-customer validation before app relocation. Staging is done; Stripe and the pilot are left.
 
 ## 10. Final recommendation
 
 **Yes, apply the structure selectively.** Organize docs now, create shared contracts next, and move the runtime only when there is a clear maintainability or deployment payoff. This achieves cleaner ownership and easier AI-agent collaboration while preserving VoxelVenture's competitive differentiators and minimizing risk to commercial launch.
 
-**Phases A, B and C are done. Phase D is under way: staging is ready to set up ([deploy/STAGING.md](../../deploy/STAGING.md)).**
+**Phases A, B and C are done. Phase D is under way:**
+- **Done:** staging is up, a rollback and a backup restore are rehearsed, and the journeys pass against staging.
+- **Left:** Stripe test mode, and moving production to the release layout.
