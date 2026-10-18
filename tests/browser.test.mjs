@@ -89,6 +89,12 @@ try {
   const calls = JSON.parse(perf).calls;
   check('desktop draw calls per frame stay low', calls > 0 && calls < 1200, `${calls} (was 5,617 before batching and instancing)`);
 
+  // key events with no key at all (Chrome's autofill and some extensions send them) are ignored, not thrown on: one did throw in production
+  const problemsBefore = page.problems().length;
+  await page.eval(`(() => { for (const t of ['keydown', 'keyup']) { window.dispatchEvent(new Event(t)); document.dispatchEvent(new Event(t, { bubbles: true })); } return 1; })()`);
+  await sleep(300);
+  check('a key event with no key is ignored, not an error', page.problems().length === problemsBefore, page.problems().slice(problemsBefore).join(' | '));
+
   // click an empty lot and a built plot with a real mouse event
   const info = JSON.parse(await page.eval(`(() => { const st = window.__vvStore.getState(); const front = (p) => st.plots.some((q) => q !== p && q.owner && q.x > p.x - 1 && q.x < p.x + 9 && q.z > p.z - 1 && q.z < p.z + 9); /* a taller building between the lot and the camera would take the click */ const pick = (f) => st.plots.filter((p) => f(p) && !front(p)).slice(20, 21).map((p) => ({ id: p.id, x: p.x, z: p.z, h: p.height }))[0]; return JSON.stringify({ center: st.layout.center, empty: pick((p) => !p.owner && !p.prime && p.districtId !== 'outskirts'), built: pick((p) => p.owner && !p.prime) }); })()`));
   async function clickPlot(p, label) {

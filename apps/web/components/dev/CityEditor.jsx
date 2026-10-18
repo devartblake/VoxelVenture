@@ -495,7 +495,7 @@ export default function CityEditor() {
   useEffect(() => {
     const down = (e) => {
       const tag = e.target?.tagName;
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || !e.key) return; // (some key events have no key: autofill, extensions)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) redoIt();
