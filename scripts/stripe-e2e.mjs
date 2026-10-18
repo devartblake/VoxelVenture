@@ -250,6 +250,9 @@ export const payInBrowser = (site, log = console.log) => async (url, what) => {
     await fill('#cardCvc', '123');
     await fill('#billingName', 'Stripe Check');
     await fill('#billingPostalCode', '10001');
+    // Stripe ticks 'Save my information with Link' by default, which then requires a phone number and stops the payment: untick it
+    await page.eval("(() => { const box = document.querySelector('#enableStripePass') ?? [...document.querySelectorAll('input[type=checkbox]')].find((c) => /save my information|Link/i.test((c.closest('label') ?? c.parentElement)?.innerText ?? '')); if (box && box.checked) box.click(); return true; })()");
+    await sleep(500);
     await page.eval('(document.querySelector(\'[data-testid="hosted-payment-submit-button"]\') ?? document.querySelector(\'.SubmitButton\') ?? document.querySelector(\'button[type=submit]\')).click()');
     let back = false;
     for (let i = 0; i < 90 && !back; i++) {
