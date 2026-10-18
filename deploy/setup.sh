@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# First-time setup of a fresh Ubuntu 24.04 server (a Linode): run as root, from the project folder you copied to /srv/voxelventure.
+# First-time setup of a fresh Ubuntu server (24.04 or newer) (a Linode): run as root, from the project folder you copied to /srv/voxelventure.
 #   sudo bash deploy/setup.sh
 # It installs Node 22, Caddy, Python (for the messaging service) and the SQLite tools, makes the `voxel` user, installs the systemd units
 # and the firewall rules.
@@ -31,6 +31,11 @@ fi
 id voxel >/dev/null 2>&1 || useradd --system --home-dir "$APP" --shell /usr/sbin/nologin voxel
 mkdir -p "$APP/services/api/data" "$APP/services/multiplayer/logs" "$APP/apps/web/.next/cache" "$APP/services/messaging/data" /etc/voxelventure /var/backups/voxelventure
 chown -R voxel:voxel "$APP/services/api/data" "$APP/services/multiplayer/logs" "$APP/apps/web/.next" "$APP/services/messaging/data" /var/backups/voxelventure
+
+# The project belongs to the voxel user, which installs and builds it (the services can still write only to their data folders:
+# ProtectSystem=strict in the units). Root's git may then work in it (it refuses a repository another user owns).
+chown -R voxel:voxel "$APP"
+if [ -d "$APP/.git" ]; then git config --global --get-all safe.directory | grep -qx "$APP" || git config --global --add safe.directory "$APP"; fi
 
 # The Python messaging service's environment, with the pinned packages (it is installed but not started: see deploy/README.md)
 [ -x "$APP/services/messaging/.venv/bin/python" ] || python3 -m venv "$APP/services/messaging/.venv"
@@ -73,7 +78,7 @@ CRON
 echo
 echo "Done. Next:"
 echo "  1. read /etc/voxelventure/api.env, presence.env and web.env (secrets are filled in; add mail and Stripe when ready),"
-echo "     then: cd $APP && sudo -u voxel npm ci && npm run check:env -- /etc/voxelventure/api.env /etc/voxelventure/web.env"
+echo "     then: cd $APP && sudo -u voxel npm ci && node scripts/check-env.mjs /etc/voxelventure/api.env /etc/voxelventure/web.env"
 echo "  2. cd $APP && sudo -u voxel npm ci && bash deploy/build-web.sh /etc/voxelventure/web.env"
 echo "  3. put a caddy hash-password hash in deploy/Caddyfile, copy it to /etc/caddy/Caddyfile, then: systemctl reload caddy"
 echo "  4. systemctl start voxelventure-api voxelventure-presence voxelventure-web"
