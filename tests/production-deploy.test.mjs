@@ -77,6 +77,13 @@ fs.rmSync(dir, { recursive: true, force: true });
 
 const syntax = spawnSync(bash, ['-n', path.join(root, 'deploy', 'production.sh')], { encoding: 'utf8' });
 if (!syntax.error) check('production.sh parses', syntax.status === 0, syntax.stderr);
+// a page opened before the switch keeps loading its chunks: the live release's site files are carried into the new one before the switch
+for (const [name, text] of [['production', script], ['staging', read('deploy', 'staging.sh')]]) {
+  const d = text.slice(text.indexOf('cmd_deploy() {'), text.indexOf('cmd_rollback() {'));
+  check(`${name}: a deploy carries the live release's site files into the new one, before the switch`, /carry_static "\$prev" "\$rel"/.test(d) && d.indexOf('carry_static "$prev"') < d.indexOf('switch_to "$rel"'));
+  check(`${name}: and only for a while (CARRY_DAYS), keeping the new build's own`, /--update=none/.test(text) && /-mtime \+"\$CARRY_DAYS" -delete/.test(text));
+}
+check('a tab left open longer reloads once onto the new build', /ChunkLoadError/.test(read('apps', 'web', 'instrumentation-client.js')));
 
 console.log(fails ? `\n${fails} check(s) failed` : '\nall production deploy checks passed');
 process.exit(fails ? 1 : 0);

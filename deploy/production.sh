@@ -27,6 +27,7 @@ SHARED="$BASE/shared"
 DB="$SHARED/data/voxelventure.db"
 OLD_DB="$BASE/services/api/data/voxelventure.db" # where the old in-place layout keeps it
 KEEP=${PRODUCTION_KEEP:-3}
+CARRY_DAYS=${CARRY_DAYS:-14} # how long a release keeps the site files of the ones before it (carry_static)
 UNITS=(voxelventure-api voxelventure-presence voxelventure-web)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" # the project this script came with
 # Out of the folder it was started from: the voxel user runs parts of this (the backup, npm), and a folder it cannot enter (root's home)
@@ -73,6 +74,16 @@ snapshot() {
   chown voxel:voxel "$out"
   echo "database copied to $out"
   find "$SHARED/data/snapshots" -name 'before-*.db' | sort | head -n -10 | xargs -r rm -f # keep the newest ten
+}
+
+# the site's files from the live release (the hashed /_next/static chunks), copied into a new one: a page opened before the switch still loads
+# the parts it fetches later (opening a building, the editor) instead of failing with a ChunkLoadError. The new build's own files win; carried
+# ones keep their age and go after CARRY_DAYS (the new build's are just made, so they never do).
+carry_static() {
+  local from="$1/apps/web/.next/static" to="$2/apps/web/.next/static"
+  [ -d "$from" ] && [ -d "$to" ] || return 0
+  cp -rp --update=none "$from/." "$to/"
+  find "$to" -type f -mtime +"$CARRY_DAYS" -delete
 }
 
 # a new release from `src`: the code copied, its packages installed and the site built with production's settings (checked to be in it)
@@ -216,6 +227,7 @@ cmd_deploy() {
 
   say "release $stamp, built while the live one keeps serving"
   build_release "$src" "$rel"
+  [ -n "$prev" ] && carry_static "$prev" "$rel"
 
   say "a backup, then the switch"
   sudo -u voxel voxelventure-backup
