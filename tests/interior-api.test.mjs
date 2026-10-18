@@ -141,9 +141,10 @@ try {
   check('the reset is in the audit trail', (await call('GET', `/admin/audit?action=plot.interior_delete`, { token: 'admin' })).data.entries.length === 1);
   check('and the next save goes on from that revision', (await call('PUT', at, { token: amy.token, body: { design: design(), revision: 3 } })).data?.revision === 4);
 
-  // a lease that has ended leaves the business, and its design, with the tenant until somebody takes it over
+  // a lease that has ended leaves the business, and its design, with the tenant until somebody takes it over; only the editing stops
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: 'admin', body: { state: 'grace' } });
-  check('in the grace week the tenant is still the owner and can still save', (await call('PUT', at, { token: amy.token, body: { design: design(), revision: 4 } })).data?.revision === 5);
+  check('in the grace week the tenant can no longer save', (await call('PUT', at, { token: amy.token, body: { design: design(), revision: 4 } })).data?.code === 'lease_ended');
+  check('but the design is still shown', (await call('GET', at)).data.revision === 4 && (await call('GET', at)).data.design !== null);
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: 'admin', body: { state: 'open' } });
   const price = (await call('GET', `/plots/${lot.id}`)).data;
   const took = await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Shop' } });
@@ -164,6 +165,24 @@ try {
   const loaded = withCatalogAssets((await call('GET', at)).data.design ?? {});
   check('a design with the room\'s own door and windows saves', withDoor.status === 200 && JSON.stringify(withDoor.data.design.nodes.dr.asset) === '{"id":"door"}' && withDoor.data.design.nodes.wn.side === 'front', JSON.stringify(withDoor.data).slice(0, 200));
   check('and reloads with their whole assets, by id', JSON.stringify(loaded.nodes?.dr?.asset) === JSON.stringify(DOOR_ASSET) && JSON.stringify(loaded.nodes?.wn?.asset) === JSON.stringify(WINDOW_ASSET) && loaded.nodes.w.children.join() === 'dr,wn');
+
+  // a lease that has ended stops the editing (the grace week and after); the last 14 days still allow it, and renewing gives it back
+  const DAY = 86400000;
+  const setEnd = (ms) => api.db.prepare('UPDATE plots SET lease_end = ? WHERE id = ?').run(ms, lot.id);
+  const rev = async () => (await call('GET', at)).data.revision;
+  setEnd(Date.now() + 3 * DAY);
+  const inWindow = await call('PUT', at, { token: bob.token, body: { design: storedDesign(fitted), revision: await rev() } });
+  check('in the lease\'s last 14 days the owner can still change the inside', inWindow.status === 200, JSON.stringify(inWindow.data));
+  setEnd(Date.now() - DAY);
+  const inGrace = await call('PUT', at, { token: bob.token, body: { design: storedDesign(fitted), revision: await rev() } });
+  const delGrace = await call('DELETE', at, { token: bob.token });
+  check('once the lease has ended (the grace week), saving is refused with lease_ended', inGrace.status === 403 && inGrace.data?.code === 'lease_ended', JSON.stringify(inGrace.data));
+  check('and so is going back to the generated inside', delGrace.status === 403 && delGrace.data?.code === 'lease_ended');
+  check('visitors still see the design meanwhile', (await call('GET', at)).data.design !== null);
+  setEnd(Date.now() - 30 * DAY);
+  check('after the grace week too (open to a buyout)', (await call('PUT', at, { token: bob.token, body: { design: storedDesign(fitted), revision: await rev() } })).data?.code === 'lease_ended');
+  setEnd(Date.now() + 100 * DAY);
+  check('renewing gives the editing back', (await call('PUT', at, { token: bob.token, body: { design: storedDesign(fitted), revision: await rev() } })).status === 200);
 
   // a design is shown only while its author owns the plot, however the plot changed hands
   api.db.prepare('UPDATE plots SET owner_account = ? WHERE id = ?').run(amy.account.id, lot.id);
