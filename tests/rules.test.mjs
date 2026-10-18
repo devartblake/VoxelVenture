@@ -25,8 +25,10 @@ const states = [[T, 'active'], [end - 14 * D - 1, 'active'], [end - 14 * D, 'ren
 for (const [at, want] of states) if (lease.leaseState(end, at) !== want) bad('the lease state at each moment', `${(at - T) / D} days: ${lease.leaseState(end, at)} (wanted ${want})`);
 if (lease.leaseState(null, T) !== 'none' || !lease.takeoverAllowed(null, T)) bad('a business with no lease can be taken over', '');
 if (lease.takeoverAllowed(end, T) || lease.takeoverAllowed(end, end + 1) || !lease.takeoverAllowed(end, end + 8 * D)) bad('a lease protects its tenant until the grace week has passed', '');
-if (lease.leasePrice(1000, 30) !== 250 || lease.leasePrice(1000, 365) !== 1250 || lease.leasePrice(1000, 90) !== 625) bad('a shorter lease costs less', [lease.leasePrice(1000, 30), lease.leasePrice(1000, 90), lease.leasePrice(1000, 365)].join());
+// (a lease is priced from the plot's price for a year; the take-over's 25% is in that price already, lib/game/claimPrice.js)
+if (lease.termPrice(1250, 30) !== 250 || lease.termPrice(1250, 365) !== 1250 || lease.termPrice(1250, 90) !== 625) bad('a shorter lease costs less', [lease.termPrice(1250, 30), lease.termPrice(1250, 90), lease.termPrice(1250, 365)].join());
 if (lease.renewalPrice(1250, 365) !== 625 || lease.renewalPrice(1250, 30) !== 125) bad('a renewal is half price', [lease.renewalPrice(1250, 365), lease.renewalPrice(1250, 30)].join());
+if (lease.termPrice(5, 30) !== 1 || lease.termPrice(5, 90) !== 2.5 || lease.renewalPrice(5, 30) !== 0.5 || lease.renewalPrice(5, 90) !== 1.25) bad('a basic plot\'s lease is priced to the cent', [lease.termPrice(5, 30), lease.termPrice(5, 90), lease.renewalPrice(5, 30), lease.renewalPrice(5, 90)].join());
 if (lease.termOf(45) !== null || lease.termOf('90')?.days !== 90) bad('only 30, 90 and 365 are terms', '');
 if (lease.extendedEnd(end, 90, T) !== end + 90 * D || lease.extendedEnd(end, 90, end + 10 * D) !== end + 100 * D || lease.extendedEnd(null, 30, T) !== T + 30 * D) bad('renewing runs on from the old end, or from now if it has ended', '');
 if (!/protected|left/.test(lease.describeLease(end, 30, T).text) || !/renew/i.test(lease.describeLease(end, 30, end - D).text) || !/buyout/.test(lease.describeLease(end, 30, end + 9 * D).text)) bad('each state is described', '');

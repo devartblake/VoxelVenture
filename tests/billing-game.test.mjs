@@ -63,7 +63,7 @@ const plot = async (id) => (await call('GET', `/plots/${id}`)).data;
 
 try {
   const { generateCity } = await imp('city/cityGenerator.js');
-  const { leasePrice, renewalPrice } = await imp('game/leases.js');
+  const { leaseQuote, renewalQuote, takeoverQuote } = await imp('game/claimPrice.js');
   const { weekStartOf, addWeeks, weekWindow } = await imp('market/weeks.js');
   const city = generateCity(20260101);
   const [lot, lot2] = city.plots.filter((p) => !p.owner && p.districtId !== 'suburb');
@@ -72,18 +72,19 @@ try {
   const biz = { title: 'Amy Coffee', buildingType: 'restaurant', website: 'https://amy.test', variant: 'cafe', logo: { kind: 'generated' }, description: 'Fresh coffee all day.', leaseDays: 30 };
 
   // ---- claiming a plot
-  const before = await plot(lot.id);
+  // what the claim form shows for this plot, no outside chosen, 30 days (lib/game/claimPrice.js): the server must charge exactly that
+  const shown = leaseQuote(lot, null, biz.buildingType, 30).total;
   const c1 = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: biz });
   const o1 = c1.data.checkout?.orderId;
   check('a claim returns Stripe\'s page instead of claiming', c1.status === 200 && c1.data.checkout.url.startsWith('https://checkout.stripe.test/') && !(await plot(lot.id)).owner, JSON.stringify(c1.data).slice(0, 160));
-  check('it charges the lease price, in cents, and comes back to the game', order(o1).cents === leasePrice(before.value, 30) * 100 && sessionOf(o1).params['line_items[0][price_data][unit_amount]'] === String(leasePrice(before.value, 30) * 100) && sessionOf(o1).params.success_url === `https://voxel.test/?paid=${o1}`);
+  check('it charges the lease price, in cents, and comes back to the game', order(o1).cents === Math.round(shown * 100) && sessionOf(o1).params['line_items[0][price_data][unit_amount]'] === String(Math.round(shown * 100)) && sessionOf(o1).params.success_url === `https://voxel.test/?paid=${o1}`);
   check('nothing is written to the ledger yet', api.db.prepare('SELECT COUNT(*) AS n FROM ledger WHERE plot_id = ? AND kind != \'open\'').get(lot.id).n === 0);
   check('a bad claim is refused before any payment', (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 45 } })).status === 400 && S.sessions.size === 1);
   check('the plot is held: nobody else can claim it or start paying for it', (await call('POST', `/plots/${lot.id}/claim`, { token: bob.token, body: { ...biz, title: 'Bob Bikes' } })).data.code === 'held');
   const paid1 = await pay(o1);
   const p1 = await plot(lot.id);
   check('once paid, the plot is the player\'s, with the lease they chose', paid1.received && p1.title === 'Amy Coffee' && p1.lease?.days === 30 && order(o1).status === 'paid');
-  check('the claim is in the ledger and the audit trail', api.db.prepare("SELECT price FROM ledger WHERE plot_id = ? AND kind = 'claim'").get(lot.id)?.price === leasePrice(before.value, 30) && api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'plot.claim' AND target_id = ?").get(String(lot.id)).n === 1);
+  check('the claim is in the ledger and the audit trail', api.db.prepare("SELECT price FROM ledger WHERE plot_id = ? AND kind = 'claim'").get(lot.id)?.price === shown && api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'plot.claim' AND target_id = ?").get(String(lot.id)).n === 1);
   check('a second delivery changes nothing', (await pay(o1)).duplicate === false && api.db.prepare('SELECT COUNT(*) AS n FROM ledger WHERE plot_id = ? AND kind != \'open\'').get(lot.id).n === 1);
   const mine = (await call('GET', '/me/orders', { token: amy.token })).data.orders;
   check('the order list says what was bought', mine[0].label.startsWith('Lease: Amy Coffee') && mine[0].business === null && mine[0].target === `plot:${lot.id}`);
@@ -106,7 +107,7 @@ try {
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'renewal' } });
   const endBefore = (await plot(lot.id)).lease.end;
   const r1 = (await call('POST', `/plots/${lot.id}/renew`, { token: amy.token, body: { leaseDays: 90 } })).data.checkout;
-  check('a renewal is charged at the renewal price', order(r1.orderId).cents === renewalPrice((await plot(lot.id)).value, 90) * 100 && (await plot(lot.id)).lease.end === endBefore);
+  check('a renewal is charged at the renewal price', order(r1.orderId).cents === Math.round(renewalQuote(await plot(lot.id), 90) * 100) && order(r1.orderId).cents === Math.round(lot.price * 0.5 * 0.5 * 100) && (await plot(lot.id)).lease.end === endBefore);
   await pay(r1.orderId);
   const renewed = (await plot(lot.id)).lease;
   check('once paid, the lease runs 90 days longer', Math.abs(renewed.end - (endBefore + 90 * DAY)) < 5000 && renewed.days === 90);
@@ -115,7 +116,7 @@ try {
   // ---- taking over an ended lease
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'open' } });
   const t1 = await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Takes' } });
-  check('a take-over is a checkout too', t1.data.checkout?.orderId > 0 && (await plot(lot.id)).title === 'Amy Coffee');
+  check('a take-over is a checkout too, at 1.25x what the business is worth', t1.data.checkout?.orderId > 0 && (await plot(lot.id)).title === 'Amy Coffee' && order(t1.data.checkout.orderId).cents === Math.round(takeoverQuote(await plot(lot.id), null, biz.buildingType, 30).total * 100) && order(t1.data.checkout.orderId).cents === Math.round(lot.price * 1.25 * 0.2 * 100), String(order(t1.data.checkout.orderId)?.cents));
   await pay(t1.data.checkout.orderId);
   const taken = await plot(lot.id);
   check('once paid, the new tenant has the plot; the old one is not paid out', taken.title === 'Bob Takes' && api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'plot.takeover' AND target_id = ?").get(String(lot.id)).n === 1 && JSON.parse(api.db.prepare("SELECT detail FROM audit_log WHERE action = 'plot.takeover' ORDER BY id DESC").get().detail).paidOut === 0);

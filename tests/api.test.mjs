@@ -47,9 +47,8 @@ try {
   check('claiming needs an account', (await call('POST', `/plots/${lot.id}/claim`, { body: biz })).status === 401);
   check('a bad logo, website or type is refused', (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, logo: { kind: 'icon', icon: 'bomb' } } })).status === 400 && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, website: 'javascript:alert(1)' } })).status === 400 && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, buildingType: 'casino' } })).status === 400);
   check('an Old Town house cannot be claimed', (await call('POST', `/plots/${city.plots.find((p) => p.districtId === 'suburb').id}/claim`, { token: amy.token, body: biz })).status === 409);
-  const before = lot.value;
   const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: biz });
-  check('a claim makes the plot hers, at 1.25x the lot price', claim.status === 200 && claim.data.owner === 'Amy' && claim.data.value === Math.round(before * 1.25) && claim.data.ownerAccount === amy.account.id, JSON.stringify(claim.data).slice(0, 80));
+  check('a claim makes the plot hers, worth its land price (a year\'s lease, as the claim form shows it)', claim.status === 200 && claim.data.owner === 'Amy' && claim.data.value === lot.price && claim.data.ownerAccount === amy.account.id, JSON.stringify(claim.data).slice(0, 80));
   check('it appears in the directory', (await call('GET', `/plots?q=${encodeURIComponent('Amy Coffee')}`)).data.matched === 1);
   // the race: ten players claim one lot at the same moment, exactly one wins
   const racers = [];
@@ -63,14 +62,15 @@ try {
 
   // ---- take over
   const prey = built[3];
-  const prevValue = (await call('GET', `/plots/${prey.id}`)).data.value;
+  // a business the city started with is worth its land: a take-over is 1.25x that, for a year
+  const takePrice = Math.round(prey.price * 1.25 * 100) / 100;
   check('you cannot take over your own business', (await call('POST', `/plots/${lot.id}/takeover`, { token: amy.token, body: biz })).status === 409);
   check('a stale price is refused', (await call('POST', `/plots/${prey.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co', expectedPrice: 1 } })).status === 409);
-  const take = await call('POST', `/plots/${prey.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co', expectedPrice: Math.round(prevValue * 1.25) } });
-  check('a take-over costs 1.25x, pays out the old owner and counts', take.status === 200 && take.data.paidOut === Math.round(prevValue * 1.25) && take.data.previousOwner === prey.owner && take.data.plot.owner === 'Bob' && take.data.plot.takeovers === 1, JSON.stringify(take.data).slice(0, 100));
+  const take = await call('POST', `/plots/${prey.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co', expectedPrice: takePrice } });
+  check('a take-over costs 1.25x, pays out the old owner and counts', take.status === 200 && take.data.paidOut === takePrice && take.data.previousOwner === prey.owner && take.data.plot.owner === 'Bob' && take.data.plot.takeovers === 1, JSON.stringify(take.data).slice(0, 100));
   const hist = (await call('GET', `/plots/${prey.id}/history`)).data;
   check('the history shows the take-over, then the opening', hist.events[0].title === 'Bob Co' && hist.events[0].now && hist.events[0].paidTo === prey.owner && hist.events.at(-1).kind === 'open' && hist.owners === 1);
-  check('only the owner can edit; the price and owner cannot be edited', (await call('PATCH', `/plots/${prey.id}`, { token: amy.token, body: { description: 'x' } })).status === 403 && (await call('PATCH', `/plots/${prey.id}`, { token: bob.token, body: { description: 'New words', value: 1, owner: 'x' } })).data.description === 'New words' && (await call('GET', `/plots/${prey.id}`)).data.value === Math.round(prevValue * 1.25));
+  check('only the owner can edit; the price and owner cannot be edited', (await call('PATCH', `/plots/${prey.id}`, { token: amy.token, body: { description: 'x' } })).status === 403 && (await call('PATCH', `/plots/${prey.id}`, { token: bob.token, body: { description: 'New words', value: 1, owner: 'x' } })).data.description === 'New words' && (await call('GET', `/plots/${prey.id}`)).data.value === takePrice);
 
   // ---- events and statistics
   const mine = built[5];
