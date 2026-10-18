@@ -90,6 +90,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     deliver();
   };
 
+  // the visitor's address: behind Caddy (TRUST_PROXY=1) every connection comes from 127.0.0.1, so it is the first X-Forwarded-For entry
+  const clientIp = (req) => (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
   const hits = new Map(); // ip -> { start, n, auth }
 
   const limited = (ip, auth) => {
@@ -134,7 +136,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   }
   // what verifying a visitor's event needs: their network (hashed), their browser, and the caps (business.mjs, conversions.mjs)
   const visitCtx = (req) => ({
-    ip: (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '',
+    ip: clientIp(req),
     userAgent: req.headers['user-agent'],
     salt: env.IP_SALT,
     secret: business.referralSecret(env),
@@ -173,7 +175,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (internal && (!env.MP_NOTIFY_SECRET || req.headers['x-internal-secret'] !== env.MP_NOTIFY_SECRET)) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
     const chunks = [];
     for await (const c of req) chunks.push(c);
-    const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+    const ip = clientIp(req);
     let out;
     try {
       out = await fetch(messagingService + url.pathname + url.search, {
@@ -249,7 +251,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/events') {
       const b = await body(req);
       // the network the request came from (the first address in X-Forwarded-For when a trusted proxy sets it), only ever kept hashed
-      const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+      const ip = clientIp(req);
       return core.recordEvent(db, account, b, { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, minAgeMs: env.HUMAN_MIN_AGE_MS != null ? Number(env.HUMAN_MIN_AGE_MS) : undefined, visitCap: env.HUMAN_VISIT_CAP ? Number(env.HUMAN_VISIT_CAP) : undefined, clickCap: env.HUMAN_CLICK_CAP ? Number(env.HUMAN_CLICK_CAP) : undefined });
     }
     if ((r = p.match(/^\/plots\/(\d+)\/storefront$/)) && m === 'GET') return engage.storefront(db, account, r[1], { visitor: url.searchParams.get('visitor') });
@@ -445,7 +447,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       return out;
     }
     if (m === 'POST' && p === '/ad-events') {
-      const ip = (env.TRUST_PROXY ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+      const ip = clientIp(req);
       return core.recordAdEvent(db, account, await body(req), { ip, userAgent: req.headers['user-agent'], salt: env.IP_SALT, minAgeMs: env.HUMAN_MIN_AGE_MS != null ? Number(env.HUMAN_MIN_AGE_MS) : undefined, visitCap: env.HUMAN_VISIT_CAP ? Number(env.HUMAN_VISIT_CAP) : undefined, clickCap: env.HUMAN_CLICK_CAP ? Number(env.HUMAN_CLICK_CAP) : undefined });
     }
     if (m === 'GET' && p === '/world/stats') return core.worldStats(db, 0);
@@ -533,7 +535,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
         return send(200, await billing.receiveWebhook(db, Buffer.concat(chunks).toString('utf8'), req.headers['stripe-signature'], env, fetch, afterPaid));
       }
       const internal = url.pathname.startsWith('/internal/') && secret && (secret === env.MP_NOTIFY_SECRET || secret === env.INTERNAL_SECRET);
-      if (!internal && limited(req.socket.remoteAddress ?? '?', url.pathname.startsWith('/auth/'))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
+      if (!internal && limited(clientIp(req) || '?', url.pathname.startsWith('/auth/'))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
       // MESSAGING_READONLY=1: a pause for moving messages (deploy/README.md): everything can be read, nothing about messages is written
       if (env.MESSAGING_READONLY === '1' && req.method !== 'GET' && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) throw new core.ApiError(503, 'Messages are read-only for a few minutes while we do maintenance.', 'unavailable');
       if (messagingService && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) return await forward(req, res, url, headers);

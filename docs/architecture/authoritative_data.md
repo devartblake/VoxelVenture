@@ -74,7 +74,7 @@ It also warns when `TRUST_PROXY`, `MP_NOTIFY_URL` or mail delivery is not set.
 
 **`npm run check:env -- <file>`** runs the same checks on a settings file before a deploy. It also checks the web app's file: the live API address, the site address and `wss://` presence.
 
-**`npm run verify:live -- --api <url> --site <url> [--admin-token <t>]`** is a read-only check to run after every deploy. It checks:
+**`VERIFY_ADMIN_TOKEN=<t> npm run verify:live -- --api <url> --site <url>`** is a read-only check to run after every deploy. It checks:
 
 - The API is up and seeded.
 - CORS allows only the site.
@@ -119,7 +119,7 @@ Two things about upgraded data:
 
 ## Left to do
 
-- **Deploy (needs you):** choose the host and domain (task 1), fill in the settings, then run `check:env`, deploy, and `verify:live`. None of this has been done on a real server.
+- **Deploy (needs you):** choose the host and domain (task 1), fill in the settings, then run `check:env`, deploy, and `verify:live`. Done on 2026-10-17: voxelventure.app is live on a Linode, and `verify:live` passes all 17 checks.
 - **The three-minute hold** when setting up a plot is still client-side only. Claims are atomic on the server, so two people cannot both win, but the hold does not reserve the lot for anyone else.
 - **Gold** (the game's currency) still lives in the browser. Only the server's quest Credits are authoritative. Decided in phase 4: Gold stays a game-only reward, never sold for money ([takeover_payouts.md](../monetization/takeover_payouts.md)). Moving it to the server is still to do, and comes before the Gold-only 1.25x take-over.
 - **Mall stores and shared billboard slots** are local-only features and are hidden with a server. They would need server tables before they can return.

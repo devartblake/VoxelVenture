@@ -65,7 +65,33 @@ Around it:
 **Bandwidth is the number to watch**, more than CPU: presence sends each player a snapshot of nearby players about ten times a second, and a Shared 4 GB plan includes roughly 4 TB a month. These are estimates: measure with the client monitor (`/admin`) before launch.
 
 ### Deployment files
-Written, in [../deploy/](../../deploy/README.md): a `Caddyfile`, systemd units for the three processes, settings templates, a first-time `setup.sh`, a nightly `backup.sh` and a runbook. They have not been run on a real server yet. The `better-sqlite3` swap was tried and dropped: its native build crashed on the development machine, so test it on the Linode itself if you want it. The one thing needed from you is the domain name, which sets `API_ORIGIN` and the `wss://` address.
+In [../deploy/](../../deploy/README.md):
+- a `Caddyfile`;
+- systemd units for the three processes;
+- settings templates;
+- a first-time `setup.sh` and a nightly `backup.sh`;
+- the runbook;
+- staging (`staging.sh`, [STAGING.md](../../deploy/STAGING.md));
+- `build-web.sh`, and `push.ps1` for deploying from Windows.
+
+The `better-sqlite3` swap was tried and dropped: its native build crashed on the development machine, so test it on the Linode itself if you want it.
+
+### What is set up (2026-10-18)
+voxelventure.app has been live on a Shared CPU 4 GB Linode since 2026-10-17, as described above. Staging, at staging.voxelventure.app, runs beside it.
+
+| Item | State |
+| --- | --- |
+| Caddy, Next.js, the API, presence and SQLite on one machine | ✅ `verify:live` passes all 17 checks |
+| systemd units with `Restart=always` | ✅ |
+| Environment and secrets | ✅ Checked by `check:env` and by the API at start. The admin token has been changed twice since launch, after it was printed on screen |
+| Nightly database copies on the machine | ✅ `voxelventure-backup` at 03:15 into `/var/backups/voxelventure`, kept 14 days. A restore is proven ([STAGING.md](../../deploy/STAGING.md#rehearsal-log)) |
+| Off-site copies (Object Storage) | ❌ Not set up: no `RCLONE_REMOTE` in `/etc/voxelventure/backup.env`, and rclone is not installed. Until then, the backups are only on the machine they protect |
+| Linode Backups | To check in the Linode dashboard |
+| Firewall | ✅ `ufw` on the machine allows only SSH, 80 and 443. The Linode Cloud Firewall in front is to check in the dashboard |
+| SSH keys only | ❌ Not yet: key sign-in works, but password sign-in for root is still on (`PasswordAuthentication yes`, `PermitRootLogin yes`) |
+| Bandwidth and load measured with the monitor (`/admin`) | ❌ Not yet: the `/admin` password line in `/etc/caddy/Caddyfile` needs a `caddy hash-password` hash |
+| Payments | Built (section 3); the Stripe account, test mode and the live key are not set up yet |
+| Email | Written to files until a mail service key is set (`MAIL_WEBHOOK_URL`, [deploy/README.md](../../deploy/README.md#email)) |
 
 ## 3. Payments: Stripe or PayPal
 

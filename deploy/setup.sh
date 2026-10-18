@@ -79,6 +79,6 @@ echo
 echo "Done. Next:"
 echo "  1. read /etc/voxelventure/api.env, presence.env and web.env (secrets are filled in; add mail and Stripe when ready),"
 echo "     then: cd $APP && sudo -u voxel npm ci && node scripts/check-env.mjs /etc/voxelventure/api.env /etc/voxelventure/web.env"
-echo "  2. sudo -u voxel bash -c 'cd $APP && set -a && . /etc/voxelventure/web.env && set +a && npm run build'"
+echo "  2. cd $APP && sudo -u voxel npm ci && bash deploy/build-web.sh /etc/voxelventure/web.env"
 echo "  3. put a caddy hash-password hash in deploy/Caddyfile, copy it to /etc/caddy/Caddyfile, then: systemctl reload caddy"
 echo "  4. systemctl start voxelventure-api voxelventure-presence voxelventure-web"

@@ -19,6 +19,11 @@ These tasks in [tasks.md](tasks.md) are **deferred** until the freeze lifts: 9-1
 
 Outside music (task 39) was explicitly requested by the user on 2026-10-16 and added within the existing sound zones. This is a scoped exception; the broader world-expansion freeze remains in force. See the [music provenance record](../licences/music/README.md).
 
+**Walking inside a storefront** was explicitly requested by the user on 2026-10-17. The visitor's own avatar is shown in the interior viewer, and a tap walks it round the furniture. It is a scoped exception, kept to the storefront:
+- **Commercial tie-in:** walking up to an offer (the offer desk, video wall, game cabinet or visit reward) lights it in the storefront panel.
+- **What it reuses:** it adds no new models and no simulation beyond the visitor's own avatar. It uses the city's avatar model, its Wardrobe colours and its walk planner.
+- **Where it lives:** `lib/content/interiorWalk.js` and `apps/web/components/interior/RoomWalker.jsx`, tested by `tests/interior-walk.test.mjs` and the browser test.
+
 ## What continues
 
 - **Stability:** crash fixes, saved-game and data-loss fixes, console errors (tasks 29, 30, 32, 37).

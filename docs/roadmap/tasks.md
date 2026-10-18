@@ -88,6 +88,14 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Speed:** about 1 ms a click.
   - **Tests:** `tests/pathfind.test.mjs` walks 180 clicks on three cities with the game's own movement.
   - **CI:** a world-freeze fix; the commit that adds the file needs a `World-freeze-exception:` line.
+- [x] **Live on a real server** (2026-10-17 and 18; [deploy/README.md](../../deploy/README.md)):
+  - **Production:** voxelventure.app on a Shared CPU 4 GB Linode. `verify:live` passes all 17 checks, and the admin token is passed in `VERIFY_ADMIN_TOKEN` so it is never printed.
+  - **Staging** beside it ([deploy/STAGING.md](../../deploy/STAGING.md)): its own ports, database and secrets, with a release-and-switch deploy that switches back by itself if a release does not start.
+    - Rehearsals: a rollback took 2.2 s, and production's first backup restored into staging.
+    - The four journeys pass against it, 41 of 41.
+  - **Deploying from Windows:** `deploy/push.ps1` (git archive, scp and ssh, always LF).
+  - **Building:** `deploy/build-web.sh` builds with `web.env` and checks the API address is in the build. `sudo -E` is ignored by sudo-rs, so the site would have built as a demo.
+  - **Fixed on the way:** the API's rate limits counted every visitor behind Caddy as one (PR #30).
 - [x] **Presence protocol contracts** (Track B of the [adoption plan](../architecture/external_voxel_repositories_adoption_plan.md), [ADR 0004](../architecture/adr/0004-presence-protocol-contracts.md)):
   - every protocol-2 message, in both directions, is a versioned contract in `packages/shared-types`;
   - the presence server checks `hello` and `auth` against them, and answers a game speaking another protocol version, which then asks the player to reload;
@@ -105,6 +113,14 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Staging:** `JOURNEY_*_URL` and `JOURNEY_ALLOW_WRITES=1` point the suite at a running stack.
   - **Defect found:** a chat line retried after a reconnect was said twice. The presence server now remembers answers per account too.
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
+- [x] **Walking inside a storefront** (a freeze exception, [world_freeze.md](world_freeze.md)):
+  - **The avatar:** the visitor's own avatar, in its Wardrobe colours, comes in at the door of the interior viewer. A tap or click on the floor walks it there, round the furniture of the floor shown (a redesign too), and never through the walls or the stairwell.
+  - **Unreachable floor:** a tap there walks it as near as it can get.
+  - **Storefront tie-in:** choosing a spot in "Look at" walks it there too, and walking up to an offer lights that part of the storefront panel.
+  - **Walk:** the "Walk" switch beside the wall views hides it.
+  - **Code:** `lib/content/interiorWalk.js` (the floor plan, the arrival spot, routes through the city's walk planner) and `apps/web/components/interior/RoomWalker.jsx`.
+  - **Tests:** `tests/interior-walk.test.mjs` (48 seeded rooms, 480 routes) and the browser test (the real rooms).
+- [x] **"Look at" on phones:** the interior's "Look at" menu sits in the storefront panel, above the feedback board, instead of covering half the room (`apps/web/components/interior/LookAt.jsx`). Wider screens keep it over the room.
 - [x] **Music director, a SimCity-style soundtrack** (`lib/game/musicDirector.js`):
   - **What changed:** the music no longer changes with the zoom. Zooming used to cut the track, swap playlists and change the volume.
   - **How it plays:** each track plays to its end, then a short quiet, then the next. Day and night change at the end of a track. Getting into a car switches to the radio at once with a crossfade, and so does staying at the arcade or a cafe for a few seconds; walking past changes nothing.
@@ -119,7 +135,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 ### 1. Backend and live data (the next big piece)
 | # | Task | Size | Depends on |
 | :-: | :--- | :-: | :--- |
-| 1 | Choose the host and domain. The stack is settled: the Node API with SQLite, its own accounts and Stripe ([hosting_stack_payments.md](../operations/hosting_stack_payments.md)) | 0.5 | **Needs you** |
+| 1 | ✅ Choose the host and domain: voxelventure.app on a Linode, live since 2026-10-17 ([deploy/README.md](../../deploy/README.md)). The stack is settled: the Node API with SQLite, its own accounts and Stripe ([hosting_stack_payments.md](../operations/hosting_stack_payments.md)) | 0.5 | **Needs you** |
 | 2 | ✅ Database: plots, owners, ledger, events and ad slots (`docs/architecture/backend.md`) | 3 | 1 |
 | 3 | ✅ Accounts and atomic claim / take-over (Gold on the server still to do: it comes before the Gold-only 1.25x take-over, [takeover_payouts.md](../monetization/takeover_payouts.md)) | 4 | 2 |
 | 4 | ✅ Event logging (visits, clicks with a source) and the stats, history and directory endpoints | 3 | 2 |
@@ -183,7 +199,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | 43 | Close the inquiry/take-over race fully (a reservation held by the Node API), if a strict guarantee is wanted | 1 day, your choice |
 | 44 | Reassessment: repository settings on GitHub: protect `main` (passing CI, a review, Code Owners review, no force pushes or deletion), secret scanning with push protection, Dependabot security alerts and updates (`CODEOWNERS` is in place) | needs you (GitHub settings) |
 | 45 | Reassessment: published policies. **Drafted** at `/legal` (terms, privacy, refunds, advertising, retention, merchant responsibilities; consent lines at sign-up and on request forms; footer links). Left: fill in the placeholders, make the decisions and fix the product gaps in `docs/monetization/policy_review.md`, legal review, then approve (`POLICY_STATUS`) | needs you and a lawyer |
-| 46 | Reassessment: staging with Stripe test mode, mail, migrations, backups with a restore test, error reporting, uptime and alerts; certify checkout, webhooks, refunds and reconciliation end to end | 3-5 days, needs accounts |
+| 46 | 🟡 Reassessment: staging with Stripe test mode, mail, migrations, backups with a restore test, error reporting, uptime and alerts; certify checkout, webhooks, refunds and reconciliation end to end. **Done:** staging at staging.voxelventure.app ([deploy/STAGING.md](../../deploy/STAGING.md)), nightly backups with a restore test (production's first backup restored in 2.3 s), a rehearsed rollback (2.2 s), the four journeys against staging. **Left:** Stripe test mode and the end-to-end payment certification, a mail service, off-site backups, error reporting, uptime checks and alerts | needs the Stripe and mail accounts |
 | 47 | 🟡 Reassessment: the pilot. **Done:**
 
 - the pilot dashboard (`/admin/pilot`, `npm run moderate -- pilot`), with activation, qualified visits, leads, redemptions, purchases, verified revenue, payments, renewals and weekly retention per business;
@@ -199,7 +215,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 - the pilot criteria in `analytics`;
 - contracts for meeting and quote requests, the pilot check-in and the pilot dashboard.
 
-**Phase C step 1** (npm workspaces, imports by `@voxelventure/*` name, the `lib/business/` adapters retired) is merged. **Steps 2 to 5** are done on the branch `phase-c/apps-services` ([ADR 0003](../architecture/adr/0003-apps-and-services.md)): the app in `apps/web/`, and the API and the presence server in `services/`. The branch is held until a staging deploy of it has been rehearsed. Its readiness is in the [plan](../architecture/modular_monorepo_migration_plan.md#phase-c-readiness-2026-10-17) | merge after the staging rehearsal (needs you) |
+**Phase C step 1** (npm workspaces, imports by `@voxelventure/*` name, the `lib/business/` adapters retired) is merged. **Steps 2 to 5** are merged ([ADR 0003](../architecture/adr/0003-apps-and-services.md)): the app in `apps/web/`, and the API and the presence server in `services/`. Production and staging run this layout. **Phase D** (integration certification) is under way: see its progress in the [plan](../architecture/modular_monorepo_migration_plan.md#phase-d--integration-certification) | Phase D: Stripe test mode (needs the account) |
 | 39 | ✅ Outside music: 16 CC0 recordings from OpenGameArt (city, night, arcade, cafe and driving playlists), with the procedural tunes as fallback ([day_night_sound.md](../architecture/day_night_sound.md), `docs/licences/music/`). Left: a listening check on real speakers, loop points for the tracks that have none | listening check needs you |
 
 ## Priorities: by impact and by what sets VoxelVenture apart from ClaimAvenue
@@ -252,7 +268,7 @@ Ideas 02 to 06 are reviewed in [ideas_review.md](ideas_review.md), with quick wi
 Re-ordered on 2026-10-16 to follow the [competitive alignment review](../competitive-research/claimavenue_competitive_alignment_review.md#recommended-implementation-sequence): the commercial loop first, the world after it is validated.
 1. ✅ **Phase 1, freeze world expansion** ([world_freeze.md](world_freeze.md)): deferred items marked ⏸; stability, performance and accessibility work continues (tasks 25, 29, 30, 32, 35, 37).
 2. ✅ **Phase 2, business-first funnel** ([business_funnel.md](../product/business_funnel.md); built, not yet tried with real businesses): free business profile, public indexable pages (`/discover`, `/business/[slug]`, `/district/[slug]`, `/category/[slug]`) with Open Graph images and structured data, CTA selection, share and referral attribution, owner onboarding, value-linked upgrade prompts. The 3D building becomes an optional destination linked from the profile.
-3. 🟡 **Phase 3, authoritative production data** ([authoritative_data.md](../architecture/authoritative_data.md); the code is done, the deploy and its verification need you): decide task 1 (stack, host, sign-in; **needs you**), deploy the API (priority A1), server-owned claims and leases, verified statistics only (no simulated figures in owner dashboards), ads, market bookings, moderation and audit records.
+3. ✅ **Phase 3, authoritative production data** ([authoritative_data.md](../architecture/authoritative_data.md); deployed 2026-10-17 to voxelventure.app on a Linode, `verify:live` passes all 17 checks): task 1 (stack, host, sign-in), deploy the API (priority A1), server-owned claims and leases, verified statistics only (no simulated figures in owner dashboards), ads, market bookings, moderation and audit records.
 4. ✅ **Phase 4, low-risk monetisation** ([billing.md](../monetization/billing.md); done in code; the Stripe account and terms need you): Stripe Checkout with webhook idempotency for a $9 Launch Pack, $19/month Pro, fixed-term sponsored placements, market bookings and leases (task 6, without the real-money 1.25x payout until legal, tax and fraud review).
 5. ✅ **Phase 5, conversion measurement** ([conversions.md](../monetization/conversions.md)): meeting and quote requests on the profile, impressions, qualified visits, store entries, coupon redemptions and purchases credited by click id, the funnel with cost per result on the dashboard, and the renewal rate.
 6. 🟡 **Phase 6, constrained pilot** (the dashboard and check-in are built: [pilot.md](../monetization/pilot.md)): 10-20 businesses in two districts for four weeks; the freeze lifts if it meets the criteria in [world_freeze.md](world_freeze.md#when-it-lifts).

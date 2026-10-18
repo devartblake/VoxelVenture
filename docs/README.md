@@ -42,7 +42,8 @@ Phase A of the [migration plan](architecture/modular_monorepo_migration_plan.md)
 | [pilot.md](monetization/pilot.md) | Phase 6: the pilot dashboard at `/admin/pilot` (and `npm run moderate -- pilot`), each pilot business week by week, the merchants' weekly check-in, and the criteria that lift the world freeze |
 | [takeover_payouts.md](monetization/takeover_payouts.md) | Why the 1.25x take-over rule stays in Gold and real-money take-overs are conventional leases: the legal, tax, fraud and economic reasons |
 | [billing.md](monetization/billing.md) | Phase 4 payments through Stripe Checkout: the Launch Pack, Pro and sponsored placements, and in the game paid leases (claim, take-over, renewal) and market stalls; webhooks, reconciliation, refunds, receipts |
-| [../deploy/README.md](../deploy/README.md) | The deployment runbook and files (Caddy, systemd, settings, backups) for a Linode |
+| [../deploy/README.md](../deploy/README.md) | The deployment runbook and files (Caddy, systemd, settings, backups) for a Linode. Production runs on it: voxelventure.app since 2026-10-17. From Windows: `deploy/push.ps1` |
+| [../deploy/STAGING.md](../deploy/STAGING.md) | Staging beside production: releases with a rollback, the business journeys against it, restoring a production backup, Stripe test mode, and the rehearsal log |
 | [presence_scale.md](architecture/presence_scale.md) | The presence server at scale: protocol 2, what a crowd costs (measured), and how to grow past one server |
 | [interiors_fixtures.md](product/interiors_fixtures.md) | Interiors by business type: the furniture menu, brand colours, hotspots and the fixture price list |
 | [ideas_review.md](roadmap/ideas_review.md) | The idea documents (01 to 06) reviewed: what is built, and the quick wins and longer projects in priority order |

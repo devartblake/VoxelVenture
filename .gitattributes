@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Files that run or are read on the Linux server: always LF, also in a Windows checkout and in `git archive` (deploy/push.ps1).
+# With CRLF, bash stops at the first line and every settings value ends in a stray carriage return.
+*.sh text eol=lf
+deploy/** text eol=lf

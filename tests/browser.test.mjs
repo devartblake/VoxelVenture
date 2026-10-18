@@ -229,9 +229,27 @@ try {
   check('the market draws its stalls (three instanced meshes)', await page.eval(`(() => { let n = 0; window.__vvScene.traverse((o) => { if (o.name === 'market') n = o.children.filter((c) => c.isInstancedMesh && c.count > 0).length; }); return n >= 2; })()`));
   const market = JSON.parse(await page.eval(`(() => { const m = window.__vvMarket.getState(); const stall = m.data.stalls.find((s) => s.tier === 'prime'); return JSON.stringify({ total: m.data.stalls.length, id: stall.id, cents: stall.cents, week: m.data.week, end: m.data.window.end }); })()`));
   check('the market has plenty of stalls, priced $2 to $5', market.total >= 40 && market.cents >= 200 && market.cents <= 500, JSON.stringify(market));
-  const booked = await page.eval(`(async () => { const m = window.__vvMarket.getState(); const t = Math.ceil(Date.now() / 3600000) * 3600000 + 3600000; const ok = await m.book({ stallId: '${market.id}', hours: 24, start: t, brand: 'Test Stall', product: 'Things' }); return JSON.stringify({ ok, mine: window.__vvMarket.getState().mine.length, taken: window.__vvMarket.getState().data.bookings.length }); })()`);
-  check('booking a stall works and shows in "your stalls"', JSON.parse(booked).ok && JSON.parse(booked).mine === 1 && JSON.parse(booked).taken === 1, booked);
-  const again = await page.eval(`(async () => { const m = window.__vvMarket.getState(); const t = Math.ceil(Date.now() / 3600000) * 3600000 + 3600000; return String(await m.book({ stallId: '${market.id}', hours: 24, start: t, brand: 'Second', product: '' })); })()`);
+  // a 24-hour booking from the next hour but one; a market week ends on Monday 00:00 UTC, so in its last day that would run past the end,
+  // and the booking goes in the first day of next week instead (this check failed every Sunday before)
+  const booked = await page.eval(`(async () => {
+    const m0 = window.__vvMarket.getState();
+    const weekEnd = Date.parse(m0.week + 'T00:00:00Z') + 7 * 86400000;
+    let start = Math.ceil(Date.now() / 3600000) * 3600000 + 3600000;
+    if (start + 24 * 3600000 > weekEnd) {
+      m0.setWeek(new Date(weekEnd).toISOString().slice(0, 10));
+      for (let i = 0; i < 60 && !(window.__vvMarket.getState().data && !window.__vvMarket.getState().busy); i++) await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 500));
+      start = weekEnd;
+    }
+    const m = window.__vvMarket.getState();
+    const stall = m.data.stalls.find((s) => s.tier === 'prime');
+    const ok = await m.book({ stallId: stall.id, hours: 24, start, brand: 'Test Stall', product: 'Things' });
+    const after = window.__vvMarket.getState();
+    return JSON.stringify({ ok, mine: after.mine.length, taken: after.data.bookings.length, stallId: stall.id, start, week: after.week, notice: after.notice?.text ?? null });
+  })()`);
+  const slot = JSON.parse(booked);
+  check('booking a stall works and shows in "your stalls"', slot.ok && slot.mine === 1 && slot.taken === 1, booked);
+  const again = await page.eval(`(async () => { const m = window.__vvMarket.getState(); return String(await m.book({ stallId: '${slot.stallId}', hours: 24, start: ${slot.start}, brand: 'Second', product: '' })); })()`);
   check('the same stall cannot be booked twice at the same time', again === 'false');
   await page.eval(`document.querySelector('[aria-label="Close"]').click()`);
   await sleep(300);
@@ -371,6 +389,28 @@ try {
     await sleep(400);
     check('choosing a hotspot marks it', await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.innerText === 'Entrance').getAttribute('aria-pressed') === 'true'`));
     if (st === pickStores[0]) {
+      // the visitor's avatar in the room: it comes in at the door, walks where it is sent, never through the furniture, and can be hidden
+      const walk0 = JSON.parse(await page.eval(`JSON.stringify(window.__vvRoomWalk ? (() => { const w = window.__vvRoomWalk.where(); return { x: w.x, z: w.z, rects: w.map?.rects?.length ?? -1, bounds: w.map?.bounds }; })() : null)`));
+      check('the avatar is in the room, with the furniture as its floor plan', Boolean(walk0 && walk0.rects > 0 && walk0.bounds), JSON.stringify(walk0));
+      if (walk0) {
+        const to = { x: walk0.bounds.x0 + 1, z: walk0.bounds.z0 + 1 }; // the back corner: across the room, round whatever is in the way
+        await page.eval(`window.__vvRoomWalk.walkTo(${to.x}, ${to.z}); 1`);
+        let blocked = false;
+        let walked = null;
+        for (let i = 0; i < 80; i++) {
+          await sleep(250);
+          walked = JSON.parse(await page.eval(`(() => { const w = window.__vvRoomWalk.where(); const r = 0.17; const inside = w.map.rects.some((q) => w.x > q.x0 - r && w.x < q.x1 + r && w.z > q.z0 - r && w.z < q.z1 + r); return JSON.stringify({ x: w.x, z: w.z, walking: w.walking, inside }); })()`));
+          blocked ||= walked.inside;
+          if (!walked.walking) break;
+        }
+        check('sent across the room, it walks there', walked && !walked.walking && Math.hypot(walked.x - walk0.x, walked.z - walk0.z) > 1, JSON.stringify({ from: walk0, to: walked }));
+        check('and never through the furniture on the way', !blocked);
+      }
+      await page.eval(`document.querySelector('[data-testid="room-walk"]').click()`);
+      await sleep(400);
+      check('the Walk switch hides the avatar', (await page.eval(`document.querySelector('[data-testid="room-walk"]').getAttribute('aria-pressed')`)) === 'false');
+      await page.eval(`document.querySelector('[data-testid="room-walk"]').click()`);
+      await sleep(400);
       // the rich-effects switch: off by default, turns on and off again, and the viewer is still there afterwards
       check('rich effects start off', (await page.eval(`document.querySelector('[data-testid="viewer-fx"]')?.getAttribute('aria-pressed')`)) === 'false');
       await page.eval(`document.querySelector('[data-testid="viewer-fx"]').click()`);
@@ -549,6 +589,19 @@ try {
     check('the joystick knob is centred on its base', Math.abs(joystick.kx - joystick.bx) < 0.5 && Math.abs(joystick.ky - joystick.by) < 0.5, `offset ${(joystick.kx - joystick.bx).toFixed(1)}, ${(joystick.ky - joystick.by).toFixed(1)}`);
     check('the joystick is centred on the screen', Math.abs(joystick.bx - joystick.vw / 2) < 1, `${joystick.bx} vs ${joystick.vw / 2}`);
   }
+  // an interior on a phone: the "Look at" menu is in the storefront panel, not over the room, and choosing a spot there works
+  await phone.eval(`window.__vvStore.getState().openInterior(window.__vvStore.getState().layout.malls[0].stores.find((x) => x.id === '${pickStores[0].id}'))`);
+  await sleep(9000);
+  const phoneSpots = JSON.parse(await phone.eval(`(() => {
+    const shown = (sel) => { const el = document.querySelector(sel); if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+    return JSON.stringify({ inline: shown('[data-testid="hotspots-inline"]'), overlay: shown('[data-testid="hotspots"]'), inPanel: Boolean(document.querySelector('aside [data-testid="hotspots-inline"]')) });
+  })()`));
+  check('on a phone the "Look at" menu is in the storefront panel, not over the room', phoneSpots.inline && phoneSpots.inPanel && !phoneSpots.overlay, JSON.stringify(phoneSpots));
+  await phone.eval(`[...document.querySelectorAll('[data-testid="hotspots-inline"] button')].find((b) => b.innerText === 'Entrance')?.click()`);
+  await sleep(400);
+  check('and choosing a spot there marks it', await phone.eval(`[...document.querySelectorAll('[data-testid="hotspots-inline"] button')].find((b) => b.innerText === 'Entrance')?.getAttribute('aria-pressed') === 'true'`));
+  await phone.eval(`window.__vvStore.getState().closeInterior()`);
+  await sleep(500);
   check('no console errors or uncaught exceptions on the phone page', phone.problems().length === 0, phone.problems().slice(0, 3).join(' | '));
 
   // ---- what the server saw ----

@@ -7,6 +7,7 @@ import { ApiFailure } from '@/lib/data/api';
 import { claimCouponRemote, redeemCouponRemote, completeQuestRemote, fetchStorefront, fundQuestRemote, hideFeedbackRemote, postFeedbackRemote, saveStorefront, startQuestRemote, subscribeRemote } from '@/lib/data/sync';
 import { useAccount } from '@/lib/state/accountStore';
 import { useCityStore } from '@/lib/state/store';
+import LookAt from './LookAt';
 import ReportButton from '@/components/ui/ReportButton';
 
 const INPUT = 'w-full rounded border border-sx-stroke bg-sx-alt px-2.5 py-1.5 text-xs text-white focus:border-sx-cyan focus:outline-none';
@@ -284,6 +285,8 @@ export default function LiveStorefront({ plotId }) {
           {!data.brand.coupon && !data.brand.quest && !data.brand.video && !data.brand.game && (
             <p className="text-xs text-slate-500">{data.own ? 'Nothing here yet. Press Edit to add a coupon, a video, a game demo or a visit reward.' : 'This business has no offers right now.'}</p>
           )}
+          {/* a phone's "Look at" menu: here, above the feedback board, rather than over the room (wider screens keep it there) */}
+          <div className="sm:hidden"><LookAt layout="inline" /></div>
           <Board data={data} reload={reload} />
           {!data.own && <GetUpdates plot={plot} />}
         </>

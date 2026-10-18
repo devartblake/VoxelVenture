@@ -1,6 +1,6 @@
 # Deploying VoxelVenture to a Linode
 
-A runbook for one server running everything: the web app, the API and the presence server, with Caddy in front for HTTPS. The reasoning behind the choices is in [../docs/operations/hosting_stack_payments.md](../docs/operations/hosting_stack_payments.md). These files have not been run on a real server yet: do the first deployment on a throwaway Linode and read each step before you run it.
+A runbook for one server running everything: the web app, the API and the presence server, with Caddy in front for HTTPS. The reasoning behind the choices is in [../docs/operations/hosting_stack_payments.md](../docs/operations/hosting_stack_payments.md). voxelventure.app has run on these files since 2026-10-17. Read each step before you run it. Staging (`STAGING.md`) is where a change is tried first.
 
 | File | What it is |
 | :--- | :--- |
@@ -9,6 +9,8 @@ A runbook for one server running everything: the web app, the API and the presen
 | `systemd/*.service` | The three processes, restarted automatically, and the messaging service (installed, not enabled until the switch-over below) |
 | `env/*.env.example` | The settings for each process (copied to `/etc/voxelventure/`) |
 | `backup.sh` | A consistent copy of the database (and the messaging service's, once it has one), kept for 14 days, optionally uploaded with rclone |
+| `push.ps1` | From Windows: copy the committed project to the server (staging or production) and optionally deploy it, with no rsync needed |
+| `staging.sh`, `Caddyfile.staging`, `systemd/staging/` | Staging on the same machine: the business journeys, deploy and rollback rehearsals, restoring a production backup ([STAGING.md](STAGING.md)) |
 
 The files are filled in for **voxelventure.app** (the game), **api.voxelventure.app** (the API) and **play.voxelventure.app** (presence), with `www.voxelventure.app` and `voxelventure.net` redirecting to the game. Only the secrets are left as `CHANGE_ME`.
 
@@ -50,7 +52,13 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
      apt install -y git
      git clone git@github.com:devartblake/VoxelVenture.git /srv/voxelventure
      ```
-   - **Or copy it** from your machine (without `node_modules`, `.next` or `services/api/data`): `rsync -a --exclude node_modules --exclude .next --exclude services/api/data ./ root@SERVER:/srv/voxelventure/`.
+   - **Or copy it** from your machine (without `node_modules`, `.next` or `services/api/data`): `rsync -a --exclude node_modules --exclude .next --exclude services/api/data ./ root@SERVER:/srv/voxelventure/` (`root@SERVER` is `root@` and the Linode's IP). From Windows, which has no rsync (PowerShell, in the project folder; it unpacks and never deletes anything):
+     ```powershell
+     git -c core.autocrlf=false -c core.eol=lf archive --format=tar.gz -o "$env:TEMP\vv.tar.gz" HEAD
+     scp "$env:TEMP\vv.tar.gz" "root@SERVER:/tmp/vv.tar.gz"
+     ssh root@SERVER "mkdir -p /srv/voxelventure && tar -xzf /tmp/vv.tar.gz -C /srv/voxelventure && rm /tmp/vv.tar.gz"
+     ```
+     After the first deployment, `deploy/push.ps1 production` does this (see Updating).
 
    On a 4 GB plan, add 2 GB of swap first so the build cannot run out of memory: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab`.
 2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`. Among the rest, it gives the project folder to the `voxel` user (which installs and builds it) and lets root's git work in it.
@@ -60,9 +68,9 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
    ```
    cd /srv/voxelventure
    sudo -u voxel npm ci
-   sudo -u voxel bash -c 'cd /srv/voxelventure && set -a && . /etc/voxelventure/web.env && set +a && npm run build'
+   bash deploy/build-web.sh /etc/voxelventure/web.env
    ```
-   The settings are loaded inside the `voxel` user's shell, so this does not depend on `sudo -E` (newer Ubuntu releases ship a `sudo` that may not keep the environment).
+   `build-web.sh` builds as the `voxel` user with `web.env` loaded, then checks that the API address is really in the build. Don't build through `sudo -E`: newer Ubuntu's sudo ignores `-E`, and the site then builds as a demo without any error.
    `npm ci` also runs `patch-package`, which applies the fixes in `patches/`: copy that folder with the rest.
 5. **Caddy:** the domain is already in `deploy/Caddyfile`; make a password hash with `caddy hash-password` for the monitor page, copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`.
 6. **Start everything:** `systemctl start voxelventure-api voxelventure-presence voxelventure-web`.
@@ -71,19 +79,42 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
    - `curl https://play.voxelventure.app/health` returns `{"ok":true,...}`
    - Open `https://voxelventure.app`: you should be able to look around without signing in, and sign-in appears only when you claim something.
    - `journalctl -u voxelventure-api -f` (and `-presence`, `-web`) show the logs.
-   - **Verify the data is authoritative:** `npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app --admin-token <ADMIN_TOKEN>` must end `all checks passed`. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
+   - **Verify the data is authoritative:** this must end `all checks passed`:
+     ```
+     VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
+       npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
+     ```
+     Give the admin token in `VERIFY_ADMIN_TOKEN`, never as `--admin-token`: npm prints the command it runs, so a token on the command line ends up on screen and in the terminal's scrollback. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
 
 ## Updating
+**From Windows,** `deploy/push.ps1` does all of this (`root@SERVER` is `root@` and the Linode's IP):
+
+```powershell
+$env:VV_SERVER = "root@SERVER"
+.\deploy\push.ps1 production            # copy only: the committed project, unpacked over /srv/voxelventure
+.\deploy\push.ps1 production -Deploy    # copy, then a database backup, npm ci, the build with web.env, and a restart
+```
+
+- **What it sends:** the committed project, packed with `git archive` and copied with `scp` and `ssh`, both built into Windows. Uncommitted edits stay behind.
+- **What it keeps:** nothing on the server is deleted, so the database, `node_modules` and the settings stay.
+- **Line endings:** it always sends Unix (LF) line endings.
+- **SSH keys:** see [STAGING.md](STAGING.md#copying-the-project-to-the-server) to set them up, so it doesn't ask for the password each time.
+- **Try it on staging first:** `.\deploy\push.ps1 staging -Deploy`.
+
+By hand, on the server:
+
 ```
 cd /srv/voxelventure
-git pull                      # or copy the new files over (rsync as above)
+git pull                      # with a git clone; otherwise copy the files as in step 1 or with push.ps1 production
 chown -R voxel:voxel /srv/voxelventure
+sudo -u voxel voxelventure-backup
 sudo -u voxel npm ci
-sudo -u voxel bash -c 'cd /srv/voxelventure && set -a && . /etc/voxelventure/web.env && set +a && npm run build'
+bash deploy/build-web.sh /etc/voxelventure/web.env
 systemctl restart voxelventure-api voxelventure-presence voxelventure-web
-npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app --admin-token <ADMIN_TOKEN>
+VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
+  npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
 ```
-The API upgrades the database in place when it starts (new columns are added). Take a backup first: `sudo -u voxel voxelventure-backup`.
+The API upgrades the database in place when it starts (new columns are added), which is why the backup comes first.
 
 ## From the old layout (before Phase C)
 
