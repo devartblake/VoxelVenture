@@ -86,7 +86,7 @@ export default function FollowCamera() {
     const key = (e) => {
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || !e.key) return; // (some key events have no key: autofill, extensions)
       const k = e.key.toLowerCase();
       if (k === 'g') {
         if (view().free) view().endFree();

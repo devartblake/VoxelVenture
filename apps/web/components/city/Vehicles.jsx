@@ -127,7 +127,8 @@ export default function Vehicles() {
   useEffect(() => {
     const typing = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
     const down = (e) => {
-      if (!avatarState.vehicle || typing(e.target)) return;
+      // (!e.key: some key events have none, e.g. Chrome's autofill and some extensions send them; this threw in production, 2026-10-18)
+      if (!avatarState.vehicle || typing(e.target) || !e.key) return;
       const k = e.key.toLowerCase();
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) keys.current.add(k);
       else if (k === 'x') leave();
@@ -136,7 +137,7 @@ export default function Vehicles() {
         fish();
       }
     };
-    const up = (e) => keys.current.delete(e.key.toLowerCase());
+    const up = (e) => e.key && keys.current.delete(e.key.toLowerCase());
     const clear = () => keys.current.clear();
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);

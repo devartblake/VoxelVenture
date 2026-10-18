@@ -188,7 +188,7 @@ export default function Avatar() {
   // Keyboard: WASD / arrows to move, Shift to run, E to interact, 1-3 for emotes.
   useEffect(() => {
     const down = (e) => {
-      if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !e.key) return; // (some key events have no key: autofill, extensions)
       const state = useCityStore.getState();
       if (state.activeInteriorPlot || state.wardrobeOpen) return;
       const key = e.key.toLowerCase();
@@ -211,7 +211,7 @@ export default function Avatar() {
         keys.current.add('shift');
       }
     };
-    const up = (e) => keys.current.delete(e.key.toLowerCase());
+    const up = (e) => e.key && keys.current.delete(e.key.toLowerCase());
     const clear = () => keys.current.clear();
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
