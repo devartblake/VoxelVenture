@@ -20,6 +20,7 @@ try {
   const { useAccount } = await imp('state/accountStore.js');
   const sync = await imp('data/sync.js');
   const { apiOn, setToken } = await imp('data/api.js');
+  const { takeoverQuote } = await imp('game/claimPrice.js');
   check('the live API is switched on by the environment', apiOn());
   const store = () => useCityStore.getState();
   const empty = store().plots.find((p) => !p.owner && p.districtId !== 'suburb' && !p.prime);
@@ -64,7 +65,8 @@ try {
 
   // take over
   const prey = store().plots.find((p) => p.owner && p.generated && p.buildingType !== 'house' && p.districtId !== 'suburb' && !p.userClaimed);
-  const price = Math.round(prey.value * 1.25);
+  const price = takeoverQuote(prey, null, 'shop').total; // what the take-over form shows (lib/game/claimPrice.js): 1.25x the land of a business the city started with
+  check('the game prices the take-over as 1.25x its land', price === Math.round(prey.price * 1.25 * 100) / 100, String(price));
   const r = await sync.takeOverRemote(prey.id, { ...biz, title: 'Bob Takes Over' }, price);
   const took = store().plots.find((p) => p.id === prey.id);
   check('a take-over pays out the old owner and the building becomes Bob\'s', r.paidOut === price && took.owner === 'Bob' && took.userClaimed && took.title === 'Bob Takes Over' && took.takeovers === 1);

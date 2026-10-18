@@ -1,18 +1,20 @@
-import { ApiError, fail, getPlot, plotView, requireAccount } from './core.mjs';
+import { ApiError, fail, getPlot, plotView, pricedPlot, requireAccount } from './core.mjs';
 import { transaction } from './db.mjs';
 import { enqueue, noticeAddress } from './engage.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 
 // Leases (renewing, notices, an admin way to end one) and Building of the Week (the daily collectibles earn a vote). The rules are the game's own, in
 // lib/game/leases.js; this is the part that needs the database.
-const { DAY_MS, GRACE_DAYS, RENEWAL_WINDOW_DAYS, leaseState, renewalPrice, termOf, extendedEnd } = await imp('game/leases.js');
+const { DAY_MS, GRACE_DAYS, RENEWAL_WINDOW_DAYS, leaseState, termOf, extendedEnd } = await imp('game/leases.js');
+const { renewalQuote } = await imp('game/claimPrice.js');
 const { weekStartOf, addWeeks } = await imp('market/weeks.js');
 const { HUNT_COUNT } = await imp('game/daily.js');
 const { votesAllowed, votingClosesAt, LEADERS_SHOWN } = await imp('game/buildingOfWeek.js');
 const now = () => Date.now();
 
 // ---- leases ---------------------------------------------------------------------------------------------------------
-// The tenant renews: in the last 14 days of the lease, the grace week after it, or later if nobody has taken the plot over. Half the price of a new lease.
+// The tenant renews: in the last 14 days of the lease, the grace week after it, or later if nobody has taken the plot over. Half the price of a new lease
+// of the plot with the outside it has now (lib/game/claimPrice.js renewalQuote), so a lease made under older prices renews at today's.
 export function renewLease(db, account, plotId, input = {}) {
   requireAccount(account);
   return transaction(db, () => {
@@ -22,7 +24,7 @@ export function renewLease(db, account, plotId, input = {}) {
     const state = leaseState(p.lease_end);
     if (state === 'active') fail(409, `You can renew in the last ${RENEWAL_WINDOW_DAYS} days of the lease.`, 'too_early');
     const days = input.leaseDays == null ? p.lease_days : termOf(input.leaseDays)?.days ?? fail(400, 'A lease is 30, 90 or 365 days.', 'bad_term');
-    const price = renewalPrice(p.value, days);
+    const price = renewalQuote(pricedPlot(p), days);
     const end = extendedEnd(state === 'open' ? null : p.lease_end, days);
     db.prepare('UPDATE plots SET lease_days = ?, lease_end = ?, lease_notified = 0, updated_at = ? WHERE id = ?').run(days, end, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'renew', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, p.title, price, now());
@@ -51,7 +53,7 @@ export function sendLeaseNotices(db, at = now()) {
     if (to) {
       const subject = { renewal: `${r.title}: your lease ends soon`, grace: `${r.title}: your lease has ended`, open: `${r.title} is open to a buyout` }[state];
       const body = {
-        renewal: `The lease on ${r.title} (plot #${r.id}) ends on ${new Date(r.lease_end).toUTCString()}. Until then nobody else can take it over, and you can renew now for ${renewalPrice(r.value, r.lease_days).toLocaleString()}.`,
+        renewal: `The lease on ${r.title} (plot #${r.id}) ends on ${new Date(r.lease_end).toUTCString()}. Until then nobody else can take it over, and you can renew now for $${renewalQuote(pricedPlot(r), r.lease_days).toLocaleString()}.`,
         grace: `The lease on ${r.title} (plot #${r.id}) has ended. You have ${GRACE_DAYS} days to renew before anyone else can take it over.`,
         open: `The lease on ${r.title} (plot #${r.id}) ended and the week to renew has passed, so anyone can take it over now. You can still renew it until someone does.`,
       }[state];
