@@ -13,6 +13,8 @@
 #   HEALTHCHECK_URL a Healthchecks.io ping address (deploy/MONITORING.md): pinged when the backup and its upload worked, and at /fail
 #                   when anything did not, so a night with no backup (or no off-site copy) emails you
 set -euo pipefail
+# out of the folder it was started from: run by hand from a folder the voxel user cannot enter (root's home), find and sqlite3 fail
+cd /
 
 [ -f /etc/voxelventure/backup.env ] && . /etc/voxelventure/backup.env
 heartbeat() { if [ -n "${HEALTHCHECK_URL:-}" ]; then curl -fsS -m 10 --retry 3 -o /dev/null "${HEALTHCHECK_URL%/}$1" || echo "Could not reach $HEALTHCHECK_URL"; fi; }

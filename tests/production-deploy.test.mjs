@@ -51,6 +51,12 @@ check('a deploy backs up (off the machine too) and snapshots the database before
 check('and switches back to the previous release when the new one does not answer', /did not come up: switching back/.test(deploy) && /switch_to "\$prev"/.test(deploy));
 check('old releases are pruned, never the live one or the one before it', /\[ "\$r" = "\$live" \] \|\| \[ "\$r" = "\$prev" \] \|\| \{ rm -rf "\$r"/.test(deploy));
 check('the switch is one rename: never a moment without a live release', /mv -Tf "\$BASE\/current\.next" "\$BASE\/current"/.test(script));
+// the first move stopped at its backup: started from root's home, which the voxel user cannot enter. Each script now leaves it, after
+// working out where the project is (HERE), and reads a folder given on the command line from where it was started (abs)
+const leaves = (f) => /^cd \/$/m.test(read('deploy', f));
+const afterHere = (f) => read('deploy', f).indexOf('HERE=') < read('deploy', f).search(/^cd \/$/m);
+check('each deploy script leaves the folder it was started from, after finding the project', ['production.sh', 'staging.sh', 'backup.sh'].every(leaves) && ['production.sh', 'staging.sh'].every(afterHere));
+check('and reads a folder given on the command line from where it was started', /src="\$\(abs "\$\{2:-\}"\)"/.test(script) && /render_env "\$\(abs "\$2"\)"/.test(read('deploy', 'staging.sh')));
 check('push.ps1 asks the server which layout production is on, and deploys releases with production.sh', /test -L \/srv\/voxelventure\/current/.test(read('deploy', 'push.ps1')) && /production\.sh deploy/.test(read('deploy', 'push.ps1')));
 
 // ---- the settings helper, run for real
