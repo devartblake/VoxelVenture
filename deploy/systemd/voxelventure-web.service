@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=voxel
-WorkingDirectory=/srv/voxelventure
+WorkingDirectory=/srv/voxelventure/current
 EnvironmentFile=/etc/voxelventure/web.env
 # `npm run build` must have been run with web.env loaded: the NEXT_PUBLIC_ addresses are fixed into the build.
 ExecStart=/usr/bin/node node_modules/next/dist/bin/next start apps/web -H 127.0.0.1 -p 3000
@@ -15,7 +15,8 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/srv/voxelventure/apps/web/.next/cache
+# the live release's page cache (the leading - : no error if a release has none yet)
+ReadWritePaths=-/srv/voxelventure/current/apps/web/.next/cache
 
 [Install]
 WantedBy=multi-user.target

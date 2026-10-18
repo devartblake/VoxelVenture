@@ -72,6 +72,7 @@ In [../deploy/](../../deploy/README.md):
 - a first-time `setup.sh` and a nightly `backup.sh`;
 - the runbook;
 - staging (`staging.sh`, [STAGING.md](../../deploy/STAGING.md));
+- `production.sh`, production on releases: a deploy builds while the live release serves, switches in a second and switches back by itself;
 - `build-web.sh`, and `push.ps1` for deploying from Windows.
 
 The `better-sqlite3` swap was tried and dropped: its native build crashed on the development machine, so test it on the Linode itself if you want it.

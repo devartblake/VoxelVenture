@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=voxel
-WorkingDirectory=/srv/voxelventure
+WorkingDirectory=/srv/voxelventure/current
 EnvironmentFile=/etc/voxelventure/presence.env
 ExecStart=/usr/bin/node services/multiplayer/server.mjs
 Restart=always
@@ -16,7 +16,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/srv/voxelventure/services/multiplayer/logs
+ReadWritePaths=/srv/voxelventure/shared/logs
 
 [Install]
 WantedBy=multi-user.target

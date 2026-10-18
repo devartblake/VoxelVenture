@@ -67,16 +67,19 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
 2. **Run the setup:** `sudo bash /srv/voxelventure/deploy/setup.sh`. Among the rest, it gives the project folder to the `voxel` user (which installs and builds it) and lets root's git work in it.
 3. **Fill in the settings** in `/etc/voxelventure/api.env`, `presence.env` and `web.env` (the addresses are already voxelventure.app). `setup.sh` has already put a long random value in `ADMIN_TOKEN`, `IP_SALT`, `MP_NOTIFY_SECRET`, `REFERRAL_SECRET` and `INTERNAL_SECRET`, a different one each and the same one in every file that shares it; to change one by hand, use `openssl rand -hex 32` and change it in every file it appears in. `API_SEED` must match the game's seed. `presence.env` also needs the same `IP_SALT` as `api.env`, and `TRUST_PROXY=1`. Network addresses are only ever kept as that salted hash, and behind Caddy the presence server must read each player's address from `X-Forwarded-For`, or everyone shares one per-network connection limit. For chat, `presence.env` needs `MP_API_URL` (the API on this machine), `MP_CHAT_GUESTS=0` (only signed-in players chat) and `MP_ORIGINS` set to your game's address; `api.env` needs `MP_NOTIFY_URL` so inbox notices reach players, and its `MESSAGING_*` lines switch chat, the inbox and owner messages off or change their limits and how long messages are kept (the defaults are fine to start).
    Then **check them**: `cd /srv/voxelventure && sudo -u voxel npm ci && node scripts/check-env.mjs /etc/voxelventure/api.env /etc/voxelventure/web.env` must say `ok` for both (it lists anything still a placeholder, too short, a test setting, or not https). The API checks the same again when it starts and **refuses to start in production** until they are fixed (`journalctl -u voxelventure-api` says why).
-4. **Install and build**, with the web settings loaded (the `NEXT_PUBLIC_` addresses are fixed into the build):
+4. **The first release.** Production runs on releases (`deploy/production.sh`):
+   - each deploy is built in its own folder, `/srv/voxelventure/releases/<date>`;
+   - `/srv/voxelventure/current` links to the live release;
+   - the database, the outbox and the logs live in `/srv/voxelventure/shared/`, outside every release.
+
+   Do step 5 first, then:
    ```
-   cd /srv/voxelventure
-   sudo -u voxel npm ci
-   bash deploy/build-web.sh /etc/voxelventure/web.env
+   bash /srv/voxelventure/deploy/production.sh migrate --check   # read-only: what it will do, and that everything is there
+   bash /srv/voxelventure/deploy/production.sh migrate           # builds the first release and starts the three services
    ```
-   `build-web.sh` builds as the `voxel` user with `web.env` loaded, then checks that the API address is really in the build. Don't build through `sudo -E`: newer Ubuntu's sudo ignores `-E`, and the site then builds as a demo without any error.
-   `npm ci` also runs `patch-package`, which applies the fixes in `patches/`: copy that folder with the rest.
+   The build runs `npm ci` (which also applies the fixes in `patches/`) and `deploy/build-web.sh`. That builds as the `voxel` user with `web.env` loaded (the `NEXT_PUBLIC_` addresses are fixed into the build), then checks the API address is really in the build. Don't build through `sudo -E`: newer Ubuntu's sudo ignores `-E`, and the site then builds as a demo without any error.
 5. **Caddy:** the domain is already in `deploy/Caddyfile`; make a password hash with `caddy hash-password` for the monitor page, copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`.
-6. **Start everything:** `systemctl start voxelventure-api voxelventure-presence voxelventure-web`.
+6. **Started by step 4.** Restart them all with `systemctl restart voxelventure-api voxelventure-presence voxelventure-web`.
 7. **Check it:**
    - `curl https://api.voxelventure.app/health` returns `{"ok":true,...}`
    - `curl https://play.voxelventure.app/health` returns `{"ok":true,...}`
@@ -91,34 +94,47 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
      Give the admin token in `VERIFY_ADMIN_TOKEN`, never as `--admin-token`: npm prints the command it runs, so a token on the command line ends up on screen and in the terminal's scrollback. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
 
 ## Updating
-**From Windows,** `deploy/push.ps1` does all of this (`root@SERVER` is `root@` and the Linode's IP):
+
+Production runs on **releases**, as staging does. A deploy goes like this:
+1. It builds the new code in its own folder while the live release keeps serving.
+2. It takes a backup: the nightly one, so it also goes off the machine, plus a snapshot in `shared/data/snapshots/`.
+3. It switches `current` to the new release in about a second.
+4. If the new release doesn't answer, it switches back by itself.
+
+**From Windows,** `deploy/push.ps1` does all of it (`root@SERVER` is `root@` and the Linode's IP):
 
 ```powershell
 $env:VV_SERVER = "root@SERVER"
-.\deploy\push.ps1 production            # copy only: the committed project, unpacked over /srv/voxelventure
-.\deploy\push.ps1 production -Deploy    # copy, then a database backup, npm ci, the build with web.env, and a restart
+.deploypush.ps1 production            # copy only: the committed project, into /srv/voxelventure/incoming/
+.deploypush.ps1 production -Deploy    # copy, then: a new release, a backup, the switch
 ```
 
-- **What it sends:** the committed project, packed with `git archive` and copied with `scp` and `ssh`, both built into Windows. Uncommitted edits stay behind.
-- **What it keeps:** nothing on the server is deleted, so the database, `node_modules` and the settings stay.
-- **Line endings:** it always sends Unix (LF) line endings.
-- **SSH keys:** see [STAGING.md](STAGING.md#copying-the-project-to-the-server) to set them up, so it doesn't ask for the password each time.
-- **Try it on staging first:** `.\deploy\push.ps1 staging -Deploy`.
+- **What it sends:** the committed project, packed with `git archive` and copied with `scp` and `ssh`, both built into Windows. Uncommitted edits stay behind, and it always sends Unix (LF) line endings.
+- **SSH keys:** see [STAGING.md](STAGING.md#copying-the-project-to-the-server).
+- **Try it on staging first:** `.deploypush.ps1 staging -Deploy`.
 
-By hand, on the server:
+**On the server:**
 
 ```
-cd /srv/voxelventure
-git pull                      # with a git clone; otherwise copy the files as in step 1 or with push.ps1 production
-chown -R voxel:voxel /srv/voxelventure
-sudo -u voxel voxelventure-backup
-sudo -u voxel npm ci
-bash deploy/build-web.sh /etc/voxelventure/web.env
-systemctl restart voxelventure-api voxelventure-presence voxelventure-web
-VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
-  npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
+bash /srv/voxelventure/current/deploy/production.sh deploy                         # from incoming/ (what push.ps1 copied)
+git -C /srv/voxelventure/repo pull &&   bash /srv/voxelventure/repo/deploy/production.sh deploy --from /srv/voxelventure/repo   # or from the git clone
+bash /srv/voxelventure/current/deploy/production.sh rollback                       # back to the release before
+bash /srv/voxelventure/current/deploy/production.sh status                         # the releases, the live one, the services
+cd /srv/voxelventure/current && VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)"   npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
 ```
-The API upgrades the database in place when it starts (new columns are added), which is why the backup comes first.
+
+- **What a rollback keeps:** it leaves the database as it is. The API only ever adds columns, so older code still reads it.
+- **Putting the database back as well:** `rollback` prints the commands, using the snapshot taken before the release went live.
+
+**Moving to releases (once, from the old in-place layout).** `production.sh migrate`:
+- builds the first release from the clone while the site keeps running;
+- takes a backup;
+- stops the three services for a few seconds, moves the database into `shared/data/` (checked: sound, with the same plots and accounts), and points `API_DB`, `MAIL_DIR` and `MP_LOG_DIR` there;
+- installs the new service files and starts them.
+
+If they don't answer, it **puts the old settings and services back** and starts the old layout. The old clone is kept as `/srv/voxelventure/repo`, and nothing is deleted. Run `migrate --check` first: it reads everything and changes nothing.
+
+The API upgrades the database in place when it starts (new columns are added), which is why every deploy backs it up first.
 
 ## From the old layout (before Phase C)
 
@@ -158,7 +174,7 @@ The app is in `apps/web/`, and the servers are in `services/api/` and `services/
      `provider = Other` works with every rclone version (older ones do not know `Linode`); `no_check_bucket` is needed because a limited key may not create buckets. `backup.sh` uses `/etc/voxelventure/rclone.conf` by itself when it is there (or set `RCLONE_CONFIG` in `backup.env`).
   3. Test: `sudo -u voxel voxelventure-backup` must end `Uploaded to linode:voxelventure-backups`, and `RCLONE_CONFIG=/etc/voxelventure/rclone.conf rclone ls linode:voxelventure-backups` lists the file.
   4. The bucket keeps copies for `RCLONE_KEEP` days (default 30, set it in `backup.env`); only the backup's own files are ever deleted there.
-- **Restore:** to fetch a copy from the bucket first, `RCLONE_CONFIG=/etc/voxelventure/rclone.conf rclone copy linode:voxelventure-backups/voxelventure-DATE.db.gz /var/backups/voxelventure/`. Then `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/services/api/data/voxelventure.db`, make sure the `voxel` user owns it, then `systemctl start voxelventure-api`.
+- **Restore:** to fetch a copy from the bucket first, `RCLONE_CONFIG=/etc/voxelventure/rclone.conf rclone copy linode:voxelventure-backups/voxelventure-DATE.db.gz /var/backups/voxelventure/`. Then `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/shared/data/voxelventure.db` and `rm -f /srv/voxelventure/shared/data/voxelventure.db-wal /srv/voxelventure/shared/data/voxelventure.db-shm` (on the old in-place layout, the folder is `/srv/voxelventure/services/api/data/`), make sure the `voxel` user owns it, then `systemctl start voxelventure-api`. To try a copy without touching production, restore it into staging: [STAGING.md](STAGING.md) section 6.
 - **Alerts:** `HEALTHCHECK_URL` in `backup.env` emails you when a night's backup or upload fails ([MONITORING.md](MONITORING.md#healthchecksio-the-nightly-backup)).
 - Do a restore on a spare machine once, before you rely on it.
 

@@ -8,8 +8,11 @@
 
     staging     unpacks into /srv/voxelventure-staging/incoming/ (emptied first). With -Deploy: deploy/staging.sh deploy, which builds a
                 new release, switches to it and switches back by itself if it does not come up.
-    production  unpacks over /srv/voxelventure/ (nothing is deleted there: the database, node_modules and settings stay). With -Deploy:
-                a database backup, npm ci, the build with web.env, and a restart of the three services, as "Updating" in deploy/README.md.
+    production  on releases (after deploy/production.sh migrate): unpacks into /srv/voxelventure/incoming/ (emptied first). With -Deploy:
+                deploy/production.sh deploy, which builds a new release while the live one serves, backs up, switches, and switches back
+                by itself if it does not come up.
+                In the old in-place layout (before the move): unpacks over /srv/voxelventure/ (nothing is deleted). With -Deploy: a database
+                backup, npm ci, the build with web.env, and a restart of the three services.
 
   The server is -Server, or the VV_SERVER environment variable (e.g. root@203.0.113.10).
 
@@ -48,7 +51,15 @@ if ($Ref -eq 'HEAD' -and (git status --porcelain --untracked-files=no)) {
   Write-Host 'Note: you have uncommitted changes. They are NOT sent: only the commit is.' -ForegroundColor Yellow
 }
 
-$dest = if ($Target -eq 'staging') { '/srv/voxelventure-staging/incoming' } else { '/srv/voxelventure' }
+# production on releases (a `current` link) or still in the old in-place layout: the server says which
+$releases = $false
+if ($Target -eq 'production') {
+  $layout = (ssh $Server "test -L /srv/voxelventure/current && echo releases || echo in-place")
+  if ($LASTEXITCODE -ne 0) { Fail "cannot reach $Server" }
+  $releases = ($layout -eq 'releases')
+  Write-Host "production layout: $layout" -ForegroundColor Cyan
+}
+$dest = if ($Target -eq 'staging') { '/srv/voxelventure-staging/incoming' } elseif ($releases) { '/srv/voxelventure/incoming' } else { '/srv/voxelventure' }
 $archive = Join-Path $env:TEMP "voxelventure-$commit.tar.gz"
 $remote = "/tmp/voxelventure-$commit.tar.gz"
 
@@ -61,7 +72,7 @@ try {
   Remove-Item $archive -ErrorAction SilentlyContinue
 }
 
-if ($Target -eq 'staging') {
+if ($Target -eq 'staging' -or $releases) {
   # incoming is only ever a copy of a commit: empty it, so files deleted in the project do not linger
   $unpack = "set -e; rm -rf $dest; mkdir -p $dest; tar -xzf $remote -C $dest --no-same-owner; rm -f $remote; echo $commit > $dest/.commit"
 } else {
@@ -74,12 +85,15 @@ Run "unpack into $dest" { ssh $Server $unpack }
 if (-not $Deploy) {
   Write-Host "`nCopied $commit to ${Server}:$dest." -ForegroundColor Green
   if ($Target -eq 'staging') { Write-Host "Deploy it with:  .\deploy\push.ps1 staging -Deploy   (or on the server: bash $dest/deploy/staging.sh deploy)" }
-  else { Write-Host 'Deploy it with:  .\deploy\push.ps1 production -Deploy   (or the "Updating" steps in deploy/README.md)' }
+  elseif ($releases) { Write-Host "Deploy it with:  .\deploy\push.ps1 production -Deploy   (or on the server: bash $dest/deploy/production.sh deploy)" }
+  else { Write-Host 'Deploy it with:  .\deploy\push.ps1 production -Deploy, or move to releases first: bash /srv/voxelventure/deploy/production.sh migrate --check (deploy/README.md)' }
   exit 0
 }
 
 if ($Target -eq 'staging') {
   Run 'deploy staging' { ssh $Server "bash $dest/deploy/staging.sh deploy" }
+} elseif ($releases) {
+  Run 'deploy production (a new release, a backup, the switch)' { ssh $Server "bash $dest/deploy/production.sh deploy" }
 } else {
   $steps = @(
     'set -e',
@@ -98,5 +112,5 @@ Write-Host "`nDeployed $commit to $Target." -ForegroundColor Green
 $site = if ($Target -eq 'staging') { 'staging.voxelventure.app' } else { 'voxelventure.app' }
 $etc = if ($Target -eq 'staging') { '/etc/voxelventure/staging' } else { '/etc/voxelventure' }
 Write-Host 'Check it on the server:'
-Write-Host "  cd $(if ($Target -eq 'staging') { '/srv/voxelventure-staging/current' } else { '/srv/voxelventure' })"
+Write-Host "  cd $(if ($Target -eq 'staging') { '/srv/voxelventure-staging/current' } elseif ($releases) { '/srv/voxelventure/current' } else { '/srv/voxelventure' })"
 Write-Host "  VERIFY_ADMIN_TOKEN=`"`$(grep ^ADMIN_TOKEN= $etc/api.env | cut -d= -f2)`" npm run verify:live -- --api https://api.$site --site https://$site"

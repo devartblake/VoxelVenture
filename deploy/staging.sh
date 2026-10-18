@@ -43,6 +43,7 @@ render_env() {
       -e "s#127\.0\.0\.1:3001#127.0.0.1:3101#g" \
       -e "s#^API_DB=.*#API_DB=$DB#" \
       -e "s#^MP_LOG_DIR=.*#MP_LOG_DIR=$BASE/logs#" \
+      -e "s#^MAIL_DIR=.*#MAIL_DIR=$BASE/data/outbox#" \
       -e "s#^(\# ?)?(MAIL_WEBHOOK_URL|MAIL_WEBHOOK_TOKEN)=.*#\# \2: never on staging (it would email real addresses)#" \
       -e "s#^(\# )?STRIPE_SECRET_KEY=.*#\# STRIPE_SECRET_KEY=sk_test_...   (test keys only: deploy refuses a live key)#" \
       -e "s#^SENTRY_ENVIRONMENT=.*#SENTRY_ENVIRONMENT=staging#" \
