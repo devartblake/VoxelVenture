@@ -76,7 +76,7 @@ try {
   check('a lease is 30, 90 or 365 days', (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 45 } })).status === 400);
   const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 30 } });
   check('claiming with a 30-day lease gives a lease that ends in 30 days', claim.status === 200 && claim.data.lease.days === 30 && claim.data.lease.state === 'active' && Math.abs(claim.data.lease.end - Date.now() - 30 * 86400000) < 60000, JSON.stringify(claim.data.lease));
-  check('the plot is worth the full 1.25x, whatever the lease', claim.data.value === Math.round(lot.value * 1.25));
+  check('the plot is worth a year\'s price (its land), whatever the lease', claim.data.value === lot.price && claim.data.lease.renewPrice === Math.round(lot.price * 0.2 * 0.5 * 100) / 100, JSON.stringify([claim.data.value, claim.data.lease.renewPrice]));
   check('nobody can take over a leased business', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
   check('it is too early to renew a fresh lease', (await call('POST', `/plots/${lot.id}/renew`, { token: amy.token, body: {} })).data.code === 'too_early');
   check('renewing needs the tenant', (await call('POST', `/plots/${lot.id}/renew`, {})).status === 401 && (await call('POST', `/plots/${lot.id}/renew`, { token: bob.token, body: {} })).status === 404);
@@ -85,7 +85,7 @@ try {
   check('in the last days nobody else can take it over either', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
   const before = (await call('GET', `/plots/${lot.id}`)).data.lease;
   const renewed = await call('POST', `/plots/${lot.id}/renew`, { token: amy.token, body: { leaseDays: 90 } });
-  check('the tenant renews at half price and the lease runs on from its old end', renewed.status === 200 && renewed.data.plot.lease.days === 90 && renewed.data.plot.lease.end > before.end + 89 * 86400000 && renewed.data.paid === Math.round(claim.data.value * 0.5 * 0.5) && renewed.data.plot.lease.state === 'active', JSON.stringify(renewed.data.plot.lease));
+  check('the tenant renews at half price and the lease runs on from its old end', renewed.status === 200 && renewed.data.plot.lease.days === 90 && renewed.data.plot.lease.end > before.end + 89 * 86400000 && renewed.data.paid === Math.round(lot.price * 0.5 * 0.5 * 100) / 100 && renewed.data.plot.lease.state === 'active', JSON.stringify(renewed.data.plot.lease));
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'grace' } });
   check('in the grace week only the tenant can renew (right of first refusal)', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'open' } });

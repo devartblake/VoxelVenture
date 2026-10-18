@@ -20,7 +20,8 @@ if (!findBrowser()) {
   console.log('SKIP: no Edge or Chrome found (set BROWSER_PATH to run the browser tests)');
   process.exit(0);
 }
-if (!fs.existsSync(path.join(root, '.next', 'BUILD_ID'))) {
+// `next build apps/web` writes the build to apps/web/.next (since Phase C; a checkout from before it may still have one at the root)
+if (!fs.existsSync(path.join(root, 'apps', 'web', '.next', 'BUILD_ID'))) {
   console.log('SKIP: no production build found. Run `npm run build` first.');
   process.exit(0);
 }
@@ -389,6 +390,13 @@ try {
     await sleep(400);
     check('choosing a hotspot marks it', await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.innerText === 'Entrance').getAttribute('aria-pressed') === 'true'`));
     if (st === pickStores[0]) {
+      // the props come from the props bucket in a build with NEXT_PUBLIC_PROPS_BASE_URL, otherwise from the site's own /items
+      // (lib/content/interiorProps.js), never from Pascal's CDN: read from the page's network log
+      const glbs = JSON.parse(await page.eval(`JSON.stringify(performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.includes('.glb')))`));
+      const origin = await page.eval('location.origin');
+      const propsBase = (process.env.NEXT_PUBLIC_PROPS_BASE_URL ?? '').replace(/\/+$/, '');
+      const ours = glbs.filter((u) => (propsBase ? u.startsWith(`${propsBase}/props/`) : u.startsWith(`${origin}/items/`)));
+      check(`the room's models load from ${propsBase ? 'the props bucket' : 'the site\'s own /items'}, the door too`, ours.length >= 3 && ours.some((u) => /\/door\/[^/]*\/?model\.glb$/.test(u)) && !glbs.some((u) => u.includes('editor.pascal.app')), `${ours.length} of ${glbs.length}: ${glbs.filter((u) => !ours.includes(u)).slice(0, 3).join(' ')}`);
       // the visitor's avatar in the room: it comes in at the door, walks where it is sent, never through the furniture, and can be hidden
       const walk0 = JSON.parse(await page.eval(`JSON.stringify(window.__vvRoomWalk ? (() => { const w = window.__vvRoomWalk.where(); return { x: w.x, z: w.z, rects: w.map?.rects?.length ?? -1, bounds: w.map?.bounds }; })() : null)`));
       check('the avatar is in the room, with the furniture as its floor plan', Boolean(walk0 && walk0.rects > 0 && walk0.bounds), JSON.stringify(walk0));

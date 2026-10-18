@@ -22,6 +22,9 @@ const py = selectChecks(['services/messaging/app/main.py']);
 check('a messaging service change runs the Python tests and the messaging tests against it', py.python && has(py, 'messaging-fastapi.test.mjs') && lacks(py, 'models.test.mjs'));
 check('a changed test runs itself', JSON.stringify(selectChecks(['tests/api.test.mjs']).tests) === '["api.test.mjs"]');
 check('a script runs the tests that use it', has(selectChecks(['scripts/verify-live.mjs']), 'authoritative.test.mjs') && selectChecks(['scripts/verify-live.mjs']).tests.length < 5);
+const props = selectChecks(['scripts/props/upload.mjs', 'scripts/props/cors.xml']);
+check('a change to the props scripts runs the props test, not everything', has(props, 'interior-props.test.mjs') && props.tests.length < 5, JSON.stringify(props.tests));
+check('and so do the props manifest and the prop folders', has(selectChecks(['apps/web/public/props/manifest.json']), 'interior-props.test.mjs') && has(selectChecks(['apps/web/public/items/door/model.glb']), 'interior-props.test.mjs') && has(selectChecks(['lib/content/interiorPropKeys.js']), 'interior-props.test.mjs', 'live-browser.test.mjs'));
 for (const f of ['package.json', 'package-lock.json', 'tests/helpers.mjs', 'scripts/lib-loader.mjs', '.github/workflows/ci.yml', 'patches/x.patch', 'next.config.mjs'])
   check(`${f} runs everything`, selectChecks([f]).tests === 'all');
 check('a file no rule knows runs everything', selectChecks(['somewhere/new-thing.yaml']).tests === 'all' && selectChecks(['somewhere/new-thing.yaml']).python);

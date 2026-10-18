@@ -23,7 +23,7 @@ The corner mini-map opens it too, and the City Map & Guide panel has an "Open th
 - **A light moving layer** (you, other players, planes, the route, the waypoint, the scale bar) is drawn on top about 30 times a second (every frame while dragging).
 - **Detail by zoom:** footprints from 1.1 px per unit, fields 0.7, trees 2.2, road names 2.2, building names 6, billboards 3, centre lines 4; district names only when zoomed out. Labels avoid each other.
 - Device pixel ratio is capped at 1.5. The numbers are in `window.__vvMap` (`staticMs`, `plotsInView`, `plotsTotal`, `redraws`, `frameMs`); in the default city the whole map redraws in about 4 ms and a close-up draws well under a third of the plots.
-- The 3D scene is **not** streamed by area; it is already instanced (about 400 to 600 draw calls). Real 3D streaming is the larger task in [study_world_streaming.md](../architecture/study_world_streaming.md).
+- The 3D scene is **not** streamed by area; it is already instanced (about 400 to 600 draw calls). Real 3D streaming is the larger task in [study_world_streaming.md](../world/study_world_streaming.md).
 
 ## Routes
 `lib/city/routing.js`: a graph of the road junctions (`layout.intersections` along `layout.roads`, plus the diagonals), A* from the road point nearest you to the one nearest the waypoint, then straight legs off the road at each end. Walking speed is 3 units a second (`WALK_SPEED`). Across the 15 test cities the routes average 1.49 times the straight line (`tests/routing.test.mjs`). `apps/web/components/city/RouteFollower.jsx` draws the beam, ring and dashed line in the 3D city and drives the avatar when "Go there" is used.

@@ -58,6 +58,10 @@ export function checkWebEnv(env = {}) {
   if (!https(env.NEXT_PUBLIC_SITE_URL) || PLACEHOLDER.test(env.NEXT_PUBLIC_SITE_URL ?? '')) errors.push('NEXT_PUBLIC_SITE_URL must be the site\'s real https:// address (canonical links, share images, the sitemap).');
   if (env.NEXT_PUBLIC_MP_URL && !/^wss:\/\//i.test(env.NEXT_PUBLIC_MP_URL)) errors.push('NEXT_PUBLIC_MP_URL must be a wss:// address in production.');
   if (!env.NEXT_PUBLIC_MP_URL && !env.NEXT_PUBLIC_MP_URLS) warnings.push('NEXT_PUBLIC_MP_URL is not set: no multiplayer presence or chat.');
+  // the interior props' bucket (lib/content/interiorProps.js, scripts/props/upload.mjs): the browser fetches the models from it, so https only
+  if (env.NEXT_PUBLIC_PROPS_BASE_URL) {
+    if (!https(env.NEXT_PUBLIC_PROPS_BASE_URL) || PLACEHOLDER.test(env.NEXT_PUBLIC_PROPS_BASE_URL) || /[?#]/.test(env.NEXT_PUBLIC_PROPS_BASE_URL)) errors.push('NEXT_PUBLIC_PROPS_BASE_URL must be the props bucket\'s real public https:// address (no ? or #), e.g. https://<bucket>.<region>.linodeobjects.com.');
+  } else warnings.push('NEXT_PUBLIC_PROPS_BASE_URL is not set: the interior furniture, doors and windows are served from this server (apps/web/public/items), not object storage.');
   checkSentry(env, errors, warnings);
   return { errors, warnings };
 }

@@ -1,6 +1,6 @@
 # Land prices: an analysis of a whole city at full occupancy
 
-Written for: you, to settle the price of land before the real world is laid out. The generated city is only a stand-in for the hand-authored one ([study_world_streaming.md](../architecture/study_world_streaming.md) section 7), so this document gives **rules** that depend on a few attributes of a plot, plus the numbers they produce on the test city (seed 20260101, all 790 plots taken). The tool that made the pictures is `/pricing` in the development server (not in release builds): it has every number below on a slider.
+Written for: you, to settle the price of land before the real world is laid out. The generated city is only a stand-in for the hand-authored one ([study_world_streaming.md](../world/study_world_streaming.md) section 7), so this document gives **rules** that depend on a few attributes of a plot, plus the numbers they produce on the test city (seed 20260101, all 790 plots taken). The tool that made the pictures is `/pricing` in the development server (not in release builds): it has every number below on a slider.
 
 ## The decisions it follows
 - A **basic plot costs $5**, wherever it is.

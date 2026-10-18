@@ -7,7 +7,8 @@ import { imp } from '../../scripts/lib-loader.mjs';
 const { generateCity, SUBURB_ID, TAKEOVER_MULTIPLIER } = await imp('city/cityGenerator.js');
 const { cleanLogo } = await imp('game/logos.js');
 const { toEmbedUrl } = await imp('content/embeds.js');
-const { DEFAULT_TERM, leasePrice, takeoverAllowed, termOf, DAY_MS: LEASE_DAY, describeLease, renewalPrice } = await imp('game/leases.js');
+const { DEFAULT_TERM, takeoverAllowed, termOf, DAY_MS: LEASE_DAY, describeLease } = await imp('game/leases.js');
+const { leaseQuote, renewalQuote, takeoverQuote } = await imp('game/claimPrice.js');
 const { skylineFor } = await imp('game/skyline.js');
 const { cleanExterior } = await imp('game/exterior.js');
 export { TAKEOVER_MULTIPLIER };
@@ -34,19 +35,39 @@ export const text = (v, max) => [...String(v ?? '')].filter((c) => c.charCodeAt(
 
 // ---- seeding ---------------------------------------------------------------------------------------------------------
 // Fills the plots table from the generator (once). Built plots keep their generated business as the city's own.
+// Each plot's facts carry its pricing attributes (`land`, lib/game/landPrice.js), so the server prices a lease from them as the claim form does. A database
+// seeded before that (or by an older generator) is brought up to date every time the server starts.
 export function seedWorld(db, seed = 20260101) {
-  if (db.prepare('SELECT COUNT(*) AS n FROM plots').get().n > 0) return { seeded: false };
   const city = generateCity(seed);
+  if (db.prepare('SELECT COUNT(*) AS n FROM plots').get().n > 0) return { seeded: false, land: refreshLand(db, city) };
   const ins = db.prepare('INSERT INTO plots (id, district, building_type, owner_name, title, website, variant, value, base_visits, claimable, facts, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
   const led = db.prepare("INSERT INTO ledger (plot_id, kind, owner_name, title, price, at) VALUES (?, 'open', ?, ?, ?, ?)");
   transaction(db, () => {
     for (const p of city.plots) {
       const { owner, title, website, buildingType, value, visits, interiorData } = p;
-      ins.run(p.id, p.districtId, buildingType ?? null, owner ?? null, title, website ?? null, interiorData?.variant ?? null, Math.round(value), Math.round(visits ?? 0), p.districtId === SUBURB_ID || p.admin ? 0 : 1, JSON.stringify({ x: p.x, z: p.z, w: p.w, d: p.d, yaw: p.yaw ?? 0, prime: Boolean(p.prime), luxury: Boolean(p.luxury), grand: Boolean(p.grand), admin: Boolean(p.admin), height: p.height, floors: interiorData?.floors ?? 1, district: p.district, color: p.color }), now());
+      ins.run(p.id, p.districtId, buildingType ?? null, owner ?? null, title, website ?? null, interiorData?.variant ?? null, Math.round(value), Math.round(visits ?? 0), p.districtId === SUBURB_ID || p.admin ? 0 : 1, JSON.stringify({ x: p.x, z: p.z, w: p.w, d: p.d, yaw: p.yaw ?? 0, prime: Boolean(p.prime), luxury: Boolean(p.luxury), grand: Boolean(p.grand), admin: Boolean(p.admin), height: p.height, floors: interiorData?.floors ?? 1, district: p.district, color: p.color, land: p.land }), now());
       led.run(p.id, `Building #${p.id}`, `Building #${p.id}`, Math.max(1, Math.round(value * 0.8)), now() - (10 + (p.id % 40)) * DAY);
     }
   });
   return { seeded: true, plots: city.plots.length };
+}
+// Writes the generator's pricing attributes into the facts of every plot whose stored ones differ (the generator works them out from the city's layout:
+// lib/dev/locationAttrs.js). Returns how many plots changed.
+function refreshLand(db, city) {
+  const get = db.prepare('SELECT facts FROM plots WHERE id = ?');
+  const put = db.prepare('UPDATE plots SET facts = ? WHERE id = ?');
+  let changed = 0;
+  transaction(db, () => {
+    for (const p of city.plots) {
+      const row = get.get(p.id);
+      if (!row || !p.land) continue;
+      const facts = JSON.parse(row.facts);
+      if (JSON.stringify(facts.land ?? null) === JSON.stringify(p.land)) continue;
+      put.run(JSON.stringify({ ...facts, land: p.land }), p.id);
+      changed++;
+    }
+  });
+  return changed;
 }
 
 // ---- accounts --------------------------------------------------------------------------------------------------------
@@ -128,7 +149,12 @@ export function plotView(db, row) {
 export function leaseView(row, at = now()) {
   if (!row.lease_end) return null;
   const d = describeLease(row.lease_end, row.lease_days, at);
-  return { days: row.lease_days, start: row.lease_start, end: row.lease_end, state: d.state, text: d.text, renewPrice: renewalPrice(row.value, row.lease_days ?? DEFAULT_TERM) };
+  return { days: row.lease_days, start: row.lease_start, end: row.lease_end, state: d.state, text: d.text, renewPrice: renewalQuote(pricedPlot(row), row.lease_days ?? DEFAULT_TERM) };
+}
+// A plot row in the shape the game's price rules take (lib/game/claimPrice.js), the same shape the claim form prices: its facts (size, tier, `land`),
+// what it is worth, who leases it and the outside it has now.
+export function pricedPlot(row) {
+  return { ...JSON.parse(row.facts), id: row.id, value: row.value, ownerAccount: row.owner_account ?? null, buildingType: row.building_type ?? undefined, exterior: row.exterior ? JSON.parse(row.exterior) : null };
 }
 // The directory: every plot with a building, by value / visits / id / name, numbered 1 to N in that order.
 export function directory(db, { sort = 'value', q = '', limit = 1000, offset = 0 } = {}) {
@@ -202,16 +228,20 @@ export function claimPlot(db, account, id, input) {
     if (p.owner_name) fail(409, 'Someone claimed this plot first.', 'already_owned');
     if (plotHeldByOther(db, p.id, account.id)) fail(409, HELD, 'held');
     const term = leaseTerm(input);
-    const price = leasePrice(p.value, term);
+    // the price the claim form shows (lib/game/claimPrice.js): the land and the outside chosen are a year's price, the plot's value; the term pays its share
+    const exterior = exteriorOf(input, p, b.buildingType);
+    const quote = leaseQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term);
+    const price = quote.total;
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=? AND owner_name IS NULL')
-      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exteriorOf(input, p, b.buildingType), Math.round(p.value * 1.25), term, now(), now() + term * LEASE_DAY, now(), p.id);
+      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.year, term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'claim', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, now());
     db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // a new owner starts from the generated interior (interiors.mjs)
     return plotView(db, getPlot(db, p.id));
   });
 }
 
-// Take over a business that is not yours: pay 1.25x its value, the old owner is paid out and logged. Atomic.
+// Take over a business that is not yours: pay 1.25x what it is worth (a player's: its value; the city's own: its land) and the outside you choose, for a
+// year, or the term's share of that; the old owner is paid out and logged. Atomic.
 export function takeOverPlot(db, account, id, input) {
   requireAccount(account);
   const b = cleanBusiness(input);
@@ -224,7 +254,9 @@ export function takeOverPlot(db, account, id, input) {
     if (plotHeldByOther(db, p.id, account.id)) fail(409, HELD, 'held');
     // the price the caller saw must still be the price (somebody may have taken it over in the meantime)
     const term = leaseTerm(input);
-    const price = Math.round(leasePrice(p.value, term, TAKEOVER_MULTIPLIER));
+    const exterior = exteriorOf(input, p, b.buildingType);
+    const quote = takeoverQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term);
+    const price = quote.total;
     if (input.expectedPrice != null && Number(input.expectedPrice) !== price) fail(409, 'The price changed: reload the plot.', 'price_changed');
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, paid_to, at) VALUES (?, 'takeover', ?, ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, p.owner_name, now());
     // the old owner gets back what is left in the quest budget; the new owner starts with no offers
@@ -233,7 +265,7 @@ export function takeOverPlot(db, account, id, input) {
       db.prepare("INSERT INTO gold_ledger (account_id, delta, reason, ref, at) VALUES (?, ?, 'budget_refund', ?, ?)").run(p.owner_account, p.quest_budget, String(p.id), now());
     }
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, takeovers=takeovers+1, brand=NULL, quest_budget=0, updated_at=? WHERE id=?')
-      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exteriorOf(input, p, b.buildingType), Math.round(p.value * TAKEOVER_MULTIPLIER), term, now(), now() + term * LEASE_DAY, now(), p.id);
+      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.year, term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // the old owner's interior goes with them (interiors.mjs)
     return { plot: plotView(db, getPlot(db, p.id)), paidOut: price, previousOwner: p.owner_name, previousAccount: p.owner_account };
   });

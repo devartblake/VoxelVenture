@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from 'react';
 import { CATALOG_ITEMS, activateCatalogItem, useEditor, useScene } from '@pascal-app/editor';
-import { resolveCdnUrl } from '@pascal-app/viewer';
 import { ChevronDown, Search } from 'lucide-react';
 import { groupItems } from '@/lib/content/furnitureGroups';
 import { kitFor, menuFor } from '@/lib/content/businessFixtures';
@@ -12,6 +11,8 @@ import { useEditingBusiness } from '@/lib/state/editingBusiness';
 
 // The furniture tab of the interior editor: the catalogue sorted into dropdown groups (Shop & display, Seating, Tables ...), with a short
 // "Popular for shops" list open to begin with, and a search that looks through all of them. Click an item, then click in the room to place it.
+// The thumbnails are the catalogue's as pascalBootstrap resolved them (lib/content/interiorProps.js): a bucket address, or /items on this site,
+// used as they are (Pascal's resolveCdnUrl would send a /items path to Pascal's own CDN).
 export default function FurniturePanel() {
   const business = useEditingBusiness();
   const kit = useMemo(() => (business.type ? kitFor(business.type, business.variant) : null), [business.type, business.variant]);
@@ -36,7 +37,7 @@ export default function FurniturePanel() {
       className={`group flex flex-col gap-1 rounded-lg p-1 text-left transition hover:bg-white/10 ${selected?.id === item.id ? 'bg-white/10 ring-2 ring-indigo-400' : ''}`}
     >
       <span className="block aspect-square w-full overflow-hidden rounded-md bg-black/20">
-        <img src={resolveCdnUrl(item.thumbnail) || ''} alt="" loading="lazy" className="h-full w-full object-cover" />
+        <img src={item.thumbnail || ''} alt="" loading="lazy" className="h-full w-full object-cover" />
       </span>
       <span className="truncate text-[11px] text-slate-300 group-hover:text-white">{item.name}</span>
       {priced && <span className="text-[10px] font-semibold text-emerald-300">{FIXTURE_PRICES.currency}{priceOf(item).toLocaleString()}</span>}

@@ -45,7 +45,7 @@ def fetch_city_street_names(city_name: str, limit: int = 100) -> List[str]:
     query = f"""
     [out:json][timeout:25];
     area[name="{city_name}"]["boundary"="administrative"]->.searchArea;
-    way["highway"]["name"](area.searchArea);
+    way["highway"]["name"](../area.searchArea);
     out tags {limit * 3};
     """
     

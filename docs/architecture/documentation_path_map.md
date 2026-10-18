@@ -13,18 +13,18 @@ All paths below are relative to docs/. Documents now live in their primary topic
 | `boats_piers_riverwalk.md` | product | [product/boats_piers_riverwalk.md](../product/boats_piers_riverwalk.md) |
 | `business_funnel.md` | product | [product/business_funnel.md](../product/business_funnel.md) |
 | `chat_messaging_plan.md` | architecture | [architecture/chat_messaging_plan.md](chat_messaging_plan.md) |
-| `city_editor.md` | architecture | [architecture/city_editor.md](city_editor.md) |
+| `city_editor.md` | architecture | [architecture/city_editor.md](../world/city_editor.md) |
 | `claimavenue_competitive_alignment_review.md` | competitive-research | [competitive-research/claimavenue_competitive_alignment_review.md](../competitive-research/claimavenue_competitive_alignment_review.md) |
 | `community.md` | product | [product/community.md](../product/community.md) |
 | `competitive-research/VoxelVenture_Competitive_Strategy_Viral_Monetization.md` | competitive-research | [competitive-research/VoxelVenture_Competitive_Strategy_Viral_Monetization.md](../competitive-research/VoxelVenture_Competitive_Strategy_Viral_Monetization.md) |
 | `competitive_strategy_implementation_audit_2026-10-16.md` | competitive-research | [competitive-research/competitive_strategy_implementation_audit_2026-10-16.md](../competitive-research/competitive_strategy_implementation_audit_2026-10-16.md) |
 | `conversions.md` | monetization | [monetization/conversions.md](../monetization/conversions.md) |
-| `day_night_sound.md` | architecture | [architecture/day_night_sound.md](day_night_sound.md) |
+| `day_night_sound.md` | architecture | [architecture/day_night_sound.md](../world/day_night_sound.md) |
 | `hosting_stack_payments.md` | operations | [operations/hosting_stack_payments.md](../operations/hosting_stack_payments.md) |
 | `ideas_review.md` | roadmap | [roadmap/ideas_review.md](../roadmap/ideas_review.md) |
-| `infill_and_land.md` | architecture | [architecture/infill_and_land.md](infill_and_land.md) |
+| `infill_and_land.md` | architecture | [architecture/infill_and_land.md](../world/infill_and_land.md) |
 | `interiors_fixtures.md` | product | [product/interiors_fixtures.md](../product/interiors_fixtures.md) |
-| `kenney_assets.md` | architecture | [architecture/kenney_assets.md](kenney_assets.md) |
+| `kenney_assets.md` | architecture | [architecture/kenney_assets.md](../world/kenney_assets.md) |
 | `legal/policy_review.md` | monetization | [monetization/policy_review.md](../monetization/policy_review.md) |
 | `live_data.md` | architecture | [architecture/live_data.md](live_data.md) |
 | `market.md` | product | [product/market.md](../product/market.md) |
@@ -34,21 +34,21 @@ All paths below are relative to docs/. Documents now live in their primary topic
 | `presence_scale.md` | architecture | [architecture/presence_scale.md](presence_scale.md) |
 | `pricing_analysis.md` | monetization | [monetization/pricing_analysis.md](../monetization/pricing_analysis.md) |
 | `project_status.md` | roadmap | [roadmap/project_status.md](../roadmap/project_status.md) |
-| `road_design_reference.md` | architecture | [architecture/road_design_reference.md](road_design_reference.md) |
+| `road_design_reference.md` | architecture | [architecture/road_design_reference.md](../world/road_design_reference.md) |
 | `scope_assets_and_wasm.md` | roadmap | [roadmap/scope_assets_and_wasm.md](../roadmap/scope_assets_and_wasm.md) |
 | `social_posts.md` | operations | [operations/social_posts.md](../operations/social_posts.md) |
-| `street_names.md` | architecture | [architecture/street_names.md](street_names.md) |
-| `study_world_streaming.md` | architecture | [architecture/study_world_streaming.md](study_world_streaming.md) |
+| `street_names.md` | architecture | [architecture/street_names.md](../world/street_names.md) |
+| `study_world_streaming.md` | architecture | [architecture/study_world_streaming.md](../world/study_world_streaming.md) |
 | `takeover_payouts.md` | monetization | [monetization/takeover_payouts.md](../monetization/takeover_payouts.md) |
 | `tasks.md` | roadmap | [roadmap/tasks.md](../roadmap/tasks.md) |
 | `voxelventure_blueprint.md` | product | [product/voxelventure_blueprint.md](../product/voxelventure_blueprint.md) |
 | `voxelventure_core_concept_reassessment_2026-10-17.md` | competitive-research | [competitive-research/voxelventure_core_concept_reassessment_2026-10-17.md](../competitive-research/voxelventure_core_concept_reassessment_2026-10-17.md) |
-| `voxelventure_idea_01.md` | competitive-research | [competitive-research/voxelventure_idea_01.md](../competitive-research/voxelventure_idea_01.md) |
-| `voxelventure_idea_02.md` | competitive-research | [competitive-research/voxelventure_idea_02.md](../competitive-research/voxelventure_idea_02.md) |
-| `voxelventure_idea_03.md` | competitive-research | [competitive-research/voxelventure_idea_03.md](../competitive-research/voxelventure_idea_03.md) |
-| `voxelventure_idea_04.md` | competitive-research | [competitive-research/voxelventure_idea_04.md](../competitive-research/voxelventure_idea_04.md) |
-| `voxelventure_idea_05.md` | competitive-research | [competitive-research/voxelventure_idea_05.md](../competitive-research/voxelventure_idea_05.md) |
-| `voxelventure_idea_06.md` | competitive-research | [competitive-research/voxelventure_idea_06.md](../competitive-research/voxelventure_idea_06.md) |
+| `voxelventure_idea_01.md` | competitive-research | [competitive-research/voxelventure_idea_01.md](../competitive-research/ideas/voxelventure_idea_01.md) |
+| `voxelventure_idea_02.md` | competitive-research | [competitive-research/voxelventure_idea_02.md](../competitive-research/ideas/voxelventure_idea_02.md) |
+| `voxelventure_idea_03.md` | competitive-research | [competitive-research/voxelventure_idea_03.md](../competitive-research/ideas/voxelventure_idea_03.md) |
+| `voxelventure_idea_04.md` | competitive-research | [competitive-research/voxelventure_idea_04.md](../competitive-research/ideas/voxelventure_idea_04.md) |
+| `voxelventure_idea_05.md` | competitive-research | [competitive-research/voxelventure_idea_05.md](../competitive-research/ideas/voxelventure_idea_05.md) |
+| `voxelventure_idea_06.md` | competitive-research | [competitive-research/voxelventure_idea_06.md](../competitive-research/ideas/voxelventure_idea_06.md) |
 | `world_freeze.md` | roadmap | [roadmap/world_freeze.md](../roadmap/world_freeze.md) |
 | `world_map.md` | product | [product/world_map.md](../product/world_map.md) |
 
@@ -67,3 +67,21 @@ All paths below are relative to docs/. Documents now live in their primary topic
 - Only README.md remains at the docs/ root; all 47 original documents are in their mapped topic directories.
 - Existing CI selector tests passed.
 - Repository references, including deployment environment examples, use current paths. Synthetic docs/a.md and docs/b.md examples in the selector tooling remain intentional.
+
+## The second reorganization (2026-10-18)
+
+The city and world write-ups left `architecture/` for a new `world/` folder, so `architecture/` holds the system architecture alone. The six idea documents moved under `competitive-research/ideas/`, apart from the strategy reviews. The logo guide, delivered at the root of `docs/`, went to a new `brand/` folder. The empty `legal/` folder (never tracked) was removed. The policies' review lives in [monetization/policy_review.md](../monetization/policy_review.md).
+
+| Was | Now |
+| --- | --- |
+| `architecture/city_editor.md` | [world/city_editor.md](../world/city_editor.md) |
+| `architecture/day_night_sound.md` | [world/day_night_sound.md](../world/day_night_sound.md) |
+| `architecture/infill_and_land.md` | [world/infill_and_land.md](../world/infill_and_land.md) |
+| `architecture/kenney_assets.md` | [world/kenney_assets.md](../world/kenney_assets.md) |
+| `architecture/road_design_reference.md` | [world/road_design_reference.md](../world/road_design_reference.md) |
+| `architecture/street_names.md` | [world/street_names.md](../world/street_names.md) |
+| `architecture/study_world_streaming.md` | [world/study_world_streaming.md](../world/study_world_streaming.md) |
+| `competitive-research/voxelventure_idea_01.md` to `_06.md` | [competitive-research/ideas/](../competitive-research/ideas/) |
+| `Voxel_Venture_Logo_Usage_Guide.md` | [brand/logo_usage_guide.md](../brand/logo_usage_guide.md) |
+
+The moves were made with `git mv`, so each file's history follows it. Every relative link to a moved document, and every link inside one, was rewritten. Full `docs/...` paths in code comments, tests and data notes were also rewritten. A scan of all Markdown files then found no broken link or heading anchor.
