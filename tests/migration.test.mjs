@@ -31,7 +31,7 @@ old.close();
 // ---- today's code opens it
 const db = openDb(file);
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => r.name);
-for (const tb of ['businesses', 'business_events', 'upgrade_interest', 'audit_log', 'social_posts']) check(`the new table ${tb} is created`, tables.includes(tb));
+for (const tb of ['businesses', 'business_events', 'upgrade_interest', 'audit_log', 'social_posts', 'plot_interiors']) check(`the new table ${tb} is created`, tables.includes(tb));
 const added = { accounts: ['referred_by'], plots: ['exterior'], ad_events: ['ip_hash', 'verified'], business_events: ['campaign'], businesses: ['x_handle', 'announce'] };
 for (const [tb, list] of Object.entries(added)) check(`${tb} gains ${list.join(', ')}`, list.every((c) => cols(db, tb).includes(c)));
 check('every old column is still there', Object.entries(before).every(([tb, list]) => list.every((c) => cols(db, tb).includes(c))));
@@ -58,6 +58,8 @@ check('the API serves the old plot with its verified visit only (not the generat
 check('and the old ad slot with no unverified views', (await (await fetch(`${base}/ads/banner-1`)).json()).views === 0);
 const made = await fetch(`${base}/auth/signup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'newcomer', password: 'longenough1' }) });
 check('new accounts work, and are audited', made.status === 200 && api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'account.create'").get().n === 1);
+const inside = await (await fetch(`${base}/plots/5/interior`)).json();
+check('the old plot has no redesigned interior: it shows the generated one', inside.design === null && inside.revision === 0, JSON.stringify(inside));
 await api.close();
 fs.rmSync(dir, { recursive: true, force: true });
 

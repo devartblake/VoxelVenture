@@ -7,6 +7,7 @@ import { useCityStore } from '@/lib/state/store';
 import { interiorSummaryFor } from '@/lib/content/interiorScenes';
 import StorefrontPanel from './StorefrontPanel';
 import { openSiteLink } from '@/lib/data/sync';
+import { leaseState } from '@/lib/game/leases';
 
 // The Pascal viewer is WebGL/WebGPU only, so load it on demand, in the browser.
 const InteriorViewer = dynamic(() => import('./InteriorViewer'), {
@@ -22,6 +23,8 @@ const InteriorEditor = dynamic(() => import('./InteriorEditor'), {
 
 // Whose building can be redesigned: the player's own. (With no server, the whole city is the player's playground.)
 const canDesign = (plot) => (plot.mall ? Boolean(plot.userClaimed) : Boolean(plot.userClaimed) || !process.env.NEXT_PUBLIC_LIVE_API_URL);
+// the server refuses changes to the inside once the lease has ended (the grace week and after), until it is renewed
+const leaseEnded = (plot) => !plot.mall && Boolean(plot.lease?.end) && ['grace', 'open'].includes(leaseState(plot.lease.end));
 
 export default function InteriorModal() {
   const { activeInteriorPlot, closeInterior, setPlotWallColor } = useCityStore();
@@ -73,12 +76,18 @@ export default function InteriorModal() {
                     </button>
                   )}
                 </label>
-                <button
-                  onClick={() => setDesigning(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 text-xs font-bold text-white hover:brightness-110"
-                >
-                  <Paintbrush className="h-3.5 w-3.5" /> Redesign inside
-                </button>
+                {leaseEnded(shownPlot) ? (
+                  <span className="text-xs text-amber-300" title="The lease has ended. Renew it to change the inside again.">
+                    Lease ended: renew to redesign
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setDesigning(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 text-xs font-bold text-white hover:brightness-110"
+                  >
+                    <Paintbrush className="h-3.5 w-3.5" /> Redesign inside
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -117,7 +126,7 @@ export default function InteriorModal() {
           <span>Close to return to City View</span>
         </div>
       </div>
-      {designing && isOpen && canDesign(shownPlot) && <InteriorEditor key={shownPlot.id} plot={shownPlot} onClose={() => setDesigning(false)} />}
+      {designing && isOpen && canDesign(shownPlot) && !leaseEnded(shownPlot) && <InteriorEditor key={shownPlot.id} plot={shownPlot} onClose={() => setDesigning(false)} />}
     </div>
   );
 }

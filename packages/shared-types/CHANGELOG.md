@@ -1,5 +1,17 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.6.0 (2026-10-18)
+
+Redesigned interiors are kept on the server (`services/api/interiors.mjs`). New contracts, all version 1:
+
+- `interior.design`: an owner's design as the server stores and serves it: the Pascal scene graph of the building's inside (`nodes` by id, one building in `rootNodeIds`), with only the node types an interior uses and each item's furniture by catalogue id (`asset: { id }`), never by file URL.
+- `interior.state`: `GET /plots/:id/interior`, and the answer to `PUT` and `DELETE`: the design (or `null` for the generated interior), its `revision` and when it was saved.
+- `interior.save`: the body of `PUT /plots/:id/interior`: the design and the revision it was based on.
+- `API_CONTRACTS` now holds 18.
+- The validator gained `additionalProperties` as a schema (what every other key's value must fit), `propertyNames` and `maxProperties`, all standard JSON Schema.
+
+No existing contract changed.
+
 ## 0.5.0 (2026-10-17)
 
 - `TEST_SCENARIO` (`test.scenario`, version 1): a journey scenario, as the business journeys in `tests/journeys/` use it (Track A of the [adoption plan](../../docs/architecture/external_voxel_repositories_adoption_plan.md)). It records the seed, the device, the participants, the starting accounts and businesses, the milestones in order, the timeout, the allowed links and the budgets. It has no place for a password or a token, and its links must use the example domains (RFC 2606). It is in `CONTRACTS`, but not in `API_CONTRACTS`: nothing travels over the wire in this shape.

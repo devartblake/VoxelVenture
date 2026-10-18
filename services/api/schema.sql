@@ -32,6 +32,17 @@ CREATE TABLE IF NOT EXISTS plots (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS plots_value ON plots(value DESC);
+-- An owner's redesigned interior (services/api/interiors.mjs, lib/content/interiorDesign.js): what every visitor sees inside the building
+-- instead of the interior generated for its kind of business. One per plot. `revision` goes up with every save and every reset, so a save
+-- based on an older revision (another tab, another device) is refused instead of overwriting it. `design` is NULL after the owner went back
+-- to the generated interior. A claim or a take-over removes the row, and a row saved by anyone but the plot's owner is never served.
+CREATE TABLE IF NOT EXISTS plot_interiors (
+  plot_id INTEGER PRIMARY KEY REFERENCES plots(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id), -- the owner who saved it
+  design TEXT,                                   -- JSON (contract interior.design), or NULL: the generated interior
+  revision INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 -- Every change of hands, newest last. kind: open | claim | takeover
 CREATE TABLE IF NOT EXISTS ledger (
   id INTEGER PRIMARY KEY,

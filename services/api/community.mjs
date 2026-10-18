@@ -53,8 +53,8 @@ export function sendLeaseNotices(db, at = now()) {
     if (to) {
       const subject = { renewal: `${r.title}: your lease ends soon`, grace: `${r.title}: your lease has ended`, open: `${r.title} is open to a buyout` }[state];
       const body = {
-        renewal: `The lease on ${r.title} (plot #${r.id}) ends on ${new Date(r.lease_end).toUTCString()}. Until then nobody else can take it over, and you can renew now for $${renewalQuote(pricedPlot(r), r.lease_days).toLocaleString()}.`,
-        grace: `The lease on ${r.title} (plot #${r.id}) has ended. You have ${GRACE_DAYS} days to renew before anyone else can take it over.`,
+        renewal: `The lease on ${r.title} (plot #${r.id}) ends on ${new Date(r.lease_end).toUTCString()}. Until then nobody else can take it over, and you can renew now for $${renewalQuote(pricedPlot(r), r.lease_days).toLocaleString()}. Once it ends you can no longer change the building's inside until you renew; visitors still see your design.`,
+        grace: `The lease on ${r.title} (plot #${r.id}) has ended. You have ${GRACE_DAYS} days to renew before anyone else can take it over. Until you renew, the building's inside can't be changed; visitors still see your design.`,
         open: `The lease on ${r.title} (plot #${r.id}) ended and the week to renew has passed, so anyone can take it over now. You can still renew it until someone does.`,
       }[state];
       enqueue(db, { to, kind: `lease_${state}`, subject, body });

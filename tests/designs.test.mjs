@@ -1,4 +1,5 @@
-// Redesigned interiors: the saved scene is described for the viewer, the outside colour is read from the walls, and the store keeps designs per plot.
+// Redesigned interiors: the saved scene is described for the viewer, the outside colour is read from the walls, and the store keeps designs per plot
+// (with a game server: the published one cached, the local copy a draft, saves sent by catalogue id with their revision).
 import { imp, problemTally } from './helpers.mjs';
 const { describeScene, exteriorColorOf, useDesigns } = await imp('state/designStore.js');
 const { bad, total } = problemTally();
@@ -28,5 +29,30 @@ useDesigns.getState().saveDesign(5, built);
 if (!useDesigns.getState().designs[5] || useDesigns.getState().version !== v0 + 1) bad('saving stores the design and bumps the version', '');
 useDesigns.getState().resetDesign(5);
 if (useDesigns.getState().designs[5] || useDesigns.getState().version !== v0 + 2) bad('reset removes the design and bumps the version', '');
+
+// with a game server: the design is the server's, the local copy only a draft (lib/state/designStore.js)
+const { designOnServer, fetchPublished, publishDesign } = await imp('state/designStore.js');
+if (designOnServer(5)) bad('without a game server, designs stay in the browser', '');
+process.env.NEXT_PUBLIC_LIVE_API_URL = 'http://api.test';
+if (!designOnServer(5) || designOnServer('mall-3-store-2')) bad('with a game server, a city plot\'s design is on the server, a mall store\'s is not', '');
+const sent = [];
+let answer = { status: 200, body: { plotId: 5, version: 1, design: null, revision: 3, updatedAt: null } };
+globalThis.fetch = async (url, init) => (sent.push({ url, method: init.method, body: init.body && JSON.parse(init.body) }), { ok: answer.status < 300, status: answer.status, json: async () => answer.body });
+const v1 = useDesigns.getState().version;
+await fetchPublished(5);
+if (useDesigns.getState().published[5]?.revision !== 3 || useDesigns.getState().version !== v1 + 1) bad('a fetched design is cached and the viewer told', JSON.stringify(useDesigns.getState().published[5]));
+await fetchPublished(5);
+if (useDesigns.getState().version !== v1 + 1) bad('the same answer again does not reload the scene', '');
+const withAsset = JSON.parse(JSON.stringify(built));
+withAsset.nodes.i = { id: 'i', type: 'item', asset: { id: 'sofa', src: 'https://old-host.test/sofa.glb' } };
+useDesigns.setState((s) => ({ designs: { ...s.designs, 5: withAsset }, bases: { ...s.bases, 5: 3 } }));
+answer = { status: 409, body: { error: 'This interior was changed somewhere else.', code: 'stale_revision' } };
+const refusal = await publishDesign(5, withAsset).catch((e) => e);
+const put = sent.at(-1);
+if (put.method !== 'PUT' || put.url !== 'http://api.test/plots/5/interior' || put.body.revision !== 3 || JSON.stringify(put.body.design.nodes.i.asset) !== '{"id":"sofa"}') bad('a save sends the design with catalogue ids only, and the revision it was based on', JSON.stringify(put).slice(0, 300));
+if (refusal?.code !== 'stale_revision' || !useDesigns.getState().designs[5]) bad('a refused save throws the server\'s reason and keeps the draft', String(refusal));
+answer = { status: 200, body: { plotId: 5, version: 1, design: put.body.design, revision: 4, updatedAt: 1 } };
+await publishDesign(5, withAsset);
+if (useDesigns.getState().designs[5] || useDesigns.getState().bases[5] != null || useDesigns.getState().published[5]?.revision !== 4) bad('a published design is cached and the draft is done with', '');
 console.log(total() === 0 ? 'ALL OK' : `${total()} problems`);
 if (total()) process.exitCode = 1;
