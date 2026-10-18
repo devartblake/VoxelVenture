@@ -21,6 +21,11 @@ DOMAIN=${STAGING_DOMAIN:-staging.voxelventure.app}
 KEEP=${STAGING_KEEP:-3}
 UNITS=(voxelventure-staging-api voxelventure-staging-presence voxelventure-staging-web)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" # the project this script came with
+# Out of the folder it was started from: the voxel user runs parts of this (the backup, npm), and a folder it cannot enter (root's home)
+# makes them fail ("find: Failed to restore initial working directory"). HERE above already knows where the project is.
+STARTED_IN="$PWD" # (a folder given on the command line is read from where the script was started)
+abs() { case "$1" in /*|[A-Za-z]:/*) printf %s "$1" ;; *) printf %s "$STARTED_IN/$1" ;; esac; }
+cd /
 DB="$BASE/data/voxelventure.db"
 
 say() { printf '\n== %s\n' "$*"; }
@@ -255,7 +260,7 @@ case "${1:-}" in
   rollback) cmd_rollback ;;
   status) cmd_status ;;
   reset) cmd_reset "${2:-}" ;;
-  restore) cmd_restore "${2:-}" ;;
-  render-env) [ -n "${2:-}" ] || die "usage: render-env <dir>"; render_env "$2"; echo "wrote $2/api.env, presence.env, web.env" ;;
+  restore) cmd_restore "$( [ -n "${2:-}" ] && abs "$2" )" ;;
+  render-env) [ -n "${2:-}" ] || die "usage: render-env <dir>"; render_env "$(abs "$2")"; echo "wrote $(abs "$2")/api.env, presence.env, web.env" ;;
   *) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

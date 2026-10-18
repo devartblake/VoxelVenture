@@ -29,6 +29,11 @@ OLD_DB="$BASE/services/api/data/voxelventure.db" # where the old in-place layout
 KEEP=${PRODUCTION_KEEP:-3}
 UNITS=(voxelventure-api voxelventure-presence voxelventure-web)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" # the project this script came with
+# Out of the folder it was started from: the voxel user runs parts of this (the backup, npm), and a folder it cannot enter (root's home)
+# makes them fail ("find: Failed to restore initial working directory"). HERE above already knows where the project is.
+STARTED_IN="$PWD" # (a folder given on the command line is read from where the script was started)
+abs() { case "$1" in /*|[A-Za-z]:/*) printf %s "$1" ;; *) printf %s "$STARTED_IN/$1" ;; esac; }
+cd /
 # what never goes into a release: the folders of the layout itself, what each release makes for itself, and data
 EXCLUDES=(--exclude /releases --exclude /shared --exclude /incoming --exclude /current --exclude /current.next --exclude /repo
   --exclude /.npm --exclude /.config --exclude .git --exclude node_modules --exclude /apps/web/.next --exclude /services/api/data
@@ -198,7 +203,7 @@ cmd_deploy() {
   need_root deploy
   migrated || die "production is still in the old layout: run  bash deploy/production.sh migrate  first"
   local src="$BASE/incoming"
-  if [ "${1:-}" = "--from" ]; then src="${2:-}"; fi
+  if [ "${1:-}" = "--from" ]; then src="$(abs "${2:-}")"; fi
   [ -f "$src/package.json" ] || die "nothing to deploy in $src: copy the project there (push.ps1), or use --from $BASE/repo after a git pull"
 
   say "settings check"
