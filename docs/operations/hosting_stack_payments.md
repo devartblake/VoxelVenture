@@ -27,7 +27,7 @@ Answers to the questions raised while planning task 1 in [tasks.md](../roadmap/t
 
 ### Can Python still be used? Yes, alongside Node
 The Python in these docs is not for the live server:
-- **Street names from OpenStreetMap** ([study_world_streaming.md](../architecture/study_world_streaming.md)): an offline script, run once on your machine, that writes a names file the game ships.
+- **Street names from OpenStreetMap** ([study_world_streaming.md](../world/study_world_streaming.md)): an offline script, run once on your machine, that writes a names file the game ships.
 - **Hosted WASM game demos** ([scope_assets_and_wasm.md](../roadmap/scope_assets_and_wasm.md)): these run in the visitor's browser. Studios compile their own games to WebAssembly; Pyodide runs Python in a page if someone wants that. The server only stores and serves the files.
 - Other good uses: asset build scripts, scheduled reports reading the database, a moderation or machine-learning check called over HTTP.
 

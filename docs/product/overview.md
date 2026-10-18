@@ -29,13 +29,13 @@ Today it is a complete single-player game with local saves, plus LAN multiplayer
 
 `dev:all` does not start the API. To try accounts, the inbox and signed-in chat locally, also run `npm run api` and set `NEXT_PUBLIC_LIVE_API_URL` (the API's address) for the web app, `MP_API_URL` for the multiplayer server, `MP_NOTIFY_URL` for the API, and the same `MP_NOTIFY_SECRET` on both servers ([../server/README.md](../../services/multiplayer/README.md)).
 
-Pages: `/` the city; the public business pages `/discover`, `/business/<slug>`, `/category/<id>` and `/district/<id>`, plus `/business/new` and `/business/manage` for owners; `sitemap.xml` and `robots.txt`; `/b/<id>` a short link that opens the city on one building; `/admin` the client monitor, `/editor` the city editor ([city_editor.md](../architecture/city_editor.md)), `/viewer` (the Pascal scene viewer used for interiors), `/land`, `/pricing` and `/models` (development tools: free land and new streets, land prices, the model preview), `/curves` and `/reference` (road research). Add `?diag=1` to the city address to enable the `window.__vv*` debugging hooks (they are always on in development).
+Pages: `/` the city; the public business pages `/discover`, `/business/<slug>`, `/category/<id>` and `/district/<id>`, plus `/business/new` and `/business/manage` for owners; `sitemap.xml` and `robots.txt`; `/b/<id>` a short link that opens the city on one building; `/admin` the client monitor, `/editor` the city editor ([city_editor.md](../world/city_editor.md)), `/viewer` (the Pascal scene viewer used for interiors), `/land`, `/pricing` and `/models` (development tools: free land and new streets, land prices, the model preview), `/curves` and `/reference` (road research). Add `?diag=1` to the city address to enable the `window.__vv*` debugging hooks (they are always on in development).
 
 ## 3. The city (how it is generated)
 
 A seed gives the same city every time (`lib/city/cityGenerator.js`, a seeded random generator). Typical result: about 800 to 1,050 plots, about 145 intersections, 4 reserved sites, land about 300 × 255 units. [5, 5e, 5f]
 
-- **Roads.** Eight avenues cross 5–7 streets in a closed network (every road ends at a junction), with a ring road, a county road round the outside and arterials that run out to it. Road classes drive traffic control: arterial × arterial = signals, arterial × local = two-way stop, local × local = all-way stop. A **diagonal avenue** joins at most **two circles** (with monuments), and up to two compact roundabouts are kept 52 units apart so drivers face one at a time. [5c, 5h, 5p; reasoning in [road_design_reference.md](../architecture/road_design_reference.md)]
+- **Roads.** Eight avenues cross 5–7 streets in a closed network (every road ends at a junction), with a ring road, a county road round the outside and arterials that run out to it. Road classes drive traffic control: arterial × arterial = signals, arterial × local = two-way stop, local × local = all-way stop. A **diagonal avenue** joins at most **two circles** (with monuments), and up to two compact roundabouts are kept 52 units apart so drivers face one at a time. [5c, 5h, 5p; reasoning in [road_design_reference.md](../world/road_design_reference.md)]
 - **Districts.** SaaS Silicon Strip, Arcade Alley, Creator Commons and Agency Boulevard on the grid; Outskirts and Countryside by the ring and county roads; Lakeside and Riverside by the water; Old Town (grey houses, past the east ring) for displaced owners. [3, 5e]
 - **Water.** A river 11–14 wide with a bridge wherever a road crosses it, and one to three lakes each ringed by a road. [5f, 5p]
 - **Plots by tier.** Ordinary lots; **prime** (double-deep) plots; **luxury** estates (3 × 2 cells, grid and waterfront); **grand** estates (14 × 7.6, built at the start); and **reserved** sites (four per city, 34 × 30, the amber areas) beside busy arterials for a player's own road. Roadside buildings are flush with the pavement. [5l]
@@ -104,7 +104,7 @@ What remains:
 - **Going live:** choosing the host and domain, then setting up the Stripe account, approving the draft policies at `/legal` and a real mail service ([hosting_stack_payments.md](../operations/hosting_stack_payments.md), [live_data.md](../architecture/live_data.md)). Chat's launch checks are in [chat_messaging_plan.md](../architecture/chat_messaging_plan.md).
 - **The pilot** with real businesses (phase 6).
 - **Real-device checks.**
-- **The bigger authored world** with an island, ocean and shipping yard ([study_world_streaming.md](../architecture/study_world_streaming.md)). It waits for the pilot under the [world freeze](../roadmap/world_freeze.md).
+- **The bigger authored world** with an island, ocean and shipping yard ([study_world_streaming.md](../world/study_world_streaming.md)). It waits for the pilot under the [world freeze](../roadmap/world_freeze.md).
 
 ## 8. Where things are
 

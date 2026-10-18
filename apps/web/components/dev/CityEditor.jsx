@@ -34,7 +34,7 @@ function Field({ label, children }) {
   );
 }
 const ALL_STREET_NAMES = [...new Set([...Object.values(STREET_NAME_SETS), ...Object.values(DISTRICT_STREET_NAMES)].flatMap((s) => s.names))].sort();
-// The district a road runs through, for its name: the district of the nearest lot to its middle (docs/architecture/street_names.md).
+// The district a road runs through, for its name: the district of the nearest lot to its middle (docs/world/street_names.md).
 function districtOfRoad(road, plots) {
   const mx = road.axis === 'x' ? (road.from + road.to) / 2 : road.center;
   const mz = road.axis === 'x' ? road.center : (road.from + road.to) / 2;

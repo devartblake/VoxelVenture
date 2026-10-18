@@ -1,6 +1,6 @@
 {
  "attribution": "Street names (c) OpenStreetMap contributors, ODbL 1.0 - https://www.openstreetmap.org/copyright",
- "note": "District street names for the infill streets: one real place per district theme, picked at random (seeded) from scripts/streets/road_generator.py output after the filters in docs/architecture/street_names.md. Reviewed 2026-10-17.",
+ "note": "District street names for the infill streets: one real place per district theme, picked at random (seeded) from scripts/streets/road_generator.py output after the filters in docs/world/street_names.md. Reviewed 2026-10-17.",
  "districts": {
   "saas": {
    "theme": "Tech & Financial District",

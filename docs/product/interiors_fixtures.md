@@ -8,7 +8,7 @@ The owner says what the business is when claiming (shop, restaurant, office, hou
 - Then the furniture groups a business of that kind uses, in the order it would want them (`BUSINESS_KITS` in `lib/content/businessFixtures.js`): a restaurant leads with kitchen gear, tables and seating; a shop with display, counters and lighting; an office with desks, chairs and screens; a home with seating, beds and kitchen.
 - A layout adjusts the order: a cafe leads with tables and kitchen, a diner with seating, a market stall with its outdoor items, a meeting-room office with tables and screens (`VARIANT_KITS`).
 - **"Show all furniture"** (a checkbox under the heading) adds every other group, so nothing is out of reach. Search always looks through everything.
-- With no business kind known, the panel keeps the usual grouped menu (heading "Furniture"). (`/editor` is now the city editor, see [city_editor.md](../architecture/city_editor.md); the furniture editor opens from a building's **Redesign inside**.)
+- With no business kind known, the panel keeps the usual grouped menu (heading "Furniture"). (`/editor` is now the city editor, see [city_editor.md](../world/city_editor.md); the furniture editor opens from a building's **Redesign inside**.)
 
 To change what a kind of business gets, edit `BUSINESS_KITS` (the group ids and the `essentials` pattern); `tests/business-fixtures.test.mjs` checks that every business type and layout has a kit, a sensible essentials list, and that "show all" still reaches all 110 items.
 
