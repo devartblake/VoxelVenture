@@ -10,9 +10,14 @@
 #   RCLONE_REMOTE   e.g. linode:voxelventure-backups  (leave empty to skip the upload; the remote is set up in deploy/README.md)
 #   RCLONE_CONFIG   rclone's settings file    (default /etc/voxelventure/rclone.conf when it exists: readable by the voxel user, unlike root's)
 #   RCLONE_KEEP     days the bucket keeps     (default 30)
+#   HEALTHCHECK_URL a Healthchecks.io ping address (deploy/MONITORING.md): pinged when the backup and its upload worked, and at /fail
+#                   when anything did not, so a night with no backup (or no off-site copy) emails you
 set -euo pipefail
 
 [ -f /etc/voxelventure/backup.env ] && . /etc/voxelventure/backup.env
+heartbeat() { if [ -n "${HEALTHCHECK_URL:-}" ]; then curl -fsS -m 10 --retry 3 -o /dev/null "${HEALTHCHECK_URL%/}$1" || echo "Could not reach $HEALTHCHECK_URL"; fi; }
+trap 'if [ $? -eq 0 ]; then heartbeat ""; else heartbeat /fail; fi' EXIT
+UPLOAD_FAILED=0
 DB="${API_DB:-/srv/voxelventure/services/api/data/voxelventure.db}"
 DIR="${BACKUP_DIR:-/var/backups/voxelventure}"
 KEEP="${BACKUP_KEEP:-14}"
@@ -31,7 +36,7 @@ gzip -f "$OUT"
 echo "Backed up to $OUT.gz"
 
 if [ -n "${RCLONE_REMOTE:-}" ]; then
-  rclone copy "$OUT.gz" "$RCLONE_REMOTE" && echo "Uploaded to $RCLONE_REMOTE"
+  if rclone copy "$OUT.gz" "$RCLONE_REMOTE"; then echo "Uploaded to $RCLONE_REMOTE"; else echo "Upload to $RCLONE_REMOTE failed"; UPLOAD_FAILED=1; fi
 fi
 
 # the messaging service's database, once it runs (docs/architecture/node_fastapi_architecture_plan.md): the same way, beside it
@@ -42,7 +47,9 @@ if [ -f "$MDB" ]; then
   sqlite3 "$MOUT" "SELECT COUNT(*) FROM conversations;" >/dev/null
   gzip -f "$MOUT"
   echo "Backed up to $MOUT.gz"
-  if [ -n "${RCLONE_REMOTE:-}" ]; then rclone copy "$MOUT.gz" "$RCLONE_REMOTE" && echo "Uploaded to $RCLONE_REMOTE"; fi
+  if [ -n "${RCLONE_REMOTE:-}" ]; then
+    if rclone copy "$MOUT.gz" "$RCLONE_REMOTE"; then echo "Uploaded to $RCLONE_REMOTE"; else echo "Upload to $RCLONE_REMOTE failed"; UPLOAD_FAILED=1; fi
+  fi
 fi
 
 find "$DIR" \( -name 'voxelventure-*.db.gz' -o -name 'messaging-*.db.gz' \) -mtime +"$KEEP" -delete
@@ -50,3 +57,5 @@ find "$DIR" \( -name 'voxelventure-*.db.gz' -o -name 'messaging-*.db.gz' \) -mti
 if [ -n "${RCLONE_REMOTE:-}" ]; then
   rclone delete "$RCLONE_REMOTE" --min-age "${RCLONE_KEEP:-30}d" --include 'voxelventure-*.db.gz' --include 'messaging-*.db.gz' || echo "Could not prune $RCLONE_REMOTE"
 fi
+# the copies are kept here either way; a failed upload still counts as a failed night, so the heartbeat says so
+exit "$UPLOAD_FAILED"

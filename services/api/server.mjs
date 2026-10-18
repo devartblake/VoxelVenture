@@ -43,6 +43,7 @@ import * as conversions from './conversions.mjs';
 import * as pilot from './pilot.mjs';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
+import { createReporter } from '../../lib/net/sentry.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -52,6 +53,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   const adsSeeded = core.seedAds(db, seed);
   const brandsSeeded = engage.seedBrands(db, seed);
   const mail = transport ?? engage.createTransport(env);
+  // unexpected errors (the 500s) go to Sentry when SENTRY_DSN is set (deploy/MONITORING.md)
+  const reporter = createReporter({ dsn: env.SENTRY_DSN, service: 'api', environment: env.SENTRY_ENVIRONMENT, release: env.SENTRY_RELEASE });
   const deliver = () => engage.deliverOutbox(db, mail).catch(() => {});
   const noticeTimer = deliverEveryMs > 0 ? setInterval(() => { try { market.sendNotices(db); community.sendLeaseNotices(db); } catch { /* the next minute tries again */ } }, 60000) : null;
   noticeTimer?.unref();
@@ -519,8 +522,9 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       res.end(JSON.stringify(data));
     };
     if (req.method === 'OPTIONS') return send(204, {});
+    let url;
     try {
-      const url = new URL(req.url, 'http://localhost');
+      url = new URL(req.url, 'http://localhost');
       // the presence server speaks for every player at once, so its own calls (with the shared secret) are not counted against one address
       const secret = req.headers['x-internal-secret'];
       // Stripe's webhook needs the exact bytes it signed, so it is read raw here, before anything parses it; Stripe is not rate limited
@@ -552,10 +556,12 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     } catch (e) {
       if (e instanceof core.ApiError) return send(e.status, { error: e.message, code: e.code, ...(e.errors ? { errors: e.errors } : {}), ...(e.retryAfterMs ? { retryAfterMs: Math.ceil(e.retryAfterMs) } : {}) });
       console.error('api error:', e);
+      // the route without ids or tokens, so one bug on /plots/12 and /plots/97 is one issue and no secret leaves the machine
+      reporter.capture(e, { tags: { route: `${req.method} ${(url?.pathname ?? '?').replace(/\/(\d+|[^/]{20,})(?=\/|$)/g, '/:id')}` } });
       send(500, { error: 'Something went wrong.', code: 'server_error' });
     }
   });
-  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), clearInterval(billingTimer), db.close(), r()))) };
+  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, reporter, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), clearInterval(billingTimer), db.close(), r()))) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
@@ -572,4 +578,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
   const host = process.env.API_HOST || undefined;
   api.server.listen(port, host, () => console.log(`VoxelVenture API on ${host ?? ''}:${port} (${api.seeded.seeded ? `seeded ${api.seeded.plots} plots` : 'existing world'})`));
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => api.close().then(() => process.exit(0))); // systemd stops a service with SIGTERM
+  // a crash is reported before the process goes (systemd starts it again in 3 seconds)
+  for (const ev of ['uncaughtException', 'unhandledRejection']) {
+    process.on(ev, (error) => {
+      console.error(`${ev}:`, error);
+      api.reporter.capture(error, { tags: { kind: ev } }).finally(() => process.exit(1));
+    });
+  }
 }
