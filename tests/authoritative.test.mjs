@@ -92,8 +92,10 @@ try {
   check('an edit made outside the API breaks the chain at that row', broken.ok === false && broken.brokenAt === takeover.id, JSON.stringify(broken));
 
   // ---- the production settings check
-  const good = { ADMIN_TOKEN: 'a'.repeat(40), IP_SALT: 'b'.repeat(40), MP_NOTIFY_SECRET: 'c'.repeat(40), REFERRAL_SECRET: 'd'.repeat(40), API_ORIGIN: 'https://voxel.test', PUBLIC_API_URL: 'https://api.voxel.test', API_DB: '/srv/db.sqlite', TRUST_PROXY: '1', MP_NOTIFY_URL: 'http://127.0.0.1:3001/notify', MAIL_WEBHOOK_URL: 'https://mail.test' };
+  const good = { ADMIN_TOKEN: 'a'.repeat(40), IP_SALT: 'b'.repeat(40), MP_NOTIFY_SECRET: 'c'.repeat(40), REFERRAL_SECRET: 'd'.repeat(40), API_ORIGIN: 'https://voxel.test', PUBLIC_API_URL: 'https://api.voxel.test', API_DB: '/srv/db.sqlite', TRUST_PROXY: '1', MP_NOTIFY_URL: 'http://127.0.0.1:3001/notify', MAIL_WEBHOOK_URL: 'https://mail.test', SENTRY_DSN: 'https://abc123@o1.ingest.sentry.io/42' };
   check('good production settings pass', checkApiEnv(good).errors.length === 0 && checkApiEnv(good).warnings.length === 0, JSON.stringify(checkApiEnv(good)));
+  check('an unreadable SENTRY_DSN stops the start', checkApiEnv({ ...good, SENTRY_DSN: 'https://sentry.io/42' }).errors.some((e) => e.includes('SENTRY_DSN')));
+  check('no SENTRY_DSN is only a warning', checkApiEnv({ ...good, SENTRY_DSN: '' }).warnings.some((w) => w.includes('SENTRY_DSN')) && checkApiEnv({ ...good, SENTRY_DSN: '' }).errors.length === 0);
   const bad = checkApiEnv({ ...good, ADMIN_TOKEN: 'CHANGE_ME', IP_SALT: 'short', REFERRAL_SECRET: good.MP_NOTIFY_SECRET, API_ORIGIN: '*', API_DB: ':memory:', HUMAN_MIN_AGE_MS: '0', HUMAN_VISIT_CAP: '1000' }).errors.join(' | ');
   for (const k of ['ADMIN_TOKEN', 'IP_SALT is too short', 'different', 'API_ORIGIN', 'API_DB', 'HUMAN_MIN_AGE_MS', 'HUMAN_VISIT_CAP']) check(`a bad setting is caught: ${k}`, bad.includes(k));
   check('the web settings need the real API and site addresses', checkWebEnv({ NEXT_PUBLIC_LIVE_API_URL: 'https://api.example.com' }).errors.length === 2 && checkWebEnv({ NEXT_PUBLIC_LIVE_API_URL: 'https://api.voxel.test', NEXT_PUBLIC_SITE_URL: 'https://voxel.test', NEXT_PUBLIC_MP_URL: 'wss://play.voxel.test' }).errors.length === 0);

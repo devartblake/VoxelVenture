@@ -45,6 +45,7 @@ render_env() {
       -e "s#^MP_LOG_DIR=.*#MP_LOG_DIR=$BASE/logs#" \
       -e "s#^(\# ?)?(MAIL_WEBHOOK_URL|MAIL_WEBHOOK_TOKEN)=.*#\# \2: never on staging (it would email real addresses)#" \
       -e "s#^(\# )?STRIPE_SECRET_KEY=.*#\# STRIPE_SECRET_KEY=sk_test_...   (test keys only: deploy refuses a live key)#" \
+      -e "s#^SENTRY_ENVIRONMENT=.*#SENTRY_ENVIRONMENT=staging#" \
       -e "s#/etc/voxelventure/#$ETC/#g" \
       "$HERE/deploy/env/$f.env.example" > "$out/$f.env"
   done

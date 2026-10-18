@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { WebSocketServer } from 'ws';
 import { checkText, cleanMessage } from '../api/textcheck.mjs';
+import { createReporter } from '../../lib/net/sentry.mjs';
 import { PRESENCE_CLIENT, PRESENCE_PROTOCOL, check } from '@voxelventure/shared-types';
 
 // Settings (all optional environment variables):
@@ -107,6 +108,14 @@ function appendErrorLog(entry) {
     console.error('could not write the error log:', error.message);
   }
 }
+
+// Sentry (deploy/MONITORING.md), when SENTRY_DSN is set: this server's own crashes, and the players' app errors it already collects.
+// Only the app's own errors go (not ones from browser extensions, a lost graphics card, a missing image or a console line), and only
+// the kind, message, stack and page: never the player's name or network.
+const sentryOptions = { dsn: process.env.SENTRY_DSN, environment: process.env.SENTRY_ENVIRONMENT, release: process.env.SENTRY_RELEASE };
+const serverReporter = createReporter({ ...sentryOptions, service: 'presence' });
+const clientReporter = createReporter({ ...sentryOptions, service: 'web-client', platform: 'javascript' });
+const REPORTED_CLIENT_KINDS = new Set(['error', 'unhandledrejection']);
 
 const clients = new Map(); // id -> client
 const recentErrors = [];
@@ -555,6 +564,7 @@ wss.on('connection', (ws, req) => {
       recentErrors.push(entry);
       if (recentErrors.length > MAX_RECENT_ERRORS) recentErrors.shift();
       appendErrorLog(entry);
+      if (REPORTED_CLIENT_KINDS.has(entry.kind)) clientReporter.capture({ name: entry.kind, message: entry.message, stack: entry.stack }, { tags: { kind: entry.kind, page: entry.url }, extra: { source: entry.source, count: entry.count } });
       log(c.red, '! error', `${p.name} (#${id}, ${net}) [${entry.kind}] ${entry.message}${entry.count > 1 ? ` (x${entry.count})` : ''}`);
     }
   });
@@ -771,4 +781,7 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 // a bug in one message handler must not take everyone's game down
-process.on('uncaughtException', (error) => log(c.red, 'bug   ', error.stack ?? String(error)));
+process.on('uncaughtException', (error) => {
+  log(c.red, 'bug   ', error.stack ?? String(error));
+  serverReporter.capture(error, { tags: { kind: 'uncaughtException' } });
+});

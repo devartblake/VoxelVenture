@@ -8,7 +8,8 @@ A runbook for one server running everything: the web app, the API and the presen
 | `Caddyfile` | HTTPS and the reverse proxy for the three addresses |
 | `systemd/*.service` | The three processes, restarted automatically, and the messaging service (installed, not enabled until the switch-over below) |
 | `env/*.env.example` | The settings for each process (copied to `/etc/voxelventure/`) |
-| `backup.sh` | A consistent copy of the database (and the messaging service's, once it has one), kept for 14 days, optionally uploaded with rclone |
+| `backup.sh` | A consistent copy of the database (and the messaging service's, once it has one), kept for 14 days, optionally uploaded with rclone, with a Healthchecks.io ping |
+| `MONITORING.md` | Error reporting (Sentry), uptime checks (UptimeRobot) and the backup heartbeat (Healthchecks.io): setup and what to do when an alert comes |
 | `push.ps1` | From Windows: copy the committed project to the server (staging or production) and optionally deploy it, with no rsync needed |
 | `staging.sh`, `Caddyfile.staging`, `systemd/staging/` | Staging on the same machine: the business journeys, deploy and rollback rehearsals, restoring a production backup ([STAGING.md](STAGING.md)) |
 
@@ -70,6 +71,7 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
    - `curl https://play.voxelventure.app/health` returns `{"ok":true,...}`
    - Open `https://voxelventure.app`: you should be able to look around without signing in, and sign-in appears only when you claim something.
    - `journalctl -u voxelventure-api -f` (and `-presence`, `-web`) show the logs.
+   - **Alerts:** set up error reporting, the uptime checks and the backup heartbeat ([MONITORING.md](MONITORING.md)).
    - **Verify the data is authoritative:** this must end `all checks passed`:
      ```
      VERIFY_ADMIN_TOKEN="$(grep ^ADMIN_TOKEN= /etc/voxelventure/api.env | cut -d= -f2)" \
@@ -120,7 +122,7 @@ The app is in `apps/web/`, and the servers are in `services/api/` and `services/
 5. Check `/health` on the API and the presence server, sign in, claim, and open `/admin`.
 
 ## Backups and restoring
-- Nightly at 03:15 (`/etc/cron.d/voxelventure-backup`): a compressed copy in `/var/backups/voxelventure`, kept 14 days. For off-machine copies, install `rclone`, run `rclone config` once for your Linode Object Storage, and put `RCLONE_REMOTE=linode:your-bucket` in `/etc/voxelventure/backup.env`. Also switch on Linode's own Backups.
+- Nightly at 03:15 (`/etc/cron.d/voxelventure-backup`): a compressed copy in `/var/backups/voxelventure`, kept 14 days. For off-machine copies, install `rclone`, run `rclone config` once for your Linode Object Storage, and put `RCLONE_REMOTE=linode:your-bucket` in `/etc/voxelventure/backup.env`. Also switch on Linode's own Backups. `HEALTHCHECK_URL` in the same file emails you when a night's backup or upload fails ([MONITORING.md](MONITORING.md#healthchecksio-the-nightly-backup)).
 - **Restore:** `systemctl stop voxelventure-api`, `gunzip -c /var/backups/voxelventure/voxelventure-DATE.db.gz > /srv/voxelventure/services/api/data/voxelventure.db`, make sure the `voxel` user owns it, then `systemctl start voxelventure-api`.
 - Do a restore on a spare machine once, before you rely on it.
 

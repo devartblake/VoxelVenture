@@ -87,6 +87,7 @@ voxelventure.app has been live on a Shared CPU 4 GB Linode since 2026-10-17, as 
 | Nightly database copies on the machine | ✅ `voxelventure-backup` at 03:15 into `/var/backups/voxelventure`, kept 14 days. A restore is proven ([STAGING.md](../../deploy/STAGING.md#rehearsal-log)) |
 | Off-site copies (Object Storage) | ❌ Not set up: no `RCLONE_REMOTE` in `/etc/voxelventure/backup.env`, and rclone is not installed. Until then, the backups are only on the machine they protect |
 | Linode Backups | To check in the Linode dashboard |
+| Error reporting, uptime checks and alerts | Built ([MONITORING.md](../../deploy/MONITORING.md)): Sentry for errors, UptimeRobot for uptime, Healthchecks.io for the nightly backup. The three accounts, `SENTRY_DSN` and `HEALTHCHECK_URL` are not set up yet |
 | Firewall | ✅ `ufw` on the machine allows only SSH, 80 and 443. The Linode Cloud Firewall in front is to check in the dashboard |
 | SSH keys only | ❌ Not yet: key sign-in works, but password sign-in for root is still on (`PasswordAuthentication yes`, `PermitRootLogin yes`) |
 | Bandwidth and load measured with the monitor (`/admin`) | ❌ Not yet: the `/admin` password line in `/etc/caddy/Caddyfile` needs a `caddy hash-password` hash |
