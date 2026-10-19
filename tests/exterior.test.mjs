@@ -95,7 +95,9 @@ const claimed = useCityStore.getState().claimPlot(lot.id, 'Tester', 'Tall Test',
 const mine = useCityStore.getState().plots.find((p) => p.id === lot.id);
 const r = e.floorRange(lot, 'office');
 if (!claimed || mine.height !== e.heightFor(Math.min(5, r.max)) || mine.interiorData.floors !== Math.min(5, r.max) || mine.wallColor !== '#334155' || mine.exterior.crown !== 'dish') bad('claiming with an outside builds that building', JSON.stringify([mine.height, mine.interiorData?.floors, mine.wallColor, mine.exterior?.crown]));
-if (mine.value !== lot.price || !mine.userClaimed) bad('the building is worth what was paid: the land price (customising is free until prices are set)', `${mine.value} vs ${lot.price}`);
+// five floors is more than an office's usual number, so the extra floors are priced (a dish is free): the land plus their share of it
+const extra = Math.max(0, Math.min(5, r.max) - r.typical);
+if (Math.abs(mine.value - (lot.price + Math.round(lot.price * 0.1 * extra * 100) / 100)) > 0.011 || !mine.userClaimed) bad('the building is worth what was paid: the land and the extra floors (a dish and a colour style are free)', `${mine.value} vs ${lot.price} + ${extra} floors`);
 const edited = useCityStore.getState().setPlotExterior(lot.id, { floors: 2, palette: 'brand', crown: 'spire', wallColor: '#ff8800' });
 const after = useCityStore.getState().plots.find((p) => p.id === lot.id);
 if (!edited || after.height !== 2.4 || after.wallColor !== '#ff8800' || after.exterior.crown !== 'spire' || after.interiorData.floors !== 2) bad('an owner can change the outside later', JSON.stringify([after.height, after.wallColor, after.exterior?.crown]));

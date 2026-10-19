@@ -8,7 +8,7 @@ import ShareBox from './ShareBox';
 import ExteriorBuilder from './ExteriorBuilder';
 import { applyExterior, cleanExterior, defaultExterior } from '@/lib/game/exterior';
 import { useDraft } from '@/lib/state/draftStore';
-import { claimPrice, landPriceOf, leaseQuote, renewalQuote, takeoverQuote } from '@/lib/game/claimPrice';
+import { claimPrice, exteriorChangeQuote, landPriceOf, leaseQuote, renewalQuote, takeoverQuote } from '@/lib/game/claimPrice';
 import { explainPrice } from '@/lib/game/landPrice';
 import { holdState } from '@/lib/game/claimHold';
 import { useClaimHold } from '@/lib/state/claimHoldStore';
@@ -25,8 +25,8 @@ import { liveDataProvider } from '@/lib/data/liveData';
 import { slugify } from '@voxelventure/business-core';
 import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { apiOn } from '@/lib/data/api';
-import { claimRemote, openSiteLink, renewRemote, takeOverRemote, updateRemote } from '@/lib/data/sync';
-import { DEFAULT_TERM, TERMS, describeLease, leaseState, termOf, termPrice, takeoverAllowed } from '@/lib/game/leases';
+import { claimRemote, openSiteLink, renewRemote, takeOverRemote, updateRemote, upgradeExteriorRemote } from '@/lib/data/sync';
+import { DEFAULT_TERM, TERMS, describeLease, leaseState, termFor, termOf, termPrice, takeoverAllowed } from '@/lib/game/leases';
 import { useCommunity } from '@/lib/state/communityStore';
 import ReportButton from './ReportButton';
 import { useAccount } from '@/lib/state/accountStore';
@@ -192,28 +192,85 @@ function LogoPicker({ value, onChange, title = '', type = 'shop' }) {
   );
 }
 
-// The owner of a plot can change its roof banner at any time.
-// The owner's editor for the outside of their building: every change is saved at once and shows in the city.
-// With a game server the change is saved there (a moment after the last change, so dragging a slider sends one request), so every player sees it.
+// The owner's editor for the outside of their building. A change that costs nothing more a year (the basic outside: colours, the shape, fewer floors,
+// taking something off) is saved at once and shows in the city; with a game server it is saved there a moment after the last change, so dragging a
+// slider sends one request. A change that costs more (lib/game/claimPrice.js exteriorChangeQuote: floors above the usual number, a roof garden, a dome,
+// a spire) shows in the city but is not saved: the owner pays for the rest of the lease, or undoes it back to the outside they have.
 const saveTimers = new Map();
 function OwnerOutside({ plot }) {
   const setPlotExterior = useCityStore((s) => s.setPlotExterior);
+  const notify = (t) => useCityStore.getState().notify(t);
   const type = plot.buildingType ?? 'shop';
-  const value = { floors: floorsForHeight(plot.height), wallColor: plot.wallColor, ...(plot.exterior ?? {}) };
+  const [saved, setSaved] = useState(() => plot.exterior ?? null); // the outside the server has, which a priced change is quoted from
+  const [pending, setPending] = useState(null); // a priced change waiting to be paid: { config, quote }
+  const [busy, setBusy] = useState(false);
+  // an outside never set up starts from the building as it stands (before verified traffic grew it)
+  const value = { floors: floorsForHeight(plot.baseHeight ?? plot.height), wallColor: plot.wallColor, ...(plot.exterior ?? {}) };
+  const server = apiOn() && typeof plot.id === 'number';
+  const quoteOf = (config) => exteriorChangeQuote(plot, saved, config, type, { leaseDays: plot.lease?.days, leaseEnd: plot.lease?.end });
   const change = (c) => {
     setPlotExterior(plot.id, c);
-    if (!apiOn() || typeof plot.id !== 'number') return;
+    if (!server) return;
     clearTimeout(saveTimers.get(plot.id));
-    saveTimers.set(plot.id, setTimeout(() => updateRemote(plot.id, { exterior: cleanExterior(c, plot, type) }).catch((e) => useCityStore.getState().notify(`Not saved: ${e.message}`)), 700));
+    const config = cleanExterior(c, plot, type);
+    const quote = quoteOf(config);
+    if (quote.diff > 0) return setPending({ config, quote });
+    setPending(null);
+    saveTimers.set(
+      plot.id,
+      setTimeout(
+        () =>
+          updateRemote(plot.id, { exterior: config }).then(
+            () => setSaved(config),
+            (e) => (e.code === 'exterior_payment_required' && e.quote ? setPending({ config, quote: e.quote }) : notify(`Not saved: ${e.message}`))
+          ),
+        700
+      )
+    );
   };
+  const undo = () => {
+    setPending(null);
+    setPlotExterior(plot.id, saved ?? defaultExterior(plot, type));
+  };
+  const pay = async () => {
+    setBusy(true);
+    try {
+      const r = await upgradeExteriorRemote(plot.id, pending.config);
+      if (!r.checkout) (setSaved(pending.config), setPending(null));
+    } catch {
+      /* said by upgradeExteriorRemote */
+    }
+    setBusy(false);
+  };
+  const ended = ['grace', 'open'].includes(leaseState(plot.lease?.end));
+  const money = (n) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   return (
     <div className="space-y-1.5">
       <ExteriorBuilder plot={plot} type={type} value={value} onChange={change} />
-      <p className="text-[10px] text-slate-500">Changes show in the city straight away. More floors mean a bigger building on the map and more rooms to design inside.</p>
+      {pending && (
+        <div className="space-y-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 text-[11px] text-amber-100" data-testid="exterior-quote" role="status">
+          <p>
+            These changes cost <b>{money(pending.quote.charge)}</b> for the rest of your lease ({money(pending.quote.diff)} a year more{pending.quote.lines.length ? `: ${pending.quote.lines.map((l) => l.label.toLowerCase()).join(', ')}` : ''}).
+          </p>
+          {ended ? (
+            <p className="text-amber-200">The lease has ended: renew it first, then you can build onto the outside again.</p>
+          ) : null}
+          <div className="flex gap-1.5">
+            <button type="button" disabled={busy || ended} onClick={pay} className="flex-1 rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 font-bold text-white hover:brightness-110 disabled:opacity-40" data-testid="exterior-pay">
+              Pay {money(pending.quote.charge)} and apply
+            </button>
+            <button type="button" disabled={busy} onClick={undo} className="rounded-lg border border-sx-stroke px-3 py-1.5 text-slate-200 hover:bg-sx-alt disabled:opacity-40" data-testid="exterior-undo">
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
+      <p className="text-[10px] text-slate-500">Free changes show in the city straight away. More floors mean a bigger building on the map and more rooms to design inside.</p>
     </div>
   );
 }
 
+// The owner of a plot can change its roof banner at any time.
 function ChangeLogo({ plot }) {
   const setPlotLogo = useCityStore((s) => s.setPlotLogo);
   const [logo, setLogo] = useState(() => logoOf(plot));
@@ -295,7 +352,7 @@ function LeaseTerm({ value, onChange, year }) {
 
 // The lease of a business: what protects it, when it ends, and (for the tenant) renewing.
 function LeaseBox({ plot }) {
-  const [days, setDays] = useState(plot.lease?.days ?? DEFAULT_TERM);
+  const [days, setDays] = useState(() => termFor(plot.lease?.days)); // a lease of a term no longer offered (30 days) renews for 3 months
   const [busy, setBusy] = useState(false);
   if (!plot.lease?.end) {
     return plot.userClaimed ? null : <p className="rounded-xl border border-sx-stroke bg-sx-alt/40 px-3 py-2 text-[11px] text-slate-400">No lease: this business can be taken over.</p>;
@@ -681,7 +738,7 @@ export default function PlotCard() {
                 ))}
                 {claim.year != null && <div className="mt-1 flex justify-between border-t border-sx-stroke pt-1"><span>For a year</span><span className="font-mono">${claim.year.toLocaleString()}</span></div>}
                 <div className="mt-1 flex justify-between border-t border-sx-stroke pt-1 font-bold text-white"><span>{claim.year != null ? `Total for ${termOf(claim.days)?.label ?? `${claim.days} days`}` : 'Total'}</span><span className="font-mono" data-testid="claim-total">${claim.total.toLocaleString()}</span></div>
-                {p.land && p.land.tier !== 'ordinary' && <p className="mt-1 text-[10px] text-slate-500">{explainPrice(p.land).join(' · ')}</p>}
+                {p.land && explainPrice(p.land).length > 1 && <p className="mt-1 text-[10px] text-slate-500">{explainPrice(p.land).join(' · ')}</p>}
               </div>
             )}
             <button type="submit" disabled={!isValidLogo(logo)} className="w-full rounded-lg bg-green-600 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-green-500 disabled:opacity-40">

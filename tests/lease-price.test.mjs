@@ -14,13 +14,13 @@ const { cleanExterior, defaultExterior, floorRange } = await imp('game/exterior.
 const { EXTERIOR_PRICES } = await imp('content/exteriorPrices.js');
 const { fromServer } = await imp('data/sync.js');
 
-// The outside is free today (the owner sets its prices). Give every choice a price for this test, so it shows that the outside is charged as the form
-// shows it; the shipped prices are put back at the end.
+// The shipped outside prices (shares of the land price: extra floors, a roof garden, a dome, a spire) are charged as the form shows them. The test
+// checks they are the real ones, so the comparison below is of the prices players pay.
 const shipped = structuredClone(EXTERIOR_PRICES);
-Object.assign(EXTERIOR_PRICES, { perFloor: 1.5, perSkyscraperFloor: 2, palette: { tokyo: 3 }, crown: { beacon: 4, dish: 1, garden: 2.25, dome: 3, spire: 5 }, ownWallColor: 0.75 });
+check('the outside has real prices (more floors and the roof features cost a share of the land)', EXTERIOR_PRICES.perFloor > 0 && EXTERIOR_PRICES.crown.spire > 0 && EXTERIOR_PRICES.crown.garden > 0);
 
 const tierOf = (p) => (p.grand ? 'grand' : p.luxury ? 'luxury' : p.prime ? 'prime' : 'ordinary');
-const TERMS = [30, 90, 365];
+const TERMS = [90, 182, 365];
 // the outsides a player might set up (null: they did not touch it, the claim form sends the usual one)
 const OUTSIDES = [null, (p, t) => ({ floors: floorRange(p, t).typical + 2, crown: 'spire' }), () => ({ palette: 'tokyo', wallColor: '#336699', crown: 'garden' })];
 const TYPES = ['shop', 'restaurant', 'office'];

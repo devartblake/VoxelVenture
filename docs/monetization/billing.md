@@ -3,7 +3,7 @@
 Phase 4 of the [competitive alignment review](../competitive-research/claimavenue_competitive_alignment_review.md#recommended-implementation-sequence). Everything is paid through Stripe Checkout:
 
 - **Business profiles:** the Launch Pack, Pro and sponsored placements.
-- **The game:** leases (claiming, taking over or renewing a plot) and market stalls ([below](#in-the-game-leases-and-market-stalls)).
+- **The game:** leases (claiming, taking over or renewing a plot), building onto a plot's outside, and market stalls ([below](#in-the-game-leases-and-market-stalls)).
 
 The code is in `services/api/billing.mjs`. The catalogue is in `packages/business-core/src/plans.js`, imported everywhere as `@voxelventure/business-core` ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). The tests are `tests/billing.test.mjs` and `tests/billing-game.test.mjs`, which run against a fake Stripe server.
 
@@ -51,12 +51,15 @@ With payments on, these game actions return `{ checkout: { orderId, url, cents }
 
 | Action | Endpoint | Price |
 | --- | --- | --- |
-| Claim an empty plot | `POST /plots/<id>/claim` | The lease price for the chosen term (`lib/game/leases.js`) |
+| Claim an empty plot | `POST /plots/<id>/claim` | The lease price for the chosen term: 3, 6 or 12 months (`lib/game/leases.js`), for the land and the outside chosen |
 | Take over an ended lease | `POST /plots/<id>/takeover` | The take-over price |
 | Renew a lease | `POST /plots/<id>/renew` | The renewal price |
+| Build onto the outside (more floors, a roof garden, a dome, a spire) | `POST /plots/<id>/exterior` | The yearly difference for the rest of the lease, at least $0.50 (`exteriorChangeQuote` in `lib/game/claimPrice.js`). Its order is labelled "Building upgrade: <title> (plot N)" |
 | Book a market stall | `POST /market/book` | The stall's price for its slot ($2 to $5) |
 
 Plot prices are in dollars, and the order charges them in cents. The game sends the player to Stripe and back to `/?paid=<order>`, then tells them how it went.
+
+The outside follows the [price rules](pricing_analysis.md#the-outside-basic-is-free-elaborate-is-priced): a change to the outside that costs no more a year is free and applies at once (`PATCH /plots/<id>`, or `POST /plots/<id>/exterior`, which then opens no checkout). A dearer one through `PATCH` is refused with 402 `exterior_payment_required` and the quote (`{ before, after, diff, charge, lines }`), and the owner's editor offers to pay it.
 
 - **Checked before paying.** Everything the action checks is checked before the player pays: the server runs the action and then undoes it. The price charged is the one the action would write in the ledger.
 - **Held while paying.** The plot or stall is held for the player for the 30 minutes the checkout lives:
@@ -70,6 +73,7 @@ Refunding a game order takes back what it bought:
 
 - **Claim or take-over.** The lease ends at once and the plot opens to others.
 - **Renewal.** The lease loses the days the renewal added.
+- **Building upgrade.** The outside it replaced comes back, and the plot's value goes down by what the upgrade added.
 - **Stall.** The booking is cancelled.
 - **Cancelling a paid stall.** A stallholder can cancel before the stall opens, and gets a full refund.
 

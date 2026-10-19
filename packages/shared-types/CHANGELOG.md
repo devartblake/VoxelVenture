@@ -1,5 +1,17 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.7.0 (2026-10-18)
+
+A building's outside has real prices: the basic outside is free, a more elaborate one is paid for the rest of the lease (`services/api/core.mjs` `upgradeExterior`, `lib/game/claimPrice.js` `exteriorChangeQuote`). New contracts, all version 1:
+
+- `plot.exterior-quote`: what changing the outside costs: `{ before, after, diff, charge, lines }`. The 402 `exterior_payment_required` answer to `PATCH /plots/:id` carries it as `quote`.
+- `plot.exterior-upgrade`: the body of `POST /plots/:id/exterior`: `{ exterior }`.
+- `plot.exterior-upgrade.result`: its answer: `{ plot, paid }`, or `{ checkout }` with payments on.
+- `API_CONTRACTS` now holds 21.
+- `LEASE_TERMS` (enum): the lease terms in days, `90 182 365` (3, 6 and 12 months). The 30-day term is gone.
+
+No existing contract changed.
+
 ## 0.6.0 (2026-10-18)
 
 Redesigned interiors are kept on the server (`services/api/interiors.mjs`). New contracts, all version 1:

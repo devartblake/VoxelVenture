@@ -5,6 +5,7 @@ import * as community from './community.mjs';
 import * as market from './market.mjs';
 import { ApiError, fail, requireAccount } from './core.mjs';
 import { audit, ADMIN, SYSTEM, byAccount } from './audit.mjs';
+import { imp } from '../../scripts/lib-loader.mjs';
 
 // Payments through Stripe Checkout (phase 4, docs/monetization/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
 // each for one business profile; and, in the game, leases (claiming, taking over or renewing a plot) and market stalls. A lease or a stall
@@ -23,6 +24,7 @@ import { audit, ADMIN, SYSTEM, byAccount } from './audit.mjs';
 import { PRODUCTS, placementOf, priceOf, planOf, DAY_MS } from '@voxelventure/business-core';
 import { categoryOf, districtOf, isSlug } from '@voxelventure/business-core';
 
+const { termLabel } = await imp('game/leases.js');
 const HOLD_MS = 30 * 60000; // Stripe's shortest checkout expiry: a sponsored spot, a plot or a stall is held this long for a checkout in progress
 const TOLERANCE_S = 300; // a webhook signed longer ago than this is refused (a replay)
 const now = () => Date.now();
@@ -138,14 +140,17 @@ async function openSession(db, account, order, { name, mode = 'payment', interva
 }
 
 // ---- in the game: leases and market stalls ----------------------------------------------------------------------------------------------
-// Claim, take over or renew a plot, paid for. Everything the action checks is checked now (by doing it and undoing it), the price is what it
-// would write in the ledger, and the plot is held for the player while they pay. The action itself runs when the payment arrives (fulfil).
+// Claim, take over or renew a plot, or build onto its outside, paid for. Everything the action checks is checked now (by doing it and undoing it), the
+// price is what it would write in the ledger, and the plot is held for the player while they pay. The action itself runs when the payment arrives (fulfil).
+// An outside change that turns out to cost nothing (it is no dearer than the one the building has) needs no payment: it is done at once.
 // A take-over is charged like any lease: no money goes to the tenant it replaces (the 1.25x payout waits for a legal, tax and fraud review).
 const LEASE_ACTIONS = {
   claim: (db, account, plotId, input) => core.claimPlot(db, account, plotId, input),
   takeover: (db, account, plotId, input) => core.takeOverPlot(db, account, plotId, input),
   renew: (db, account, plotId, input) => community.renewLease(db, account, plotId, input),
+  exterior: (db, account, plotId, input) => core.upgradeExterior(db, account, plotId, input),
 };
+const LEASE_LABEL = { claim: 'Lease', takeover: 'Take-over lease', renew: 'Lease renewal', exterior: 'Building upgrade' };
 export async function payLease(db, account, plotId, action, input = {}, env = process.env, fetchImpl = fetch) {
   requireAccount(account);
   if (!billingOn(env)) fail(503, 'Payments are not set up yet.', 'billing_off');
@@ -155,13 +160,21 @@ export async function payLease(db, account, plotId, action, input = {}, env = pr
     const would = dryRun(db, () => {
       const out = run(db, account, id, input);
       const plot = out.plot ?? out;
-      const price = db.prepare('SELECT price FROM ledger WHERE plot_id = ? ORDER BY id DESC LIMIT 1').get(id).price;
+      const price = out.paid ?? db.prepare('SELECT price FROM ledger WHERE plot_id = ? ORDER BY id DESC LIMIT 1').get(id).price;
       return { price, title: plot.title, days: plot.lease?.days ?? null };
     });
-    const label = `${{ claim: 'Lease', takeover: 'Take-over lease', renew: 'Lease renewal' }[action]}: ${would.title} (plot ${id}, ${would.days} days)`;
+    if (!(would.price > 0)) return null; // nothing to pay (a free outside change): done below, without a checkout
+    const label = action === 'exterior' ? `${LEASE_LABEL[action]}: ${would.title} (plot ${id})` : `${LEASE_LABEL[action]}: ${would.title} (plot ${id}, ${termLabel(would.days)})`;
     const r = db.prepare("INSERT INTO orders (account_id, product, target, request, label, cents, hold_until, created_at) VALUES (?, 'lease', ?, ?, ?, ?, ?, ?)").run(account.id, `plot:${id}`, JSON.stringify({ action, input, days: would.days }), label, Math.round(would.price * 100), now() + HOLD_MS, now());
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid));
   });
+  if (!order) {
+    return transaction(db, () => {
+      const out = run(db, account, id, input);
+      audit(db, byAccount(account), `plot.${action}`, { kind: 'plot', id }, leaseDetail(action, out));
+      return out;
+    });
+  }
   const url = await openSession(db, account, order, { name: order.label, back: '/', metadata: { plot: id, action } }, env, fetchImpl);
   audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'lease', action, plot: id, cents: order.cents });
   return { checkout: { orderId: order.id, url, cents: order.cents } };
@@ -204,11 +217,22 @@ function fulfil(db, order) {
     db.prepare('UPDATE orders SET note = ? WHERE id = ?').run(`could not be done once paid (${e.message}): refunded`.slice(0, 200), order.id);
     return { refund: order.id };
   }
-  db.prepare('UPDATE orders SET request = ? WHERE id = ?').run(JSON.stringify({ ...req, done: true }), order.id);
-  const plot = out.plot ?? out;
-  const detail = { claim: { title: plot.title, value: plot.value, leaseDays: plot.lease?.days ?? null }, takeover: { title: plot.title, paidOut: 0, previousOwner: out.previousOwner, previousAccount: out.previousAccount ?? null }, renew: { paid: out.paid, leaseDays: plot.lease?.days ?? null } }[req.action];
-  audit(db, byAccount(account), `plot.${req.action}`, { kind: 'plot', id: plotId }, { ...detail, order: order.id });
+  // an outside upgrade keeps what it replaced, so a refund can put it back (endPaidLease)
+  const undo = req.action === 'exterior' ? { before: out.before, diff: out.diff } : {};
+  db.prepare('UPDATE orders SET request = ? WHERE id = ?').run(JSON.stringify({ ...req, ...undo, done: true }), order.id);
+  audit(db, byAccount(account), `plot.${req.action}`, { kind: 'plot', id: plotId }, { ...leaseDetail(req.action, out), order: order.id });
   return { fulfilled: { kind: 'lease', action: req.action, plotId, accountId: account.id, out } };
+}
+
+// What the audit log records about a lease action, paid for (in the game a take-over pays nobody out yet: see above).
+function leaseDetail(action, out) {
+  const plot = out.plot ?? out;
+  return {
+    claim: { title: plot.title, value: plot.value, leaseDays: plot.lease?.days ?? null },
+    takeover: { title: plot.title, paidOut: 0, previousOwner: out.previousOwner, previousAccount: out.previousAccount ?? null },
+    renew: { paid: out.paid, leaseDays: plot.lease?.days ?? null },
+    exterior: { paid: out.paid, diff: out.diff, value: plot.value },
+  }[action];
 }
 
 // What an order held is let go (its checkout expired or failed): a pending stall is freed. (A plot's hold is the order's own hold_until.)
@@ -336,12 +360,14 @@ function revoke(db, order, actor, why) {
 }
 
 // A refunded lease is taken back, if the player still holds the plot: a claim or take-over ends at once (the plot opens to others), a
-// renewal loses the days it added. A lease that was never carried out (refunded because it could not be) changes nothing.
+// renewal loses the days it added, an outside upgrade is undone (the outside it replaced comes back, the value goes down again). A lease that was never
+// carried out (refunded because it could not be) changes nothing.
 function endPaidLease(db, order) {
   const req = JSON.parse(order.request || '{}');
   const p = db.prepare('SELECT * FROM plots WHERE id = ?').get(targetId(order));
   if (!req.done || !p || p.owner_account !== order.account_id || !p.lease_end) return;
-  if (req.action === 'renew') db.prepare('UPDATE plots SET lease_end = lease_end - ?, lease_notified = 0 WHERE id = ?').run((req.days ?? p.lease_days ?? 0) * DAY_MS, p.id);
+  if (req.action === 'exterior') core.revertExterior(db, p.id, req.before ?? null, req.diff ?? 0);
+  else if (req.action === 'renew') db.prepare('UPDATE plots SET lease_end = lease_end - ?, lease_notified = 0 WHERE id = ?').run((req.days ?? p.lease_days ?? 0) * DAY_MS, p.id);
   else community.setLeaseState(db, p.id, 'open');
 }
 

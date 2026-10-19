@@ -7,8 +7,8 @@ import { imp } from '../../scripts/lib-loader.mjs';
 const { generateCity, SUBURB_ID, TAKEOVER_MULTIPLIER } = await imp('city/cityGenerator.js');
 const { cleanLogo } = await imp('game/logos.js');
 const { toEmbedUrl } = await imp('content/embeds.js');
-const { DEFAULT_TERM, takeoverAllowed, termOf, DAY_MS: LEASE_DAY, describeLease } = await imp('game/leases.js');
-const { leaseQuote, renewalQuote, takeoverQuote } = await imp('game/claimPrice.js');
+const { DEFAULT_TERM, TERMS, takeoverAllowed, termOf, termFor, leaseState, DAY_MS: LEASE_DAY, describeLease } = await imp('game/leases.js');
+const { exteriorChangeQuote, landPriceOf, leaseQuote, renewalQuote, takeoverQuote } = await imp('game/claimPrice.js');
 const { skylineFor } = await imp('game/skyline.js');
 const { cleanExterior } = await imp('game/exterior.js');
 export { TAKEOVER_MULTIPLIER };
@@ -25,6 +25,11 @@ export class ApiError extends Error {
   }
   withErrors(errors) {
     this.errors = errors;
+    return this;
+  }
+  // more for the client in the error's body, beside `error` and `code` (the server adds these keys: an outside's quote on 402)
+  withData(data) {
+    this.data = data;
     return this;
   }
 }
@@ -149,7 +154,7 @@ export function plotView(db, row) {
 export function leaseView(row, at = now()) {
   if (!row.lease_end) return null;
   const d = describeLease(row.lease_end, row.lease_days, at);
-  return { days: row.lease_days, start: row.lease_start, end: row.lease_end, state: d.state, text: d.text, renewPrice: renewalQuote(pricedPlot(row), row.lease_days ?? DEFAULT_TERM) };
+  return { days: row.lease_days, start: row.lease_start, end: row.lease_end, state: d.state, text: d.text, renewPrice: renewalQuote(pricedPlot(row), termFor(row.lease_days)) };
 }
 // A plot row in the shape the game's price rules take (lib/game/claimPrice.js), the same shape the claim form prices: its facts (size, tier, `land`),
 // what it is worth, who leases it and the outside it has now.
@@ -205,10 +210,11 @@ function cleanBusiness(input) {
   return { title, buildingType, website, variant: text(input.variant, 20) || null, logo: JSON.stringify(logo), description: text(input.description, 160) || null };
 }
 
-// The lease term a request asks for: 30, 90 or 365 days (365 if it does not say), anything else is refused.
+// The lease term a request asks for: 90, 182 or 365 days (3, 6 or 12 months; 365 if it does not say), anything else is refused.
+export const TERM_MESSAGE = `A lease is ${TERMS.map((t) => `${t.label} (${t.days} days)`).join(', ').replace(/, ([^,]*)$/, ' or $1')}.`;
 function leaseTerm(input) {
   if (input.leaseDays == null) return DEFAULT_TERM;
-  return termOf(input.leaseDays)?.days ?? fail(400, 'A lease is 30, 90 or 365 days.', 'bad_term');
+  return termOf(input.leaseDays)?.days ?? fail(400, TERM_MESSAGE, 'bad_term');
 }
 
 // With payments on, a player paying for a plot holds it while they pay (an order waiting for its payment, billing.mjs): nobody else may
@@ -279,6 +285,9 @@ function exteriorOf(input, row, buildingType) {
 }
 
 // The owner changes their logo, description and the outside of the building (nothing else: the price and the owner are not editable).
+// An outside that costs the same or less a year than the one the building has applies at once, and the plot's value (its price for a year) changes by
+// the difference. One that costs more is refused with 402 and the quote (lib/game/claimPrice.js exteriorChangeQuote): it is paid for through
+// upgradeExterior (POST /plots/:id/exterior), so an owner cannot claim with the basic outside and add a spire for nothing afterwards.
 export function updateBusiness(db, account, id, input) {
   requireAccount(account);
   return transaction(db, () => {
@@ -289,15 +298,57 @@ export function updateBusiness(db, account, id, input) {
     const video = input.videoUrl ? toEmbedUrl('video', input.videoUrl) : { ok: true };
     if (!video.ok) fail(400, video.error, 'bad_video');
     const exterior = input.exterior === undefined ? p.exterior : exteriorOf(input, p, p.building_type);
-    db.prepare('UPDATE plots SET logo=?, description=?, exterior=?, updated_at=? WHERE id=?').run(logo, description, exterior, now(), p.id);
+    let value = p.value;
+    if (input.exterior !== undefined) {
+      const quote = outsideQuote(p, exterior);
+      if (quote.diff > 0) throw new ApiError(402, `This outside costs $${quote.diff.toLocaleString()} a year more: $${quote.charge.toLocaleString()} for the rest of your lease.`, 'exterior_payment_required').withData({ quote });
+      value = valueAfter(p, quote.diff);
+    }
+    db.prepare('UPDATE plots SET logo=?, description=?, exterior=?, value=?, updated_at=? WHERE id=?').run(logo, description, exterior, value, now(), p.id);
     return plotView(db, getPlot(db, p.id));
   });
 }
 
+// What changing a plot's stored outside to `exterior` (stored JSON, or null) costs: the quote, priced as the claim form prices it.
+function outsideQuote(row, exterior) {
+  const plot = pricedPlot(row);
+  const type = row.building_type ?? 'shop';
+  return exteriorChangeQuote(plot, plot.exterior, exterior ? JSON.parse(exterior) : null, type, { now: now(), leaseDays: row.lease_days, leaseEnd: row.lease_end });
+}
+// The plot's value after its outside changed by `diff` a year: it is the price of a year, so it moves with the outside, never below the land.
+const valueAfter = (row, diff) => Math.max(landPriceOf(pricedPlot(row)), Math.round((Number(row.value) + diff) * 100) / 100);
+
+// The owner pays for a more elaborate outside (more floors, a roof garden, a dome, a spire): the charge for the rest of the lease is written in the
+// ledger ('exterior', not a change of hands), the outside applies and the plot's value goes up by the yearly difference. Only while the lease runs or
+// can be renewed: once it has ended the building cannot be changed until it is renewed (as its inside, interiors.mjs). With payments on this runs once
+// the payment arrives (billing.mjs); returns { plot, paid, diff, before } (before: the outside it replaced, for a refund to put back).
+export function upgradeExterior(db, account, id, input = {}) {
+  requireAccount(account);
+  return transaction(db, () => {
+    const p = getPlot(db, id);
+    if (p.owner_account !== account.id) fail(403, 'This is not your business.', 'forbidden');
+    if (['grace', 'open'].includes(leaseState(p.lease_end, now()))) fail(403, 'The lease on this building has ended. Renew it to change the outside again.', 'lease_ended');
+    if (input.exterior == null) fail(400, 'Send the outside to build.', 'bad_exterior');
+    const exterior = exteriorOf(input, p, p.building_type);
+    const quote = outsideQuote(p, exterior);
+    db.prepare('UPDATE plots SET exterior=?, value=?, updated_at=? WHERE id=?').run(exterior, valueAfter(p, quote.diff), now(), p.id);
+    if (quote.charge > 0) db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'exterior', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, p.title, quote.charge, now());
+    return { plot: plotView(db, getPlot(db, p.id)), paid: quote.charge, diff: quote.diff, before: p.exterior ?? null };
+  });
+}
+// A refunded outside upgrade is undone (billing.mjs): the outside it replaced comes back and the value goes down by what the upgrade added.
+export function revertExterior(db, id, before, diff) {
+  const p = getPlot(db, id);
+  db.prepare('UPDATE plots SET exterior=?, value=?, updated_at=? WHERE id=?').run(before ?? null, valueAfter(p, -Number(diff || 0)), now(), p.id);
+}
+
 // ---- history ---------------------------------------------------------------------------------------------------------
+// The kinds of ledger row where a plot changed hands (the city's own first business, a claim, a take-over). A renewal or an outside upgrade is the same
+// tenant paying again: it is not another owner.
+export const HAND_CHANGES = ['open', 'claim', 'takeover'];
 export function history(db, id) {
   getPlot(db, id);
-  const rows = db.prepare('SELECT * FROM ledger WHERE plot_id = ? ORDER BY id DESC').all(Number(id));
+  const rows = db.prepare(`SELECT * FROM ledger WHERE plot_id = ? AND kind IN (${HAND_CHANGES.map(() => '?').join(',')}) ORDER BY id DESC`).all(Number(id), ...HAND_CHANGES);
   const events = rows.map((r, i) => ({ kind: r.kind === 'open' ? 'open' : 'claim', title: r.title, price: r.price, owner: r.owner_name, paidTo: r.paid_to, daysAgo: Math.max(0, Math.floor((now() - r.at) / DAY)), now: i === 0 && r.kind !== 'open' }));
   return { simulated: false, events, owners: rows.filter((r) => r.kind !== 'open').length };
 }

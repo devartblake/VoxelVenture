@@ -253,6 +253,20 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       push('plot', [Number(r[1])]); // everyone sees the new logo or outside at once
       return out;
     }
+    // the owner pays for a more elaborate outside (core.upgradeExterior): with payments on through Stripe, like a lease; without, at once
+    if ((r = p.match(/^\/plots\/(\d+)\/exterior$/)) && m === 'POST') {
+      const b = await body(req);
+      const shown = (o) => ({ plot: o.plot, paid: o.paid });
+      if (billing.billingOn(env)) {
+        const out = await billing.payLease(db, account, r[1], 'exterior', b, env);
+        if (out.checkout) return out;
+        push('plot', [Number(r[1])]);
+        return shown(out);
+      }
+      const out = logged(A.byAccount(account), 'plot.exterior', { kind: 'plot', id: r[1] }, () => core.upgradeExterior(db, account, r[1], b), (o) => ({ paid: o.paid, diff: o.diff, value: o.plot.value }));
+      push('plot', [Number(r[1])]);
+      return shown(out);
+    }
     // the owner's redesigned interior (interiors.mjs): anyone reads it, only the owner changes it
     if ((r = p.match(/^\/plots\/(\d+)\/interior$/)) && m === 'GET') return interiors.getInterior(db, r[1]);
     if ((r = p.match(/^\/plots\/(\d+)\/interior$/)) && m === 'PUT') {
@@ -497,8 +511,9 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/internal\/plots\/(\d+)\/owner$/)) && m === 'GET') {
       serviceOnly(req);
       const plot = core.getPlot(db, r[1]);
-      // the version changes whenever the plot changes hands (a claim or a take-over writes the ledger): an inquiry checks it again just before it is saved
-      const version = db.prepare('SELECT MAX(id) AS v FROM ledger WHERE plot_id = ?').get(plot.id).v ?? 0;
+      // the version changes whenever the plot changes hands (a claim or a take-over writes the ledger): an inquiry checks it again just before it is saved.
+      // A renewal or an outside upgrade is the same tenant, so it does not count (core.HAND_CHANGES)
+      const version = db.prepare(`SELECT MAX(id) AS v FROM ledger WHERE plot_id = ? AND kind IN (${core.HAND_CHANGES.map(() => '?').join(',')})`).get(plot.id, ...core.HAND_CHANGES).v ?? 0;
       return { plotId: plot.id, title: plot.title, ownerAccount: plot.owner_account ?? null, version };
     }
     // chat and messages (services/api/messaging.mjs)
@@ -566,7 +581,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       }
       send(200, out);
     } catch (e) {
-      if (e instanceof core.ApiError) return send(e.status, { error: e.message, code: e.code, ...(e.errors ? { errors: e.errors } : {}), ...(e.retryAfterMs ? { retryAfterMs: Math.ceil(e.retryAfterMs) } : {}) });
+      if (e instanceof core.ApiError) return send(e.status, { error: e.message, code: e.code, ...(e.errors ? { errors: e.errors } : {}), ...(e.data ?? {}), ...(e.retryAfterMs ? { retryAfterMs: Math.ceil(e.retryAfterMs) } : {}) });
       console.error('api error:', e);
       // the route without ids or tokens, so one bug on /plots/12 and /plots/97 is one issue and no secret leaves the machine
       reporter.capture(e, { tags: { route: `${req.method} ${(url?.pathname ?? '?').replace(/\/(\d+|[^/]{20,})(?=\/|$)/g, '/:id')}` } });
