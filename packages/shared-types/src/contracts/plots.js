@@ -18,7 +18,7 @@ const exterior = {
   },
 };
 
-// What changing the outside costs: its price a year before and after, the difference (added to the plot's value) and what to pay now for the rest of
+// What changing the outside costs: its price for 30 days before and after, the difference (added to the plot's value) and what to pay now for the rest of
 // the lease (0 for a free change, else at least $0.50), with the priced parts of the new outside. The 402 'exterior_payment_required' answer to
 // PATCH /plots/:id carries it as `quote`.
 export const PLOT_EXTERIOR_QUOTE = {

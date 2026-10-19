@@ -37,7 +37,7 @@ In the game, anyone can take over a business whose lease has ended. They pay 1.2
 
 - **Prices compound.** After n take-overs a plot costs its value times 1.25 to the power n. After 10 take-overs a $5 plot costs about $47; after 20, about $434. Whoever holds it when buyers run out loses.
 - **The platform earns nothing on take-overs.** If the whole price goes to the old owner, VoxelVenture keeps nothing. It still pays card fees on the incoming money, the cost of each payout, and every chargeback. Each take-over loses money unless the platform takes a cut, and a cut weakens the "+25%" promise.
-- **Prepaid leases conflict with it.** A tenant who prepaid a year and is displaced would need a refund rule as well as the payout, which adds to the cost.
+- **Prepaid leases conflict with it.** A tenant who prepaid a lease and is displaced would need a refund rule as well as the payout, which adds to the cost.
 
 ### 5. Product and brand
 
@@ -58,7 +58,7 @@ Building it would take roughly 2 to 4 weeks of engineering, plus legal review an
 
 | Option | Risk | Note |
 | --- | --- | --- |
-| **Chosen:** a real-money take-over is a new lease paid to the platform; the old tenant gets nothing | Low | Only possible after the lease and its grace week have ended, so nobody is displaced mid-lease. Built in phase 4b. |
+| **Chosen:** a real-money take-over is a new lease paid to the platform; the old tenant gets nothing | Low | Only possible after the lease and its grace days have ended, so nobody is displaced mid-lease. Built in phase 4b. |
 | Refund the unused part of the old tenant's lease | Low | A normal refund, not a profit. Not needed while take-overs wait for a lease to end. |
 | **Chosen for the game:** the 1.25x rule in Gold, which cannot be withdrawn | Low | Keeps the game mechanic. Gold is never sold for money and never exchanged back. |
 | Real-money 1.25x payout | High | Only after the legal, tax and processor reviews above |

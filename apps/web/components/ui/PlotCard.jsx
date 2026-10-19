@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Bell, Eye, FileText, Footprints, Globe, Home, Image as ImageIcon, MessageCircle, Repeat, Star } from 'lucide-react';
 import { usePanel } from '@/lib/state/panelStore';
 import { shareImage } from '@/lib/game/shareImage';
@@ -26,7 +27,7 @@ import { slugify } from '@voxelventure/business-core';
 import { figuresState, useLiveStats, wantFigures } from '@/lib/data/liveStats';
 import { apiOn } from '@/lib/data/api';
 import { claimRemote, openSiteLink, renewRemote, takeOverRemote, updateRemote, upgradeExteriorRemote } from '@/lib/data/sync';
-import { DEFAULT_TERM, TERMS, describeLease, leaseState, termFor, termOf, termPrice, takeoverAllowed } from '@/lib/game/leases';
+import { DEFAULT_TERM, GRACE_DAYS, PRO_PLOT_DISCOUNT, RENEWAL_DISCOUNT, TERMS, chargeOf, describeLease, leaseState, renewalWindowDays, termFor, termOf, termPrice, takeoverAllowed } from '@/lib/game/leases';
 import { useCommunity } from '@/lib/state/communityStore';
 import ReportButton from './ReportButton';
 import { useAccount } from '@/lib/state/accountStore';
@@ -193,7 +194,7 @@ function LogoPicker({ value, onChange, title = '', type = 'shop' }) {
   );
 }
 
-// The owner's editor for the outside of their building. A change that costs nothing more a year (the basic outside: colours, the shape, fewer floors,
+// The owner's editor for the outside of their building. A change that costs nothing more for 30 days (the basic outside: colours, the shape, fewer floors,
 // taking something off) is saved at once and shows in the city; with a game server it is saved there a moment after the last change, so dragging a
 // slider sends one request. A change that costs more (lib/game/claimPrice.js exteriorChangeQuote: floors above the usual number, a roof garden, a dome,
 // a spire) shows in the city but is not saved: the owner pays for the rest of the lease, or undoes it back to the outside they have.
@@ -251,7 +252,7 @@ function OwnerOutside({ plot }) {
       {pending && (
         <div className="space-y-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 text-[11px] text-amber-100" data-testid="exterior-quote" role="status">
           <p>
-            These changes cost <b>{money(pending.quote.charge)}</b> for the rest of your lease ({money(pending.quote.diff)} a year more{pending.quote.lines.length ? `: ${pending.quote.lines.map((l) => l.label.toLowerCase()).join(', ')}` : ''}).
+            These changes cost <b>{money(pending.quote.charge)}</b> for the rest of your lease ({money(pending.quote.diff)} more for 30 days{pending.quote.lines.length ? `: ${pending.quote.lines.map((l) => l.label.toLowerCase()).join(', ')}` : ''}).
           </p>
           {ended ? (
             <p className="text-amber-200">The lease has ended: renew it first, then you can build onto the outside again.</p>
@@ -293,8 +294,11 @@ function TakeOver({ plot }) {
   const homesLeft = useCityStore((s) => s.plots.filter((p) => p.districtId === SUBURB_ID && !p.owner).length);
   const [form, setForm] = useState({ name: '', title: '', link: '', type: 'shop', variant: null, logo: { kind: 'generated' }, about: '' });
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
-  // with a server, the price it charges (lib/game/claimPrice.js: 1.25x what the business is worth, for a year); without one, the game's own 1.25x its value
-  const price = apiOn() ? takeoverQuote(plot, null, form.type).total : Math.round(plot.value * TAKEOVER_MULTIPLIER);
+  const pro = useAccount((s) => Boolean(s.account?.pro));
+  // with a server, the price it charges (lib/game/claimPrice.js: 1.25x what the business is worth, for 30 days, less 15% with Pro); without one, the game's
+  // own 1.25x its value
+  const quote = apiOn() ? takeoverQuote(plot, null, form.type, DEFAULT_TERM, { pro }) : null;
+  const price = quote ? quote.total : Math.round(plot.value * TAKEOVER_MULTIPLIER);
 
   return (
     <form
@@ -309,7 +313,8 @@ function TakeOver({ plot }) {
         }
         // with a server: sign in only now, when taking over
         const biz = { title: form.title, buildingType: form.type, website: form.link || 'https://example.com', variant: form.variant, logo: form.logo, description: form.about };
-        const go = () => takeOverRemote(plot.id, biz, price).then(() => usePanel.getState().open('dashboard'), () => {});
+        // the price is worked out again once signed in: an account with Pro pays less than the one shown before signing in
+        const go = () => takeOverRemote(plot.id, biz, takeoverQuote(plot, null, form.type, DEFAULT_TERM, { pro: Boolean(useAccount.getState().account?.pro) }).total).then(() => usePanel.getState().open('dashboard'), () => {});
         if (useAccount.getState().ask(go)) go();
       }}
     >
@@ -319,6 +324,7 @@ function TakeOver({ plot }) {
       <p className="text-[11px] text-slate-400">
         {plot.owner} is paid ${price.toLocaleString()} (+25%) and {homesLeft ? 'moves to a house in Old Town' : 'retires (Old Town is full)'}.
       </p>
+      {quote && <ProNote pro={pro} discount={quote.discount} />}
       <input type="text" required placeholder="New business name" value={form.title} onChange={(e) => set('title')(e.target.value)} className={INPUT} />
       <TypeSelect value={form.type} onChange={(t) => setForm((f) => ({ ...f, type: t, variant: null }))} />
       <VariantSelect type={form.type} value={form.variant} onChange={set('variant')} />
@@ -333,8 +339,19 @@ function TakeOver({ plot }) {
   );
 }
 
-// The lease term picker of the claim form: how long the tenant is protected, and what it costs (`year` is the price of a year: the land and the outside).
-function LeaseTerm({ value, onChange, year }) {
+// Pro's 15% off plots: the discount as its own line for an account with Pro, else a small hint that links to the upgrade (on the business page).
+function ProNote({ pro, discount }) {
+  if (pro) return discount ? <p className="flex justify-between text-[11px] text-emerald-300" data-testid="pro-discount"><span>{discount.label}</span><span className="font-mono">-${discount.amount.toLocaleString()}</span></p> : null;
+  return (
+    <p className="text-[10px] text-slate-400" data-testid="pro-hint">
+      Pro members get {Math.round(PRO_PLOT_DISCOUNT * 100)}% off plots. <Link href="/business/manage" className="text-sx-cyan underline hover:text-white">Go Pro</Link>
+    </p>
+  );
+}
+
+// The lease term picker of the claim form: how long the tenant is protected, and what it costs (`period` is the price of 30 days: the land and the
+// outside; `pro`: the account has Pro, 15% off).
+function LeaseTerm({ value, onChange, period, pro }) {
   return (
     <fieldset className="rounded-lg border border-sx-stroke p-2">
       <legend className="px-1 text-[10px] uppercase text-slate-400">Lease</legend>
@@ -342,24 +359,26 @@ function LeaseTerm({ value, onChange, year }) {
         {TERMS.map((t) => (
           <button key={t.days} type="button" onClick={() => onChange(t.days)} aria-pressed={value === t.days} className={`rounded-md px-1 py-1.5 text-[11px] font-medium ${value === t.days ? 'bg-gradient-to-r from-sx-purple to-sx-blue text-white' : 'bg-sx-alt text-slate-300 hover:bg-sx-stroke'}`}>
             {t.label}
-            <span className="block text-[10px] font-normal opacity-80">${termPrice(year, t.days).toLocaleString()}</span>
+            <span className="block text-[10px] font-normal opacity-80">${chargeOf(termPrice(period, t.days), pro).toLocaleString()}</span>
           </button>
         ))}
       </div>
-      <p className="mt-1.5 text-[10px] leading-snug text-slate-400">Nobody can take your business over while the lease runs. In its last 14 days, and for a week after, only you can renew it.</p>
+      <p className="mt-1.5 text-[10px] leading-snug text-slate-400">Nobody can take your business over while the lease runs. In its last {renewalWindowDays(value)} days, and for {GRACE_DAYS} days after, only you can renew it, for {Math.round(RENEWAL_DISCOUNT * 100)}% less than a new lease.</p>
     </fieldset>
   );
 }
 
 // The lease of a business: what protects it, when it ends, and (for the tenant) renewing.
 function LeaseBox({ plot }) {
-  const [days, setDays] = useState(() => termFor(plot.lease?.days)); // a lease of a term no longer offered (30 days) renews for 3 months
+  const [days, setDays] = useState(() => termFor(plot.lease?.days)); // a lease of a term no longer offered (90, 182 or 365 days) renews for 30 days
   const [busy, setBusy] = useState(false);
+  const pro = useAccount((s) => Boolean(s.account?.pro));
   if (!plot.lease?.end) {
     return plot.userClaimed ? null : <p className="rounded-xl border border-sx-stroke bg-sx-alt/40 px-3 py-2 text-[11px] text-slate-400">No lease: this business can be taken over.</p>;
   }
-  const state = leaseState(plot.lease.end);
+  const state = leaseState(plot.lease.end, Date.now(), plot.lease.days);
   const info = describeLease(plot.lease.end, plot.lease.days);
+  const renewal = renewalQuote(plot, days, { pro });
   const tone = { active: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-100', renewal: 'border-amber-500/40 bg-amber-500/10 text-amber-100', grace: 'border-orange-500/40 bg-orange-500/10 text-orange-100', open: 'border-slate-500/40 bg-slate-500/10 text-slate-200' }[state];
   const canRenew = plot.userClaimed && state !== 'active';
   return (
@@ -379,10 +398,11 @@ function LeaseBox({ plot }) {
             ))}
           </select>
           <button type="button" disabled={busy} onClick={async () => { setBusy(true); await renewRemote(plot.id, days).catch(() => {}); setBusy(false); }} className="flex-1 rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 font-bold text-white hover:brightness-110 disabled:opacity-40">
-            Renew for ${renewalQuote(plot, days).toLocaleString()}
+            Renew for ${renewal.total.toLocaleString()}
           </button>
         </div>
       )}
+      {canRenew && <div className="mt-1"><ProNote pro={pro} discount={renewal.discount} /></div>}
     </div>
   );
 }
@@ -537,6 +557,7 @@ export default function PlotCard() {
   const [exterior, setExterior] = useState(null); // the outside the player is setting up (null: the usual one for the kind of business)
   const [touched, setTouched] = useState(false); // once they start, the building shows on the lot
   const botw = useCommunity((s) => s.botw);
+  const pro = useAccount((s) => Boolean(s.account?.pro)); // with a server: the signed-in account has Pro, so its plot leases cost 15% less
 
   const potdId = useCityStore((state) => (state.day ? plotOfTheDay(state.plots, state.layout.seed, state.day)?.id : null));
   const potdPaid = useCityStore((state) => state.daily.potdDay === state.day);
@@ -630,13 +651,13 @@ export default function PlotCard() {
 
   const isClaimed = Boolean(p.owner);
   const isSuburb = p.districtId === SUBURB_ID;
-  const leased = Boolean(p.lease?.end) && !takeoverAllowed(p.lease.end); // a lease protects its tenant until it has ended and their week of first refusal has passed
+  const leased = Boolean(p.lease?.end) && !takeoverAllowed(p.lease.end); // a lease protects its tenant until it has ended and their grace days of first refusal have passed
   const canTakeOver = isClaimed && !isSuburb && !p.userClaimed && !p.admin && !leased; // an admin headquarters is never for sale
   // what claiming costs, priced from exactly the outside the claim sends (lib/game/claimPrice.js); with a server, a lease for the chosen term, as the server charges it
   const sent = forClaim ? cleanExterior(exterior ?? defaultExterior(p, buildingType), p, buildingType) : null;
-  const claim = forClaim ? (apiOn() ? leaseQuote(p, sent, buildingType, leaseDays) : claimPrice(p, sent, buildingType)) : null;
-  const takeoverPrice = apiOn() ? takeoverQuote(p, null, 'shop').total : Math.round(p.value * TAKEOVER_MULTIPLIER);
-  const price = canTakeOver ? takeoverPrice : forClaim ? landPriceOf(p) : p.value; // an empty plot is its land price (for a year); a building's is its value
+  const claim = forClaim ? (apiOn() ? leaseQuote(p, sent, buildingType, leaseDays, { pro }) : claimPrice(p, sent, buildingType)) : null;
+  const takeoverPrice = apiOn() ? takeoverQuote(p, null, 'shop', DEFAULT_TERM, { pro }).total : Math.round(p.value * TAKEOVER_MULTIPLIER);
+  const price = canTakeOver ? takeoverPrice : forClaim ? landPriceOf(p) : p.value; // an empty plot is its land price (for 30 days); a building's is its value
   const tier = p.admin ? ['Admin headquarters', 'border-cyan-400/70 text-cyan-300'] : p.grand ? ['Grand estate', 'border-yellow-400/70 text-yellow-300'] : p.luxury ? ['Luxury estate', 'border-violet-500/70 text-violet-300'] : p.prime ? ['Prime plot', 'border-amber-500/70 text-amber-300'] : null;
   const people = info.room ? Math.max(4, Math.round((info.room.width * info.room.depth * info.room.floors) / 3.2)) : 0;
   const floors = p.interiorData?.floors ?? floorsForHeight(p.height);
@@ -823,14 +844,16 @@ export default function PlotCard() {
             <input type="url" placeholder="External Link (https://...)" value={plotLink} onChange={(e) => setPlotLink(e.target.value)} className={INPUT} />
             <textarea value={plotAbout} maxLength={160} rows={2} onChange={(e) => setPlotAbout(e.target.value)} placeholder="A line or two about your business (optional)" className={INPUT} />
             <LogoPicker value={logo} onChange={setLogo} title={plotTitle} type={buildingType} />
-            {apiOn() && <LeaseTerm value={leaseDays} onChange={setLeaseDays} year={claim.year} />}
+            {apiOn() && <LeaseTerm value={leaseDays} onChange={setLeaseDays} period={claim.period} pro={pro} />}
             {claim && (
               <div className="rounded-lg border border-sx-stroke bg-sx-alt/40 px-2.5 py-2 text-[11px] text-slate-300" data-testid="claim-price">
                 {claim.lines.map((l) => (
                   <div key={l.label} className="flex justify-between"><span>{l.label}</span><span className="font-mono">${l.amount.toLocaleString()}</span></div>
                 ))}
-                {claim.year != null && <div className="mt-1 flex justify-between border-t border-sx-stroke pt-1"><span>For a year</span><span className="font-mono">${claim.year.toLocaleString()}</span></div>}
-                <div className="mt-1 flex justify-between border-t border-sx-stroke pt-1 font-bold text-white"><span>{claim.year != null ? `Total for ${termOf(claim.days)?.label ?? `${claim.days} days`}` : 'Total'}</span><span className="font-mono" data-testid="claim-total">${claim.total.toLocaleString()}</span></div>
+                {claim.period != null && <div className="mt-1 flex justify-between border-t border-sx-stroke pt-1"><span>For 30 days</span><span className="font-mono">${claim.period.toLocaleString()}</span></div>}
+                {claim.period != null && claim.days !== DEFAULT_TERM && <div className="flex justify-between"><span>For {termOf(claim.days)?.label}</span><span className="font-mono">${claim.price.toLocaleString()}</span></div>}
+                {claim.period != null && <ProNote pro={pro} discount={claim.discount} />}
+                <div className="mt-1 flex justify-between border-t border-sx-stroke pt-1 font-bold text-white"><span>{claim.period != null ? `Total for ${termOf(claim.days)?.label ?? `${claim.days} days`}` : 'Total'}</span><span className="font-mono" data-testid="claim-total">${claim.total.toLocaleString()}</span></div>
                 {p.land && explainPrice(p.land).length > 1 && <p className="mt-1 text-[10px] text-slate-500">{explainPrice(p.land).join(' · ')}</p>}
               </div>
             )}

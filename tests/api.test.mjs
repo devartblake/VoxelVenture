@@ -48,7 +48,7 @@ try {
   check('a bad logo, website or type is refused', (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, logo: { kind: 'icon', icon: 'bomb' } } })).status === 400 && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, website: 'javascript:alert(1)' } })).status === 400 && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, buildingType: 'casino' } })).status === 400);
   check('an Old Town house cannot be claimed', (await call('POST', `/plots/${city.plots.find((p) => p.districtId === 'suburb').id}/claim`, { token: amy.token, body: biz })).status === 409);
   const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: biz });
-  check('a claim makes the plot hers, worth its land price (a year\'s lease, as the claim form shows it)', claim.status === 200 && claim.data.owner === 'Amy' && claim.data.value === lot.price && claim.data.ownerAccount === amy.account.id, JSON.stringify(claim.data).slice(0, 80));
+  check('a claim makes the plot hers, worth its land price (its price for 30 days, as the claim form shows it)', claim.status === 200 && claim.data.owner === 'Amy' && claim.data.value === lot.price && claim.data.ownerAccount === amy.account.id, JSON.stringify(claim.data).slice(0, 80));
   check('it appears in the directory', (await call('GET', `/plots?q=${encodeURIComponent('Amy Coffee')}`)).data.matched === 1);
   // the race: ten players claim one lot at the same moment, exactly one wins
   const racers = [];
@@ -62,7 +62,7 @@ try {
 
   // ---- take over
   const prey = built[3];
-  // a business the city started with is worth its land: a take-over is 1.25x that, for a year
+  // a business the city started with is worth its land: a take-over is 1.25x that, for 30 days
   const takePrice = Math.round(prey.price * 1.25 * 100) / 100;
   check('you cannot take over your own business', (await call('POST', `/plots/${lot.id}/takeover`, { token: amy.token, body: biz })).status === 409);
   check('a stale price is refused', (await call('POST', `/plots/${prey.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co', expectedPrice: 1 } })).status === 409);

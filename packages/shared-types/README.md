@@ -31,7 +31,7 @@ Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-S
 | `interior.design` | 1 | An owner's redesigned interior: the scene graph (`nodes` by id, one building in `rootNodeIds`), only the node types an interior uses, furniture by catalogue id (`asset: { id }`) and never by file URL | Stored by the API, inside `interior.state` and `interior.save` | [`contracts/interior.js`](src/contracts/interior.js) |
 | `interior.state` | 1 | `{ plotId, version, design, revision, updatedAt }`: the design every visitor sees, or `design: null` for the generated interior | `GET /plots/<id>/interior`, and the answer to `PUT` and `DELETE` | same |
 | `interior.save` | 1 | `{ design, revision }`: the owner publishes a design based on the revision they loaded; an older one gets 409 | Owner → `PUT /plots/<id>/interior` | same |
-| `plot.exterior-quote` | 1 | `{ before, after, diff, charge, lines }`: what changing a building's outside costs a year before and after, and what to pay now for the rest of the lease (0 when free, else at least $0.50) | Inside the 402 `exterior_payment_required` answer to `PATCH /plots/<id>` (`quote`) | [`contracts/plots.js`](src/contracts/plots.js) |
+| `plot.exterior-quote` | 1 | `{ before, after, diff, charge, lines }`: what changing a building's outside costs for 30 days before and after, and what to pay now for the rest of the lease (0 when free, else at least $0.50) | Inside the 402 `exterior_payment_required` answer to `PATCH /plots/<id>` (`quote`) | [`contracts/plots.js`](src/contracts/plots.js) |
 | `plot.exterior-upgrade` | 1 | `{ exterior }`: the owner pays for a more elaborate outside | Owner → `POST /plots/<id>/exterior` | same |
 | `plot.exterior-upgrade.result` | 1 | `{ plot, paid }`, or `{ checkout }` with payments on | API | same |
 
@@ -64,7 +64,7 @@ The WebSocket messages between the game (`lib/net/multiplayer.js`) and the prese
 | `PROFILE_EVENT_KINDS` | `view engaged store cta` | `EVENT_KINDS` in `services/api/business.mjs` |
 | `OUTCOME_FAMILIES` | `leads claims redemptions purchases` | the ids of `OUTCOMES` in `@voxelventure/analytics` |
 | `PURCHASE_REPORTS` | `server browser` | the `report` column of `business_events` |
-| `LEASE_TERMS` | `90 182 365` | the days of `TERMS` in `lib/game/leases.js` (3, 6 and 12 months) |
+| `LEASE_TERMS` | `7 14 30` | the days of `TERMS` in `lib/game/leases.js` (7, 14 and 30 days) |
 
 The contract test fails if any of these drift apart.
 

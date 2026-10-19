@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
-import { ApiError, fail, getPlot, pricedPlot, requireAccount, text } from './core.mjs';
+import { ApiError, fail, getPlot, hasPro, pricedPlot, requireAccount, text } from './core.mjs';
 import { BOT_UA, ipHashOf } from './business.mjs';
 import { enqueue, noticeAddress } from './engage.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
@@ -67,19 +67,20 @@ export function recordIntent(db, { row, kind, step, who, priceCents = null, term
   return { recorded: true, verified: Boolean(ok) };
 }
 
-// The price the claim form shows for a setup ({ leaseDays, buildingType, exterior }), as the server would charge it, or a take-over's.
-function quoteFor(row, kind, input = {}) {
+// The price the claim form shows for a setup ({ leaseDays, buildingType, exterior }), as the server would charge it, or a take-over's (with the
+// player's Pro discount, as the form shows it).
+function quoteFor(row, kind, input = {}, pro = false) {
   const type = ['shop', 'restaurant', 'office'].includes(input.buildingType) ? input.buildingType : 'shop';
   const days = Number(input.leaseDays) || DEFAULT_TERM;
   const plot = pricedPlot(row);
   let exterior = null;
   if (input.exterior && typeof input.exterior === 'object') exterior = safe(() => cleanExterior(input.exterior, factsOf(row), type));
-  const q = kind === 'claim' ? leaseQuote(plot, exterior, type, days) : takeoverQuote(plot, null, type, days);
+  const q = kind === 'claim' ? leaseQuote(plot, exterior, type, days, { pro }) : takeoverQuote(plot, null, type, days, { pro });
   return { priceCents: cents(q.total), termDays: q.days };
 }
 // A quote is written when it differs from the last one this player was shown for this plot in the last half hour.
 function recordQuote(db, row, kind, who, input, ctx, human) {
-  const q = quoteFor(row, kind, input);
+  const q = quoteFor(row, kind, input, who.accountId ? hasPro(db, who.accountId) : false);
   const [w, v] = sameWho(who);
   const last = db.prepare(`SELECT price_cents, term_days FROM plot_intents WHERE plot_id = ? AND step = 'quote' AND ${w} AND at >= ? ORDER BY id DESC LIMIT 1`).get(row.id, v, now() - 30 * 60000);
   if (last && last.price_cents === q.priceCents && last.term_days === q.termDays) return { recorded: false, ...q };
@@ -362,7 +363,7 @@ export function sendWatchNotices(db, at = now()) {
       db.prepare('DELETE FROM plot_watches WHERE plot_id = ? AND account_id = ?').run(r.id, r.watcher);
       continue;
     }
-    const state = leaseState(r.lease_end, at);
+    const state = leaseState(r.lease_end, at, r.lease_days);
     if (state !== 'grace' && state !== 'open') continue;
     const key = `${state}:${r.lease_end}`;
     if (r.notified === key) continue;
@@ -521,7 +522,7 @@ export function economyReport(db, { from, to, at = now() } = {}) {
       .filter((r) => watchers.get(r.id))
       .sort((a, b) => watchers.get(b.id).n - watchers.get(a.id).n || a.id - b.id)
       .slice(0, 10)
-      .map((r) => ({ plotId: r.id, title: r.title, watchers: watchers.get(r.id).n, lease: leaseState(r.lease_end, at), watchedBy: watchersOf(db, r.id).watchers.map(({ accountId, username }) => ({ accountId, username })) })),
+      .map((r) => ({ plotId: r.id, title: r.title, watchers: watchers.get(r.id).n, lease: leaseState(r.lease_end, at, r.lease_days), watchedBy: watchersOf(db, r.id).watchers.map(({ accountId, username }) => ({ accountId, username })) })),
     topAreas: [...traffic.entries()]
       .sort((a, b) => b[1].passes - a[1].passes || a[0].localeCompare(b[0]))
       .slice(0, 10)

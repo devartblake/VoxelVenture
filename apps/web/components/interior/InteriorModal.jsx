@@ -23,8 +23,8 @@ const InteriorEditor = dynamic(() => import('./InteriorEditor'), {
 
 // Whose building can be redesigned: the player's own. (With no server, the whole city is the player's playground.)
 const canDesign = (plot) => (plot.mall ? Boolean(plot.userClaimed) : Boolean(plot.userClaimed) || !process.env.NEXT_PUBLIC_LIVE_API_URL);
-// the server refuses changes to the inside once the lease has ended (the grace week and after), until it is renewed
-const leaseEnded = (plot) => !plot.mall && Boolean(plot.lease?.end) && ['grace', 'open'].includes(leaseState(plot.lease.end));
+// the server refuses changes to the inside once the lease has ended (its grace days and after), until it is renewed
+const leaseEnded = (plot) => !plot.mall && Boolean(plot.lease?.end) && ['grace', 'open'].includes(leaseState(plot.lease.end, Date.now(), plot.lease.days));
 
 export default function InteriorModal() {
   const { activeInteriorPlot, closeInterior, setPlotWallColor } = useCityStore();

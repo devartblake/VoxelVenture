@@ -30,7 +30,7 @@ async function start(env) {
   const business = api.db.prepare("SELECT * FROM plots WHERE owner_name IS NOT NULL AND claimable = 1 AND owner_account IS NULL AND json_extract(facts, '$.admin') = 0 AND building_type != 'house' ORDER BY id").all();
   return { api, call, signup, empty, business, base };
 }
-const biz = (title, extra = {}) => ({ title, buildingType: 'shop', website: 'https://shop.test', logo: { kind: 'generated' }, leaseDays: 365, ...extra });
+const biz = (title, extra = {}) => ({ title, buildingType: 'shop', website: 'https://shop.test', logo: { kind: 'generated' }, leaseDays: 30, ...extra });
 
 try {
   check('an area is a 24-unit square of the map, named by column and row', areaOf(0, 0) === '0:0' && areaOf(23.9, -0.1) === '0:-1' && areaOf(-24, 48) === '-1:2' && isAreaId('-1:2') && !isAreaId('1:2:3') && !isAreaId('x') && !isAreaId('999:0') && !isAreaId('-0:1'));
@@ -45,10 +45,10 @@ try {
   const [P, Q, R, S, T] = empty;
 
   check('a hold needs an account', (await call('POST', `/plots/${P.id}/hold`, { body: {} })).status === 401);
-  const h1 = await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 365, buildingType: 'shop' } });
-  const want = Math.round(leaseQuote({ ...JSON.parse(P.facts), id: P.id, value: P.value, ownerAccount: null, exterior: null }, null, 'shop', 365).total * 100);
+  const h1 = await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 30, buildingType: 'shop' } });
+  const want = Math.round(leaseQuote({ ...JSON.parse(P.facts), id: P.id, value: P.value, ownerAccount: null, exterior: null }, null, 'shop', 30).total * 100);
   check('an empty plot is held for three minutes', h1.status === 200 && Math.abs(h1.data.secondsLeft - HOLD_SECONDS) <= 1 && h1.data.until > Date.now(), JSON.stringify(h1.data));
-  check('the hold quotes the price the claim form shows, priced by the server', h1.data.quote.priceCents === want && h1.data.quote.termDays === 365, `${h1.data.quote.priceCents} vs ${want}`);
+  check('the hold quotes the price the claim form shows, priced by the server', h1.data.quote.priceCents === want && h1.data.quote.termDays === 30, `${h1.data.quote.priceCents} vs ${want}`);
   check('the hold and the quote are steps of the intent', intents('plot_id = ?', P.id).map((i) => i.step).join() === 'hold,quote' && intents('plot_id = ?', P.id).every((i) => i.account_id === amy.account.id && i.kind === 'claim'));
   const h2 = await call('POST', `/plots/${P.id}/hold`, { token: bob.token, body: {} });
   check('another account is refused with the time left', h2.status === 409 && h2.data.code === 'held' && h2.data.secondsLeft > 170 && h2.data.secondsLeft <= HOLD_SECONDS, JSON.stringify(h2.data));
@@ -58,12 +58,12 @@ try {
   check('a claim by another account is refused while it is held', refused.status === 409 && refused.data.code === 'held' && !db.prepare('SELECT owner_name FROM plots WHERE id = ?').get(P.id).owner_name);
   check('...and is recorded as a failed claim', intents("plot_id = ? AND step = 'failed'", P.id).length === 1 && intents("plot_id = ? AND step = 'failed'", P.id)[0].account_id === bob.account.id);
   db.prepare('UPDATE plot_holds SET hold_until = ? WHERE plot_id = ?').run(Date.now() + 60000, P.id);
-  const h3 = await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 365, buildingType: 'shop' } });
+  const h3 = await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 30, buildingType: 'shop' } });
   check('the same account refreshes it (three minutes again), with no second hold step and no repeated quote', h3.status === 200 && h3.data.secondsLeft > 170 && intents("plot_id = ? AND step IN ('hold','quote')", P.id).length === 2);
-  await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 90, buildingType: 'shop' } });
-  check('a different term is a new quote', intents("plot_id = ? AND step = 'quote'", P.id).at(-1).term_days === 90);
+  await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 7, buildingType: 'shop' } });
+  check('a different term is a new quote', intents("plot_id = ? AND step = 'quote'", P.id).at(-1).term_days === 7);
   db.prepare('UPDATE plot_holds SET started_at = ? WHERE plot_id = ?').run(Date.now() - (HOLD_MAX_SECONDS - 30) * 1000, P.id);
-  const h4 = await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 90 } });
+  const h4 = await call('POST', `/plots/${P.id}/hold`, { token: amy.token, body: { leaseDays: 7 } });
   check('a hold is never refreshed beyond 15 minutes from its start', h4.data.secondsLeft <= 31 && h4.data.secondsLeft >= 28, JSON.stringify(h4.data));
   check('a plot with a business cannot be held', (await call('POST', `/plots/${business[0].id}/hold`, { token: amy.token, body: {} })).data.code === 'not_empty');
 
@@ -87,7 +87,7 @@ try {
   const claimRow = intents("plot_id = ? AND step = 'claimed'", Q.id)[0];
   const ledger = db.prepare("SELECT price FROM ledger WHERE plot_id = ? AND kind = 'claim'").get(Q.id);
   check('the holder claims it', claimed.status === 200 && claimed.data.owner === 'Amy');
-  check('the claim is a step, at the price in the ledger, and ends the hold', claimRow && claimRow.verified === 1 && claimRow.price_cents === Math.round(ledger.price * 100) && claimRow.term_days === 365 && !db.prepare('SELECT 1 FROM plot_holds WHERE plot_id = ?').get(Q.id));
+  check('the claim is a step, at the price in the ledger, and ends the hold', claimRow && claimRow.verified === 1 && claimRow.price_cents === Math.round(ledger.price * 100) && claimRow.term_days === 30 && !db.prepare('SELECT 1 FROM plot_holds WHERE plot_id = ?').get(Q.id));
   check('a claimed hold is not abandoned', economy.sweepHolds(db) === 0 && intents("plot_id = ? AND step = 'abandoned'", Q.id).length === 0);
 
   // ================================================================================================================ steps the game sends
@@ -113,10 +113,10 @@ try {
 
   // setting a plot up needs an account: only a card open is taken from a visitor
   await ping('setter-1');
-  check('a visitor\'s setup step is refused (the setup form asks to sign in first)', (await intent(T.id, { step: 'hold', visitor: 'setter-1' })).status === 400 && (await intent(T.id, { step: 'quote', visitor: 'setter-1', leaseDays: 90, priceCents: 1 })).status === 400 && !intents('plot_id = ?', T.id).length);
+  check('a visitor\'s setup step is refused (the setup form asks to sign in first)', (await intent(T.id, { step: 'hold', visitor: 'setter-1' })).status === 400 && (await intent(T.id, { step: 'quote', visitor: 'setter-1', leaseDays: 7, priceCents: 1 })).status === 400 && !intents('plot_id = ?', T.id).length);
   check('opening a take-over form needs an account too', (await intent(business[1].id, { step: 'open', visitor: 'setter-1' })).status === 401);
-  const q1 = await call('POST', `/plots/${T.id}/hold`, { token: carl.token, body: { leaseDays: 90, buildingType: 'office', priceCents: 1 } });
-  const want2 = Math.round(leaseQuote({ ...JSON.parse(T.facts), id: T.id, value: T.value, ownerAccount: null, exterior: null }, null, 'office', 90).total * 100);
+  const q1 = await call('POST', `/plots/${T.id}/hold`, { token: carl.token, body: { leaseDays: 7, buildingType: 'office', priceCents: 1 } });
+  const want2 = Math.round(leaseQuote({ ...JSON.parse(T.facts), id: T.id, value: T.value, ownerAccount: null, exterior: null }, null, 'office', 7).total * 100);
   check('a quote is priced by the server, never by a number the client sends', q1.data.quote.priceCents === want2 && intents("plot_id = ? AND step = 'quote'", T.id)[0].price_cents === want2);
   await call('DELETE', `/plots/${T.id}/hold`, { token: carl.token });
   check('an empty plot cannot be "opened" for a take-over', (await intent(T.id, { step: 'open' }, { token: carl.token })).data.code === 'not_for_takeover');
@@ -220,10 +220,10 @@ try {
   const b = await start({ STRIPE_SECRET_KEY: 'sk_test_econ', STRIPE_WEBHOOK_SECRET: 'whsec_econ', STRIPE_API_URL: `http://localhost:${stripe.address().port}`, PUBLIC_SITE_URL: 'https://voxel.test' });
   const gus = await b.signup('Gus');
   const [BP] = b.empty;
-  await b.call('POST', `/plots/${BP.id}/hold`, { token: gus.token, body: { leaseDays: 182 } });
-  const co = await b.call('POST', `/plots/${BP.id}/claim`, { token: gus.token, body: biz('Gus Garage', { leaseDays: 182 }) });
+  await b.call('POST', `/plots/${BP.id}/hold`, { token: gus.token, body: { leaseDays: 14 } });
+  const co = await b.call('POST', `/plots/${BP.id}/claim`, { token: gus.token, body: biz('Gus Garage', { leaseDays: 14 }) });
   const coRow = b.api.db.prepare("SELECT * FROM plot_intents WHERE step = 'checkout'").get();
-  check('with payments on, starting to pay is the checkout step, at the order\'s price and term', co.data.checkout && coRow && coRow.price_cents === co.data.checkout.cents && coRow.term_days === 182);
+  check('with payments on, starting to pay is the checkout step, at the order\'s price and term', co.data.checkout && coRow && coRow.price_cents === co.data.checkout.cents && coRow.term_days === 14);
   b.api.db.prepare('UPDATE plot_holds SET hold_until = ? WHERE plot_id = ?').run(Date.now() - 1000, BP.id);
   check('a hold that ran out during a checkout is not abandoned (the order tells how it ended)', economy.sweepHolds(b.api.db) === 1 && !b.api.db.prepare("SELECT 1 FROM plot_intents WHERE step = 'abandoned'").get());
   const raw = JSON.stringify({ id: 'evt_econ_1', type: 'checkout.session.completed', data: { object: { id: S2.sessions[0].id, object: 'checkout.session', mode: 'payment', status: 'complete', payment_status: 'paid', client_reference_id: String(co.data.checkout.orderId), payment_intent: 'pi_econ', metadata: { order: String(co.data.checkout.orderId) } } } });
@@ -250,9 +250,9 @@ try {
   e.api.traffic.flush(edb);
   await e.call('POST', '/presence/ping', { token: ivy.token, body: { visitor: 'ivy-device' } });
   await e.call('POST', `/plots/${X.id}/intent`, { token: ivy.token, body: { step: 'card_open' } });
-  const held = await e.call('POST', `/plots/${X.id}/hold`, { token: ivy.token, body: { leaseDays: 365 } });
+  const held = await e.call('POST', `/plots/${X.id}/hold`, { token: ivy.token, body: { leaseDays: 30 } });
   await e.call('POST', `/plots/${X.id}/claim`, { token: ivy.token, body: biz('Ivy Ink') });
-  await e.call('POST', `/plots/${Y.id}/hold`, { token: jon.token, body: { leaseDays: 90 } });
+  await e.call('POST', `/plots/${Y.id}/hold`, { token: jon.token, body: { leaseDays: 7 } });
   await e.call('DELETE', `/plots/${Y.id}/hold`, { token: jon.token });
   await e.call('POST', `/plots/${X.id}/watch`, { token: jon.token });
   await e.call('POST', `/plots/${X.id}/watch`, { token: kim.token });
@@ -264,7 +264,7 @@ try {
   await e.call('POST', `/businesses/${slug}/events`, { body: { kind: 'store', visitor: 'seen-2' } });
   // a renewal (Ivy) and a lapse (Kim's lease ended and was not renewed)
   await e.call('POST', `/admin/plots/${X.id}/lease`, { token: ADMIN, body: { state: 'renewal' } });
-  await e.call('POST', `/plots/${X.id}/renew`, { token: ivy.token, body: { leaseDays: 90 } });
+  await e.call('POST', `/plots/${X.id}/renew`, { token: ivy.token, body: { leaseDays: 7 } });
   const Z = e.empty[2];
   await e.call('POST', `/plots/${Z.id}/claim`, { token: kim.token, body: biz('Kim Kites') });
   await e.call('POST', `/admin/plots/${Z.id}/lease`, { token: ADMIN, body: { state: 'grace' } });
