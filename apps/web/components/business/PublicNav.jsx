@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Box, Compass, Plus, UserRound } from 'lucide-react';
+import CartButton from '@/components/ui/CartButton';
 
 // The main menu of the business pages. On a phone: the name and "List your business" on one row, then the three places as a full-width
 // row of tabs big enough for a thumb (44 px). From a tablet up: one row. The page you are on is marked (aria-current).
@@ -40,6 +41,8 @@ export default function PublicNav() {
           );
         })}
       </ul>
+      {/* the cart, with how many items are in it (signed in, with a game server) */}
+      <CartButton className="sm:ml-1" />
       <Link
         href="/business/new"
         aria-current={listing ? 'page' : undefined}

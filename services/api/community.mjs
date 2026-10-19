@@ -17,7 +17,7 @@ const now = () => Date.now();
 // if nobody has taken the plot over. 90% of the price of a new lease of the plot with the outside it has now (lib/game/claimPrice.js renewalQuote), less
 // 15% if the tenant has Pro, so a lease made under older prices renews at today's. Without a chosen term it renews for the one it had; a lease of a term
 // no longer offered (90, 182 or 365 days, before the terms became 7, 14 and 30 days) for 30 days.
-export function renewLease(db, account, plotId, input = {}) {
+export function renewLease(db, account, plotId, input = {}, opts = {}) {
   requireAccount(account);
   return transaction(db, () => {
     const p = getPlot(db, plotId);
@@ -26,7 +26,7 @@ export function renewLease(db, account, plotId, input = {}) {
     const state = leaseState(p.lease_end, now(), p.lease_days);
     if (state === 'active') fail(409, `You can renew in the last ${renewalWindowDays(p.lease_days)} days of the lease.`, 'too_early');
     const days = input.leaseDays == null ? termFor(p.lease_days) : termOf(input.leaseDays)?.days ?? fail(400, TERM_MESSAGE, 'bad_term');
-    const price = renewalQuote(pricedPlot(p), days, { pro: hasPro(db, account.id) }).total;
+    const price = renewalQuote(pricedPlot(p), days, { pro: opts.pro ?? hasPro(db, account.id) }).total;
     const end = extendedEnd(state === 'open' ? null : p.lease_end, days);
     db.prepare('UPDATE plots SET lease_days = ?, lease_end = ?, lease_notified = 0, updated_at = ? WHERE id = ?').run(days, end, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'renew', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, p.title, price, now());

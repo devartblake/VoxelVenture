@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Dices, Lock, Store } from 'lucide-react';
 import { useCityStore } from '@/lib/state/store';
 import { useAccount } from '@/lib/state/accountStore';
 import { useMarket } from '@/lib/state/marketStore';
+import { useCart } from '@/lib/state/cartStore';
 import { apiOn } from '@/lib/data/api';
 import { HOURS, MARKET_LIMITS, MARKET_STYLES, TIERS, TIER_COLOURS, cleanParams, dollars, planMarket } from '@/lib/market/layout';
 import { addWeeks, autoParams, bookingEnd, bookingProblem, earliestStart, weekLabel, weekStartOf, weekWindow } from '@/lib/market/weeks';
@@ -220,6 +221,16 @@ function StallCard({ data, stall }) {
     if (apiOn() && !useAccount.getState().ask(go)) return; // sign in only now, when they book
     go();
   };
+  const cartBusy = useCart((s) => s.busy);
+  const toCart = async () => {
+    const { site, week } = useMarket.getState();
+    try {
+      const line = await useCart.getState().add({ kind: 'stall', input: { siteCode: site.code, week, stallId: stall.id, hours, start: chosen, brand, product } });
+      useMarket.setState({ notice: { ok: true, text: `Added to your cart: ${line?.label ?? 'the stall'}. Open the cart from the top bar.` } });
+    } catch (e) {
+      useMarket.setState({ notice: { ok: false, text: e.message } });
+    }
+  };
   return (
     <div className="mb-3 rounded-xl border border-sx-stroke bg-sx-alt p-3 text-xs">
       <div className="mb-2 flex items-start justify-between">
@@ -279,6 +290,12 @@ function StallCard({ data, stall }) {
           <button type="button" disabled={busy || !chosen || !brand.trim()} onClick={submit} className="w-full rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-40">
             Book for {dollars(stall.cents)}
           </button>
+          {/* or into the cart, to pay with other things in one payment (services/api/cart.mjs); it holds nothing until checkout */}
+          {account && apiOn() && (
+            <button type="button" disabled={cartBusy || !chosen || !brand.trim()} onClick={toCart} className="mt-1.5 min-h-11 w-full rounded-lg border border-sx-stroke bg-sx-page px-3 text-xs font-medium text-slate-100 hover:bg-sx-stroke disabled:opacity-40" data-testid="stall-add-to-cart">
+              Add to cart
+            </button>
+          )}
           {!account && apiOn() && <p className="mt-1.5 text-center text-[11px] text-slate-400">You will be asked to sign in when you book.</p>}
         </>
       )}

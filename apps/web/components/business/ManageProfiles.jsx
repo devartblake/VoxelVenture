@@ -7,6 +7,7 @@ import { PLACEMENTS, PRODUCTS, dollars } from '@voxelventure/business-core';
 import { CTA_KINDS, categoryOf, districtOf, profileUrl } from '@voxelventure/business-core';
 import { FUNNEL, OUTCOMES, RESULTS, CLICK_PARAM } from '@voxelventure/analytics';
 import AuthDialog from '@/components/ui/AuthDialog';
+import { useCart } from '@/lib/state/cartStore';
 import ProfileForm from './ProfileForm';
 import NotLive from './NotLive';
 import { signIn, useOwner } from './useOwner';
@@ -82,6 +83,7 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState('');
+  const [added, setAdded] = useState('');
   const link = profileUrl(origin, p.slug, code);
   const copy = async () => {
     try {
@@ -125,6 +127,17 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
       setMsg(e.message);
     }
   };
+  // or into the cart, to pay for it with other things in one payment (services/api/cart.mjs)
+  const toCart = async (product, placement) => {
+    setMsg('');
+    setAdded('');
+    try {
+      const line = await useCart.getState().add({ kind: product, business: p.slug, ...(placement ? { placement } : {}) });
+      setAdded(line?.label ?? 'it');
+    } catch (e) {
+      setMsg(e.message);
+    }
+  };
 
   return (
     <section className="rounded-2xl border border-sx-stroke bg-sx-panel p-5" aria-labelledby={`h-${p.slug}`}>
@@ -149,7 +162,7 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
               {welcomePost.url && <> · <a href={welcomePost.url} target="_blank" rel="noopener" className="text-sx-cyan underline">see the post</a></>}
             </p>
           )}
-          <PlanBox slug={p.slug} profile={p} plan={plan} checkoutOn={checkoutOn} buy={buy} onChange={onChange} sponsorOpen={sponsorOpen} setSponsorOpen={setSponsorOpen} setMsg={setMsg} />
+          <PlanBox slug={p.slug} profile={p} plan={plan} checkoutOn={checkoutOn} buy={buy} toCart={toCart} onChange={onChange} sponsorOpen={sponsorOpen} setSponsorOpen={setSponsorOpen} setMsg={setMsg} />
           {launchSummary && <LaunchSummary s={launchSummary} />}
           {['meeting', 'quote'].includes(p.cta.kind) && <Inquiries slug={p.slug} />}
           {CTA_KINDS.find((k) => k.id === p.cta.kind)?.needsUrl && <PurchaseTracking slug={p.slug} />}
@@ -235,9 +248,12 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
                   <p className="mt-1 text-sm text-slate-200">{reason}</p>
                   <p className="mt-1 text-xs text-sx-muted">{plan.pitch}</p>
                   {checkoutOn ? (
-                    <button type="button" onClick={() => (plan.id === 'sponsored' ? setSponsorOpen(true) : buy(plan.id))} className="mt-2 rounded-lg bg-sx-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-400">
-                      {plan.id === 'sponsored' ? 'Choose a placement' : `Buy · ${plan.price}`}
-                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button type="button" onClick={() => (plan.id === 'sponsored' ? setSponsorOpen(true) : buy(plan.id))} className="min-h-11 rounded-lg bg-sx-purple px-3 text-sm font-semibold text-white hover:bg-violet-400">
+                        {plan.id === 'sponsored' ? 'Choose a placement' : `Buy · ${plan.price}`}
+                      </button>
+                      {plan.id !== 'sponsored' && <button type="button" onClick={() => toCart(plan.id)} className={`${QUIET} min-h-11`}>Add to cart</button>}
+                    </div>
                   ) : requested ? (
                     <p className="mt-2 text-sm text-emerald-300">Thanks: we will tell you as soon as it is available.</p>
                   ) : (
@@ -248,6 +264,7 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
             </div>
           )}
           {msg && <p className="mt-3 text-sm text-rose-300" role="alert">{msg}</p>}
+          {added && <p className="mt-3 text-sm text-emerald-300" role="status">Added to your cart: {added}. <Link href="/cart" className="underline">Open the cart</Link></p>}
         </>
       )}
     </section>
@@ -350,7 +367,7 @@ function Referrals({ referral, origin }) {
 }
 
 // The profile's plan and what can be bought for it (checkout happens on Stripe's page).
-function PlanBox({ slug, profile, plan, checkoutOn, buy, onChange, sponsorOpen, setSponsorOpen, setMsg }) {
+function PlanBox({ slug, profile, plan, checkoutOn, buy, toCart, onChange, sponsorOpen, setSponsorOpen, setMsg }) {
   const day = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   const lines = [
     plan.pro ? `Pro until ${day(plan.proUntil)}` : 'Free plan',
@@ -378,21 +395,29 @@ function PlanBox({ slug, profile, plan, checkoutOn, buy, onChange, sponsorOpen, 
       <p className="text-sm text-slate-200"><span className="font-semibold text-white">Plan:</span> {lines.join(' · ')}</p>
       {checkoutOn ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {!plan.launch && <button type="button" onClick={() => buy('launch')} className={BUY}>Launch Pack · {dollars(PRODUCTS.launch.cents)}</button>}
+          {!plan.launch && (
+            <>
+              <button type="button" onClick={() => buy('launch')} className={BUY}>Launch Pack · {dollars(PRODUCTS.launch.cents)}</button>
+              <button type="button" onClick={() => toCart('launch')} className={QUIET} aria-label="Add the Launch Pack to the cart">Add to cart</button>
+            </>
+          )}
           {plan.pro ? (
             <>
               <button type="button" onClick={download} className={QUIET}>Download figures (CSV)</button>
               <button type="button" onClick={cancel} className={QUIET}>Stop Pro</button>
             </>
           ) : (
-            <button type="button" onClick={() => buy('pro')} className={BUY}>Go Pro · {dollars(PRODUCTS.pro.cents)} a month</button>
+            <>
+              <button type="button" onClick={() => buy('pro')} className={BUY}>Go Pro · {dollars(PRODUCTS.pro.cents)} a month</button>
+              <button type="button" onClick={() => toCart('pro')} className={QUIET} aria-label="Add Pro to the cart">Add Pro to cart</button>
+            </>
           )}
           <button type="button" onClick={() => setSponsorOpen((o) => !o)} aria-expanded={sponsorOpen} className={QUIET}>Sponsor a week…</button>
         </div>
       ) : (
         <p className="mt-2 text-xs text-sx-muted">Paid plans are not open yet.</p>
       )}
-      {checkoutOn && sponsorOpen && <SponsorPicker profile={profile} buy={buy} />}
+      {checkoutOn && sponsorOpen && <SponsorPicker profile={profile} buy={buy} toCart={toCart} />}
       {plan.pro && <OfferEditor slug={slug} offer={profile.offer} onChange={onChange} setMsg={setMsg} />}
     </div>
   );
@@ -425,8 +450,8 @@ function OfferEditor({ slug, offer, onChange, setMsg }) {
     </form>
   );
 }
-const BUY = 'rounded-lg bg-sx-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-400';
-const QUIET = 'rounded-lg border border-sx-stroke px-3 py-1.5 text-sm text-slate-200 hover:bg-sx-alt';
+const BUY = 'min-h-11 rounded-lg bg-sx-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-400';
+const QUIET = 'min-h-11 rounded-lg border border-sx-stroke px-3 py-1.5 text-sm text-slate-200 hover:bg-sx-alt';
 const placementName = (key) => {
   const [kind, target] = String(key).split(':');
   if (kind === 'discover') return PLACEMENTS.discover.label;
@@ -434,7 +459,7 @@ const placementName = (key) => {
 };
 
 // Where a sponsored week can go for this profile (Discover, its category, its district), with the price and the free slots right now.
-function SponsorPicker({ profile, buy }) {
+function SponsorPicker({ profile, buy, toCart }) {
   const keys = ['discover', `category:${profile.category}`, ...(profile.district ? [`district:${profile.district}`] : [])];
   const [spots, setSpots] = useState(null);
   useEffect(() => {
@@ -448,6 +473,7 @@ function SponsorPicker({ profile, buy }) {
         <div key={s.placement} className="flex flex-wrap items-center gap-3 rounded-lg border border-sx-stroke p-3 text-sm">
           <span className="mr-auto text-slate-100">{placementName(s.placement)} <span className="text-sx-muted">· {s.free} of {s.slots} free</span></span>
           <button type="button" disabled={!s.free} onClick={() => buy('sponsored', s.placement)} className={`${BUY} disabled:opacity-40`}>{s.free ? `${dollars(s.cents)} for a week` : 'Full this week'}</button>
+          {s.free > 0 && <button type="button" onClick={() => toCart('sponsored', s.placement)} className={QUIET} aria-label={`Add a sponsored week on ${placementName(s.placement)} to the cart`}>Add to cart</button>}
         </div>
       ))}
     </div>

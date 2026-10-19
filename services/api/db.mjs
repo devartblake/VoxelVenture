@@ -53,6 +53,8 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'ad_events', 'ip_hash', 'TEXT');
   addColumn(db, 'ad_events', 'verified', 'INTEGER NOT NULL DEFAULT 0'); // rows from before verification are not counted
   addColumn(db, 'accounts', 'referred_by', 'INTEGER REFERENCES accounts(id)'); // the account whose referral link brought this one (business.mjs)
+  addColumn(db, 'orders', 'parent_id', 'INTEGER REFERENCES orders(id)'); // a cart's line: the cart's own order (product 'cart') it was paid with (cart.mjs)
+  db.exec('CREATE INDEX IF NOT EXISTS orders_parent ON orders(parent_id)');
   return db;
 }
 
