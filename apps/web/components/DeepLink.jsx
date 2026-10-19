@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { apiOn } from '@/lib/data/api';
 import { findBuilding, parseDeepLink } from '@/lib/game/shareLink';
 import { captureRef } from '@/lib/business/referral';
+import { rememberLink } from '@/lib/game/spawn';
 import { usePanel } from '@/lib/state/panelStore';
 import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
@@ -16,6 +17,7 @@ export default function DeepLink() {
     captureRef(); // a shared link's ?ref= credits whoever shared it if this visitor signs up (lib/business/referral.js)
     const { plot: id, city } = parseDeepLink(window.location.search);
     if (!id) return undefined;
+    rememberLink(window.location.search); // the avatar starts beside the building, even if it is placed after the address is tidied
     let cancelled = false;
     const apply = () => {
       if (cancelled) return;

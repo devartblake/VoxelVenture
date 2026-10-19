@@ -7,7 +7,8 @@ import { usePanel } from '@/lib/state/panelStore';
 import { avatarState } from '@/lib/sim/avatarState';
 import { surfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
-import { buildingHalf, buildCollisionMap, findSpawn, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
+import { buildingHalf, buildCollisionMap, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
+import { startSpot } from '@/lib/game/spawn';
 import { CORNER_REACHED, findWalkPath, prepareWalkMap } from '@/lib/sim/pathfind';
 import { graphFor } from '@/lib/city/routing';
 import { COSMETIC_BY_ID } from '@/lib/game/cosmetics';
@@ -161,9 +162,9 @@ export default function Avatar() {
     avatarState.z = free.z;
   }, [collision]);
 
-  // Start on the arterial avenue, and again whenever the city is regenerated.
+  // Start somewhere in the city (beside a linked building; ?spawn=fixed: the arterial avenue), and again whenever the city is regenerated.
   useEffect(() => {
-    const spawn = findSpawn(layout, collisionRef.current);
+    const spawn = startSpot({ layout, collision: collisionRef.current, plots, search: window.location.search }); // a random good spot (lib/game/spawn.js)
     avatarState.x = spawn.x;
     avatarState.z = spawn.z;
     avatarState.yaw = Math.PI / 2;

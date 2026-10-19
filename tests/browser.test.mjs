@@ -68,7 +68,7 @@ try {
     }
     await sleep(500);
   }
-  const url = `http://localhost:${webPort}/?diag=1&view=iso&mp=${mpPort}`;
+  const url = `http://localhost:${webPort}/?diag=1&view=iso&spawn=fixed&mp=${mpPort}`;
   const waitFor = async (page, expression, seconds = 90) => {
     for (let i = 0; i < seconds * 2; i++) {
       try {
@@ -495,6 +495,8 @@ try {
   check('a building link opens the city on that building', linkOpened, linkOpened ? '' : JSON.stringify({ store: await linked.eval('Boolean(window.__vvStore)').catch(() => 'n/a'), canvas: await linked.eval('document.querySelectorAll("canvas").length').catch(() => 'n/a'), text: (await linked.eval('document.body.innerText').catch(() => '')).slice(0, 300), problems: linked.problems().slice(0, 3) }));
   check('...and shows its card in the panel', await linked.eval(`window.__vvPanel.getState().view === 'plot'`));
   check('...and tidies the address', !/plot=/.test(await linked.eval(`location.search`)));
+  const linkedAt = JSON.parse(await linked.eval(`(() => { const p = window.__vvStore.getState().plots.find((q) => q.id === ${linkId}); const a = window.__vvAvatar; return JSON.stringify({ ready: a.ready, d: Math.hypot(a.x - p.x, a.z - p.z) }); })()`));
+  check('...and the avatar starts beside that building (not at the random or the fixed spawn)', linkedAt.ready && linkedAt.d < 15, JSON.stringify(linkedAt));
   await linked.close();
   const wrongCity = await openPage(`http://localhost:${webPort}/?plot=${linkId}&city=1&diag=1&view=iso&mp=${mpPort}`, { width: 1280, height: 800 });
   await waitFor(wrongCity, `Boolean(window.__vvStore)`, 90);
@@ -553,7 +555,7 @@ try {
   check('with the music off, high above the map is quiet of music', await waitFor(page, `(() => { const r = window.__vvSound?.last(); return Boolean(r) && r.far > 0.9 && r.mix.music === 0; })()`, 40));
   await page.eval(`document.querySelector('[data-testid="music-button"]').click(); window.__vvWorld.getState().focusOn(${arcadeAt.x}, ${arcadeAt.z}, 14)`);
   check('the speaker button shows what you hear when the sound is on', await (async () => { await page.eval(`document.querySelector('[data-testid="sound-button"]').click()`); const ok = await waitFor(page, `(document.querySelector('[data-testid="sound-now"]')?.textContent ?? '').length > 0`, 40); await page.eval(`document.querySelector('[data-testid="sound-button"]').click()`); return ok; })());
-  const nightPage = await openPage(`http://localhost:${webPort}/?time=night&diag=1&view=iso&mp=${mpPort}`, { width: 1000, height: 700 });
+  const nightPage = await openPage(`http://localhost:${webPort}/?time=night&diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1000, height: 700 });
   await waitFor(nightPage, `document.querySelector('[data-testid="time-label"]')?.textContent.includes(':') && !document.querySelector('[data-testid="time-label"]').textContent.includes('-')`, 90);
   check('?time=night opens the city at night', await nightPage.eval(`document.querySelector('[data-testid="time-label"]').textContent === '00:00'`));
   check('the night page has no console errors', nightPage.problems().length === 0, nightPage.problems().slice(0, 2).join(' | '));
