@@ -77,23 +77,24 @@ In [../deploy/](../../deploy/README.md):
 
 The `better-sqlite3` swap was tried and dropped: its native build crashed on the development machine, so test it on the Linode itself if you want it.
 
-### What is set up (2026-10-18)
-voxelventure.app has been live on a Shared CPU 4 GB Linode since 2026-10-17, as described above. Staging, at staging.voxelventure.app, runs beside it.
+### What is set up
+Checked 2026-10-19. voxelventure.app has been live on a Shared CPU 4 GB Linode since 2026-10-17, as described above. Staging, at staging.voxelventure.app, runs beside it.
 
 | Item | State |
 | --- | --- |
 | Caddy, Next.js, the API, presence and SQLite on one machine | ✅ `verify:live` passes all 17 checks |
 | systemd units with `Restart=always` | ✅ |
-| Deploys on releases | ✅ Since 2026-10-18 (`deploy/production.sh`). Each deploy builds while the live release serves, backs up, and switches in a second; it switches back by itself if the release does not answer. A rollback takes 2.2 s, rehearsed on production |
+| Deploys on releases | ✅ Since 2026-10-18 (`deploy/production.sh`). Each deploy builds while the live release serves, backs up, and switches in a second; it switches back by itself if the release does not answer. A rollback takes 2.2 s, rehearsed on production. Since 2026-10-19 each release also carries the site files of the one before it for 14 days (`carry_static`, `CARRY_DAYS`), so a page opened before a deploy keeps loading; a tab left open longer reloads itself once |
 | Environment and secrets | ✅ Checked by `check:env` and by the API at start. The admin token has been changed twice since launch, after it was printed on screen |
 | Nightly database copies on the machine | ✅ `voxelventure-backup` at 03:15 into `/var/backups/voxelventure`, kept 14 days. A restore is proven ([STAGING.md](../../deploy/STAGING.md#rehearsal-log)) |
 | Off-site copies (Object Storage) | ✅ Since 2026-10-18. Each nightly copy is uploaded to the Linode Object Storage bucket `voxelventure-backups` with rclone. The remote is in `/etc/voxelventure/rclone.conf` (readable by `voxel`, which runs the backup), and `backup.env` sets `RCLONE_REMOTE` and `RCLONE_CONFIG`. The 03:15 run is checked uploading. To run rclone by hand, name the file: `rclone --config /etc/voxelventure/rclone.conf lsl linode:voxelventure-backups` ([deploy/README.md](../../deploy/README.md)). The bucket is pruned after `RCLONE_KEEP` days (30) once the server's installed `voxelventure-backup` is refreshed from `deploy/backup.sh` |
+| Interior props in Object Storage | ✅ Since 2026-10-18. The furniture, doors and windows load from the public bucket `vv-asset-prod` (us-east-1) on production and, since 2026-10-19, on staging (`NEXT_PUBLIC_PROPS_BASE_URL`). CORS allows both sites. The backups and the props each have their own Limited Access key (two remotes, `[linode]` and `[props]`, in `/etc/voxelventure/rclone.conf`), each refused on every other bucket (checked 2026-10-19). Upload: [deploy/README.md](../../deploy/README.md#backups-and-restoring) |
 | Linode Backups | ✅ Turned on in the Linode dashboard by the owner (2026-10-18) |
 | Error reporting, uptime checks and alerts | Built ([MONITORING.md](../../deploy/MONITORING.md)). **Sentry is on** for production and staging (2026-10-18): `SENTRY_DSN` is in all six settings files, and a test error from each stack was accepted. **Uptime checks (UptimeRobot)** are in the owner's account: they check from outside, so the server cannot show them. **Left:** the nightly backup's heartbeat, `HEALTHCHECK_URL` in `/etc/voxelventure/backup.env` (Healthchecks.io) |
 | Firewall | ✅ `ufw` on the machine allows only SSH, 80 and 443. The owner added the Linode Cloud Firewall in front of it (2026-10-18) |
 | SSH keys only | ✅ Since 2026-10-18 (`/etc/ssh/sshd_config.d/00-keys-only.conf`): `PasswordAuthentication no`, `PermitRootLogin prohibit-password`. A password attempt is refused, and the deploy key signs in. Keep a copy of the private key somewhere safe. Without it, the way in is the Linode LISH console |
 | Bandwidth and load measured with the monitor (`/admin`) | The monitor is ready: `/admin` has its password (a `caddy hash-password` hash, 2026-10-18). Measuring under real traffic waits for the pilot |
-| Payments | Built (section 3). **Test mode certified on staging** (2026-10-18): `npm run verify:stripe`, 33 of 33. It covers checkout, signed webhooks, an event delivered twice applied once, refunds from Stripe and from the admin route, a Pro renewal on a test clock, and reconciliation. **Left:** the live key on production once the policies are approved. [STRIPE_LIVE.md](../../deploy/STRIPE_LIVE.md) has every step |
+| Payments | Built (section 3). **Test mode certified on staging** (2026-10-18): `npm run verify:stripe`, 33 of 33. It covers checkout, signed webhooks, an event delivered twice applied once, refunds from Stripe and from the admin route, a Pro renewal on a test clock, and reconciliation. Prices on production since 2026-10-19: leases of 7, 14 or 30 days, renewals 10% off, Pro 15% off plots ([plot_pricing_scenarios.md](../monetization/plot_pricing_scenarios.md)). **Left:** the live key on production once the policies are approved. [STRIPE_LIVE.md](../../deploy/STRIPE_LIVE.md) has every step |
 | Email | ✅ The Resend key and `MAIL_WEBHOOK_URL` are set on production (2026-10-18); confirm by sending yourself a sign-in code. Staging never sends email (`deploy/staging.sh` refuses a mail service there) |
 
 ## 3. Payments: Stripe or PayPal
