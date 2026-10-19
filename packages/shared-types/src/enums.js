@@ -12,3 +12,6 @@ export const OUTCOME_FAMILIES = ['leads', 'claims', 'redemptions', 'purchases'];
 
 // Where a reported purchase came from: the business's server (with its key) or the pixel (unverified).
 export const PURCHASE_REPORTS = ['server', 'browser'];
+
+// How long a plot can be leased, in days: 3, 6 and 12 months (lib/game/leases.js TERMS; a request's `leaseDays`).
+export const LEASE_TERMS = [90, 182, 365];

@@ -248,7 +248,7 @@ try {
   // the building changes hands
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: 'admin-secret', body: { state: 'open' } });
   const price = (await call('GET', `/plots/${lot.id}`)).data.value;
-  const take = await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Bakery', expectedPrice: Math.round(price * 1.25) } });
+  const take = await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Bakery', expectedPrice: Math.round(price * 1.25 * 100) / 100 } });
   check('bob takes the building over', take.status === 200, JSON.stringify(take.data).slice(0, 80));
   check('the new owner cannot read the old owner\'s inquiries', (await call('GET', `/conversations/${inqId}/messages`, { token: bob.token })).status === 404);
   check('the old owner and the customer still have their conversation', (await call('GET', `/conversations/${inqId}/messages`, { token: amy.token })).status === 200 && (await call('GET', `/conversations/${inqId}/messages`, { token: cat.token })).status === 200);

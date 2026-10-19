@@ -7,7 +7,12 @@ const { bad, total } = problemTally();
 const C = lp.LAND_PRICING;
 
 // the rules
-if (lp.landPrice({ tier: 'ordinary' }) !== 5 || lp.landPrice({ tier: 'ordinary', frontage: 3, park: 1, waterfront: 1, cells: 1 }) !== 5) bad('an ordinary plot is five dollars wherever it is', '');
+if (lp.landPrice({ tier: 'ordinary' }) !== 5) bad('an ordinary plot with no advantage is the base price, five dollars', '');
+// an ordinary plot is priced by its worth too: a main road, a corner, the centre, a park or the water make it dearer, never cheaper than the base
+const corner = lp.landPrice({ tier: 'ordinary', corner: 1 });
+const best = lp.landPrice({ tier: 'ordinary', frontage: 3, corner: 1, centrality: 1, park: 1, anchor: 1, waterfront: 1 });
+if (corner !== 5.75 || !(best > corner) || best !== lp.roundPrice(5 * lp.worthIndex({ tier: 'ordinary', frontage: 3, corner: 1, centrality: 1, park: 1, anchor: 1, waterfront: 1 }))) bad('an ordinary plot costs five dollars times its worth: a corner +15%', `${corner} ${best}`);
+if (lp.landPrice({ tier: 'ordinary', centrality: 0.4 }) !== 5.5) bad('an ordinary plot is priced to the cent below $20', String(lp.landPrice({ tier: 'ordinary', centrality: 0.4 })));
 if (lp.landPrice({}) !== 5 || lp.landPrice(null) !== 5 || lp.landPrice({ tier: 'nonsense', cells: 'x' }) !== 5) bad('bad input is a basic plot', '');
 const prime2 = lp.landPrice({ tier: 'prime', cells: 2 });
 if (!(prime2 > 5)) bad('a prime lot costs more than a basic plot', String(prime2));
@@ -29,6 +34,7 @@ if (lp.worthIndex({ tier: 'ordinary' }) !== 1 || !(lp.worthIndex({ tier: 'ordina
 const custom = { ...C, base: 10, weights: { ...C.weights, park: 0.6 } };
 if (lp.landPrice({ tier: 'ordinary' }, custom) !== 10 || !(lp.landPrice({ tier: 'prime', cells: 2, park: 1 }, custom) > lp.landPrice({ tier: 'prime', cells: 2, park: 1 }))) bad('the numbers can be changed in one place', '');
 if (!lp.explainPrice({ tier: 'luxury', cells: 6, park: 1, frontage: 2 }).some((l) => /beside a park/.test(l)) || lp.explainPrice({ tier: 'ordinary' }).length !== 1) bad('a price can be explained in words', '');
+if (!lp.explainPrice({ tier: 'ordinary', corner: 1 }).some((l) => /a corner/.test(l)) || !lp.explainPrice({ tier: 'ordinary', corner: 1 }).at(-1).includes('$5.75')) bad('an ordinary plot\'s location is explained too', JSON.stringify(lp.explainPrice({ tier: 'ordinary', corner: 1 })));
 const sm = lp.summarize([{ tier: 'ordinary', price: 5 }, { tier: 'ordinary', price: 5 }, { tier: 'prime', price: 40 }, { tier: 'prime', price: 60 }]);
 if (sm.total !== 110 || sm.tiers.ordinary.count !== 2 || sm.tiers.prime.min !== 40 || sm.tiers.prime.max !== 60 || sm.tiers.prime.sum !== 100) bad('a summary by tier', JSON.stringify(sm));
 
@@ -53,7 +59,8 @@ for (const seed of [20260101, 1, 2, 3, 4, 5, 6, 7]) {
   cities++;
   if (rows.length !== plots.length) bad('a price for every plot', seed);
   if (rows.some((r) => !Number.isFinite(r.price) || r.price < 5 || !Number.isFinite(r.worth) || r.worth < 1)) bad('every price is a real amount of at least five dollars', seed);
-  if (rows.filter((r) => r.tier === 'ordinary').some((r) => r.price !== 5)) bad('every ordinary plot is five dollars', seed);
+  if (rows.filter((r) => r.tier === 'ordinary').some((r) => r.price < 5 || r.price > 12)) bad('every ordinary plot is five to twelve dollars, by its location', seed);
+  if (!rows.some((r) => r.tier === 'ordinary' && r.price > 5)) bad('some ordinary plots cost more than the base, for their location', seed);
   const sm2 = lp.summarize(rows);
   for (const t of ['prime', 'luxury', 'grand']) {
     if (!sm2.tiers[t]) continue;
@@ -77,6 +84,16 @@ for (const seed of [20260101, 1, 2, 3, 4, 5, 6, 7]) {
   const one = plots.find((p) => p.luxury);
   if (JSON.stringify(locationAttrsFor(one, layout, plots)) !== JSON.stringify(rows.find((r) => r.id === one.id) && (({ tier, cells, frontage, corner, centrality, park, anchor, waterfront }) => ({ tier, cells, frontage, corner, centrality, park, anchor, waterfront }))(rows.find((r) => r.id === one.id)))) bad('attributes are the same however they are asked for', seed);
 }
+// the live city (seed 20260101) as the game and the server price it: the plots' own `land` and `price`, from the generator. The owner set these levels.
+{
+  const sm3 = lp.summarize(generateCity(20260101).plots.map((p) => ({ tier: p.land.tier, price: p.price })));
+  const want = { ordinary: [5, 5.9, 10.6], prime: [45, 55, 140], luxury: [290, 420, 555], grand: [990, 1220, 1410] };
+  for (const [t, [min, median, max]] of Object.entries(want)) {
+    const got = sm3.tiers[t];
+    if (got.min !== min || got.median !== median || got.max !== max) bad(`the live city's ${t} plots cost $${min} to $${max} a year (median $${median})`, JSON.stringify(got));
+  }
+}
+
 const t1000 = lp.tierTargets(1000);
 if (t1000.prime !== 80 || t1000.luxury !== 25 || t1000.grand !== 8 || t1000.ordinary !== 887) bad('targets scale to 1000 lots', JSON.stringify(t1000));
 if (lp.tierTargets(0).ordinary !== 0 || lp.tierTargets(NaN).prime !== 0) bad('targets for no lots', '');

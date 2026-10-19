@@ -1,5 +1,5 @@
 // Payments in the game (services/api/billing.mjs, docs/monetization/billing.md), against a stand-in for the Stripe API: with payments on, claiming, taking
-// over and renewing a plot, and booking a market stall, send the player to Stripe and only happen once the payment is confirmed. The plot or
+// over and renewing a plot, building onto its outside, and booking a market stall, send the player to Stripe and only happen once the payment is confirmed. The plot or
 // stall is held while they pay; a payment that arrives too late is refunded; refunds take back what was bought; cancelling a paid stall
 // before it opens refunds it.
 import http from 'node:http';
@@ -63,17 +63,17 @@ const plot = async (id) => (await call('GET', `/plots/${id}`)).data;
 
 try {
   const { generateCity } = await imp('city/cityGenerator.js');
-  const { leaseQuote, renewalQuote, takeoverQuote } = await imp('game/claimPrice.js');
+  const { exteriorChangeQuote, leaseQuote, renewalQuote, takeoverQuote } = await imp('game/claimPrice.js');
   const { weekStartOf, addWeeks, weekWindow } = await imp('market/weeks.js');
   const city = generateCity(20260101);
   const [lot, lot2] = city.plots.filter((p) => !p.owner && p.districtId !== 'suburb');
   const amy = await signup('Amy');
   const bob = await signup('Bob');
-  const biz = { title: 'Amy Coffee', buildingType: 'restaurant', website: 'https://amy.test', variant: 'cafe', logo: { kind: 'generated' }, description: 'Fresh coffee all day.', leaseDays: 30 };
+  const biz = { title: 'Amy Coffee', buildingType: 'restaurant', website: 'https://amy.test', variant: 'cafe', logo: { kind: 'generated' }, description: 'Fresh coffee all day.', leaseDays: 90 };
 
   // ---- claiming a plot
-  // what the claim form shows for this plot, no outside chosen, 30 days (lib/game/claimPrice.js): the server must charge exactly that
-  const shown = leaseQuote(lot, null, biz.buildingType, 30).total;
+  // what the claim form shows for this plot, no outside chosen, 3 months (lib/game/claimPrice.js): the server must charge exactly that
+  const shown = leaseQuote(lot, null, biz.buildingType, 90).total;
   const c1 = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: biz });
   const o1 = c1.data.checkout?.orderId;
   check('a claim returns Stripe\'s page instead of claiming', c1.status === 200 && c1.data.checkout.url.startsWith('https://checkout.stripe.test/') && !(await plot(lot.id)).owner, JSON.stringify(c1.data).slice(0, 160));
@@ -83,11 +83,30 @@ try {
   check('the plot is held: nobody else can claim it or start paying for it', (await call('POST', `/plots/${lot.id}/claim`, { token: bob.token, body: { ...biz, title: 'Bob Bikes' } })).data.code === 'held');
   const paid1 = await pay(o1);
   const p1 = await plot(lot.id);
-  check('once paid, the plot is the player\'s, with the lease they chose', paid1.received && p1.title === 'Amy Coffee' && p1.lease?.days === 30 && order(o1).status === 'paid');
+  check('once paid, the plot is the player\'s, with the lease they chose', paid1.received && p1.title === 'Amy Coffee' && p1.lease?.days === 90 && order(o1).status === 'paid');
   check('the claim is in the ledger and the audit trail', api.db.prepare("SELECT price FROM ledger WHERE plot_id = ? AND kind = 'claim'").get(lot.id)?.price === shown && api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'plot.claim' AND target_id = ?").get(String(lot.id)).n === 1);
   check('a second delivery changes nothing', (await pay(o1)).duplicate === false && api.db.prepare('SELECT COUNT(*) AS n FROM ledger WHERE plot_id = ? AND kind != \'open\'').get(lot.id).n === 1);
   const mine = (await call('GET', '/me/orders', { token: amy.token })).data.orders;
   check('the order list says what was bought', mine[0].label.startsWith('Lease: Amy Coffee') && mine[0].business === null && mine[0].target === `plot:${lot.id}`);
+
+  // ---- building onto the outside: a spire is paid for the rest of the lease, through Stripe like a lease
+  const spire = { crown: 'spire' };
+  const patched = await call('PATCH', `/plots/${lot.id}`, { token: amy.token, body: { exterior: spire } });
+  check('a dearer outside through PATCH is refused with 402 and its quote', patched.status === 402 && patched.data.code === 'exterior_payment_required' && patched.data.quote.charge > 0 && (await plot(lot.id)).exterior === null, JSON.stringify(patched.data));
+  const before = await plot(lot.id);
+  const quote = exteriorChangeQuote(before, null, spire, biz.buildingType, { leaseDays: before.lease.days, leaseEnd: before.lease.end });
+  const x1 = await call('POST', `/plots/${lot.id}/exterior`, { token: amy.token, body: { exterior: spire } });
+  const xo = x1.data.checkout?.orderId;
+  check('an upgrade returns Stripe\'s page, for what the editor shows', xo > 0 && Math.abs(order(xo).cents - Math.round(quote.charge * 100)) <= 1 && order(xo).cents === Math.round(patched.data.quote.charge * 100) && /^Building upgrade: Amy Coffee \(plot \d+\)$/.test(order(xo).label), JSON.stringify([order(xo)?.cents, quote.charge, order(xo)?.label]));
+  check('nothing changes until it is paid', (await plot(lot.id)).exterior === null && api.db.prepare("SELECT COUNT(*) AS n FROM ledger WHERE plot_id = ? AND kind = 'exterior'").get(lot.id).n === 0);
+  await pay(xo);
+  const upgraded = await plot(lot.id);
+  check('once paid, the spire is built and the plot is worth its yearly price more', upgraded.exterior?.crown === 'spire' && Math.abs(upgraded.value - (before.value + quote.diff)) < 0.011 && upgraded.owner === 'Amy', JSON.stringify([upgraded.value, before.value, quote.diff]));
+  check('the upgrade is in the ledger and the audit trail, and is not another owner', api.db.prepare("SELECT price FROM ledger WHERE plot_id = ? AND kind = 'exterior'").get(lot.id)?.price === order(xo).cents / 100 && api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'plot.exterior' AND target_id = ?").get(String(lot.id)).n === 1 && (await call('GET', `/plots/${lot.id}/history`)).data.owners === 1);
+  const sessions = S.sessions.size;
+  const free = await call('POST', `/plots/${lot.id}/exterior`, { token: amy.token, body: { exterior: { crown: 'spire', palette: 'tokyo' } } });
+  check('an outside change that costs nothing more needs no payment', free.status === 200 && !free.data.checkout && free.data.paid === 0 && free.data.plot.exterior.palette === 'tokyo' && S.sessions.size === sessions,JSON.stringify(free.data).slice(0, 200));
+  check('an admin refund of an upgrade takes the spire down again', (await call('POST', `/admin/billing/orders/${xo}/refund`, { token: ADMIN })).data.refunded && (await plot(lot.id)).exterior === null && (await plot(lot.id)).value === before.value);
 
   // ---- a payment that arrives after somebody else got the plot is refunded
   const a2 = (await call('POST', `/plots/${lot2.id}/claim`, { token: amy.token, body: { ...biz, title: 'Amy Two' } })).data.checkout.orderId;
@@ -116,7 +135,7 @@ try {
   // ---- taking over an ended lease
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'open' } });
   const t1 = await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Takes' } });
-  check('a take-over is a checkout too, at 1.25x what the business is worth', t1.data.checkout?.orderId > 0 && (await plot(lot.id)).title === 'Amy Coffee' && order(t1.data.checkout.orderId).cents === Math.round(takeoverQuote(await plot(lot.id), null, biz.buildingType, 30).total * 100) && order(t1.data.checkout.orderId).cents === Math.round(lot.price * 1.25 * 0.2 * 100), String(order(t1.data.checkout.orderId)?.cents));
+  check('a take-over is a checkout too, at 1.25x what the business is worth', t1.data.checkout?.orderId > 0 && (await plot(lot.id)).title === 'Amy Coffee' && order(t1.data.checkout.orderId).cents === Math.round(takeoverQuote(await plot(lot.id), null, biz.buildingType, 90).total * 100) && order(t1.data.checkout.orderId).cents === Math.round(lot.price * 1.25 * 0.5 * 100), String(order(t1.data.checkout.orderId)?.cents));
   await pay(t1.data.checkout.orderId);
   const taken = await plot(lot.id);
   check('once paid, the new tenant has the plot; the old one is not paid out', taken.title === 'Bob Takes' && api.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'plot.takeover' AND target_id = ?").get(String(lot.id)).n === 1 && JSON.parse(api.db.prepare("SELECT detail FROM audit_log WHERE action = 'plot.takeover' ORDER BY id DESC").get().detail).paidOut === 0);

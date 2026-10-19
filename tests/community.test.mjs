@@ -73,10 +73,11 @@ try {
   const bob = (await call('POST', '/auth/signup', { body: { username: 'Bob', password: 'longenough2' } })).data;
   const lot = empties[0];
   const biz = { title: 'Amy Coffee', buildingType: 'restaurant', website: 'https://amy.test', variant: 'cafe', logo: { kind: 'generated' }, description: 'Coffee.' };
-  check('a lease is 30, 90 or 365 days', (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 45 } })).status === 400);
-  const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 30 } });
-  check('claiming with a 30-day lease gives a lease that ends in 30 days', claim.status === 200 && claim.data.lease.days === 30 && claim.data.lease.state === 'active' && Math.abs(claim.data.lease.end - Date.now() - 30 * 86400000) < 60000, JSON.stringify(claim.data.lease));
-  check('the plot is worth a year\'s price (its land), whatever the lease', claim.data.value === lot.price && claim.data.lease.renewPrice === Math.round(lot.price * 0.2 * 0.5 * 100) / 100, JSON.stringify([claim.data.value, claim.data.lease.renewPrice]));
+  const badTerm = (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 45 } })).data;
+  check('a lease is 3, 6 or 12 months (and the old 30 days is gone)', badTerm.code === 'bad_term' && /3 months \(90 days\), 6 months \(182 days\) or 12 months \(365 days\)/.test(badTerm.error) && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 30 } })).data.code === 'bad_term', JSON.stringify(badTerm));
+  const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 182 } });
+  check('claiming with a 6-month lease gives a lease that ends in 182 days', claim.status === 200 && claim.data.lease.days === 182 && claim.data.lease.state === 'active' && /6 months/.test(claim.data.lease.text) && Math.abs(claim.data.lease.end - Date.now() - 182 * 86400000) < 60000, JSON.stringify(claim.data.lease));
+  check('the plot is worth a year\'s price (its land), whatever the lease', claim.data.value === lot.price && claim.data.lease.renewPrice === Math.round(lot.price * 0.75 * 0.5 * 100) / 100, JSON.stringify([claim.data.value, claim.data.lease.renewPrice]));
   check('nobody can take over a leased business', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
   check('it is too early to renew a fresh lease', (await call('POST', `/plots/${lot.id}/renew`, { token: amy.token, body: {} })).data.code === 'too_early');
   check('renewing needs the tenant', (await call('POST', `/plots/${lot.id}/renew`, {})).status === 401 && (await call('POST', `/plots/${lot.id}/renew`, { token: bob.token, body: {} })).status === 404);

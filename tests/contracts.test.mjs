@@ -23,12 +23,14 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', types.API_CONTRACTS.length === 18 && Object.keys(CONTRACTS).length === 18 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
+check('contract ids are unique', types.API_CONTRACTS.length === 21 && Object.keys(CONTRACTS).length === 21 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
 
 // ---- the shared values are the ones the server and the funnel use
 import { OUTCOMES } from '@voxelventure/analytics';
 check('traffic sources are the server\'s', JSON.stringify(types.TRAFFIC_SOURCES) === JSON.stringify(SOURCES));
 check('profile event kinds are the server\'s', JSON.stringify(types.PROFILE_EVENT_KINDS) === JSON.stringify(EVENT_KINDS));
+const { TERMS } = await imp('game/leases.js');
+check('lease terms are the game\'s', JSON.stringify(types.LEASE_TERMS) === JSON.stringify(TERMS.map((t) => t.days)));
 check('outcome families are the funnel\'s', JSON.stringify(types.OUTCOME_FAMILIES) === JSON.stringify(OUTCOMES.map((o) => o.id)));
 
 // ---- the live API
@@ -103,6 +105,15 @@ try {
   const url = { ...save, revision: saved.data.revision, design: { ...save.design, nodes: { ...room, i: { ...room.i, asset: { id: 'sofa', src: 'https://elsewhere.test/sofa.glb' } } } } };
   check('an asset with a URL is outside the contract (the server keeps the id only)', !fits(types.INTERIOR_SAVE, url).ok);
   holds('going back to the generated interior', types.INTERIOR_STATE, (await call('DELETE', `/plots/${lot.id}/interior`, { token: bob.token, body: {} })).data);
+
+  // Bob's outside: a dearer one through PATCH is refused with its quote, then paid for (no payments set up: at once)
+  const spire = { exterior: { crown: 'spire' } };
+  const refused = await call('PATCH', `/plots/${lot.id}`, { token: bob.token, body: spire });
+  check('a dearer outside through PATCH is refused with 402', refused.status === 402 && refused.data?.code === 'exterior_payment_required', JSON.stringify(refused.data));
+  holds('the quote in the refusal', types.PLOT_EXTERIOR_QUOTE, refused.data?.quote);
+  holds('an outside upgrade', types.PLOT_EXTERIOR_UPGRADE, spire);
+  holds('the upgraded plot', types.PLOT_EXTERIOR_UPGRADE_RESULT, (await call('POST', `/plots/${lot.id}/exterior`, { token: bob.token, body: spire })).data);
+  check('an upgrade the contract refuses (no outside), the server refuses too', !fits(types.PLOT_EXTERIOR_UPGRADE, {}).ok && (await call('POST', `/plots/${lot.id}/exterior`, { token: bob.token, body: {} })).status === 400);
 
   // a quote request from a profile's form
   await call('POST', '/businesses', { token: cat.token, body: { name: 'Cat Quotes', category: 'services', cta: { kind: 'quote' } } });
