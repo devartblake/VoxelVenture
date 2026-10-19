@@ -145,7 +145,7 @@ export default function EconomyPage() {
                 <h2 className="text-sm font-semibold text-slate-300">Most watched plots</h2>
                 {data.topWatched.length === 0 ? <p className="mt-2 text-sm text-slate-400">Nobody watches a plot yet.</p> : (
                   <ul className="mt-2 space-y-1 text-sm">
-                    {data.topWatched.map((w) => <li key={w.plotId}><a href={`/?plot=${w.plotId}`} className="text-cyan-300 hover:underline">{w.title}</a> <span className="text-slate-400">#{w.plotId} · {w.watchers} watching · lease {w.lease}</span></li>)}
+                    {data.topWatched.map((w) => <li key={w.plotId}><a href={`/?plot=${w.plotId}`} className="text-cyan-300 hover:underline">{w.title}</a> <span className="text-slate-400">#{w.plotId} · {w.watchers} watching · lease {w.lease}</span><span className="block text-xs text-slate-500">{w.watchedBy.map((u) => `${u.username} (#${u.accountId})`).join(', ')}</span></li>)}
                   </ul>
                 )}
               </section>

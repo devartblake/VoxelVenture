@@ -39,14 +39,15 @@ export const PLOT_HOLD_STATE = {
   schema: { type: 'object', required: ['held', 'mine', 'secondsLeft'], additionalProperties: false, properties: { held: { type: 'boolean' }, mine: { type: 'boolean' }, secondsLeft: count } },
 };
 
-// POST /plots/:id/intent: a step the game sends. A price is never sent: a quote is priced by the server from the setup.
+// POST /plots/:id/intent: a step the game sends: a card opened (signed in or not) or a take-over form opened (signed in). Setting an empty plot up is
+// the hold (POST /plots/:id/hold, signed in). A price is never sent: the server prices every quote itself.
 export const PLOT_INTENT = {
   id: 'economy.plot-intent',
   version: 1,
   schema: {
     type: 'object',
     required: ['step'],
-    properties: { step: { type: 'string', enum: ['card_open', 'open', 'hold', 'quote'] }, visitor: { type: 'string', pattern: '^[A-Za-z0-9_-]{4,40}$' }, ...setup },
+    properties: { step: { type: 'string', enum: ['card_open', 'open'] }, visitor: { type: 'string', pattern: '^[A-Za-z0-9_-]{4,40}$' }, buildingType: setup.buildingType },
   },
 };
 export const PLOT_INTENT_RESULT = {
@@ -62,11 +63,18 @@ export const PRESENCE_PING = {
   schema: { type: 'object', required: ['visitor'], properties: { visitor: { type: 'string', pattern: '^[A-Za-z0-9_-]{4,40}$' }, areas: { type: 'array', maxItems: 16, items: { type: 'string', pattern: AREA } } } },
 };
 
-// GET, POST and DELETE /plots/:id/watch (signed in).
+// GET, POST and DELETE /plots/:id/watch (signed in). GET by the plot's tenant also carries `watchers`: how many watch it (never who).
 export const PLOT_WATCH = {
   id: 'economy.plot-watch',
   version: 1,
-  schema: { type: 'object', required: ['watching'], additionalProperties: false, properties: { watching: { type: 'boolean' } } },
+  schema: { type: 'object', required: ['watching'], additionalProperties: false, properties: { watching: { type: 'boolean' }, watchers: count } },
+};
+// GET /admin/plots/:id/watchers (admin): who watches a plot.
+const watcher = { type: 'object', required: ['accountId', 'username'], properties: { accountId: { type: 'integer', minimum: 1 }, username: { type: 'string' }, since: count } };
+export const PLOT_WATCHERS = {
+  id: 'economy.plot-watchers',
+  version: 1,
+  schema: { type: 'object', required: ['plotId', 'title', 'watchers'], properties: { plotId: { type: 'integer', minimum: 1 }, title: { type: 'string' }, watchers: { type: 'array', items: watcher } } },
 };
 
 // GET /admin/economy: per tier, per district and in all.
@@ -113,7 +121,7 @@ const REPORT = {
   total: GROUP,
   tiers: { type: 'array', maxItems: 4, items: GROUP },
   districts: { type: 'array', items: GROUP },
-  topWatched: { type: 'array', maxItems: 10, items: { type: 'object', required: ['plotId', 'title', 'watchers', 'lease'], properties: { plotId: { type: 'integer', minimum: 1 }, title: { type: 'string' }, watchers: { type: 'integer', minimum: 1 }, lease: { type: 'string', enum: ['none', 'active', 'renewal', 'grace', 'open'] } } } },
+  topWatched: { type: 'array', maxItems: 10, items: { type: 'object', required: ['plotId', 'title', 'watchers', 'lease', 'watchedBy'], properties: { plotId: { type: 'integer', minimum: 1 }, title: { type: 'string' }, watchers: { type: 'integer', minimum: 1 }, lease: { type: 'string', enum: ['none', 'active', 'renewal', 'grace', 'open'] }, watchedBy: { type: 'array', items: watcher } } } },
   topAreas: { type: 'array', maxItems: 10, items: { type: 'object', required: ['area', 'passes', 'players', 'plots'], properties: { area: { type: 'string', pattern: AREA }, passes: count, players: count, plots: count } } },
 };
 export const ECONOMY_REPORT = {

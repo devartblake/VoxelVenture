@@ -456,8 +456,35 @@ function EditDescription({ plot }) {
   );
 }
 
+// With a game server a player signs in before setting a plot up (claiming or taking over), so every setup is held for them on the server
+// (services/api/economy.mjs). Once they are signed in the form shows by itself.
+function SignInToSetUp({ action }) {
+  return (
+    <div className="space-y-2 rounded-lg border border-sx-stroke bg-sx-alt/40 p-3 text-[11px] text-slate-300" data-testid="sign-in-to-set-up">
+      <p>Sign in to {action}. While you set it up, the plot is held for you for three minutes, so nobody else can take it.</p>
+      <button type="button" onClick={() => useAccount.getState().ask(() => {})} className="w-full rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-2 text-xs font-bold text-white hover:brightness-110">
+        Sign in to {action}
+      </button>
+    </div>
+  );
+}
+
+// The tenant's own building: how many players watch it (never who).
+function WatchCount({ plot }) {
+  const [watchers, setWatchers] = useState(null);
+  useEffect(() => {
+    watchingRemote(plot.id).then((r) => setWatchers(r.watchers ?? null), () => {});
+  }, [plot.id]);
+  if (!watchers) return null;
+  return (
+    <p className="flex items-center gap-1.5 rounded-xl border border-sx-cyan/40 bg-sx-cyan/5 px-3 py-2 text-[11px] text-sx-cyan" data-testid="watch-count">
+      <Bell className="h-3.5 w-3.5" /> {watchers} {watchers === 1 ? 'player watches' : 'players watch'} this plot: they are told if your lease ends.
+    </p>
+  );
+}
+
 // "Watch this plot" (services/api/economy.mjs): a player who would like this location is emailed when its lease ends and when it opens to a
-// buyout. How many watch is not shown here (only admins see it).
+// buyout, and when it is taken over. Other players never see how many watch; the tenant sees the count, admins see who.
 function WatchButton({ plot }) {
   const account = useAccount((s) => s.account);
   const [watching, setWatching] = useState(null);
@@ -564,15 +591,12 @@ export default function PlotCard() {
     if (apiOn() && typeof p?.id === 'number') sendIntent(p.id, 'card_open');
   }, [p?.id]);
   useEffect(() => {
-    if (!forClaim || !touched) return;
-    useClaimHold.getState().start(p.id);
-    if (apiOn() && !account) sendIntent(p.id, 'hold'); // signed out: the game's own hold (signed in, the server's is taken below)
-  }, [forClaim, touched, p?.id, account?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (forClaim && touched) useClaimHold.getState().start(p.id);
+  }, [forClaim, touched, p?.id]);
   useEffect(() => {
-    if (!forClaim || !touched || !apiOn() || typeof p?.id !== 'number') return undefined;
+    if (!forClaim || !touched || !apiOn() || !account || typeof p?.id !== 'number') return undefined;
     const t = setTimeout(() => {
       const setup = { leaseDays, buildingType, exterior: cleanExterior(exterior ?? defaultExterior(p, buildingType), p, buildingType) };
-      if (!account) return void sendIntent(p.id, 'quote', setup);
       holdRemote(p.id, setup).then(
         (r) => useClaimHold.getState().sync(p.id, Date.now() + r.secondsLeft * 1000),
         (e) => e.code === 'held' && useClaimHold.getState().block(p.id, Date.now() + (e.secondsLeft ?? 0) * 1000),
@@ -664,6 +688,7 @@ export default function PlotCard() {
       {apiOn() && isClaimed && p.ownerAccount && !p.userClaimed && <MessageOwner plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && typeof p.id === 'number' && <WatchButton plot={p} />}
+      {apiOn() && p.userClaimed && account && typeof p.id === 'number' && <WatchCount plot={p} />}
       {isClaimed && !isSuburb && !p.admin && !p.userClaimed && <VoteBox plot={p} />}
 
       <div className="flex flex-wrap gap-1.5">
@@ -766,12 +791,13 @@ export default function PlotCard() {
         ) : p.admin ? (
           <p className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 text-xs text-cyan-100">This is the headquarters of {p.owner}. It is part of the city and is not for sale.</p>
         ) : canTakeOver ? (
-          <Fold title={`Buy this building from $${price.toLocaleString()}`} hint="take it over" onOpen={() => apiOn() && sendIntent(p.id, 'open', { buildingType: 'shop' })}>
-            <TakeOver key={p.id} plot={p} />
+          <Fold title={`Buy this building from $${price.toLocaleString()}`} hint="take it over" onOpen={() => apiOn() && account && sendIntent(p.id, 'open', { buildingType: 'shop' })}>
+            {apiOn() && !account ? <SignInToSetUp action="take this business over" /> : <TakeOver key={p.id} plot={p} />}
           </Fold>
         ) : null
       ) : (
         <Fold title={`Claim this plot from $${price.toLocaleString()}`} hint="set up your business" defaultOpen>
+          {apiOn() && !account ? <SignInToSetUp action="claim this plot" /> : (
           <form onSubmit={handleClaim} className="space-y-2">
             {hold.blocked?.plotId === p.id && !holdState(hold.blocked.until, clock).expired && (
               <p className="rounded-lg border border-red-500/60 bg-red-950/40 px-2.5 py-1.5 text-[11px] text-red-200" data-testid="claim-held-by-other" role="status">
@@ -812,6 +838,7 @@ export default function PlotCard() {
               Claim {p.luxury ? 'Luxury Estate' : p.prime ? 'Prime Plot' : 'Plot'} (${claim.total.toLocaleString()})
             </button>
           </form>
+          )}
         </Fold>
       )}
 

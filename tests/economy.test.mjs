@@ -111,15 +111,15 @@ try {
   check('a card of an Old Town house is not recorded', (await intent(db.prepare('SELECT id FROM plots WHERE claimable = 0').get().id, { step: 'card_open', visitor: 'visitor-2' })).data.recorded === false);
   check('a leased business\'s card is recorded as demand for an occupied plot', intents("plot_id = ? AND step = 'card_open'", Q.id)[0]?.kind === 'occupied');
 
-  // a player who is not signed in sets a plot up
+  // setting a plot up needs an account: only a card open is taken from a visitor
   await ping('setter-1');
-  check('the game\'s own hold is a step for a player not signed in', (await intent(T.id, { step: 'hold', visitor: 'setter-1' })).data.verified === true);
-  check('signed in, the server hold is used instead', (await intent(T.id, { step: 'hold' }, { token: carl.token })).data.code === 'use_hold');
-  const q1 = await intent(T.id, { step: 'quote', visitor: 'setter-1', leaseDays: 90, buildingType: 'office', priceCents: 1 });
+  check('a visitor\'s setup step is refused (the setup form asks to sign in first)', (await intent(T.id, { step: 'hold', visitor: 'setter-1' })).status === 400 && (await intent(T.id, { step: 'quote', visitor: 'setter-1', leaseDays: 90, priceCents: 1 })).status === 400 && !intents('plot_id = ?', T.id).length);
+  check('opening a take-over form needs an account too', (await intent(business[1].id, { step: 'open', visitor: 'setter-1' })).status === 401);
+  const q1 = await call('POST', `/plots/${T.id}/hold`, { token: carl.token, body: { leaseDays: 90, buildingType: 'office', priceCents: 1 } });
   const want2 = Math.round(leaseQuote({ ...JSON.parse(T.facts), id: T.id, value: T.value, ownerAccount: null, exterior: null }, null, 'office', 90).total * 100);
-  check('a quote is priced by the server, never by the number a client sends', q1.data.recorded && q1.data.priceCents === want2 && intents("plot_id = ? AND step = 'quote'", T.id)[0].price_cents === want2);
-  check('the same quote again is not written twice', (await intent(T.id, { step: 'quote', visitor: 'setter-1', leaseDays: 90, buildingType: 'office' })).data.recorded === false);
-  check('an empty plot cannot be "opened" for a take-over', (await intent(T.id, { step: 'open', visitor: 'setter-1' })).data.code === 'not_for_takeover');
+  check('a quote is priced by the server, never by a number the client sends', q1.data.quote.priceCents === want2 && intents("plot_id = ? AND step = 'quote'", T.id)[0].price_cents === want2);
+  await call('DELETE', `/plots/${T.id}/hold`, { token: carl.token });
+  check('an empty plot cannot be "opened" for a take-over', (await intent(T.id, { step: 'open' }, { token: carl.token })).data.code === 'not_for_takeover');
 
   // ================================================================================================================ take-overs
   const [B1] = business;
@@ -178,11 +178,16 @@ try {
   check('an empty plot cannot be watched', (await w.call('POST', `/plots/${w.empty[1].id}/watch`, { token: eve.token })).data.code === 'not_watchable');
   await w.call('POST', `/plots/${WP.id}/watch`, { token: fay.token }); // no email: marked, never sent
   const view = (await w.call('GET', `/plots/${WP.id}`, { token: dan.token })).data;
-  check('the tenant does not see how many watch', !JSON.stringify(view).includes('watch'));
+  check('the plot itself does not say who or how many watch', !JSON.stringify(view).includes('watch'));
+  const mine = (await w.call('GET', `/plots/${WP.id}/watch`, { token: dan.token })).data;
+  check('the tenant sees how many watch their plot, never who', mine.watchers === 2 && !JSON.stringify(mine).includes('Eve') && (await w.call('GET', `/plots/${WP.id}/watch`, { token: eve.token })).data.watchers === undefined);
+  check('who watches is for admins only', (await w.call('GET', `/admin/plots/${WP.id}/watchers`, { token: dan.token })).status === 403);
+  const who = (await w.call('GET', `/admin/plots/${WP.id}/watchers`, { token: ADMIN })).data;
+  check('...and an admin sees each watcher\'s account and name', who.watchers.map((x) => `${x.accountId}:${x.username}`).join() === `${eve.account.id}:Eve,${fay.account.id}:Fay`, JSON.stringify(who));
   const mails = (kind) => wdb.prepare('SELECT * FROM outbox WHERE kind = ?').all(kind);
   check('nothing is sent while the lease runs', economy.sendWatchNotices(wdb).sent === 0);
   await w.call('POST', `/admin/plots/${WP.id}/lease`, { token: ADMIN, body: { state: 'grace' } });
-  check('the grace week: the watcher with an address is emailed', economy.sendWatchNotices(wdb).sent === 1 && mails('watch_grace').length === 1 && mails('watch_grace')[0].to_email === 'eve@watch.test');
+  check('the lease ends: the watcher with an address is emailed', economy.sendWatchNotices(wdb).sent === 1 && mails('watch_grace').length === 1 && mails('watch_grace')[0].to_email === 'eve@watch.test');
   check('...once', economy.sendWatchNotices(wdb).sent === 0 && mails('watch_grace').length === 1);
   await w.call('POST', `/admin/plots/${WP.id}/lease`, { token: ADMIN, body: { state: 'open' } });
   check('open to a buyout: emailed once more', economy.sendWatchNotices(wdb).sent === 1 && economy.sendWatchNotices(wdb).sent === 0 && mails('watch_open').length === 1 && mails('watch_open')[0].body.includes('take it over'));
@@ -190,10 +195,12 @@ try {
   await w.call('POST', `/admin/plots/${WP.id}/lease`, { token: ADMIN, body: { state: 'grace' } }); // a new lease end: a new event
   check('a watcher who turned notices off is not emailed', economy.sendWatchNotices(wdb).sent === 0 && mails('watch_grace').length === 1);
   wdb.prepare('UPDATE accounts SET notify = 1 WHERE id = ?').run(eve.account.id);
-  check('stopping', (await w.call('DELETE', `/plots/${WP.id}/watch`, { token: eve.token })).data.watching === false && (await w.call('GET', `/plots/${WP.id}/watch`, { token: eve.token })).data.watching === false);
   await w.call('POST', `/admin/plots/${WP.id}/lease`, { token: ADMIN, body: { state: 'open' } });
   await w.call('POST', `/plots/${WP.id}/takeover`, { token: fay.token, body: biz('Fay Foods') });
   check('a watcher who takes the plot over no longer watches it', !wdb.prepare('SELECT 1 FROM plot_watches WHERE account_id = ?').get(fay.account.id));
+  check('a take-over: the other watchers are emailed once', mails('watch_takeover').length === 1 && mails('watch_takeover')[0].to_email === 'eve@watch.test' && mails('watch_takeover')[0].body.includes('still watching'));
+  check('...and keep watching the plot under its new lease', (await w.call('GET', `/plots/${WP.id}/watch`, { token: eve.token })).data.watching === true && economy.sendWatchNotices(wdb).sent === 0);
+  check('stopping', (await w.call('DELETE', `/plots/${WP.id}/watch`, { token: eve.token })).data.watching === false && (await w.call('GET', `/plots/${WP.id}/watch`, { token: eve.token })).data.watching === false);
   await w.api.close();
 
   // ================================================================================================================ a paid claim
@@ -278,7 +285,7 @@ try {
   check('...with its conversion rates', t.claim.conversion.cardToHold === 0.667 && t.claim.conversion.holdToQuote === 1 && t.claim.conversion.quoteToCheckout === 0 && t.claim.conversion.checkoutToClaim === null && t.claim.conversion.quoteToClaim === 1 && t.claim.conversion.cardToClaim === 0.667, JSON.stringify(t.claim.conversion));
   check('the median quoted price', t.claim.medianQuoteCents === Math.round((held.data.quote.priceCents + edb.prepare("SELECT price_cents FROM plot_intents WHERE plot_id = ? AND step = 'quote'").get(Y.id).price_cents) / 2));
   check('renewals and lapses', t.renewals === 1 && t.lapses === 1, `${t.renewals} ${t.lapses}`);
-  check('watchers, for the admin', t.watchers === 2 && t.watchedPlots === 1 && R0.topWatched[0].plotId === X.id && R0.topWatched[0].watchers === 2);
+  check('watchers, for the admin, with who they are', t.watchers === 2 && t.watchedPlots === 1 && R0.topWatched[0].plotId === X.id && R0.topWatched[0].watchers === 2 && R0.topWatched[0].watchedBy.map((x) => x.username).join() === 'Jon,Kim');
   const tier = R0.tiers.find((g) => g.id === `tier:${fx.grand ? 'grand' : fx.luxury ? 'luxury' : fx.prime ? 'prime' : 'ordinary'}`);
   const district = R0.districts.find((g) => g.id === `district:${X.district}`);
   check('per tier and per district, the plot\'s figures are in its own groups', tier.claim.steps.card_open >= 3 && district.claim.steps.card_open >= 3 && district.watchers === 2 && district.traffic.passes === 2 && district.label === fx.district);

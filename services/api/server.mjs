@@ -272,6 +272,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       if (m === 'POST') return economy.watchPlot(db, account, r[1]);
       if (m === 'DELETE') return economy.unwatchPlot(db, account, r[1]);
     }
+    if ((r = p.match(/^\/admin\/plots\/(\d+)\/watchers$/)) && m === 'GET') return (adminOnly(token), economy.watchersOf(db, r[1]));
     if (m === 'GET' && p === '/admin/economy') return (adminOnly(token), economy.economyReport(db, { from: url.searchParams.get('from'), to: url.searchParams.get('to') }));
     if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'PATCH') {
       const b = await screened(req, { description: 1 });

@@ -11,9 +11,10 @@ import { imp } from '../../scripts/lib-loader.mjs';
 //   holds      the server's claim hold: three minutes for one account to set an empty plot up; nobody else can hold, claim or take it over
 //   intents    each step towards a plot (card opened, hold, price shown, checkout, claimed, refused, given up), verified like a visit
 //   traffic    players passing through each area of the map (not going in), counted in memory and written once a minute
-//   watches    "watch this plot": an email when an occupied plot's lease enters its grace week and when it opens to a buyout
+//   watches    "watch this plot": an email when an occupied plot's lease ends, when it opens to a buyout and when it is taken over; the
+//              tenant sees how many watch, admins see who
 //   report     GET /admin/economy: per tier and per district, for a date range
-const { areaOf, isAreaId, MAX_AREAS_PER_PING, CLIENT_STEPS, HOLD_SECONDS, HOLD_MAX_SECONDS, MAX_WATCHES, AREA_SIZE } = await imp('game/economy.js');
+const { areaOf, isAreaId, MAX_AREAS_PER_PING, CLIENT_STEPS, SIGNED_IN_STEPS, HOLD_SECONDS, HOLD_MAX_SECONDS, MAX_WATCHES, AREA_SIZE } = await imp('game/economy.js');
 const { DEFAULT_TERM, GRACE_DAYS, leaseState, takeoverAllowed } = await imp('game/leases.js');
 const { leaseQuote, takeoverQuote } = await imp('game/claimPrice.js');
 const { cleanExterior, tierOfPlot } = await imp('game/exterior.js');
@@ -85,10 +86,11 @@ function recordQuote(db, row, kind, who, input, ctx, human) {
   return { ...recordIntent(db, { row, kind, step: 'quote', who, ...q, ctx, human }), ...q };
 }
 
-// POST /plots/:id/intent from the game: { step: card_open | open | hold | quote, visitor, leaseDays?, buildingType?, exterior? }.
-//   card_open   any plot that is for sale or leased (the card of a house or the headquarters is not recorded)
-//   open        the take-over form of a business open to a buyout (its price is written as a quote)
-//   hold/quote  a player who is not signed in setting an empty plot up (a signed-in one has the server hold: POST /plots/:id/hold)
+// POST /plots/:id/intent from the game: { step: card_open | open, visitor, buildingType? }.
+//   card_open   any plot that is for sale or leased (the card of a house or the headquarters is not recorded); signed in or not
+//   open        the take-over form of a business open to a buyout (its price is written as a quote); signed in only
+// Setting an empty plot up is the server hold (POST /plots/:id/hold), which needs an account: with a game server a player signs in first, so every
+// setup is held, quoted and (when given up) recorded as abandoned.
 // Verified like a visit: the page must have pinged presence for a few seconds first (ctx.minAgeMs). A repeat of the same step within a minute is one.
 export function clientIntent(db, account, plotId, input = {}, ctx = {}) {
   const step = CLIENT_STEPS.includes(input.step) ? input.step : fail(400, `step must be ${CLIENT_STEPS.join(', ')}.`, 'bad_step');
@@ -96,16 +98,14 @@ export function clientIntent(db, account, plotId, input = {}, ctx = {}) {
   const kind = kindOf(row);
   if (!kind) return { recorded: false };
   if (step === 'open' && kind !== 'takeover') fail(409, 'This business cannot be taken over now.', 'not_for_takeover');
-  if ((step === 'hold' || step === 'quote') && kind !== 'claim') fail(409, 'Only an empty plot is set up.', 'not_empty');
-  if (step === 'hold' && account) fail(409, 'Signed in, a plot is held with POST /plots/:id/hold.', 'use_hold');
+  if (SIGNED_IN_STEPS.includes(step)) requireAccount(account);
   const who = whoOf(account, input.visitor, ctx.salt);
   if (!who.accountId && !who.visitor) return { recorded: false };
   const presence = db.prepare('SELECT first_at FROM presence WHERE visitor = ?').get(account ? `a${account.id}` : `v${text(input.visitor, 40)}`);
   const human = Boolean(presence) && now() - presence.first_at >= (ctx.minAgeMs ?? 3000);
   return transaction(db, () => {
     const [w, v] = sameWho(who);
-    if (step !== 'quote' && db.prepare(`SELECT 1 FROM plot_intents WHERE plot_id = ? AND step = ? AND ${w} AND at >= ?`).get(row.id, step, v, now() - 60000)) return { recorded: false };
-    if (step === 'quote') return recordQuote(db, row, kind, who, input, ctx, human);
+    if (db.prepare(`SELECT 1 FROM plot_intents WHERE plot_id = ? AND step = ? AND ${w} AND at >= ?`).get(row.id, step, v, now() - 60000)) return { recorded: false };
     const out = recordIntent(db, { row, kind, step, who, ctx, human });
     if (step === 'open') recordQuote(db, row, kind, who, input, ctx, human);
     return out;
@@ -221,12 +221,24 @@ function recordStep(db, accountId, plotId, kind, step, extra = {}) {
 export function onClaimed(db, { plotId, accountId, action }) {
   const kind = action === 'claim' ? 'claim' : 'takeover';
   const row = getPlot(db, plotId);
-  const paid = db.prepare("SELECT price FROM ledger WHERE plot_id = ? AND kind = ? ORDER BY id DESC LIMIT 1").get(row.id, kind);
+  const paid = db.prepare("SELECT id, price FROM ledger WHERE plot_id = ? AND kind = ? ORDER BY id DESC LIMIT 1").get(row.id, kind);
   transaction(db, () => {
     db.prepare('DELETE FROM plot_holds WHERE plot_id = ?').run(row.id);
     db.prepare('DELETE FROM plot_watches WHERE plot_id = ? AND account_id = ?').run(row.id, accountId);
     recordIntent(db, { row, kind, step: kind === 'claim' ? 'claimed' : 'taken_over', who: { accountId, visitor: null }, verified: true, priceCents: cents(paid?.price), termDays: row.lease_days ?? null });
+    if (kind === 'takeover') notifyTakenOver(db, row, paid?.id);
   });
+}
+// A watched plot was taken over: each watcher is emailed once for that take-over (its ledger row), as the other watch emails. The watch goes on: the
+// plot has a new lease, and its end is the next chance.
+function notifyTakenOver(db, row, ledgerId) {
+  const key = `takeover:${ledgerId ?? row.updated_at}`;
+  for (const w of db.prepare('SELECT account_id, notified FROM plot_watches WHERE plot_id = ?').all(row.id)) {
+    if (w.notified === key) continue;
+    const to = noticeAddress(db, w.account_id);
+    if (to) enqueue(db, { to, kind: 'watch_takeover', subject: `${row.title} was taken over`, body: `${row.title} (plot #${row.id}), a plot you are watching, was taken over by a new tenant and has a new lease. You are still watching it: we will email you when that lease ends. To stop these emails, open the plot's card and press Watching.` });
+    db.prepare('UPDATE plot_watches SET notified = ? WHERE plot_id = ? AND account_id = ?').run(key, row.id, w.account_id);
+  }
 }
 // billing.mjs's fulfilment (the server's afterPaid): a paid claim or take-over.
 export function onFulfilled(db, f) {
@@ -310,10 +322,18 @@ const watchable = (row, account) => {
   if (!row.owner_name || !row.claimable || factsOf(row).admin) fail(409, 'Only a business can be watched.', 'not_watchable');
   if (row.owner_account === account.id) fail(409, 'This is your own business.', 'own_plot');
 };
+// GET /plots/:id/watch (signed in): whether I watch it; the tenant gets how many watch their plot instead (never who).
 export function watchState(db, account, plotId) {
   requireAccount(account);
   const row = getPlot(db, plotId);
+  if (row.owner_account === account.id) return { watching: false, watchers: db.prepare('SELECT COUNT(*) AS n FROM plot_watches WHERE plot_id = ?').get(row.id).n };
   return { watching: Boolean(db.prepare('SELECT 1 FROM plot_watches WHERE plot_id = ? AND account_id = ?').get(row.id, account.id)) };
+}
+// GET /admin/plots/:id/watchers (admin): who watches a plot, first first.
+export function watchersOf(db, plotId) {
+  const row = getPlot(db, plotId);
+  const watchers = db.prepare('SELECT w.account_id AS accountId, a.username, w.created_at AS since FROM plot_watches w JOIN accounts a ON a.id = w.account_id WHERE w.plot_id = ? ORDER BY w.created_at, w.account_id').all(row.id);
+  return { plotId: row.id, title: row.title, watchers: watchers.map((w) => ({ ...w })) };
 }
 // POST /plots/:id/watch (signed in): email me when this business's lease ends and when the plot opens to a buyout.
 export function watchPlot(db, account, plotId) {
@@ -332,7 +352,7 @@ export function unwatchPlot(db, account, plotId) {
   db.prepare('DELETE FROM plot_watches WHERE plot_id = ? AND account_id = ?').run(getPlot(db, plotId).id, account.id);
   return { watching: false };
 }
-// The minute's job: each watcher of a plot whose lease has entered its grace week, or has opened to a buyout, is emailed once for that lease end
+// The minute's job: each watcher of a plot whose lease has ended (its grace days, GRACE_DAYS), or has opened to a buyout, is emailed once for that lease end
 // (to a verified address with notices on, as the lease notices are: engage.mjs noticeAddress). A watcher who now holds the plot is dropped.
 export function sendWatchNotices(db, at = now()) {
   let sent = 0;
@@ -350,9 +370,10 @@ export function sendWatchNotices(db, at = now()) {
     if (to) {
       const opens = new Date(r.lease_end + GRACE_DAYS * DAY).toUTCString();
       const subject = state === 'grace' ? `${r.title}: the lease you are watching has ended` : `${r.title} is open to a buyout`;
+      const days = `${GRACE_DAYS} day${GRACE_DAYS === 1 ? '' : 's'}`;
       const body =
         state === 'grace'
-          ? `The lease on ${r.title} (plot #${r.id}), a plot you are watching, has ended. Its tenant has ${GRACE_DAYS} days to renew. If they don't, anyone can take it over from ${opens}. We will email you again then.`
+          ? `The lease on ${r.title} (plot #${r.id}), a plot you are watching, has ended. Its tenant has ${days} to renew. If they don't, anyone can take it over from ${opens}. We will email you again then.`
           : `${r.title} (plot #${r.id}), a plot you are watching, is open to a buyout: its lease ended and the tenant did not renew in time. Anyone can take it over now, until the tenant renews. To stop these emails, open the plot's card and press Watching.`;
       enqueue(db, { to, kind: `watch_${state}`, subject, body });
       sent++;
@@ -500,7 +521,7 @@ export function economyReport(db, { from, to, at = now() } = {}) {
       .filter((r) => watchers.get(r.id))
       .sort((a, b) => watchers.get(b.id).n - watchers.get(a.id).n || a.id - b.id)
       .slice(0, 10)
-      .map((r) => ({ plotId: r.id, title: r.title, watchers: watchers.get(r.id).n, lease: leaseState(r.lease_end, at) })),
+      .map((r) => ({ plotId: r.id, title: r.title, watchers: watchers.get(r.id).n, lease: leaseState(r.lease_end, at), watchedBy: watchersOf(db, r.id).watchers.map(({ accountId, username }) => ({ accountId, username })) })),
     topAreas: [...traffic.entries()]
       .sort((a, b) => b[1].passes - a[1].passes || a[0].localeCompare(b[0]))
       .slice(0, 10)

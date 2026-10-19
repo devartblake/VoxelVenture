@@ -81,8 +81,9 @@ What a demand index will be fitted on after the pilot ([plot_economy_data.md](..
 | --- | --- | --- |
 | `POST /plots/<id>/hold` | Signed in | Hold an empty plot for 3 minutes while setting it up, or refresh the hold (at most 15 minutes from its start). Body: the setup (`leaseDays`, `buildingType`, `exterior`), which the server quotes. Another account's hold: `409 held` with `secondsLeft`. |
 | `GET /plots/<id>/hold`, `DELETE /plots/<id>/hold` | Anyone / the holder | Whether it is held and for how long (never by whom); let it go |
-| `POST /plots/<id>/intent` | Anyone | A step only the game sees: `card_open`, `open` (the take-over form), and for a player not signed in `hold` and `quote`. Verified like a visit. A price is never taken from the client. |
-| `GET`, `POST`, `DELETE /plots/<id>/watch` | Signed in | Watch an occupied plot: an email when its lease enters its grace week and when it opens to a buyout, once each |
+| `POST /plots/<id>/intent` | Anyone (`open`: signed in) | A step only the game sees: `card_open`, and `open` (the take-over form). Verified like a visit. Setting a plot up is the hold, which needs an account, so a visitor's setup step or quote is refused. A price is never taken from the client. |
+| `GET`, `POST`, `DELETE /plots/<id>/watch` | Signed in | Watch an occupied plot: an email when its lease ends, when it opens to a buyout and when it is taken over, once each. For the tenant, `GET` gives how many watch (never who). |
+| `GET /admin/plots/<id>/watchers` | Admin | Who watches a plot: account id, username, since when |
 | `GET /admin/economy?from=&to=` | Admin | Per tier and per district: plots, vacancy, verified visits and store entries, foot traffic, the claim funnel with its conversion rates, the median quote, take-over attempts and completions, renewals and lapses, watchers |
 
 - **Hooks elsewhere:**

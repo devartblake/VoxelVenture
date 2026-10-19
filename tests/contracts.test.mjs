@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', types.API_CONTRACTS.length === 29 && Object.keys(CONTRACTS).length === 29 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
+check('contract ids are unique', types.API_CONTRACTS.length === 30 && Object.keys(CONTRACTS).length === 30 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
 
 // ---- the shared values are the ones the server and the funnel use
 import { OUTCOMES } from '@voxelventure/analytics';
@@ -155,6 +155,7 @@ try {
   holds('a step the game sends', types.PLOT_INTENT, step);
   holds('the answer to a step', types.PLOT_INTENT_RESULT, (await call('POST', `/plots/${built[0].id}/intent`, { body: step })).data);
   holds('watching', types.PLOT_WATCH, (await call('POST', `/plots/${built[0].id}/watch`, { token: cat.token })).data);
+  holds('who watches, for the admin', types.PLOT_WATCHERS, (await call('GET', `/admin/plots/${built[0].id}/watchers`, { token: 'admin' })).data);
   holds('the economy report', types.ECONOMY_REPORT, (await call('GET', '/admin/economy', { token: 'admin' })).data);
 } catch (err) {
   fails++;

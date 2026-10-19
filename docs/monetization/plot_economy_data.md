@@ -34,7 +34,8 @@ The data that was already recorded is read from where it is: verified visits (`e
 - **`DELETE /plots/:id/hold`** lets it go (the card was closed or another plot picked).
 - **`GET /plots/:id/hold`** says whether it is held and for how long: `{ held, mine, secondsLeft }`. It never says who.
 - A hold ends by itself: the minute's sweep deletes run-out holds. A player who wants a run-out hold doesn't have to wait for the sweep.
-- **The claim form:** a signed-in player's card takes the server hold 0.8 seconds after they start setting the plot up, and again each time the term, the kind of business or the outside changes. It counts down the time the server gives. If someone else holds the plot, it says so, with the time left. A player who isn't signed in keeps the browser's own 3-minute hold, as before.
+- **Sign in first:** with a game server, a player who isn't signed in sees **Sign in to claim this plot** (or **to take this business over**) in place of the setup form. After signing in, the form shows by itself. So every setup goes through the server hold, and every abandoned claim is recorded. The offline demo (no server) is unchanged: it keeps the browser's own 3-minute hold.
+- **The claim form:** the card takes the server hold 0.8 seconds after the player starts setting the plot up, and again each time the term, the kind of business or the outside changes. It counts down the time the server gives. If someone else holds the plot, it says so, with the time left.
 
 ### Steps towards a plot
 
@@ -48,10 +49,10 @@ Each row of `plot_intents` is one step. Its fields:
 
 | Step | Who records it | When |
 | :--- | :--- | :--- |
-| `card_open` | the game (`POST /plots/:id/intent`) | A plot's card is opened |
-| `open` | the game | The take-over form is opened (its price is written as a `quote` too) |
-| `hold` | the server hold; the game for a player who isn't signed in | The player starts setting an empty plot up |
-| `quote` | the server, from the setup | The price the claim form shows, and its term. Written when it changes, at most once per price and term in half an hour. **The price is always worked out by the server from the setup; a client never sends a number.** |
+| `card_open` | the game (`POST /plots/:id/intent`), signed in or not | A plot's card is opened |
+| `open` | the game, signed in | The take-over form is opened (its price is written as a `quote` too) |
+| `hold` | the server hold | The player starts setting an empty plot up |
+| `quote` | the server, from the setup sent with the hold | The price the claim form shows, and its term. Written when it changes, at most once per price and term in half an hour. **The price is always worked out by the server from the setup; a client never sends a number.** |
 | `checkout` | the server | A payment is started (with payments on), at the order's price and term |
 | `claimed` / `taken_over` | the server | It happened: at once without payments, or when the payment arrives. At the price in the ledger. |
 | `failed` | the server | The claim or take-over was refused with a 409: somebody was first, the price changed, the lease protects it, or someone else holds it |
@@ -65,7 +66,7 @@ Each row of `plot_intents` is one step. Its fields:
 
 The same step by the same person within a minute is written once. A step that is not verified is kept but not counted. The steps the server records from what really happened (`checkout`, `claimed`, `taken_over`, `failed`) are always verified. An `abandoned` hold is verified when its `hold` was.
 
-**Signed out:** `abandoned` is only known for a server hold, so the funnel of players who aren't signed in ends at `quote`.
+**Signed out:** a visitor who isn't signed in can only send `card_open`. The API refuses a setup step or a quote from them (400, and 401 for `open`), because the setup form asks them to sign in first. So the whole funnel after the card is of signed-in players, and every hold that is given up is recorded as `abandoned`.
 
 ### Foot traffic
 
@@ -93,14 +94,20 @@ The same step by the same person within a minute is written once. A step that is
 
 ### Watch this plot
 
-- **`POST`, `DELETE` and `GET /plots/:id/watch`** (signed in): `{ watching }`.
+- **`POST`, `DELETE` and `GET /plots/:id/watch`** (signed in): `{ watching }`. For the plot's tenant, `GET` also gives `watchers`: how many watch.
 - **What can be watched:** a business can be watched by anyone but its tenant, up to 20 plots per account. An empty plot can't be watched: it can be claimed.
 - **On the card:** an occupied plot's card has a **Watch this plot** button, which turns to **Watching** once pressed.
-- **The emails:** a watcher is emailed when the plot's lease enters its grace week and again when it opens to a buyout.
-  - Each is sent **once per lease end:** a renewed lease that lapses again is a new event.
+- **The emails:** a watcher is emailed:
+  - when the plot's lease ends (its grace days begin: `GRACE_DAYS` in `lib/game/leases.js`, and the email quotes that number);
+  - when it opens to a buyout;
+  - when someone takes it over.
+  - The lease emails are sent **once per lease end:** a renewed lease that lapses again is a new event. The take-over email is sent once per take-over.
   - They go through the same outbox and address rules as the lease notices: only to a confirmed address with notices on (`engage.mjs noticeAddress`).
-  - A watcher who takes the plot over stops watching it.
-- **Who sees the count:** the number of watchers is shown **only to admins**, in the report. The tenant doesn't see it and isn't told who watches.
+- **After a take-over:** the new tenant's own watch ends. **The other watchers keep watching:** the plot has a new lease, and its end is their next chance. The email says so and how to stop.
+- **Who sees what:**
+  - **Other players:** nothing.
+  - **The tenant:** how many players watch their plot, on their own building's card. Never who.
+  - **Admins:** who watches. `GET /admin/plots/:id/watchers` gives each watcher's account id, username and since when, and the report's most-watched list names them.
 
 ## The report: `GET /admin/economy`
 
@@ -126,7 +133,7 @@ The same step by the same person within a minute is written once. A step that is
 | `lapses` | Players' leases that ended in the range and are still not renewed |
 | `watchers`, `watchedPlots` | Now |
 
-It also lists the 10 most watched plots and the 10 busiest areas, with how many plots each area holds.
+It also lists the 10 most watched plots, with who watches each (`watchedBy`: account id and username), and the 10 busiest areas, with how many plots each area holds.
 
 ## Retention
 
@@ -163,7 +170,7 @@ After 4 to 8 weeks of the pilot at fixed prices:
 - **Shared:** `lib/game/economy.js`.
 - **Game:** `lib/data/economy.js`, `lib/data/presence.js`, `apps/web/components/ui/PlotCard.jsx`, and `lib/state/claimHoldStore.js`.
 - **Admin page:** `apps/web/app/admin/economy/page.jsx`.
-- **Contracts** (`@voxelventure/shared-types` 0.8.0): `economy.plot-hold`, `economy.plot-hold.result`, `economy.plot-hold.state`, `economy.plot-intent`, `economy.plot-intent.result`, `economy.presence-ping`, `economy.plot-watch` and `economy.report`.
+- **Contracts** (`@voxelventure/shared-types` 0.8.0): `economy.plot-hold`, `economy.plot-hold.result`, `economy.plot-hold.state`, `economy.plot-intent`, `economy.plot-intent.result`, `economy.presence-ping`, `economy.plot-watch`, `economy.plot-watchers` and `economy.report`.
 - **Tests:** `tests/economy.test.mjs`, which covers:
   - hold conflicts, refresh, the 15-minute ceiling and expiry;
   - steps verified and capped;
@@ -171,15 +178,20 @@ After 4 to 8 weeks of the pilot at fixed prices:
   - take-overs and refusals;
   - a paid claim;
   - traffic aggregation, the flush and the caps;
-  - a watch's emails, sent once;
+  - a watch's emails (lease end, open to a buyout, take-over), each sent once, and who sees the watchers;
   - the report's figures on a seeded database.
 
-  Also `tests/contracts.test.mjs`, `tests/migration.test.mjs` and `tests/legal.test.mjs`.
+  Also `tests/contracts.test.mjs`, `tests/migration.test.mjs`, `tests/legal.test.mjs`, and `tests/live-browser.test.mjs` (signing in before the setup, and the server hold).
 
-## For the owner to decide
+## Decided (2026-10-18)
+
+- **The hold ceiling:** 15 minutes.
+- **Watchers are told about a take-over** too, and keep watching afterwards.
+- **Who sees the watchers:** the tenant sees a count, admins see who.
+- **Signing in first:** with a game server, a player signs in before setting a plot up.
+
+## Still open
 
 - **The area size** (24 units). A smaller square tells plots apart better, but needs more traffic before its figures mean anything.
-- **The 15-minute ceiling on a hold**, and whether a player who isn't signed in should get a server hold too. That would need a hold per visitor number, which is easier to abuse.
 - **Raw intents kept 180 days.**
-- **Whether a watcher should also be told** when a watched plot is taken over, or when an empty plot near it opens.
-- **Whether the tenant should one day see** "N players are watching your plot" (for now, only admins see it).
+- **Whether a watcher should also be told** when an empty plot near a watched one opens.
