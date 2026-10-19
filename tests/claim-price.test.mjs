@@ -3,7 +3,7 @@ import { imp, problemTally } from './helpers.mjs';
 const cp = await imp('game/claimPrice.js');
 const hold = await imp('game/claimHold.js');
 const { EXTERIOR_PRICES } = await imp('content/exteriorPrices.js');
-const { defaultExterior, floorRange } = await imp('game/exterior.js');
+const { defaultExterior, floorRange, heightFor } = await imp('game/exterior.js');
 const { generateCity } = await imp('city/cityGenerator.js');
 const { useCityStore } = await imp('state/store.js');
 const { bad, total } = problemTally();
@@ -80,6 +80,14 @@ if (cp.choiceCost(start, { crown: 'spire' }, ord, 'shop') !== money(ord.price * 
   if (noLease.charge !== money(lux.price * 0.2)) bad('without a lease end, the whole year', JSON.stringify(noLease));
   const legacy = cp.exteriorChangeQuote(lux, null, { crown: 'dome' }, 'office', { now, leaseDays: 30, leaseEnd: now + 30 * DAY });
   if (legacy.charge !== money((money(lux.price * 0.2) * 30) / 365)) bad('an old 30-day lease pays its share of a year', JSON.stringify(legacy));
+  const early = cp.exteriorChangeQuote(lux, null, { crown: 'dome' }, 'office', { now, leaseDays: 90, leaseEnd: now + 104 * DAY });
+  if (early.charge !== money(money(money(lux.price * 0.2) * 0.5) * (104 / 90))) bad('renewed early (more than a term left), the whole time left is charged', JSON.stringify(early));
+  const usual = floorRange(ord, 'shop').typical;
+  const grown = { ...ord, baseHeight: heightFor(usual + 2), height: heightFor(usual + 4) };
+  const recolour = cp.exteriorChangeQuote(grown, null, { floors: usual + 2, palette: 'tokyo' }, 'shop', { now, leaseDays: 365, leaseEnd: now + 365 * DAY });
+  if (recolour.charge !== 0 || recolour.diff !== 0) bad('an outside never set up starts from the building as it stands: recolouring a taller-than-usual building is free', JSON.stringify(recolour));
+  const taller = cp.exteriorChangeQuote(grown, null, { floors: usual + 3 }, 'shop', { now, leaseDays: 365, leaseEnd: now + 365 * DAY });
+  if (taller.diff !== money(ord.price * 0.1)) bad('and only the floors above it are charged', JSON.stringify(taller));
 }
 
 // claiming: the building is worth what was paid

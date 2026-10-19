@@ -91,6 +91,8 @@ These take-over figures are for a business worth its land. A business whose owne
 - **What's charged:** the extra year's cost × the term's factor × the share of the lease that's left.
 - **Example:** two more floors on a median prime plot, halfway through a 12-month lease, costs $11 × 1 × 0.5 = **$5.50**.
 - **Minimum charge:** $0.50, Stripe's own minimum. This also stops a large upgrade from being split into many small free steps.
+- **Time left:** the whole time still to run is charged, including the extra days of a lease renewed early.
+- **Never set up:** a building whose owner never changed the outside starts from the building as it stands, so floors the owner never chose are not charged.
 
 ## A year of revenue if every plot is leased all year
 
