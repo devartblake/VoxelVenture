@@ -101,6 +101,7 @@ export default function PilotPage() {
         <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <h1 className="text-xl font-bold">Pilot dashboard</h1>
           <p className="text-sm text-slate-400">Verified figures only. The criteria are the ones that lift the world-expansion freeze.</p>
+          <a href="/admin/economy" className="ml-auto text-sm text-cyan-300 hover:underline">Plot economy</a>
         </header>
 
         {!base && <p className="mt-6 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm">This page needs the API: build the app with <code>NEXT_PUBLIC_LIVE_API_URL</code> set, and start it with <code>npm run api</code>.</p>}

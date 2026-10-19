@@ -1,5 +1,20 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.8.0 (2026-10-18)
+
+The plot economy's data is recorded (`services/api/economy.mjs`, [plot_economy_data.md](../../docs/monetization/plot_economy_data.md)). New contracts, all version 1:
+
+- `economy.plot-hold`: the body of `POST /plots/:id/hold`: the setup the claim form shows (`leaseDays`, `buildingType`, `exterior`), all optional.
+- `economy.plot-hold.result`: its answer: `{ plotId, until, secondsLeft, quote: { priceCents, termDays } }`.
+- `economy.plot-hold.state`: `GET /plots/:id/hold`: `{ held, mine, secondsLeft }` (never who holds it).
+- `economy.plot-intent` and `economy.plot-intent.result`: `POST /plots/:id/intent`, a step the game sends (`card_open`, `open`, `hold`, `quote`), and `{ recorded, verified }` (with the server's price for a quote).
+- `economy.presence-ping`: the body of `POST /presence/ping`, now with the optional `areas` the game passed through outdoors.
+- `economy.plot-watch`: `GET`, `POST` and `DELETE /plots/:id/watch`: `{ watching }`.
+- `economy.report`: `GET /admin/economy`, per tier, per district and in all.
+- `API_CONTRACTS` now holds 29.
+
+No existing contract changed.
+
 ## 0.7.0 (2026-10-18)
 
 A building's outside has real prices: the basic outside is free, a more elaborate one is paid for the rest of the lease (`services/api/core.mjs` `upgradeExterior`, `lib/game/claimPrice.js` `exteriorChangeQuote`). New contracts, all version 1:

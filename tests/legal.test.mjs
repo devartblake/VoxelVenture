@@ -22,6 +22,7 @@ const { settingsFrom } = await import(new URL('../services/api/messaging.mjs', i
 const chat = settingsFrom({});
 check('chat retention (nearby, inbox, report evidence) is as stated', chat.nearbyDays === RETENTION.nearbyDays && chat.inboxDays === RETENTION.inboxDays && chat.reportDays === RETENTION.reportEvidenceDays && RETENTION.nearbyDeleteDays === RETENTION.nearbyDays + 30, JSON.stringify(chat));
 check('the Python messaging service keeps the same periods', has('services/messaging/app/config.py', new RegExp(`MESSAGING_NEARBY_DAYS', ${RETENTION.nearbyDays}\\)`)) && has('services/messaging/app/config.py', new RegExp(`MESSAGING_INBOX_DAYS', ${RETENTION.inboxDays}\\)`)));
+check('the plot economy\'s data is kept as stated', has('services/api/economy.mjs', new RegExp(`export const INTENT_DAYS = ${RETENTION.intentDays};`)) && has('services/api/economy.mjs', new RegExp(`export const TRAFFIC_SEEN_DAYS = ${RETENTION.trafficSeenDays};`)) && has('lib/game/claimHold.js', new RegExp(`HOLD_SECONDS = ${RETENTION.holdMinutes * 60};`)));
 check('who is online is kept a day', RETENTION.presenceDays === 1 && has('services/api/stats.mjs', /DELETE FROM presence WHERE last_at < \?'\)\.run\(now - DAY\)/));
 check('the referral code is kept the stated days', has('lib/business/referral.js', new RegExp(`KEEP_MS = ${RETENTION.referralDays} \\* 86400000`)));
 check('backups are kept the stated days', has('deploy/backup.sh', new RegExp(`BACKUP_KEEP:-${RETENTION.backupDays}\\}`)));

@@ -73,6 +73,26 @@ The pilot dashboard for phase 6 ([pilot.md](../monetization/pilot.md)).
 - **Command line:** `npm run moderate -- pilot [weeks | add <slug> [note] | remove <slug> | csv]`.
 - **Tests:** `tests/pilot.test.mjs`.
 
+## The plot economy's data (`services/api/economy.mjs`)
+
+What a demand index will be fitted on after the pilot ([plot_economy_data.md](../monetization/plot_economy_data.md)). Nothing here sets a price.
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /plots/<id>/hold` | Signed in | Hold an empty plot for 3 minutes while setting it up, or refresh the hold (at most 15 minutes from its start). Body: the setup (`leaseDays`, `buildingType`, `exterior`), which the server quotes. Another account's hold: `409 held` with `secondsLeft`. |
+| `GET /plots/<id>/hold`, `DELETE /plots/<id>/hold` | Anyone / the holder | Whether it is held and for how long (never by whom); let it go |
+| `POST /plots/<id>/intent` | Anyone | A step only the game sees: `card_open`, `open` (the take-over form), and for a player not signed in `hold` and `quote`. Verified like a visit. A price is never taken from the client. |
+| `GET`, `POST`, `DELETE /plots/<id>/watch` | Signed in | Watch an occupied plot: an email when its lease enters its grace week and when it opens to a buyout, once each |
+| `GET /admin/economy?from=&to=` | Admin | Per tier and per district: plots, vacancy, verified visits and store entries, foot traffic, the claim funnel with its conversion rates, the median quote, take-over attempts and completions, renewals and lapses, watchers |
+
+- **Hooks elsewhere:**
+  - `POST /plots/<id>/claim` and `/takeover` are refused while another account holds the plot. Their outcome (checkout, claimed or taken over, refused) is recorded through `economy.tracked`.
+  - A paid one is recorded when the payment arrives (`afterPaid`).
+  - `POST /presence/ping` takes the optional `areas` the game passed through outdoors. They are counted in memory and written once a minute.
+- **Jobs:** every minute, run-out holds are let go and watchers' emails are queued. Every hour, raw intents older than 180 days and traffic's "already counted" rows older than 2 days are deleted.
+- **Tables:** `plot_holds`, `plot_intents`, `street_traffic`, `traffic_seen`, `plot_watches`.
+- **Tests:** `tests/economy.test.mjs`.
+
 ## Chat and private messages (`services/api/messaging.mjs`)
 Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The API keeps everything that lasts or needs an account; the presence server only passes nearby lines on.
 - **Signed-in chat:** `POST /messaging/ticket` gives a signed-in game a one-use ticket (a minute); the presence server redeems it (`/internal/messaging/redeem`, with `MP_NOTIFY_SECRET`) and from then on that connection speaks as the account. Every half minute it asks which bindings are still good (`/internal/messaging/bindings`): signing out or a ban ends them.

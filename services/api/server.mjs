@@ -42,6 +42,7 @@ import * as billing from './billing.mjs';
 import * as conversions from './conversions.mjs';
 import * as pilot from './pilot.mjs';
 import * as interiors from './interiors.mjs';
+import * as economy from './economy.mjs';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 import { createReporter } from '../../lib/net/sentry.mjs';
@@ -59,11 +60,15 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   const deliver = () => engage.deliverOutbox(db, mail).catch(() => {});
   const noticeTimer = deliverEveryMs > 0 ? setInterval(() => { try { market.sendNotices(db); community.sendLeaseNotices(db); } catch { /* the next minute tries again */ } }, 60000) : null;
   noticeTimer?.unref();
+  // the plot economy's data (economy.mjs): foot traffic is counted in memory and written once a minute; run-out claim holds and watchers' emails too
+  const traffic = economy.createTraffic({ salt: env.IP_SALT });
+  const economyTimer = deliverEveryMs > 0 ? setInterval(() => { try { traffic.flush(db); economy.sweepHolds(db); economy.sendWatchNotices(db); } catch (e) { console.error('economy:', e.message); } }, 60000) : null;
+  economyTimer?.unref();
   const chat = messaging.settingsFrom(env);
   // With the messaging service set up, messages are its business alone: this API forwards the routes and runs none of the jobs,
   // so the two never both send the same notice or prune the same data.
   const messagingService = (env.MESSAGING_SERVICE_URL || '').replace(/\/+$/, '');
-  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
+  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
   pruneTimer?.unref();
   // "your inbox changed" notices go to the presence server as soon as they are written, and again every two seconds for any that failed
   const notices = () => (messagingService ? Promise.resolve() : messaging.deliverNotices(db, env)).catch(() => {});
@@ -85,6 +90,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     fetch(env.MP_NOTIFY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Notify-Secret': env.MP_NOTIFY_SECRET || '' }, body: JSON.stringify({ kind, ids }) }).catch(() => {});
   };  // a paid lease or stall has just been carried out (billing.mjs): tell the other players, and send what the free version sends at once
   const afterPaid = (f) => {
+    economy.onFulfilled(db, f); // a paid claim or take-over is a step of the plot economy's data
     if (f.kind === 'market') push('market', [f.stallId]);
     else {
       push('plot', [f.plotId]);
@@ -148,6 +154,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     viewCap: env.PROFILE_VIEW_CAP ? Number(env.PROFILE_VIEW_CAP) : undefined,
     ctaCap: env.PROFILE_CTA_CAP ? Number(env.PROFILE_CTA_CAP) : undefined,
   });
+  // what verifying a step of the plot economy's data needs (economy.mjs): as a visit, a few seconds of presence first
+  const intentCtx = (req) => ({ ip: clientIp(req), userAgent: req.headers['user-agent'], salt: env.IP_SALT, minAgeMs: env.HUMAN_MIN_AGE_MS != null ? Number(env.HUMAN_MIN_AGE_MS) : undefined });
   const BUSINESS = { title: 0, description: 1, website: 1 };
   const PROFILE = { name: 0, tagline: 0, description: 1 };
   const adminOnly = (token) => {
@@ -229,24 +237,42 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'GET') return core.plotView(db, core.getPlot(db, r[1]));
     if ((r = p.match(/^\/plots\/(\d+)\/stats$/)) && m === 'GET') return core.plotStats(db, r[1]) ?? { empty: true };
     if ((r = p.match(/^\/plots\/(\d+)\/history$/)) && m === 'GET') return core.history(db, r[1]);
+    // a claim and a take-over are refused while another player holds the plot, and their outcome is a step of the plot economy's data (economy.tracked)
     if ((r = p.match(/^\/plots\/(\d+)\/claim$/)) && m === 'POST') {
       const b = await screened(req, BUSINESS);
-      if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'claim', b, env); // paid: the claim happens once the payment arrives
-      const out = logged(A.byAccount(account), 'plot.claim', { kind: 'plot', id: r[1] }, () => core.claimPlot(db, account, r[1], b), (o) => ({ title: o.title, value: o.value, leaseDays: o.lease?.days ?? null }));
-      push('plot', [Number(r[1])]);
-      if (social.welcomePlot(db, r[1], account.id, env)) setImmediate(postSocial);
-      return out;
+      return economy.tracked(db, account, r[1], 'claim', async () => {
+        if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'claim', b, env); // paid: the claim happens once the payment arrives
+        const out = logged(A.byAccount(account), 'plot.claim', { kind: 'plot', id: r[1] }, () => core.claimPlot(db, account, r[1], b), (o) => ({ title: o.title, value: o.value, leaseDays: o.lease?.days ?? null }));
+        push('plot', [Number(r[1])]);
+        if (social.welcomePlot(db, r[1], account.id, env)) setImmediate(postSocial);
+        return out;
+      });
     }
     if ((r = p.match(/^\/plots\/(\d+)\/takeover$/)) && m === 'POST') {
       const b = await screened(req, BUSINESS);
-      if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'takeover', b, env);
-      const out = logged(A.byAccount(account), 'plot.takeover', { kind: 'plot', id: r[1] }, () => core.takeOverPlot(db, account, r[1], b), (o) => ({ title: o.plot.title, paidOut: o.paidOut, previousOwner: o.previousOwner, previousAccount: o.previousAccount ?? null }));
-      engage.notifyTakeover(db, out.previousAccount, { title: out.plot.title, newOwner: out.plot.owner, paidOut: out.paidOut, plotId: out.plot.id });
-      delete out.previousAccount;
-      push('plot', [Number(r[1])]);
-      deliver();
-      return out;
+      return economy.tracked(db, account, r[1], 'takeover', async () => {
+        if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'takeover', b, env);
+        const out = logged(A.byAccount(account), 'plot.takeover', { kind: 'plot', id: r[1] }, () => core.takeOverPlot(db, account, r[1], b), (o) => ({ title: o.plot.title, paidOut: o.paidOut, previousOwner: o.previousOwner, previousAccount: o.previousAccount ?? null }));
+        engage.notifyTakeover(db, out.previousAccount, { title: out.plot.title, newOwner: out.plot.owner, paidOut: out.paidOut, plotId: out.plot.id });
+        delete out.previousAccount;
+        push('plot', [Number(r[1])]);
+        deliver();
+        return out;
+      });
     }
+    // the plot economy's data (economy.mjs, docs/monetization/plot_economy_data.md): the claim hold, the steps the game sends, watching a plot
+    if ((r = p.match(/^\/plots\/(\d+)\/hold$/))) {
+      if (m === 'GET') return economy.holdView(db, account, r[1]);
+      if (m === 'POST') return economy.holdPlot(db, account, r[1], await body(req), intentCtx(req));
+      if (m === 'DELETE') return economy.releaseHold(db, account, r[1]);
+    }
+    if ((r = p.match(/^\/plots\/(\d+)\/intent$/)) && m === 'POST') return economy.clientIntent(db, account, r[1], await body(req), intentCtx(req));
+    if ((r = p.match(/^\/plots\/(\d+)\/watch$/))) {
+      if (m === 'GET') return economy.watchState(db, account, r[1]);
+      if (m === 'POST') return economy.watchPlot(db, account, r[1]);
+      if (m === 'DELETE') return economy.unwatchPlot(db, account, r[1]);
+    }
+    if (m === 'GET' && p === '/admin/economy') return (adminOnly(token), economy.economyReport(db, { from: url.searchParams.get('from'), to: url.searchParams.get('to') }));
     if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'PATCH') {
       const b = await screened(req, { description: 1 });
       const out = logged(A.byAccount(account), 'plot.update', { kind: 'plot', id: r[1] }, () => core.updateBusiness(db, account, r[1], b), () => ({ fields: ['logo', 'description', 'exterior'].filter((k) => b[k] !== undefined) }));
@@ -361,7 +387,12 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/hunt/complete') return community.completeHunt(db, account, await body(req));
     if (m === 'POST' && p === '/vote') return community.castVote(db, account, (await body(req)).plotId);
     // presence and analytics
-    if (m === 'POST' && p === '/presence/ping') return stats.ping(db, { visitor: (await body(req)).visitor, headers: req.headers, account });
+    if (m === 'POST' && p === '/presence/ping') {
+      const b = await body(req);
+      const out = stats.ping(db, { visitor: b.visitor, headers: req.headers, account });
+      if (out.ok && b.areas) traffic.note(db, { account, visitor: b.visitor, areas: b.areas, ctx: intentCtx(req) }); // the areas passed outdoors (economy.mjs)
+      return out;
+    }
     if (m === 'GET' && p === '/stats/overview') return stats.overview(db, { offsetMin: Number(env.STATS_TZ_OFFSET_MIN) || 0 });
     // the pop-up market
     if (m === 'GET' && p === '/market') return market.marketSummary(db, seed);
@@ -588,7 +619,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       send(500, { error: 'Something went wrong.', code: 'server_error' });
     }
   });
-  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, reporter, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), clearInterval(billingTimer), db.close(), r()))) };
+  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, reporter, traffic, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), clearInterval(billingTimer), clearInterval(economyTimer), economy.safeFlush(traffic, db), db.close(), r()))) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {

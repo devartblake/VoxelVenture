@@ -31,7 +31,7 @@ old.close();
 // ---- today's code opens it
 const db = openDb(file);
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => r.name);
-for (const tb of ['businesses', 'business_events', 'upgrade_interest', 'audit_log', 'social_posts', 'plot_interiors']) check(`the new table ${tb} is created`, tables.includes(tb));
+for (const tb of ['businesses', 'business_events', 'upgrade_interest', 'audit_log', 'social_posts', 'plot_interiors', 'plot_holds', 'plot_intents', 'street_traffic', 'traffic_seen', 'plot_watches']) check(`the new table ${tb} is created`, tables.includes(tb));
 const added = { accounts: ['referred_by'], plots: ['exterior'], ad_events: ['ip_hash', 'verified'], business_events: ['campaign'], businesses: ['x_handle', 'announce'] };
 for (const [tb, list] of Object.entries(added)) check(`${tb} gains ${list.join(', ')}`, list.every((c) => cols(db, tb).includes(c)));
 check('every old column is still there', Object.entries(before).every(([tb, list]) => list.every((c) => cols(db, tb).includes(c))));

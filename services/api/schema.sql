@@ -521,3 +521,61 @@ CREATE TABLE IF NOT EXISTS pilot_feedback (
   created_at INTEGER NOT NULL,
   UNIQUE (business_id, week)
 );
+
+-- ---- The plot economy's data (services/api/economy.mjs, docs/monetization/plot_economy_data.md) ---------------------------------------------
+-- The server's claim hold: a player setting an empty plot up holds it for three minutes; nobody else can hold, claim or take it over meanwhile.
+-- One per plot and one per account. A hold that runs out is deleted (and its `abandoned` step written) by the minute's sweep.
+CREATE TABLE IF NOT EXISTS plot_holds (
+  plot_id INTEGER PRIMARY KEY REFERENCES plots(id),
+  account_id INTEGER NOT NULL UNIQUE REFERENCES accounts(id),
+  started_at INTEGER NOT NULL,
+  hold_until INTEGER NOT NULL,
+  verified INTEGER NOT NULL DEFAULT 1            -- the `hold` step counted: its `abandoned` step is counted the same
+);
+-- Each step a player took towards a plot (lib/game/economy.js INTENT_STEPS): opening its card, the hold, the price shown, the checkout, the claim
+-- or take-over, a refusal, a hold given up. Kept 180 days (the daily figures in the report are worked out from it). `verified` as for visits: not a
+-- robot, not the plot's own tenant, within the per-network daily cap.
+CREATE TABLE IF NOT EXISTS plot_intents (
+  id INTEGER PRIMARY KEY,
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  kind TEXT NOT NULL,                            -- claim | takeover
+  step TEXT NOT NULL,
+  account_id INTEGER REFERENCES accounts(id),    -- a signed-in player
+  visitor TEXT,                                  -- otherwise the visitor number, hashed (sha256 with IP_SALT, 16 hex)
+  ip_hash TEXT,                                  -- the network, hashed as for visits
+  price_cents INTEGER,                           -- quote, checkout, claimed, taken_over: the price, in cents
+  term_days INTEGER,                             -- ...and the lease term it was for
+  at INTEGER NOT NULL,
+  verified INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS plot_intents_at ON plot_intents(at);
+CREATE INDEX IF NOT EXISTS plot_intents_plot ON plot_intents(plot_id, step, at);
+-- Foot traffic: the players who passed through each area (lib/game/economy.js areaOf: a 24-unit square of the map) each day. `passes` counts a
+-- player once an hour per area, `players` once a day. Kept.
+CREATE TABLE IF NOT EXISTS street_traffic (
+  day TEXT NOT NULL,                             -- YYYY-MM-DD (UTC)
+  area_id TEXT NOT NULL,
+  passes INTEGER NOT NULL DEFAULT 0,
+  players INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, area_id)
+);
+-- Who has already been counted in an area today (hashed, never the visitor number itself), so a player is one player however often they pass and
+-- however often the server restarts. Deleted after two days.
+CREATE TABLE IF NOT EXISTS traffic_seen (
+  day TEXT NOT NULL,
+  area_id TEXT NOT NULL,
+  who TEXT NOT NULL,                             -- sha256(IP_SALT | presence id), 16 hex
+  ip_hash TEXT,                                  -- the network, for the per-network cap
+  hours INTEGER NOT NULL DEFAULT 0,              -- a bit per hour (UTC) the player passed
+  PRIMARY KEY (day, area_id, who)
+);
+-- "Watch this plot": a signed-in player is emailed when an occupied plot's lease enters its grace week and when it opens to a buyout (once each per
+-- lease end). Only admins see how many watch a plot.
+CREATE TABLE IF NOT EXISTS plot_watches (
+  plot_id INTEGER NOT NULL REFERENCES plots(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  created_at INTEGER NOT NULL,
+  notified TEXT,                                 -- the last notice sent: '<grace|open>:<lease end>'
+  PRIMARY KEY (plot_id, account_id)
+);
+CREATE INDEX IF NOT EXISTS plot_watches_account ON plot_watches(account_id);
