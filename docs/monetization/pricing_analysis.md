@@ -133,7 +133,7 @@ Each shape in the picker says how many floors it can have ("Skyscraper C (commer
 ## The claim form
 - A plot's price is the land price plus each priced outside choice, itemised above a **Total** for the chosen lease term. The builder marks each free choice "free" and each priced one with what it adds for 30 days. With Pro, the Pro discount is its own line ("Pro: 15% off"); without it, a line says Pro members get 15% off plots.
 - **Plot held for you: 3:00** starts when the player starts setting the plot up (a name, or any choice) and counts down; in the last 30 seconds it turns red. When it ends, the form is cleared, the draft building leaves the lot and a message says the plot is open again.
-- With a game server the hold has to be kept on the server as well, or two players could each think they hold the same plot: that is still to do (see `../roadmap/tasks.md`).
+- With a game server the hold is kept on the server too (`POST /plots/:id/hold`, since 2026-10-19): another account can't hold, claim or take the plot over meanwhile, and a player signs in before setting a plot up ([plot_economy_data.md](plot_economy_data.md)).
 
 ## Using the tool
 Open `http://localhost:3000/pricing` in development. Buttons switch between the price, the worth index, the location grade and the tier; the city can be changed (any number is a city); every weight is a slider; **Download all plots as CSV** gives every plot's attributes, grade, worth and price. The numbers that finally matter are in `LAND_PRICING` at the top of `lib/game/landPrice.js`; `tests/land-price.test.mjs` checks the rules and runs them over eight cities.

@@ -591,7 +591,7 @@ CREATE TABLE IF NOT EXISTS traffic_seen (
   hours INTEGER NOT NULL DEFAULT 0,              -- a bit per hour (UTC) the player passed
   PRIMARY KEY (day, area_id, who)
 );
--- "Watch this plot": a signed-in player is emailed when an occupied plot's lease enters its grace week and when it opens to a buyout (once each per
+-- "Watch this plot": a signed-in player is emailed when an occupied plot's lease ends (its grace days) and when it opens to a buyout (once each per
 -- lease end). Only admins see how many watch a plot.
 CREATE TABLE IF NOT EXISTS plot_watches (
   plot_id INTEGER NOT NULL REFERENCES plots(id),
