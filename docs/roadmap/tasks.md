@@ -24,6 +24,7 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
 
 ### Gameplay
 - [x] Avatar, saves, daily chest, Plot of the Day, scavenger hunt, Gold, Wardrobe [5b, 5l]
+- [x] **Random spawn:** each new player starts at a random spot on a pavement near businesses, spread over the districts (about 1400 spots on the live city), instead of everyone at one spot on the avenue. A building link starts beside that building; `?spawn=fixed` gives the old spot (`lib/game/spawn.js`) [5b]
 - [x] Cars and walkers with signals, circles and contact tests; take-over (1.25x) and Hall of Fame [5c, 5l]
 - [x] **Drive any car; sail a boat and fish** (rare fish, 120 Gold a day cap) [5t]
 - [x] Billboards and **aerial banners you can buy** [5m]
