@@ -11,6 +11,7 @@ function materialKey(m) {
   return [
     m.type, colorKey(m.color), colorKey(m.emissive), m.emissiveIntensity, m.roughness, m.metalness, m.opacity, m.transparent,
     m.side, m.map ? m.map.uuid : '-', m.alphaTest, m.wireframe, m.flatShading,
+    m.polygonOffset ? `${m.polygonOffsetFactor},${m.polygonOffsetUnits}` : '-', // a depth bias keeps a thin layer above the one below
   ].join('|');
 }
 
