@@ -39,6 +39,7 @@ import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
 import * as social from './social.mjs';
 import * as billing from './billing.mjs';
+import * as cart from './cart.mjs';
 import * as conversions from './conversions.mjs';
 import * as pilot from './pilot.mjs';
 import * as interiors from './interiors.mjs';
@@ -488,6 +489,18 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/pro\/cancel$/)) && m === 'POST') return billing.cancelPro(db, account, r[1], env);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/export\.csv$/)) && m === 'GET') return business.exportCsv(db, account, r[1]);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/offer$/)) && m === 'PUT') { const b = await screened(req, { text: 0 }); return logged(A.byAccount(account), 'business.offer', { kind: 'business', id: r[1] }, () => business.setOffer(db, account, r[1], b), (o) => ({ offer: o.offer })); }
+    // the cart (cart.mjs, docs/monetization/billing.md#the-cart): one per account, priced on the server, one payment for every line
+    if (m === 'GET' && p === '/cart') return cart.cartView(db, account, env);
+    if (m === 'DELETE' && p === '/cart') return cart.clearCart(db, account, env);
+    if (m === 'POST' && p === '/cart/items') {
+      const b = await body(req);
+      // a plot's setup and a stall's names are screened as their own routes screen them
+      const spec = ['claim', 'takeover'].includes(b.kind) ? BUSINESS : b.kind === 'stall' ? { brand: 0, product: 1 } : null;
+      if (spec) (mod.screen(b.input ?? {}, spec), await mod.screenWithService(b.input ?? {}, env));
+      return cart.addItem(db, seed, account, b, env);
+    }
+    if ((r = p.match(/^\/cart\/items\/(\d+)$/)) && m === 'DELETE') return cart.removeItem(db, seed, account, r[1], env);
+    if (m === 'POST' && p === '/cart/checkout') return cart.checkout(db, seed, account, env, fetch, afterPaid);
     if (m === 'GET' && p === '/me/orders') return billing.myOrders(db, account);
     if ((r = p.match(/^\/me\/orders\/(\d+)$/)) && m === 'GET') return billing.orderStatus(db, account, r[1]);
     if (m === 'GET' && p === '/admin/billing/orders') return (adminOnly(token), billing.adminOrders(db, url.searchParams.get('status')));

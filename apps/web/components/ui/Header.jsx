@@ -6,6 +6,7 @@ import { Shirt, Sparkles, Store } from 'lucide-react';
 import { useCityStore } from '@/lib/state/store';
 import { usePanel } from '@/lib/state/panelStore';
 import { useAccount } from '@/lib/state/accountStore';
+import CartButton from './CartButton';
 
 export default function Header() {
   const plots = useCityStore((state) => state.plots);
@@ -45,6 +46,8 @@ export default function Header() {
         <Link href="/discover" title="Find businesses on their own pages" className="flex items-center gap-1.5 rounded-lg border border-sx-stroke bg-sx-alt px-3 py-1.5 text-xs font-medium text-slate-100 transition hover:bg-sx-stroke">
           <Store className="h-3.5 w-3.5 text-sx-cyan" /> <span className="max-sm:sr-only">Businesses</span>
         </Link>
+        {/* the cart (services/api/cart.mjs): several purchases, one payment */}
+        <CartButton />
         <Link href="/business/new" className="hidden rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 text-xs font-bold text-white hover:brightness-110 lg:block">
           List your business free
         </Link>

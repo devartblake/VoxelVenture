@@ -10,6 +10,8 @@ import { imp } from '../../scripts/lib-loader.mjs';
 // Payments through Stripe Checkout (phase 4, docs/monetization/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
 // each for one business profile; and, in the game, leases (claiming, taking over or renewing a plot) and market stalls. A lease or a stall
 // is held for the player while they pay and only happens once the payment is confirmed (step 2): what an order does is in fulfil().
+// The cart (cart.mjs) pays for several of these at once: one parent order (product 'cart', the Stripe session) and a child order per line
+// (orders.parent_id), each the order a single purchase makes; markCartPaid carries them out line by line and a line that cannot be done is refunded alone.
 //
 //   1. checkout   the owner asks for a product; the server makes a pending order at the catalogue's price (@voxelventure/business-core) and a
 //                 Stripe Checkout session for exactly that amount, and sends the owner to Stripe's page
@@ -25,7 +27,7 @@ import { PRODUCTS, placementOf, priceOf, planOf, DAY_MS } from '@voxelventure/bu
 import { categoryOf, districtOf, isSlug } from '@voxelventure/business-core';
 
 const { termLabel } = await imp('game/leases.js');
-const HOLD_MS = 30 * 60000; // Stripe's shortest checkout expiry: a sponsored spot, a plot or a stall is held this long for a checkout in progress
+export const HOLD_MS = 30 * 60000; // Stripe's shortest checkout expiry: a sponsored spot, a plot or a stall is held this long for a checkout in progress
 const TOLERANCE_S = 300; // a webhook signed longer ago than this is refused (a replay)
 const now = () => Date.now();
 
@@ -42,7 +44,7 @@ export function formEncode(obj, prefix = '', out = new URLSearchParams()) {
   }
   return out;
 }
-async function stripe(env, method, path, params = null, { idempotencyKey, fetchImpl = fetch } = {}) {
+export async function stripe(env, method, path, params = null, { idempotencyKey, fetchImpl = fetch } = {}) {
   const base = String(env.STRIPE_API_URL || 'https://api.stripe.com').replace(/\/+$/, '');
   const body = params ? formEncode(params).toString() : '';
   const url = `${base}/v1${path}${method === 'GET' && body ? `?${body}` : ''}`;
@@ -72,7 +74,7 @@ const entitlementsOf = (db, businessId) => db.prepare('SELECT * FROM entitlement
 export const planFor = (db, businessId, at = now()) => planOf(entitlementsOf(db, businessId), at);
 
 // How many of a placement's slots are taken now: paid weeks still running, and checkouts in progress still holding a spot.
-function taken(db, key, at = now()) {
+export function taken(db, key, at = now()) {
   const paid = db.prepare("SELECT COUNT(*) AS n FROM entitlements WHERE placement = ? AND status = 'active' AND ends_at > ?").get(key, at).n;
   const held = db.prepare("SELECT COUNT(*) AS n FROM orders WHERE placement = ? AND status = 'pending' AND hold_until > ?").get(key, at).n;
   return paid + held;
@@ -110,7 +112,9 @@ export async function createCheckout(db, account, slug, input, env = process.env
 }
 
 // The Stripe Checkout session for an order, for exactly its amount. If Stripe refuses, the order fails and anything it held is let go.
-async function openSession(db, account, order, { name, mode = 'payment', interval, back, metadata = {} }, env, fetchImpl) {
+// A cart's order passes `lines` (one per child order: { name, cents, interval? }; a line with an interval is the recurring one, Pro), which
+// add up to the order's amount; in subscription mode the other lines are one-time items on the first invoice.
+export async function openSession(db, account, order, { name, mode = 'payment', interval, back, metadata = {}, lines = null }, env, fetchImpl) {
   const site = siteOf(env);
   const email = db.prepare('SELECT email, email_verified FROM accounts WHERE id = ?').get(account.id);
   let session;
@@ -119,7 +123,7 @@ async function openSession(db, account, order, { name, mode = 'payment', interva
       mode,
       client_reference_id: String(order.id),
       customer_email: email?.email_verified ? email.email : undefined,
-      line_items: { 0: { quantity: 1, price_data: { currency: 'usd', unit_amount: order.cents, product_data: { name }, recurring: mode === 'subscription' ? { interval } : undefined } } },
+      line_items: Object.fromEntries((lines ?? [{ name, cents: order.cents, interval: mode === 'subscription' ? interval : null }]).map((l, i) => [i, { quantity: 1, price_data: { currency: 'usd', unit_amount: l.cents, product_data: { name: String(l.name).slice(0, 250) }, recurring: l.interval ? { interval: l.interval } : undefined } }])),
       metadata: { order: order.id, ...metadata },
       ...(mode === 'subscription' ? { subscription_data: { metadata: { order: order.id } } } : { payment_intent_data: { metadata: { order: order.id } } }),
       success_url: `${site}${back}?paid=${order.id}`,
@@ -130,8 +134,8 @@ async function openSession(db, account, order, { name, mode = 'payment', interva
     }, { idempotencyKey: `vv-order-${order.id}`, fetchImpl });
   } catch (e) {
     transaction(db, () => {
-      db.prepare("UPDATE orders SET status = 'failed', hold_until = NULL, note = ? WHERE id = ?").run(String(e.message).slice(0, 200), order.id);
-      release(db, order);
+      db.prepare('UPDATE orders SET note = ? WHERE id = ?').run(String(e.message).slice(0, 200), order.id);
+      expire(db, orderById(db, order.id), 'failed');
     });
     throw e;
   }
@@ -144,12 +148,25 @@ async function openSession(db, account, order, { name, mode = 'payment', interva
 // price is what it would write in the ledger, and the plot is held for the player while they pay. The action itself runs when the payment arrives (fulfil).
 // An outside change that turns out to cost nothing (it is no dearer than the one the building has) needs no payment: it is done at once.
 // A take-over is charged like any lease: no money goes to the tenant it replaces (the 1.25x payout waits for a legal, tax and fraud review).
-const LEASE_ACTIONS = {
-  claim: (db, account, plotId, input) => core.claimPlot(db, account, plotId, input),
-  takeover: (db, account, plotId, input) => core.takeOverPlot(db, account, plotId, input),
-  renew: (db, account, plotId, input) => community.renewLease(db, account, plotId, input),
+// opts.pro: price as Pro (a cart that buys Pro in the same payment, cart.mjs), or not; left out, the account's own plan decides.
+export const LEASE_ACTIONS = {
+  claim: (db, account, plotId, input, opts) => core.claimPlot(db, account, plotId, input, opts),
+  takeover: (db, account, plotId, input, opts) => core.takeOverPlot(db, account, plotId, input, opts),
+  renew: (db, account, plotId, input, opts) => community.renewLease(db, account, plotId, input, opts),
   exterior: (db, account, plotId, input) => core.upgradeExterior(db, account, plotId, input),
 };
+// What a lease action would charge (dollars), for which plot title and term: it is done and undone (db.mjs dryRun), so everything it checks is checked.
+export function leaseWould(db, account, plotId, action, input, opts = {}) {
+  const run = LEASE_ACTIONS[action] ?? fail(400, 'Unknown action.', 'bad_action');
+  const id = Number(plotId);
+  return dryRun(db, () => {
+    const out = run(db, account, id, input, opts);
+    const plot = out.plot ?? out;
+    const price = out.paid ?? db.prepare('SELECT price FROM ledger WHERE plot_id = ? ORDER BY id DESC LIMIT 1').get(id).price;
+    return { price, title: plot.title, days: plot.lease?.days ?? null };
+  });
+}
+export const leaseLabel = (action, id, would) => (action === 'exterior' ? `${LEASE_LABEL[action]}: ${would.title} (plot ${id})` : `${LEASE_LABEL[action]}: ${would.title} (plot ${id}, ${termLabel(would.days)})`);
 const LEASE_LABEL = { claim: 'Lease', takeover: 'Take-over lease', renew: 'Lease renewal', exterior: 'Building upgrade' };
 export async function payLease(db, account, plotId, action, input = {}, env = process.env, fetchImpl = fetch) {
   requireAccount(account);
@@ -157,14 +174,9 @@ export async function payLease(db, account, plotId, action, input = {}, env = pr
   const run = LEASE_ACTIONS[action] ?? fail(400, 'Unknown action.', 'bad_action');
   const id = Number(plotId);
   const order = transaction(db, () => {
-    const would = dryRun(db, () => {
-      const out = run(db, account, id, input);
-      const plot = out.plot ?? out;
-      const price = out.paid ?? db.prepare('SELECT price FROM ledger WHERE plot_id = ? ORDER BY id DESC LIMIT 1').get(id).price;
-      return { price, title: plot.title, days: plot.lease?.days ?? null };
-    });
+    const would = leaseWould(db, account, id, action, input);
     if (!(would.price > 0)) return null; // nothing to pay (a free outside change): done below, without a checkout
-    const label = action === 'exterior' ? `${LEASE_LABEL[action]}: ${would.title} (plot ${id})` : `${LEASE_LABEL[action]}: ${would.title} (plot ${id}, ${termLabel(would.days)})`;
+    const label = leaseLabel(action, id, would);
     const r = db.prepare("INSERT INTO orders (account_id, product, target, request, label, cents, hold_until, created_at) VALUES (?, 'lease', ?, ?, ?, ?, ?, ?)").run(account.id, `plot:${id}`, JSON.stringify({ action, input, days: would.days }), label, Math.round(would.price * 100), now() + HOLD_MS, now());
     return db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid));
   });
@@ -211,7 +223,8 @@ function fulfil(db, order) {
   const plotId = targetId(order);
   let out;
   try {
-    out = attempt(db, () => LEASE_ACTIONS[req.action](db, account, plotId, req.input ?? {}));
+    // a cart line priced with the Pro the same payment bought is carried out at that price, whatever became of the Pro line (cart.mjs)
+    out = attempt(db, () => LEASE_ACTIONS[req.action](db, account, plotId, req.input ?? {}, req.pro ? { pro: true } : {}));
   } catch (e) {
     if (!(e instanceof ApiError)) throw e;
     db.prepare('UPDATE orders SET note = ? WHERE id = ?').run(`could not be done once paid (${e.message}): refunded`.slice(0, 200), order.id);
@@ -225,7 +238,7 @@ function fulfil(db, order) {
 }
 
 // What the audit log records about a lease action, paid for (in the game a take-over pays nobody out yet: see above).
-function leaseDetail(action, out) {
+export function leaseDetail(action, out) {
   const plot = out.plot ?? out;
   return {
     claim: { title: plot.title, value: plot.value, leaseDays: plot.lease?.days ?? null },
@@ -236,14 +249,18 @@ function leaseDetail(action, out) {
 }
 
 // What an order held is let go (its checkout expired or failed): a pending stall is freed. (A plot's hold is the order's own hold_until.)
+// A cart's order lets go of every line it held.
 function release(db, order) {
   if (order.product === 'market') market.releaseBooking(db, targetId(order));
 }
-function expire(db, order, status) {
+export function expire(db, order, status) {
   if (order?.status !== 'pending') return;
   db.prepare('UPDATE orders SET status = ?, hold_until = NULL WHERE id = ?').run(status, order.id);
   release(db, order);
+  for (const child of childrenOf(db, order)) expire(db, child, status);
 }
+export const childrenOf = (db, order) => (order?.product === 'cart' ? db.prepare('SELECT * FROM orders WHERE parent_id = ? ORDER BY id').all(order.id) : []);
+const proChildOf = (db, order) => childrenOf(db, order).find((c) => c.product === 'pro') ?? null;
 
 // ---- 2. the webhook ---------------------------------------------------------------------------------------------------------------
 // Stripe signs "<timestamp>.<raw body>" with HMAC-SHA256; the Stripe-Signature header carries t=<timestamp> and one or more v1=<hex>.
@@ -267,7 +284,7 @@ export function handleEvent(db, event) {
   });
 }
 
-const orderById = (db, id) => (id ? db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(id)) : null);
+export const orderById = (db, id) => (id ? db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(id)) : null);
 const orderOfSubscription = (db, sub, metaOrder) => orderById(db, metaOrder) ?? (sub ? db.prepare('SELECT * FROM orders WHERE stripe_subscription = ?').get(String(sub)) : null);
 
 function apply(db, event) {
@@ -296,18 +313,26 @@ function apply(db, event) {
       const periodEnd = Number(o.lines?.data?.[0]?.period?.end ?? o.period_end) * 1000 || null;
       const periodStart = Number(o.lines?.data?.[0]?.period?.start ?? o.period_start) * 1000 || null;
       // a month after the first one is a renewal (the renewal rate: conversions.mjs); each invoice's event is applied once
-      if (order.status === 'paid' && periodStart && order.paid_at && periodStart > order.paid_at + DAY_MS) db.prepare('UPDATE orders SET renewals = renewals + 1 WHERE id = ?').run(order.id);
+      const plan = order.product === 'cart' ? proChildOf(db, order) : order; // a cart's Pro is its child order
+      if (plan && plan.status === 'paid' && periodStart && plan.paid_at && periodStart > plan.paid_at + DAY_MS) db.prepare('UPDATE orders SET renewals = renewals + 1 WHERE id = ?').run(plan.id);
       return markPaid(db, order, { subscription: sub, paymentIntent: o.payment_intent ?? null, periodEnd });
     }
     case 'customer.subscription.deleted': {
-      const order = orderOfSubscription(db, o.id, o.metadata?.order);
+      const found = orderOfSubscription(db, o.id, o.metadata?.order);
+      const order = found?.product === 'cart' ? proChildOf(db, found) : found;
       if (order) db.prepare("UPDATE entitlements SET ends_at = MIN(ends_at, ?) WHERE order_id = ? AND status = 'active'").run(now(), order.id);
       if (order) audit(db, SYSTEM, 'billing.pro_ended', { kind: 'order', id: order.id }, { subscription: o.id });
       return null;
     }
     case 'charge.refunded': {
-      const order = o.payment_intent ? db.prepare('SELECT * FROM orders WHERE stripe_payment_intent = ?').get(String(o.payment_intent)) : null;
-      if (order && o.amount_refunded >= o.amount) revoke(db, order, SYSTEM, 'refunded in Stripe');
+      // a cart's lines share its payment: a full refund takes back every line (a partial one in the dashboard cannot say which line: refund
+      // a line with POST /admin/billing/orders/<line>/refund instead)
+      const order = o.payment_intent ? db.prepare('SELECT * FROM orders WHERE stripe_payment_intent = ? ORDER BY parent_id IS NOT NULL, id LIMIT 1').get(String(o.payment_intent)) : null;
+      const whole = order?.parent_id ? orderById(db, order.parent_id) : order;
+      if (whole && o.amount_refunded >= o.amount) {
+        for (const child of childrenOf(db, whole)) revoke(db, child, SYSTEM, 'refunded in Stripe');
+        revoke(db, whole, SYSTEM, 'refunded in Stripe');
+      }
       return null;
     }
     default:
@@ -319,6 +344,7 @@ function apply(db, event) {
 function markPaid(db, order, { paymentIntent = null, subscription = null, periodEnd = null }) {
   const at = now();
   if (order.status === 'refunded') return null; // paid after we refunded it (a retried webhook): nothing to grant
+  if (order.product === 'cart') return markCartPaid(db, order, { paymentIntent, subscription, periodEnd });
   if (order.status !== 'paid') {
     db.prepare("UPDATE orders SET status = 'paid', paid_at = ?, hold_until = NULL, stripe_payment_intent = COALESCE(?, stripe_payment_intent), stripe_subscription = COALESCE(?, stripe_subscription) WHERE id = ?").run(at, paymentIntent, subscription, order.id);
     audit(db, SYSTEM, 'billing.paid', { kind: 'order', id: order.id }, { product: order.product, placement: order.placement, cents: order.cents });
@@ -329,6 +355,11 @@ function markPaid(db, order, { paymentIntent = null, subscription = null, period
   const existing = db.prepare('SELECT * FROM entitlements WHERE order_id = ?').get(order.id);
   if (order.product === 'pro') {
     const end = periodEnd ?? at + 31 * DAY_MS; // the first invoice sets the exact end; a month until then
+    // a cart's Pro line, for a profile that got Pro some other way while the cart was being paid: that line is refunded (and its plan cancelled)
+    if (!existing && order.parent_id && planFor(db, order.business_id, at).pro) {
+      db.prepare("UPDATE orders SET note = 'the profile already had Pro when the payment completed: refunded' WHERE id = ?").run(order.id);
+      return { refund: order.id };
+    }
     if (!existing) db.prepare('INSERT INTO entitlements (business_id, order_id, kind, starts_at, ends_at) VALUES (?,?,?,?,?)').run(order.business_id, order.id, 'pro', at, end);
     else if (periodEnd && periodEnd > existing.ends_at && existing.status === 'active') db.prepare('UPDATE entitlements SET ends_at = ? WHERE id = ?').run(periodEnd, existing.id);
     return null;
@@ -350,13 +381,39 @@ function markPaid(db, order, { paymentIntent = null, subscription = null, period
   return null;
 }
 
+// A cart is paid: its lines are carried out one by one, each as its own order would be. A line that can no longer be done is refunded on its own
+// (its amount only); the rest goes through. The cart's lines that were in this checkout leave the cart. Returns { fulfilled: [...], refund: [...] }.
+// Applied again (a retried webhook, a later invoice), it changes nothing but Pro's paid period.
+function markCartPaid(db, order, { paymentIntent, subscription, periodEnd }) {
+  const first = order.status !== 'paid';
+  if (first) {
+    db.prepare("UPDATE orders SET status = 'paid', paid_at = ?, hold_until = NULL, stripe_payment_intent = COALESCE(?, stripe_payment_intent), stripe_subscription = COALESCE(?, stripe_subscription) WHERE id = ?").run(now(), paymentIntent, subscription, order.id);
+    audit(db, SYSTEM, 'billing.paid', { kind: 'order', id: order.id }, { product: 'cart', cents: order.cents, lines: childrenOf(db, order).length });
+    const items = JSON.parse(order.request || '{}').items ?? [];
+    if (items.length) db.prepare(`DELETE FROM cart_items WHERE account_id = ? AND id IN (${items.map(() => '?').join(',')})`).run(order.account_id, ...items);
+  } else if (paymentIntent) db.prepare('UPDATE orders SET stripe_payment_intent = COALESCE(stripe_payment_intent, ?) WHERE id = ?').run(paymentIntent, order.id);
+  const out = { fulfilled: [], refund: [] };
+  for (const child of childrenOf(db, order)) {
+    if (child.status === 'refunded') continue;
+    if (child.status === 'paid' && child.product !== 'pro') continue; // done already: only Pro's next month moves anything
+    const pro = child.product === 'pro';
+    const r = markPaid(db, child, { paymentIntent: pro && !first ? null : paymentIntent, subscription: pro ? subscription : null, periodEnd: pro ? periodEnd : null });
+    if (r?.fulfilled) out.fulfilled.push(r.fulfilled);
+    if (r?.refund) out.refund.push(r.refund);
+  }
+  return out;
+}
+
 function revoke(db, order, actor, why) {
   if (order.status === 'refunded') return;
   db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, ?) WHERE id = ?").run(now(), why, order.id);
   db.prepare("UPDATE entitlements SET status = 'revoked', ends_at = MIN(ends_at, ?) WHERE order_id = ?").run(now(), order.id);
   if (order.product === 'market') market.releaseBooking(db, targetId(order));
   if (order.product === 'lease') endPaidLease(db, order);
-  audit(db, actor, 'billing.refunded', { kind: 'order', id: order.id }, { cents: order.cents, why });
+  audit(db, actor, 'billing.refunded', { kind: 'order', id: order.id }, { cents: order.cents, why, ...(order.parent_id ? { cart: order.parent_id } : {}) });
+  // the last line of a cart refunded: the cart's own order is refunded too
+  const parent = order.parent_id ? orderById(db, order.parent_id) : null;
+  if (parent && parent.status === 'paid' && !childrenOf(db, parent).some((c) => c.status === 'paid')) db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, 'every line refunded') WHERE id = ?").run(now(), parent.id);
 }
 
 // A refunded lease is taken back, if the player still holds the plot: a claim or take-over ends at once (the plot opens to others), a
@@ -383,8 +440,8 @@ export async function receiveWebhook(db, raw, signature, env = process.env, fetc
     fail(400, 'Not JSON.', 'bad_json');
   }
   const out = handleEvent(db, event);
-  if (out.fulfilled) after?.(out.fulfilled);
-  if (out.refund) await refundOrder(db, out.refund, SYSTEM, env, fetchImpl, refundWhy(db, out.refund));
+  for (const f of [].concat(out.fulfilled ?? [])) after?.(f);
+  for (const id of [].concat(out.refund ?? [])) await refundOrder(db, id, SYSTEM, env, fetchImpl, refundWhy(db, id));
   return { received: true, duplicate: Boolean(out.duplicate) };
 }
 
@@ -406,19 +463,42 @@ export function grant(db, slug, input, actor = ADMIN, at = now()) {
 
 // ---- refunds and cancelling -------------------------------------------------------------------------------------------------------
 // Refund a paid order in full and take back what it granted. For Pro the subscription is cancelled at once and its last payment refunded.
+// A cart's line is refunded on its own: that line's amount, from the cart's one payment (a partial refund). Refunding the cart's own order refunds
+// each line still paid. Pro bought in a cart: the subscription is cancelled and the Pro line's amount refunded from its latest invoice (the first
+// one also carried the cart's other lines; a later one is Pro's month alone, the same amount).
 export async function refundOrder(db, orderId, actor = ADMIN, env = process.env, fetchImpl = fetch, why = 'refunded by an admin') {
   const order = orderById(db, orderId) ?? fail(404, 'No such order.', 'no_order');
   if (order.status === 'refunded') return { refunded: true, already: true };
   if (order.status !== 'paid') fail(409, `This order is ${order.status}, not paid.`, 'not_paid');
-  let paymentIntent = order.stripe_payment_intent;
+  if (order.product === 'cart') {
+    for (const child of childrenOf(db, order)) if (child.status === 'paid') await refundOrder(db, child.id, actor, env, fetchImpl, why);
+    transaction(db, () => revoke(db, orderById(db, order.id), actor, why));
+    return { refunded: true };
+  }
+  const parent = order.parent_id ? orderById(db, order.parent_id) : null;
+  let paymentIntent = order.stripe_payment_intent ?? parent?.stripe_payment_intent ?? null;
   if (order.product === 'pro' && order.stripe_subscription) {
     const invoices = await stripe(env, 'GET', '/invoices', { subscription: order.stripe_subscription, limit: 1 }, { fetchImpl });
     paymentIntent = invoices.data?.[0]?.payment_intent ?? (await lastInvoicePayment(env, order.stripe_subscription, fetchImpl)) ?? paymentIntent;
     await stripe(env, 'DELETE', `/subscriptions/${encodeURIComponent(order.stripe_subscription)}`, null, { fetchImpl });
-  }
-  if (paymentIntent) await stripe(env, 'POST', '/refunds', { payment_intent: paymentIntent }, { idempotencyKey: `vv-refund-${order.id}`, fetchImpl });
+  } else if (!paymentIntent && parent) paymentIntent = await cartPayment(db, parent, env, fetchImpl);
+  if (paymentIntent) await stripe(env, 'POST', '/refunds', { payment_intent: paymentIntent, amount: parent ? order.cents : undefined }, { idempotencyKey: `vv-refund-${order.id}`, fetchImpl });
   transaction(db, () => revoke(db, orderById(db, order.id), actor, why));
   return { refunded: true };
+}
+
+// The payment a cart was paid with. In subscription mode (Pro in the cart) the session has no payment intent of its own: its first invoice's
+// payment carries the whole cart.
+async function cartPayment(db, parent, env, fetchImpl) {
+  if (!parent.stripe_session) return null;
+  const s = await stripe(env, 'GET', `/checkout/sessions/${encodeURIComponent(parent.stripe_session)}`, null, { fetchImpl });
+  let pi = s.payment_intent ?? null;
+  if (!pi && s.invoice) {
+    const inv = await stripe(env, 'GET', `/invoices/${encodeURIComponent(s.invoice)}`, { expand: { 0: 'payments' } }, { fetchImpl });
+    pi = inv.payment_intent ?? inv.payments?.data?.find((p) => p.payment?.payment_intent)?.payment.payment_intent ?? null;
+  }
+  if (pi) db.prepare('UPDATE orders SET stripe_payment_intent = COALESCE(stripe_payment_intent, ?) WHERE id = ?').run(pi, parent.id);
+  return pi;
 }
 
 // Since Stripe's API version 2025-03-31 an invoice has no payment_intent: its payments list carries it, and only when asked for (expand).
@@ -450,8 +530,8 @@ export async function reconcile(db, env = process.env, fetchImpl = fetch, after 
     if (s.status === 'complete' && (s.payment_status === 'paid' || s.mode === 'subscription')) {
       const r = transaction(db, () => markPaid(db, orderById(db, order.id), { paymentIntent: s.payment_intent, subscription: s.subscription }));
       out.paid++;
-      if (r?.fulfilled) after?.(r.fulfilled);
-      if (r?.refund) (await refundOrder(db, r.refund, SYSTEM, env, fetchImpl, refundWhy(db, r.refund)), out.refunded++);
+      for (const f of [].concat(r?.fulfilled ?? [])) after?.(f);
+      for (const id of [].concat(r?.refund ?? [])) (await refundOrder(db, id, SYSTEM, env, fetchImpl, refundWhy(db, id)), out.refunded++);
     } else if (s.status === 'expired') {
       transaction(db, () => expire(db, orderById(db, order.id), 'expired'));
       out.expired++;
@@ -475,7 +555,7 @@ export async function reconcile(db, env = process.env, fetchImpl = fetch, after 
 export const paidOrderFor = (db, target) => db.prepare("SELECT * FROM orders WHERE target = ? AND status = 'paid' ORDER BY id DESC LIMIT 1").get(String(target)) ?? null;
 
 // ---- what owners and admins see -----------------------------------------------------------------------------------------------------
-const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, target: o.target ?? null, label: o.label ?? null, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, note: o.note });
+const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, target: o.target ?? null, label: o.label ?? null, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, note: o.note, parentId: o.parent_id ?? null });
 export function myOrders(db, account) {
   requireAccount(account);
   return { orders: db.prepare('SELECT o.*, b.slug, b.name FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.account_id = ? ORDER BY o.id DESC LIMIT 100').all(account.id).map((o) => ({ ...orderView(o), business: o.slug ? { slug: o.slug, name: o.name } : null })) };

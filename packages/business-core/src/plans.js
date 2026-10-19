@@ -11,6 +11,11 @@ export const DAY_MS = 86400000;
 // outside upgrades, not the other products). lib/game/leases.js applies it; the server decides who has Pro (services/api/core.mjs hasPro).
 export const PRO_PLOT_DISCOUNT = 0.15;
 
+// The cart (services/api/cart.mjs, docs/monetization/billing.md#the-cart): several purchases in one payment, so Stripe's 30¢ a payment is paid once.
+// At most `maxPlots` plot lines (a claim, take-over, renewal or outside upgrade; each plot once), Pro at most once, at most `maxLines` lines in all,
+// and a checkout of at least `minimumCents` (so the fee stays near 10% or less). "Buy now" on a single item is not a cart and has no minimum.
+export const CART = { minimumCents: 400, maxPlots: 3, maxLines: 10, feeCents: 30 };
+
 export const PRODUCTS = {
   launch: {
     id: 'launch',

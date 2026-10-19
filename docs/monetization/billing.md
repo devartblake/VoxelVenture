@@ -4,6 +4,7 @@ Phase 4 of the [competitive alignment review](../competitive-research/claimavenu
 
 - **Business profiles:** the Launch Pack, Pro and sponsored placements.
 - **The game:** leases (claiming, taking over or renewing a plot), building onto a plot's outside, and market stalls ([below](#in-the-game-leases-and-market-stalls)).
+- **The cart:** any of these together, in one payment ([below](#the-cart)).
 
 The code is in `services/api/billing.mjs`. The catalogue is in `packages/business-core/src/plans.js`, imported everywhere as `@voxelventure/business-core` ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). The tests are `tests/billing.test.mjs` and `tests/billing-game.test.mjs`, which run against a fake Stripe server.
 
@@ -78,6 +79,43 @@ Refunding a game order takes back what it bought:
 - **Cancelling a paid stall.** A stallholder can cancel before the stall opens, and gets a full refund.
 
 Without Stripe settings, all of these work as before: at once, and free.
+
+## The cart
+
+Several purchases in one payment (`services/api/cart.mjs`; decided in the [sales funnel proposal](../product/sales_funnel_proposal.md#4-a-cart-in-the-sales-flow)). Stripe charges 30¢ + 2.9% a payment, so **one payment saves 30¢ for every item after the first**: a 7-day ordinary lease, a spire and the Launch Pack paid together cost 60¢ less in fees than paid one by one. Tests: `tests/cart.test.mjs`.
+
+**What can go in it**, one cart per account, kept on the server:
+
+| Line | Counts as a plot | Added with |
+| --- | --- | --- |
+| Plot lease (claim), take-over, renewal, outside upgrade | yes (at most 3 a cart, each plot once) | `{ kind: 'claim' \| 'takeover' \| 'renew' \| 'exterior', plotId, input }`: `input` is what the plot's own route takes |
+| Launch Pack, sponsored week | no | `{ kind: 'launch' \| 'sponsored', business: <slug>, placement? }` |
+| Pro (the only subscription) | no (at most once) | `{ kind: 'pro', business: <slug> }` |
+| Market stall | no | `{ kind: 'stall', input }`: the booking, as `POST /market/book` takes it |
+
+At most 10 lines, and a checkout of at least **$4** (`CART` in `@voxelventure/business-core`). The cart shows what is missing. **Buy now** on a single item works as before, outside the cart, with no minimum.
+
+**Prices are the server's.** The browser never sends one. Each line is priced from the catalogue and the game's pricing code when it is added (to show it), and again at checkout (what is charged). The plot lines are priced by doing the action and undoing it, as a single purchase is. If a price changed in between (a plot's worth moved, the account got Pro some other way), the checkout stops once with `409 price_changed`: the cart now shows the new price beside the old one, and the next checkout charges it.
+
+**Pro in the cart.** The checkout is then one Stripe session in `mode: subscription`: Pro is the recurring line (inline `price_data` with `recurring[interval]=month`, as Pro's own checkout makes it), and every other line is a one-time `price_data` item, which Stripe adds to the first invoice. Without Pro it is a `mode: payment` session with one line per item. The plot lines already get Pro's 15% off, because the same payment buys Pro; the cart shows it as a "Pro discount" line. **Decided:** the discount is applied at checkout, and if the Pro line then fails or is refunded, the plot discount is not clawed back (the lease runs at the price paid).
+
+**Holds.** Adding a line holds nothing. Checking out checks every line again and holds them all at once for the 30 minutes the session lives:
+
+- a plot: its line's order is the hold, as for a single purchase (nobody else can claim it, take it over or start setting it up). A plot another account is setting up (the plot economy's server hold) cannot be checked out;
+- a stall: a pending booking;
+- a sponsored week: its slot, counted like a single checkout's.
+
+If any line cannot be had, nothing is held, no session is opened, and the answer is `409 cart_unavailable` with `problems`: which lines and why. Checking out again while a cart checkout is open replaces it: the old one's holds are let go and its Stripe page is closed. An expired or failed checkout lets every hold go and keeps the cart.
+
+**Orders.** A checkout makes one **parent order** (`product = 'cart'`: the whole amount, the Stripe session) and a **child order per line** (`orders.parent_id`), each the same order a single purchase makes (`lease`, `market`, `launch`, `pro`, `sponsored`). Each child has its own label, amount, status and audit entries, so the order lists, `/business/manage`, the admin views and the reports work line by line; the per-business sums count the children, never the parent. The tables `carts` and `cart_items` hold the cart itself.
+
+**Fulfilment** happens line by line when the payment arrives (the webhook or reconciliation), with the existing actions. A line that can no longer be done (a plot someone else got after the hold ran out, a stall booked meanwhile, a full spot, a profile that already has Pro) is **refunded on its own**: a partial Stripe refund of that line's amount from the cart's one payment (`amount` on the refund, idempotency key `vv-refund-<line>`). The rest goes through. The lines that were paid leave the cart; lines added after the checkout started stay in it. Webhooks stay idempotent: each event once, and a second event for a paid cart only moves Pro's paid period on.
+
+**Refunds afterwards.** An admin refunds one line with `POST /admin/billing/orders/<line>/refund` (that line's amount), or the whole cart with the parent's id (each line still paid). A Pro line refunded cancels its subscription and refunds Pro's amount from its latest invoice. In subscription mode the session has no payment intent of its own, so the server finds it through the session's first invoice. A full refund made in the Stripe dashboard takes back every line; a partial one there cannot say which line, so it is ignored (refund the line here instead).
+
+**Without payments** (no Stripe settings): the game's lines (plots, stalls) are done at once when the cart is checked out, all or nothing, as their own routes do without payments. The Launch Pack, Pro and sponsored weeks cannot go in the cart (`503 billing_off`, as their own checkout).
+
+**Where it shows:** a cart button with a count in the game's header and in the business pages' menu, `/cart` (the lines with their prices, the Pro discount, the total, the $4 note, remove buttons and Checkout), and **Add to cart** beside the existing buy buttons: the claim form, a take-over, a renewal, a paid outside upgrade, the market stall form, and the Launch Pack, Pro and sponsored buttons on `/business/manage`.
 
 ## Refunds and support
 

@@ -1,5 +1,21 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.10.0 (2026-10-19)
+
+The cart: several purchases in one Stripe payment (`services/api/cart.mjs`, [billing.md](../../docs/monetization/billing.md#the-cart)). New contracts, all version 1:
+
+- `cart.item`: the body of `POST /cart/items`: `{ kind, plotId?, business?, placement?, input? }`. Never a price.
+- `cart.view`: `GET /cart` (and the answer to `DELETE /cart` and `DELETE /cart/items/:id`): the lines with their server prices, the Pro discount on each, the old price when checkout found it changed, the subtotal, discount and total, `missingCents` to the minimum, `ready`, `feeSavedCents` and a checkout still open (`pending`).
+- `cart.add.result`: the answer to `POST /cart/items`: `{ added, cart }`.
+- `cart.checkout.result`: the answer to `POST /cart/checkout`: `{ checkout: { orderId, url, cents, mode } }` (`mode` is `subscription` with Pro in the cart), or without payments `{ done, cart }`.
+- `cart.checkout.refused`: a refused checkout (409): `cart_unavailable` with `problems`, `price_changed` with `changed`, or `below_minimum` with `missingCents`; each with the cart.
+- `CART_KINDS` (exported with them): the kinds of line.
+- `API_CONTRACTS` now holds 35.
+
+The order lists (`GET /me/orders`, `GET /admin/billing/orders`) carry `parentId` on each order: a cart's line points at the cart's own order (product `cart`). Not a contract.
+
+No existing contract changed.
+
 ## 0.9.0 (2026-10-19)
 
 The plot economy's data is recorded (`services/api/economy.mjs`, [plot_economy_data.md](../../docs/monetization/plot_economy_data.md)). New contracts, all version 1:
