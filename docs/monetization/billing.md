@@ -51,15 +51,15 @@ With payments on, these game actions return `{ checkout: { orderId, url, cents }
 
 | Action | Endpoint | Price |
 | --- | --- | --- |
-| Claim an empty plot | `POST /plots/<id>/claim` | The lease price for the chosen term: 3, 6 or 12 months (`lib/game/leases.js`), for the land and the outside chosen |
-| Take over an ended lease | `POST /plots/<id>/takeover` | The take-over price |
-| Renew a lease | `POST /plots/<id>/renew` | The renewal price |
-| Build onto the outside (more floors, a roof garden, a dome, a spire) | `POST /plots/<id>/exterior` | The yearly difference for the rest of the lease, at least $0.50 (`exteriorChangeQuote` in `lib/game/claimPrice.js`). Its order is labelled "Building upgrade: <title> (plot N)" |
+| Claim an empty plot | `POST /plots/<id>/claim` | The lease price for the chosen term: 7, 14 or 30 days (`lib/game/leases.js`), for the land and the outside chosen |
+| Take over an ended lease | `POST /plots/<id>/takeover` | The take-over price: 1.25 × the business's 30-day worth, at the term's factor |
+| Renew a lease | `POST /plots/<id>/renew` | The renewal price: 10% off a new lease of the same term |
+| Build onto the outside (more floors, a roof garden, a dome, a spire) | `POST /plots/<id>/exterior` | The 30-day difference for the rest of the lease, at least $0.50 (`exteriorChangeQuote` in `lib/game/claimPrice.js`). Its order is labelled "Building upgrade: <title> (plot N)" |
 | Book a market stall | `POST /market/book` | The stall's price for its slot ($2 to $5) |
 
-Plot prices are in dollars, and the order charges them in cents. The game sends the player to Stripe and back to `/?paid=<order>`, then tells them how it went.
+Plot prices are in dollars, and the order charges them in cents. A claim, take-over or renewal by an account with Pro on any of its business profiles is 15% less (`PRO_PLOT_DISCOUNT` in `@voxelventure/business-core`; the server checks the entitlements itself, `hasPro` in `services/api/core.mjs`). An outside upgrade has no Pro discount. No lease, take-over, renewal or upgrade is charged under $0.50, Stripe's minimum. The levels: [plot pricing](plot_pricing_scenarios.md). The game sends the player to Stripe and back to `/?paid=<order>`, then tells them how it went.
 
-The outside follows the [price rules](pricing_analysis.md#the-outside-basic-is-free-elaborate-is-priced): a change to the outside that costs no more a year is free and applies at once (`PATCH /plots/<id>`, or `POST /plots/<id>/exterior`, which then opens no checkout). A dearer one through `PATCH` is refused with 402 `exterior_payment_required` and the quote (`{ before, after, diff, charge, lines }`), and the owner's editor offers to pay it.
+The outside follows the [price rules](pricing_analysis.md#the-outside-basic-is-free-elaborate-is-priced): a change to the outside that costs no more for 30 days is free and applies at once (`PATCH /plots/<id>`, or `POST /plots/<id>/exterior`, which then opens no checkout). A dearer one through `PATCH` is refused with 402 `exterior_payment_required` and the quote (`{ before, after, diff, charge, lines }`), and the owner's editor offers to pay it.
 
 - **Checked before paying.** Everything the action checks is checked before the player pays: the server runs the action and then undoes it. The price charged is the one the action would write in the ledger.
 - **Held while paying.** The plot or stall is held for the player for the 30 minutes the checkout lives:

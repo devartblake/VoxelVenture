@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
+import { planOf } from '@voxelventure/business-core';
 
 // The rules of the world, with no HTTP in them: seeding the plots, accounts, claiming and taking over (atomic), events and statistics.
 // The game's own modules (generator, logo rules) are loaded from lib/, so the server and the game cannot disagree.
@@ -44,7 +45,10 @@ export const text = (v, max) => [...String(v ?? '')].filter((c) => c.charCodeAt(
 // seeded before that (or by an older generator) is brought up to date every time the server starts.
 export function seedWorld(db, seed = 20260101) {
   const city = generateCity(seed);
-  if (db.prepare('SELECT COUNT(*) AS n FROM plots').get().n > 0) return { seeded: false, land: refreshLand(db, city) };
+  if (db.prepare('SELECT COUNT(*) AS n FROM plots').get().n > 0) {
+    const land = refreshLand(db, city);
+    return { seeded: false, land, repriced: repriceToPeriods(db) };
+  }
   const ins = db.prepare('INSERT INTO plots (id, district, building_type, owner_name, title, website, variant, value, base_visits, claimable, facts, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
   const led = db.prepare("INSERT INTO ledger (plot_id, kind, owner_name, title, price, at) VALUES (?, 'open', ?, ?, ?, ?)");
   transaction(db, () => {
@@ -54,6 +58,7 @@ export function seedWorld(db, seed = 20260101) {
       led.run(p.id, `Building #${p.id}`, `Building #${p.id}`, Math.max(1, Math.round(value * 0.8)), now() - (10 + (p.id % 40)) * DAY);
     }
   });
+  db.exec(`PRAGMA user_version = ${PERIOD_PRICES}`); // a new database is priced per 30 days from the start
   return { seeded: true, plots: city.plots.length };
 }
 // Writes the generator's pricing attributes into the facts of every plot whose stored ones differ (the generator works them out from the city's layout:
@@ -73,6 +78,21 @@ function refreshLand(db, city) {
     }
   });
   return changed;
+}
+
+// Once per database: a plot's value was the price of a year (before the 7, 14 and 30-day leases); it is now the price of 30 days. Every player's
+// plot is re-priced as a new 30-day lease of it, with the outside it has (no Pro discount: the value is what the business is worth), so a take-over
+// is priced from the new levels. Marked done with SQLite's user_version (1). Returns how many plots changed.
+const PERIOD_PRICES = 1;
+function repriceToPeriods(db) {
+  if (db.prepare('PRAGMA user_version').get().user_version >= PERIOD_PRICES) return 0;
+  const rows = db.prepare('SELECT * FROM plots WHERE owner_account IS NOT NULL').all();
+  const put = db.prepare('UPDATE plots SET value = ? WHERE id = ?');
+  transaction(db, () => {
+    for (const r of rows) put.run(leaseQuote(pricedPlot(r), r.exterior ? JSON.parse(r.exterior) : null, r.building_type ?? 'shop', 30).period, r.id);
+  });
+  db.exec(`PRAGMA user_version = ${PERIOD_PRICES}`);
+  return rows.length;
 }
 
 // ---- accounts --------------------------------------------------------------------------------------------------------
@@ -106,9 +126,18 @@ function startSession(db, accountId) {
   db.prepare('INSERT INTO sessions (token_hash, account_id, expires_at) VALUES (?,?,?)').run(sha(token), accountId, now() + 30 * DAY);
   return { token, account: publicAccount(db, accountId) };
 }
+// `pro`: one of the account's business profiles is on Pro now, so its plot leases cost 15% less (hasPro); the claim form shows the discount from it.
 export function publicAccount(db, id) {
   const a = db.prepare('SELECT id, username, gold, created_at, email, email_verified, notify FROM accounts WHERE id = ?').get(id);
-  return a && { id: a.id, username: a.username, gold: a.gold, createdAt: a.created_at, email: a.email, emailVerified: Boolean(a.email_verified), notify: Boolean(a.notify) };
+  return a && { id: a.id, username: a.username, gold: a.gold, createdAt: a.created_at, email: a.email, emailVerified: Boolean(a.email_verified), notify: Boolean(a.notify), pro: hasPro(db, a.id) };
+}
+// Is any of the account's published business profiles on an active Pro entitlement (@voxelventure/business-core planOf)? Then a plot lease (a claim, a
+// take-over, a renewal) costs it 15% less (lib/game/leases.js PRO_PLOT_DISCOUNT). The server always asks this itself: a browser's word is never taken.
+export function hasPro(db, accountId, at = now()) {
+  if (accountId == null) return false;
+  const rows = db.prepare("SELECT e.* FROM entitlements e JOIN businesses b ON b.id = e.business_id WHERE b.account_id = ? AND b.status = 'published' AND e.kind = 'pro'").all(accountId);
+  const byBusiness = Map.groupBy(rows, (r) => r.business_id);
+  return [...byBusiness.values()].some((ents) => planOf(ents, at).pro);
 }
 export function accountFromToken(db, token) {
   if (!token) return null;
@@ -143,18 +172,20 @@ export function plotView(db, row) {
     districtId: row.district,
     takeovers: row.takeovers,
     claimable: Boolean(row.claimable),
-    lease: leaseView(row),
+    lease: leaseView(db, row),
     ...facts,
     exterior: row.exterior ? JSON.parse(row.exterior) : null,
     // its public business page, if the owner linked one (business.mjs linkPlot): the page to share, and where a browser without 3D goes
     profileSlug: db.prepare("SELECT slug FROM businesses WHERE plot_id = ? AND status = 'published'").get(row.id)?.slug ?? null,
   };
 }
-// The lease of a plot as a client needs it: the term, the end, the state and what a renewal costs. null for a business the city started with.
-export function leaseView(row, at = now()) {
+// The lease of a plot as a client needs it: the term, the end, the state and what a renewal for the same term costs its tenant (with their Pro discount,
+// if they have Pro). null for a business the city started with.
+export function leaseView(db, row, at = now()) {
   if (!row.lease_end) return null;
   const d = describeLease(row.lease_end, row.lease_days, at);
-  return { days: row.lease_days, start: row.lease_start, end: row.lease_end, state: d.state, text: d.text, renewPrice: renewalQuote(pricedPlot(row), termFor(row.lease_days)) };
+  const pro = hasPro(db, row.owner_account, at);
+  return { days: row.lease_days, start: row.lease_start, end: row.lease_end, state: d.state, text: d.text, renewPrice: renewalQuote(pricedPlot(row), termFor(row.lease_days), { pro }).total };
 }
 // A plot row in the shape the game's price rules take (lib/game/claimPrice.js), the same shape the claim form prices: its facts (size, tier, `land`),
 // what it is worth, who leases it and the outside it has now.
@@ -210,8 +241,8 @@ function cleanBusiness(input) {
   return { title, buildingType, website, variant: text(input.variant, 20) || null, logo: JSON.stringify(logo), description: text(input.description, 160) || null };
 }
 
-// The lease term a request asks for: 90, 182 or 365 days (3, 6 or 12 months; 365 if it does not say), anything else is refused.
-export const TERM_MESSAGE = `A lease is ${TERMS.map((t) => `${t.label} (${t.days} days)`).join(', ').replace(/, ([^,]*)$/, ' or $1')}.`;
+// The lease term a request asks for: 7, 14 or 30 days (30 if it does not say), anything else is refused.
+export const TERM_MESSAGE = `A lease is ${TERMS.map((t) => t.days).join(', ').replace(/, ([^,]*)$/, ' or $1')} days.`;
 function leaseTerm(input) {
   if (input.leaseDays == null) return DEFAULT_TERM;
   return termOf(input.leaseDays)?.days ?? fail(400, TERM_MESSAGE, 'bad_term');
@@ -234,20 +265,21 @@ export function claimPlot(db, account, id, input) {
     if (p.owner_name) fail(409, 'Someone claimed this plot first.', 'already_owned');
     if (plotHeldByOther(db, p.id, account.id)) fail(409, HELD, 'held');
     const term = leaseTerm(input);
-    // the price the claim form shows (lib/game/claimPrice.js): the land and the outside chosen are a year's price, the plot's value; the term pays its share
+    // the price the claim form shows (lib/game/claimPrice.js): the land and the outside chosen are the price of 30 days, the plot's value; the term pays
+    // its share, less 15% if the account has Pro
     const exterior = exteriorOf(input, p, b.buildingType);
-    const quote = leaseQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term);
+    const quote = leaseQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term, { pro: hasPro(db, account.id) });
     const price = quote.total;
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=? AND owner_name IS NULL')
-      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.year, term, now(), now() + term * LEASE_DAY, now(), p.id);
+      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.period, term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'claim', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, now());
     db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // a new owner starts from the generated interior (interiors.mjs)
     return plotView(db, getPlot(db, p.id));
   });
 }
 
-// Take over a business that is not yours: pay 1.25x what it is worth (a player's: its value; the city's own: its land) and the outside you choose, for a
-// year, or the term's share of that; the old owner is paid out and logged. Atomic.
+// Take over a business that is not yours: pay 1.25x what it is worth (a player's: its value, the price of 30 days; the city's own: its land) and the
+// outside you choose, for 30 days, or the term's share of that (less 15% with Pro); the old owner is paid out and logged. Atomic.
 export function takeOverPlot(db, account, id, input) {
   requireAccount(account);
   const b = cleanBusiness(input);
@@ -255,13 +287,13 @@ export function takeOverPlot(db, account, id, input) {
     const p = getPlot(db, id);
     if (!p.claimable || !p.owner_name) fail(409, 'There is no business here to take over.', 'not_for_takeover');
     if (p.owner_account === account.id) fail(409, 'This is already your business.', 'own_plot');
-    // a lease protects its tenant: nobody can take the business over until it has ended and the tenant's week of first refusal has passed
+    // a lease protects its tenant: nobody can take the business over until it has ended and the tenant's grace days of first refusal have passed
     if (!takeoverAllowed(p.lease_end)) fail(409, describeLease(p.lease_end, p.lease_days).text, 'leased');
     if (plotHeldByOther(db, p.id, account.id)) fail(409, HELD, 'held');
     // the price the caller saw must still be the price (somebody may have taken it over in the meantime)
     const term = leaseTerm(input);
     const exterior = exteriorOf(input, p, b.buildingType);
-    const quote = takeoverQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term);
+    const quote = takeoverQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term, { pro: hasPro(db, account.id) });
     const price = quote.total;
     if (input.expectedPrice != null && Number(input.expectedPrice) !== price) fail(409, 'The price changed: reload the plot.', 'price_changed');
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, paid_to, at) VALUES (?, 'takeover', ?, ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, p.owner_name, now());
@@ -271,7 +303,7 @@ export function takeOverPlot(db, account, id, input) {
       db.prepare("INSERT INTO gold_ledger (account_id, delta, reason, ref, at) VALUES (?, ?, 'budget_refund', ?, ?)").run(p.owner_account, p.quest_budget, String(p.id), now());
     }
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, takeovers=takeovers+1, brand=NULL, quest_budget=0, updated_at=? WHERE id=?')
-      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.year, term, now(), now() + term * LEASE_DAY, now(), p.id);
+      .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.period, term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // the old owner's interior goes with them (interiors.mjs)
     return { plot: plotView(db, getPlot(db, p.id)), paidOut: price, previousOwner: p.owner_name, previousAccount: p.owner_account };
   });
@@ -285,7 +317,7 @@ function exteriorOf(input, row, buildingType) {
 }
 
 // The owner changes their logo, description and the outside of the building (nothing else: the price and the owner are not editable).
-// An outside that costs the same or less a year than the one the building has applies at once, and the plot's value (its price for a year) changes by
+// An outside that costs the same or less for 30 days than the one the building has applies at once, and the plot's value (its price for 30 days) changes by
 // the difference. One that costs more is refused with 402 and the quote (lib/game/claimPrice.js exteriorChangeQuote): it is paid for through
 // upgradeExterior (POST /plots/:id/exterior), so an owner cannot claim with the basic outside and add a spire for nothing afterwards.
 export function updateBusiness(db, account, id, input) {
@@ -301,7 +333,7 @@ export function updateBusiness(db, account, id, input) {
     let value = p.value;
     if (input.exterior !== undefined) {
       const quote = outsideQuote(p, exterior);
-      if (quote.diff > 0) throw new ApiError(402, `This outside costs $${quote.diff.toLocaleString()} a year more: $${quote.charge.toLocaleString()} for the rest of your lease.`, 'exterior_payment_required').withData({ quote });
+      if (quote.diff > 0) throw new ApiError(402, `This outside costs $${quote.diff.toLocaleString()} more for 30 days: $${quote.charge.toLocaleString()} for the rest of your lease.`, 'exterior_payment_required').withData({ quote });
       value = valueAfter(p, quote.diff);
     }
     db.prepare('UPDATE plots SET logo=?, description=?, exterior=?, value=?, updated_at=? WHERE id=?').run(logo, description, exterior, value, now(), p.id);
@@ -315,11 +347,11 @@ function outsideQuote(row, exterior) {
   const type = row.building_type ?? 'shop';
   return exteriorChangeQuote(plot, plot.exterior, exterior ? JSON.parse(exterior) : null, type, { now: now(), leaseDays: row.lease_days, leaseEnd: row.lease_end });
 }
-// The plot's value after its outside changed by `diff` a year: it is the price of a year, so it moves with the outside, never below the land.
+// The plot's value after its outside changed by `diff` for 30 days: it is the price of 30 days, so it moves with the outside, never below the land.
 const valueAfter = (row, diff) => Math.max(landPriceOf(pricedPlot(row)), Math.round((Number(row.value) + diff) * 100) / 100);
 
 // The owner pays for a more elaborate outside (more floors, a roof garden, a dome, a spire): the charge for the rest of the lease is written in the
-// ledger ('exterior', not a change of hands), the outside applies and the plot's value goes up by the yearly difference. Only while the lease runs or
+// ledger ('exterior', not a change of hands), the outside applies and the plot's value goes up by the 30-day difference. Only while the lease runs or
 // can be renewed: once it has ended the building cannot be changed until it is renewed (as its inside, interiors.mjs). With payments on this runs once
 // the payment arrives (billing.mjs); returns { plot, paid, diff, before } (before: the outside it replaced, for a refund to put back).
 export function upgradeExterior(db, account, id, input = {}) {
@@ -327,7 +359,7 @@ export function upgradeExterior(db, account, id, input = {}) {
   return transaction(db, () => {
     const p = getPlot(db, id);
     if (p.owner_account !== account.id) fail(403, 'This is not your business.', 'forbidden');
-    if (['grace', 'open'].includes(leaseState(p.lease_end, now()))) fail(403, 'The lease on this building has ended. Renew it to change the outside again.', 'lease_ended');
+    if (['grace', 'open'].includes(leaseState(p.lease_end, now(), p.lease_days))) fail(403, 'The lease on this building has ended. Renew it to change the outside again.', 'lease_ended');
     if (input.exterior == null) fail(400, 'Send the outside to build.', 'bad_exterior');
     const exterior = exteriorOf(input, p, p.building_type);
     const quote = outsideQuote(p, exterior);

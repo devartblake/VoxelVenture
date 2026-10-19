@@ -1,5 +1,10 @@
 # Changelog: @voxelventure/business-core
 
+## 0.4.0 (2026-10-18)
+
+- `PRO_PLOT_DISCOUNT` (0.15): an account with Pro on any of its business profiles pays 15% less for a plot lease in the 3D city (a claim, a take-over and a renewal). `lib/game/leases.js` applies it; the server decides who has Pro.
+- Pro's pitch says so.
+
 ## 0.3.0 (2026-10-17)
 
 - A workspace of the root `package.json`: import it by name (`@voxelventure/business-core`).
