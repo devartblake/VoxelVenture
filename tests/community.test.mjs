@@ -74,10 +74,11 @@ try {
   const lot = empties[0];
   const biz = { title: 'Amy Coffee', buildingType: 'restaurant', website: 'https://amy.test', variant: 'cafe', logo: { kind: 'generated' }, description: 'Coffee.' };
   const badTerm = (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 45 } })).data;
-  check('a lease is 3, 6 or 12 months (and the old 30 days is gone)', badTerm.code === 'bad_term' && /3 months \(90 days\), 6 months \(182 days\) or 12 months \(365 days\)/.test(badTerm.error) && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 30 } })).data.code === 'bad_term', JSON.stringify(badTerm));
-  const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 182 } });
-  check('claiming with a 6-month lease gives a lease that ends in 182 days', claim.status === 200 && claim.data.lease.days === 182 && claim.data.lease.state === 'active' && /6 months/.test(claim.data.lease.text) && Math.abs(claim.data.lease.end - Date.now() - 182 * 86400000) < 60000, JSON.stringify(claim.data.lease));
-  check('the plot is worth a year\'s price (its land), whatever the lease', claim.data.value === lot.price && claim.data.lease.renewPrice === Math.round(lot.price * 0.75 * 0.5 * 100) / 100, JSON.stringify([claim.data.value, claim.data.lease.renewPrice]));
+  const L = await imp('game/leases.js');
+  check('a lease is 7, 14 or 30 days (and the old 90, 182 and 365 days are gone)', badTerm.code === 'bad_term' && /A lease is 7, 14 or 30 days\./.test(badTerm.error) && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 365 } })).data.code === 'bad_term', JSON.stringify(badTerm));
+  const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, leaseDays: 14 } });
+  check('claiming with a 14-day lease gives a lease that ends in 14 days', claim.status === 200 && claim.data.lease.days === 14 && claim.data.lease.state === 'active' && /14 days/.test(claim.data.lease.text) && Math.abs(claim.data.lease.end - Date.now() - 14 * 86400000) < 60000, JSON.stringify(claim.data.lease));
+  check('the plot is worth its 30-day price (its land), whatever the lease; renewing costs 90% of a new one', claim.data.value === lot.price && claim.data.lease.renewPrice === L.renewalPrice(lot.price, 14) && L.renewalPrice(lot.price, 14) === Math.round(L.termPrice(lot.price, 14) * 90) / 100, JSON.stringify([claim.data.value, claim.data.lease.renewPrice]));
   check('nobody can take over a leased business', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
   check('it is too early to renew a fresh lease', (await call('POST', `/plots/${lot.id}/renew`, { token: amy.token, body: {} })).data.code === 'too_early');
   check('renewing needs the tenant', (await call('POST', `/plots/${lot.id}/renew`, {})).status === 401 && (await call('POST', `/plots/${lot.id}/renew`, { token: bob.token, body: {} })).status === 404);
@@ -85,15 +86,15 @@ try {
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'renewal' } });
   check('in the last days nobody else can take it over either', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
   const before = (await call('GET', `/plots/${lot.id}`)).data.lease;
-  const renewed = await call('POST', `/plots/${lot.id}/renew`, { token: amy.token, body: { leaseDays: 90 } });
-  check('the tenant renews at half price and the lease runs on from its old end', renewed.status === 200 && renewed.data.plot.lease.days === 90 && renewed.data.plot.lease.end > before.end + 89 * 86400000 && renewed.data.paid === Math.round(lot.price * 0.5 * 0.5 * 100) / 100 && renewed.data.plot.lease.state === 'active', JSON.stringify(renewed.data.plot.lease));
+  const renewed = await call('POST', `/plots/${lot.id}/renew`, { token: amy.token, body: { leaseDays: 7 } });
+  check('the tenant renews at 10% off and the lease runs on from its old end', renewed.status === 200 && renewed.data.plot.lease.days === 7 && renewed.data.plot.lease.end > before.end + 6.9 * 86400000 && renewed.data.paid === L.renewalPrice(lot.price, 7) && renewed.data.paid === Math.round(L.termPrice(lot.price, 7) * 90) / 100 && renewed.data.plot.lease.state === 'active', JSON.stringify(renewed.data.plot.lease));
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'grace' } });
-  check('in the grace week only the tenant can renew (right of first refusal)', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
+  check('in the 3 grace days only the tenant can renew (right of first refusal)', (await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } })).data.code === 'leased');
   await call('POST', `/admin/plots/${lot.id}/lease`, { token: ADMIN, body: { state: 'open' } });
   const notices = (await call('POST', '/admin/leases/notices', { token: ADMIN, body: {} })).data;
   check('lease notices run (nobody has a verified email here, so none are sent)', notices.sent === 0);
   const taken = await call('POST', `/plots/${lot.id}/takeover`, { token: bob.token, body: { ...biz, title: 'Bob Co' } });
-  check('once the lease has ended and the week has passed the plot is open to a buyout, and the new tenant gets a lease', taken.status === 200 && taken.data.plot.lease.days === 365 && taken.data.plot.lease.state === 'active' && taken.data.plot.owner === 'Bob', JSON.stringify(taken.data.plot?.lease));
+  check('once the lease has ended and the grace days have passed the plot is open to a buyout, and the new tenant gets a 30-day lease', taken.status === 200 && taken.data.plot.lease.days === 30 && taken.data.plot.lease.state === 'active' && taken.data.plot.owner === 'Bob', JSON.stringify(taken.data.plot?.lease));
   check('a business the city started with has no lease and can be taken over', (await call('GET', `/plots/${built[0].id}`)).data.lease === null);
 
   // ---- Building of the Week
@@ -129,6 +130,27 @@ try {
   const { buildingOfTheWeek } = await import(new URL('../services/api/community.mjs', import.meta.url).href);
   const w = buildingOfTheWeek(local.db);
   check('last week\'s most-voted building is this week\'s Building of the Week', w?.plotId === built[5].id && w.votes === 2 && w.week === lastWeek, JSON.stringify(w));
+
+  // the lease emails: the renewal window (with the renewal price), the 3 grace days, then open to a take-over
+  {
+    const core = await import(new URL('../services/api/core.mjs', import.meta.url).href);
+    const comm = await import(new URL('../services/api/community.mjs', import.meta.url).href);
+    const L = await imp('game/leases.js');
+    const cp = await imp('game/claimPrice.js');
+    const t = local.db.prepare("INSERT INTO accounts (username, pass_salt, pass_hash, created_at, email, email_verified, notify) VALUES ('tenant','s','h',0,'tenant@example.test',1,1)").run().lastInsertRowid;
+    const spot = city.plots.find((p) => !p.owner && p.districtId !== 'suburb' && !p.admin && !p.prime && !p.luxury && !p.grand);
+    core.claimPlot(local.db, core.publicAccount(local.db, t), spot.id, { title: 'Tenant Shop', buildingType: 'shop', website: 'https://tenant.example', logo: { kind: 'generated' }, leaseDays: 7 });
+    const mail = (kind) => local.db.prepare('SELECT * FROM outbox WHERE kind = ? AND to_email = ?').get(kind, 'tenant@example.test');
+    comm.setLeaseState(local.db, spot.id, 'renewal');
+    comm.sendLeaseNotices(local.db);
+    check('the renewal email gives the renewal price: 10% off the 7-day lease', mail('lease_renewal')?.body.includes(`renew now for $${cp.renewalQuote({ ...spot, exterior: null }, 7).total}`) && cp.renewalQuote({ ...spot, exterior: null }, 7).total === L.renewalPrice(spot.price, 7), mail('lease_renewal')?.body);
+    comm.setLeaseState(local.db, spot.id, 'grace');
+    comm.sendLeaseNotices(local.db);
+    check('the grace email says 3 days to renew', /You have 3 days to renew/.test(mail('lease_grace')?.body ?? ''), mail('lease_grace')?.body);
+    comm.setLeaseState(local.db, spot.id, 'open');
+    comm.sendLeaseNotices(local.db);
+    check('the open email says the 3 days have passed', /the 3 days to renew have passed/.test(mail('lease_open')?.body ?? ''), mail('lease_open')?.body);
+  }
   await local.close();
 } finally {
   proc.kill();

@@ -205,7 +205,8 @@ export default function PricingHeatmap() {
           <section className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
             <h2 className="mb-2 text-sm font-bold">The rules</h2>
             <div className="space-y-2">
-              <Slider label="Basic plot ($)" value={cfg.base} min={1} max={20} step={1} onChange={(v) => setCfg((c) => ({ ...c, base: v }))} />
+              <Slider label="Basic plot ($ for 30 days)" value={cfg.base} min={1} max={20} step={1} onChange={(v) => setCfg((c) => ({ ...c, base: v }))} />
+              <Slider label="Compression (price grows with worth to this power)" value={cfg.exponent} min={0.4} max={1} step={0.05} onChange={(v) => setCfg((c) => ({ ...c, exponent: v }))} />
               <Slider label="Prime: worth per cell" value={cfg.premium.prime} min={1} max={10} step={0.5} onChange={(v) => setP('prime', v)} />
               <Slider label="Luxury: worth per cell" value={cfg.premium.luxury} min={2} max={20} step={0.5} onChange={(v) => setP('luxury', v)} />
               <Slider label="Grand: worth per cell" value={cfg.premium.grand} min={4} max={30} step={0.5} onChange={(v) => setP('grand', v)} />

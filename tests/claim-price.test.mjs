@@ -17,10 +17,10 @@ const { plots } = generateCity(20260101);
 const ord = plots.find((p) => !p.owner && !p.prime && p.districtId !== 'suburb' && !p.designSite);
 const lux = plots.find((p) => p.luxury && !p.grand && !p.owner);
 const prime = plots.find((p) => p.prime && !p.luxury && !p.owner);
-if (!(ord.price >= 5 && ord.price <= 11 && ord.land.tier === 'ordinary')) bad('an ordinary plot is five to eleven dollars and knows its attributes', JSON.stringify([ord.price, ord.land]));
-if (!(lux.price > 200 && lux.land.tier === 'luxury' && lux.land.cells === 6)) bad('a luxury estate is priced by its worth', JSON.stringify([lux.price, lux.land]));
+if (!(ord.price >= 5 && ord.price <= 10 && ord.land.tier === 'ordinary')) bad('an ordinary plot is five to ten dollars for 30 days and knows its attributes', JSON.stringify([ord.price, ord.land]));
+if (!(lux.price >= 80 && lux.land.tier === 'luxury' && lux.land.cells === 6)) bad('a luxury estate is priced by its worth', JSON.stringify([lux.price, lux.land]));
 if (plots.some((p) => !(p.price >= 5) || !p.land)) bad('every plot has a price of at least five dollars', '');
-if (cp.landPriceOf({ price: 12 }) !== 12 || cp.landPriceOf({ prime: true, cellCount: 2 }) !== 35 || cp.landPriceOf({}) !== 5 || cp.landPriceOf(null) !== 5) bad('the land price: the plot\'s own, else from its tier and size, else five dollars', '');
+if (cp.landPriceOf({ price: 12 }) !== 12 || cp.landPriceOf({ prime: true, cellCount: 2 }) !== 20 || cp.landPriceOf({}) !== 5 || cp.landPriceOf(null) !== 5) bad('the land price: the plot\'s own, else from its tier and size, else five dollars', '');
 
 // no customising, or the basic outside: just the land
 const base = cp.claimPrice(ord, null, 'shop');
@@ -51,7 +51,7 @@ const ten = { ...ord, price: 10 };
 const full = cp.claimPrice(ten, cfg, 'shop', prices);
 if (typical + 3 <= 9 && full.total !== 10 + 2 * 3 + 4 + 6 + 1 + 8) bad('every choice adds its share of the land', `${full.total}: ${JSON.stringify(full.lines)}`);
 if (cp.claimPrice(ord, cfg, 'shop', { ...prices, perFloor: -5, crown: { beacon: 'x' } }).total < ord.price) bad('bad prices never lower the price', '');
-// what one choice adds, for the builder's "+$1.20 a year" and "free"
+// what one choice adds, for the builder's "+$1.20 / 30 days" and "free"
 const start = defaultExterior(ord, 'shop');
 if (cp.choiceCost(start, { crown: 'spire' }, ord, 'shop') !== money(ord.price * 0.25) || cp.choiceCost(start, { crown: 'dish' }, ord, 'shop') !== 0 || cp.choiceCost(start, { palette: 'mono' }, ord, 'shop') !== 0 || cp.choiceCost(start, { floors: typical + 1 }, ord, 'shop') !== money(ord.price * 0.1)) bad('a choice\'s price is the difference it makes', '');
 
@@ -60,34 +60,57 @@ if (cp.choiceCost(start, { crown: 'spire' }, ord, 'shop') !== money(ord.price * 
   const DAY = 86400000;
   const now = 1_800_000_000_000;
   const spire = { ...start, crown: 'spire' };
-  const yearly = money(ord.price * 0.25);
-  const q = cp.exteriorChangeQuote(ord, null, spire, 'shop', { now, leaseDays: 365, leaseEnd: now + 365 * DAY });
-  if (q.before !== 0 || q.after !== yearly || q.diff !== yearly || q.charge !== Math.max(0.5, yearly) || !q.lines.some((l) => /spire/.test(l.label))) bad('a spire at the start of a year\'s lease costs its year (at least 50 cents)', JSON.stringify(q));
+  const perPeriod = money(ord.price * 0.25);
+  const q = cp.exteriorChangeQuote(ord, null, spire, 'shop', { now, leaseDays: 30, leaseEnd: now + 30 * DAY });
+  if (q.before !== 0 || q.after !== perPeriod || q.diff !== perPeriod || q.charge !== Math.max(0.5, perPeriod) || !q.lines.some((l) => /spire/.test(l.label))) bad('a spire at the start of a 30-day lease costs its 30 days (at least 50 cents)', JSON.stringify(q));
   const luxSpire = { ...defaultExterior(lux, 'office'), crown: 'spire' };
-  const half = cp.exteriorChangeQuote(lux, null, luxSpire, 'office', { now, leaseDays: 365, leaseEnd: now + (365 * DAY) / 2 });
-  if (half.charge !== money(money(lux.price * 0.25) / 2)) bad('half way through the lease, half the year', JSON.stringify(half));
-  const short = cp.exteriorChangeQuote(lux, null, luxSpire, 'office', { now, leaseDays: 90, leaseEnd: now + 90 * DAY });
-  if (short.charge !== money(money(lux.price * 0.25) * 0.5)) bad('a 3-month lease pays the 3-month price (half a year) of the difference', JSON.stringify(short));
-  const tiny = cp.exteriorChangeQuote(ord, null, spire, 'shop', { now, leaseDays: 90, leaseEnd: now + DAY });
+  const half = cp.exteriorChangeQuote(lux, null, luxSpire, 'office', { now, leaseDays: 30, leaseEnd: now + 15 * DAY });
+  if (half.charge !== money(money(lux.price * 0.25) / 2)) bad('half way through the lease, half the 30 days', JSON.stringify(half));
+  const short = cp.exteriorChangeQuote(lux, null, luxSpire, 'office', { now, leaseDays: 7, leaseEnd: now + 7 * DAY });
+  if (short.charge !== money(money(lux.price * 0.25) * 0.3)) bad('a 7-day lease pays the 7-day price (0.3 of 30 days) of the difference', JSON.stringify(short));
+  const mid = cp.exteriorChangeQuote(lux, null, luxSpire, 'office', { now, leaseDays: 14, leaseEnd: now + 7 * DAY });
+  if (mid.charge !== money(money(money(lux.price * 0.25) * 0.55) / 2)) bad('half way through a 14-day lease, half its 14-day price', JSON.stringify(mid));
+  const tiny = cp.exteriorChangeQuote(ord, null, spire, 'shop', { now, leaseDays: 7, leaseEnd: now + DAY });
   if (tiny.charge !== cp.MIN_CHARGE || cp.MIN_CHARGE !== 0.5) bad('a small upgrade still costs at least 50 cents (Stripe\'s smallest charge), so stepwise upgrades never round to nothing', JSON.stringify(tiny));
-  const down = cp.exteriorChangeQuote(ord, spire, { ...spire, crown: 'none' }, 'shop', { now, leaseDays: 365, leaseEnd: now + 100 * DAY });
-  if (down.charge !== 0 || down.diff !== -yearly || down.after !== 0) bad('taking the spire down is free, and lowers the yearly price', JSON.stringify(down));
-  const same = cp.exteriorChangeQuote(ord, spire, { ...spire, palette: 'tokyo', wallColor: '#123456' }, 'shop', { now, leaseDays: 365, leaseEnd: now + 100 * DAY });
+  const down = cp.exteriorChangeQuote(ord, spire, { ...spire, crown: 'none' }, 'shop', { now, leaseDays: 30, leaseEnd: now + 20 * DAY });
+  if (down.charge !== 0 || down.diff !== -perPeriod || down.after !== 0) bad('taking the spire down is free, and lowers the 30-day price', JSON.stringify(down));
+  const same = cp.exteriorChangeQuote(ord, spire, { ...spire, palette: 'tokyo', wallColor: '#123456' }, 'shop', { now, leaseDays: 30, leaseEnd: now + 20 * DAY });
   if (same.charge !== 0 || same.diff !== 0) bad('a change that costs no more is free', JSON.stringify(same));
-  const swap = cp.exteriorChangeQuote(lux, { crown: 'garden' }, { crown: 'spire' }, 'office', { now, leaseDays: 365, leaseEnd: now + 365 * DAY });
+  const swap = cp.exteriorChangeQuote(lux, { crown: 'garden' }, { crown: 'spire' }, 'office', { now, leaseDays: 30, leaseEnd: now + 30 * DAY });
   if (swap.diff !== money(money(lux.price * 0.25) - money(lux.price * 0.1))) bad('swapping a garden for a spire costs only the difference', JSON.stringify(swap));
   const noLease = cp.exteriorChangeQuote(lux, null, { crown: 'dome' }, 'office', { now });
-  if (noLease.charge !== money(lux.price * 0.2)) bad('without a lease end, the whole year', JSON.stringify(noLease));
-  const legacy = cp.exteriorChangeQuote(lux, null, { crown: 'dome' }, 'office', { now, leaseDays: 30, leaseEnd: now + 30 * DAY });
-  if (legacy.charge !== money((money(lux.price * 0.2) * 30) / 365)) bad('an old 30-day lease pays its share of a year', JSON.stringify(legacy));
-  const early = cp.exteriorChangeQuote(lux, null, { crown: 'dome' }, 'office', { now, leaseDays: 90, leaseEnd: now + 104 * DAY });
-  if (early.charge !== money(money(money(lux.price * 0.2) * 0.5) * (104 / 90))) bad('renewed early (more than a term left), the whole time left is charged', JSON.stringify(early));
+  if (noLease.charge !== money(lux.price * 0.2)) bad('without a lease end, the whole 30 days', JSON.stringify(noLease));
+  const legacy = cp.exteriorChangeQuote(lux, null, { crown: 'dome' }, 'office', { now, leaseDays: 365, leaseEnd: now + 365 * DAY });
+  if (legacy.charge !== money((money(lux.price * 0.2) * 365) / 30)) bad('an old year\'s lease pays the 30-day price for each 30 days left', JSON.stringify(legacy));
+  const early = cp.exteriorChangeQuote(lux, null, { crown: 'dome' }, 'office', { now, leaseDays: 7, leaseEnd: now + 10 * DAY });
+  if (early.charge !== money(money(money(lux.price * 0.2) * 0.3) * (10 / 7))) bad('renewed early (more than a term left), the whole time left is charged', JSON.stringify(early));
   const usual = floorRange(ord, 'shop').typical;
   const grown = { ...ord, baseHeight: heightFor(usual + 2), height: heightFor(usual + 4) };
-  const recolour = cp.exteriorChangeQuote(grown, null, { floors: usual + 2, palette: 'tokyo' }, 'shop', { now, leaseDays: 365, leaseEnd: now + 365 * DAY });
+  const recolour = cp.exteriorChangeQuote(grown, null, { floors: usual + 2, palette: 'tokyo' }, 'shop', { now, leaseDays: 30, leaseEnd: now + 30 * DAY });
   if (recolour.charge !== 0 || recolour.diff !== 0) bad('an outside never set up starts from the building as it stands: recolouring a taller-than-usual building is free', JSON.stringify(recolour));
-  const taller = cp.exteriorChangeQuote(grown, null, { floors: usual + 3 }, 'shop', { now, leaseDays: 365, leaseEnd: now + 365 * DAY });
+  const taller = cp.exteriorChangeQuote(grown, null, { floors: usual + 3 }, 'shop', { now, leaseDays: 30, leaseEnd: now + 30 * DAY });
   if (taller.diff !== money(ord.price * 0.1)) bad('and only the floors above it are charged', JSON.stringify(taller));
+}
+
+// ---- lease quotes: the term's share of the 30-day price, 10% off a renewal, 15% off with Pro, never under 50 cents
+{
+  const five = { ...ord, price: 5 };
+  const q7 = cp.leaseQuote(five, null, 'shop', 7);
+  if (q7.period !== 5 || q7.days !== 7 || q7.price !== 1.5 || q7.total !== 1.5 || q7.discount !== null) bad('a 7-day lease of a $5 plot is $1.50, no discount without Pro', JSON.stringify(q7));
+  const p7 = cp.leaseQuote(five, null, 'shop', 7, { pro: true });
+  if (p7.price !== 1.5 || p7.discount?.label !== 'Pro: 15% off' || p7.discount.amount !== 0.23 || p7.total !== 1.27) bad('with Pro the discount is its own line: $1.50 less $0.23', JSON.stringify(p7));
+  const p30 = cp.leaseQuote(lux, null, 'office', 30, { pro: true });
+  if (p30.period !== lux.price || p30.total !== money(lux.price - money(lux.price * 0.15))) bad('Pro is 15% off a 30-day lease', JSON.stringify(p30));
+  if (cp.leaseQuote(five, null, 'shop').days !== 30 || cp.leaseQuote(five, null, 'shop', 365).days !== 30) bad('without a term, or with an old one, a lease is 30 days', '');
+  const r7 = cp.renewalQuote(five, 7, { pro: true });
+  if (r7.price !== 1.35 || r7.total !== money(1.35 - money(1.35 * 0.15)) || r7.discount?.amount !== money(1.35 * 0.15)) bad('a 7-day renewal is 90% of the lease, then 15% off with Pro', JSON.stringify(r7));
+  if (cp.renewalQuote(five, 30).total !== 4.5) bad('a 30-day renewal of a $5 plot is $4.50', JSON.stringify(cp.renewalQuote(five, 30)));
+  const t14 = cp.takeoverQuote(five, null, 'shop', 14, { pro: true });
+  if (t14.business !== 6.25 || t14.period !== 6.25 || t14.price !== money(6.25 * 0.55) || t14.total !== money(t14.price - money(t14.price * 0.15))) bad('a take-over is 1.25x the worth, at the term\'s factor, 15% off with Pro', JSON.stringify(t14));
+  // the cheapest charge there is: a 7-day renewal of the cheapest plot with Pro, still over Stripe's 50 cents; a cheaper one would be raised to 50 cents
+  if (!(r7.total > 0.5)) bad('the cheapest plot charge is over 50 cents', String(r7.total));
+  const cheap = cp.renewalQuote({ ...ord, price: 1 }, 7, { pro: true });
+  if (cheap.total !== 0.5 || cheap.price !== 0.27) bad('a lease cheaper than 50 cents is charged 50 cents', JSON.stringify(cheap));
 }
 
 // claiming: the building is worth what was paid

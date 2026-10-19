@@ -1,5 +1,14 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.8.0 (2026-10-18)
+
+Plot leases are short and priced per 30 days (`lib/game/leases.js`, `lib/game/landPrice.js`; [plot pricing](../../docs/monetization/plot_pricing_scenarios.md)):
+
+- `LEASE_TERMS` (enum): the lease terms in days are now `7 14 30`. The 90-, 182- and 365-day terms are gone; a stored lease of one of them renews for 30 days.
+- `plot.exterior-quote`: same shape (version 1), but `before`, `after` and `diff` are now the outside's price for 30 days, not for a year.
+- A plot's `value` is now its price for 30 days. The lease quotes of `lib/game/claimPrice.js` call that figure `period` (it was `year`) and carry the Pro discount as its own line (`discount`). These quotes are worked out on both sides from the same module and are not a contract.
+- `GET /me` (and the account in the sign-in answers) carries `pro`: one of the account's business profiles has Pro, so its plot leases cost 15% less.
+
 ## 0.7.0 (2026-10-18)
 
 A building's outside has real prices: the basic outside is free, a more elaborate one is paid for the rest of the lease (`services/api/core.mjs` `upgradeExterior`, `lib/game/claimPrice.js` `exteriorChangeQuote`). New contracts, all version 1:
