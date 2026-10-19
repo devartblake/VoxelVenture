@@ -37,7 +37,7 @@ export default function Home() {
   useEffect(() => {
     useView.getState().hydrate();
     hydrateMarket();
-    startPresence();
+    startPresence({ indoors: () => Boolean(useCityStore.getState().activeInteriorPlot) }); // foot traffic is counted outdoors only
     // with a game server: who is signed in, and the owners of every plot (browsing never asks for a sign-in)
     useAccount.getState().hydrate().then(() => startSync());
   }, []);

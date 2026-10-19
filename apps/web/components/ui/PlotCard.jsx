@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Eye, FileText, Footprints, Globe, Home, Image as ImageIcon, MessageCircle, Repeat, Star } from 'lucide-react';
+import { Bell, Eye, FileText, Footprints, Globe, Home, Image as ImageIcon, MessageCircle, Repeat, Star } from 'lucide-react';
 import { usePanel } from '@/lib/state/panelStore';
 import { shareImage } from '@/lib/game/shareImage';
 import ShareBox from './ShareBox';
@@ -33,6 +33,7 @@ import ReportButton from './ReportButton';
 import { useAccount } from '@/lib/state/accountStore';
 import { composeTo } from '@/lib/state/chatStore';
 import { voteProblem } from '@/lib/game/buildingOfWeek';
+import { holdRemote, releaseRemote, sendIntent, watchingRemote, watchRemote } from '@/lib/data/economy';
 
 // A question for whoever owns this building now (it opens a new message in Chat; signing in first if needed).
 function MessageOwner({ plot }) {
@@ -443,9 +444,9 @@ function VoteBox({ plot }) {
 }
 
 // A collapsible block: the purchase and management forms live in these, so the card reads as information first.
-function Fold({ title, hint, defaultOpen = false, children }) {
+function Fold({ title, hint, defaultOpen = false, onOpen, children }) {
   return (
-    <details open={defaultOpen} className="group overflow-hidden rounded-2xl border border-sx-stroke border-l-4 border-l-sx-purple bg-sx-alt/40">
+    <details open={defaultOpen} onToggle={(e) => e.currentTarget.open && onOpen?.()} className="group overflow-hidden rounded-2xl border border-sx-stroke border-l-4 border-l-sx-purple bg-sx-alt/40">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-bold text-white">
         <span>{title}</span>
         <span className="flex items-center gap-2 text-[10px] font-normal text-slate-400">
@@ -472,6 +473,69 @@ function EditDescription({ plot }) {
         Save the description
       </button>
     </div>
+  );
+}
+
+// With a game server a player signs in before setting a plot up (claiming or taking over), so every setup is held for them on the server
+// (services/api/economy.mjs). Once they are signed in the form shows by itself.
+function SignInToSetUp({ action }) {
+  return (
+    <div className="space-y-2 rounded-lg border border-sx-stroke bg-sx-alt/40 p-3 text-[11px] text-slate-300" data-testid="sign-in-to-set-up">
+      <p>Sign in to {action}. While you set it up, the plot is held for you for three minutes, so nobody else can take it.</p>
+      <button type="button" onClick={() => useAccount.getState().ask(() => {})} className="w-full rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-2 text-xs font-bold text-white hover:brightness-110">
+        Sign in to {action}
+      </button>
+    </div>
+  );
+}
+
+// The tenant's own building: how many players watch it (never who).
+function WatchCount({ plot }) {
+  const [watchers, setWatchers] = useState(null);
+  useEffect(() => {
+    watchingRemote(plot.id).then((r) => setWatchers(r.watchers ?? null), () => {});
+  }, [plot.id]);
+  if (!watchers) return null;
+  return (
+    <p className="flex items-center gap-1.5 rounded-xl border border-sx-cyan/40 bg-sx-cyan/5 px-3 py-2 text-[11px] text-sx-cyan" data-testid="watch-count">
+      <Bell className="h-3.5 w-3.5" /> {watchers} {watchers === 1 ? 'player watches' : 'players watch'} this plot: they are told if your lease ends.
+    </p>
+  );
+}
+
+// "Watch this plot" (services/api/economy.mjs): a player who would like this location is emailed when its lease ends and when it opens to a
+// buyout, and when it is taken over. Other players never see how many watch; the tenant sees the count, admins see who.
+function WatchButton({ plot }) {
+  const account = useAccount((s) => s.account);
+  const [watching, setWatching] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setWatching(null);
+    if (account) watchingRemote(plot.id).then((r) => setWatching(r.watching), () => {});
+  }, [plot.id, account?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      const r = await watchRemote(plot.id, !watching);
+      setWatching(r.watching);
+      useCityStore.getState().notify(r.watching ? `Watching ${plot.title}: we'll email you if its lease ends or it opens to a buyout.` : `You stopped watching ${plot.title}.`);
+    } catch (e) {
+      useCityStore.getState().notify(e.message);
+    }
+    setBusy(false);
+  };
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      aria-pressed={Boolean(watching)}
+      onClick={() => (account ? toggle() : useAccount.getState().ask(toggle))}
+      title="Get an email if this business's lease ends or the plot opens to a buyout"
+      className={`flex w-full items-center justify-center gap-1.5 rounded-full border py-1.5 text-xs disabled:opacity-50 ${watching ? 'border-sx-cyan/60 bg-sx-cyan/10 text-sx-cyan' : 'border-sx-stroke bg-sx-alt/60 text-slate-200 hover:border-sx-line hover:bg-sx-alt'}`}
+      data-testid="watch-plot"
+    >
+      <Bell className="h-3.5 w-3.5" /> {watching ? 'Watching' : 'Watch this plot'}
+    </button>
   );
 }
 
@@ -538,16 +602,34 @@ export default function PlotCard() {
   useEffect(() => () => useDraft.setState({ plot: null }), []);
 
   // The hold: three minutes to claim and pay once the player starts setting a plot up, then it is open again.
+  // With a game server (services/api/economy.mjs) a signed-in player's hold is the server's, so another player cannot hold or claim the plot
+  // meanwhile; the card counts down the time the server gives. Each step is part of the plot economy's data: the card opened, the setup started,
+  // the price shown (the server prices it from the setup).
   const hold = useClaimHold();
+  const account = useAccount((s) => s.account);
   const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (apiOn() && typeof p?.id === 'number') sendIntent(p.id, 'card_open');
+  }, [p?.id]);
   useEffect(() => {
     if (forClaim && touched) useClaimHold.getState().start(p.id);
   }, [forClaim, touched, p?.id]);
   useEffect(() => {
-    if (!hold.plotId) return undefined;
+    if (!forClaim || !touched || !apiOn() || !account || typeof p?.id !== 'number') return undefined;
+    const t = setTimeout(() => {
+      const setup = { leaseDays, buildingType, exterior: cleanExterior(exterior ?? defaultExterior(p, buildingType), p, buildingType) };
+      holdRemote(p.id, setup).then(
+        (r) => useClaimHold.getState().sync(p.id, Date.now() + r.secondsLeft * 1000),
+        (e) => e.code === 'held' && useClaimHold.getState().block(p.id, Date.now() + (e.secondsLeft ?? 0) * 1000),
+      );
+    }, 800);
+    return () => clearTimeout(t);
+  }, [forClaim, touched, p?.id, account?.id, leaseDays, buildingType, exterior]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!hold.plotId && !hold.blocked) return undefined;
     const t = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [hold.plotId]);
+  }, [hold.plotId, hold.blocked]);
   useEffect(() => {
     if (hold.plotId && hold.plotId === p?.id && holdState(hold.until, clock).expired) {
       setTouched(false);
@@ -559,7 +641,10 @@ export default function PlotCard() {
   }, [clock, hold.plotId, hold.until, p?.id]);
   useEffect(() => {
     const h = useClaimHold.getState();
-    if (h.plotId && h.plotId !== p?.id) h.clear(); // another plot (or none): the hold is let go
+    if (h.plotId && h.plotId !== p?.id) {
+      if (h.server) releaseRemote(h.plotId); // another plot (or none): the hold is let go, on the server too
+      h.clear();
+    } else if (h.blocked && h.blocked.plotId !== p?.id) h.clear();
   }, [p?.id]);
 
   if (!p || !info) return null;
@@ -596,7 +681,7 @@ export default function PlotCard() {
     }
     // with a server: sign in only now, when claiming (then the claim carries on by itself)
     const biz = { title: plotTitle, buildingType, website: plotLink || 'https://example.com', variant, logo, description: plotAbout, leaseDays, exterior: sent };
-    const go = () => claimRemote(p.id, biz).then(() => usePanel.getState().open('dashboard'), () => {});
+    const go = () => claimRemote(p.id, biz).then(() => (useClaimHold.getState().clear(), usePanel.getState().open('dashboard')), () => {});
     if (useAccount.getState().ask(go)) go();
   };
   const focusHere = () => useWorld.getState().focusOn(p.x, p.z, 30);
@@ -623,6 +708,8 @@ export default function PlotCard() {
       {p.admin && <HqLive company={p.owner} />}
       {apiOn() && isClaimed && p.ownerAccount && !p.userClaimed && <MessageOwner plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
+      {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && typeof p.id === 'number' && <WatchButton plot={p} />}
+      {apiOn() && p.userClaimed && account && typeof p.id === 'number' && <WatchCount plot={p} />}
       {isClaimed && !isSuburb && !p.admin && !p.userClaimed && <VoteBox plot={p} />}
 
       <div className="flex flex-wrap gap-1.5">
@@ -725,13 +812,19 @@ export default function PlotCard() {
         ) : p.admin ? (
           <p className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 text-xs text-cyan-100">This is the headquarters of {p.owner}. It is part of the city and is not for sale.</p>
         ) : canTakeOver ? (
-          <Fold title={`Buy this building from $${price.toLocaleString()}`} hint="take it over">
-            <TakeOver key={p.id} plot={p} />
+          <Fold title={`Buy this building from $${price.toLocaleString()}`} hint="take it over" onOpen={() => apiOn() && account && sendIntent(p.id, 'open', { buildingType: 'shop' })}>
+            {apiOn() && !account ? <SignInToSetUp action="take this business over" /> : <TakeOver key={p.id} plot={p} />}
           </Fold>
         ) : null
       ) : (
         <Fold title={`Claim this plot from $${price.toLocaleString()}`} hint="set up your business" defaultOpen>
+          {apiOn() && !account ? <SignInToSetUp action="claim this plot" /> : (
           <form onSubmit={handleClaim} className="space-y-2">
+            {hold.blocked?.plotId === p.id && !holdState(hold.blocked.until, clock).expired && (
+              <p className="rounded-lg border border-red-500/60 bg-red-950/40 px-2.5 py-1.5 text-[11px] text-red-200" data-testid="claim-held-by-other" role="status">
+                Someone else is setting this plot up: <b className="font-mono">{holdState(hold.blocked.until, clock).label}</b> left. It opens again if they don&apos;t claim it.
+              </p>
+            )}
             {hold.plotId === p.id && (() => {
               const h = holdState(hold.until, clock);
               return (
@@ -768,6 +861,7 @@ export default function PlotCard() {
               Claim {p.luxury ? 'Luxury Estate' : p.prime ? 'Prime Plot' : 'Plot'} (${claim.total.toLocaleString()})
             </button>
           </form>
+          )}
         </Fold>
       )}
 

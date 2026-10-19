@@ -1,5 +1,6 @@
 // End to end with a real server: build the app with NEXT_PUBLIC_LIVE_API_URL, start the API and the app, then in a real browser:
-// browse without signing in, press Claim, get the sign-in form, sign up, and see the plot become yours (and in the server).
+// browse without signing in, be asked to sign in before setting a plot up, sign up, set it up (held on the server) and see the plot become
+// yours (and in the server).
 // Then chat between the two signed-in pages: nearby lines, a private message, the request answered, and a question to a building's owner.
 // (It rebuilds the app, so it takes a few minutes. `node tests/live-browser.test.mjs`; `npm test` runs it too.)
 import { spawn, spawnSync } from 'node:child_process';
@@ -54,17 +55,26 @@ try {
   await sleep(1200);
   check('selecting a lot and browsing still need no account', !(await page.eval(`document.body.innerText.includes('Sign in to continue')`)));
   const type = (selector, value) => page.eval(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set; set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-  await type('input[placeholder="Store / Company Name"]', 'Browser Bakery');
-  check('there is no username field: the account is the name', !(await page.eval(`Boolean(document.querySelector('input[placeholder="Your Username"]'))`)));
-  await page.eval(`[...document.querySelectorAll('button[type=submit]')].find((b) => /Claim/.test(b.textContent)).click()`);
+  // with a server a plot is set up signed in (the server holds it meanwhile: services/api/economy.mjs), so the card asks first
+  check('signed out, the card asks to sign in in place of the setup form', await page.eval(`Boolean(document.querySelector('[data-testid="sign-in-to-set-up"]')) && !document.querySelector('input[placeholder="Store / Company Name"]')`));
+  await page.eval(`document.querySelector('[data-testid="sign-in-to-set-up"] button').click()`);
   await sleep(800);
-  check('pressing Claim opens the sign-in form', await page.eval(`document.body.innerText.includes('Sign in to continue')`));
+  check('pressing it opens the sign-in form', await page.eval(`document.body.innerText.includes('Sign in to continue')`));
   check('the lot is not claimed yet', await page.eval(`!window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}).owner`));
   await type('input[aria-label="Name"]', 'BrowserBaker');
   await type('input[aria-label="Password"]', 'longenough1');
   await page.eval(`[...document.querySelectorAll('[role=dialog] button[type=submit]')][0].click()`);
+  for (let i = 0; i < 20 && !(await page.eval(`Boolean(document.querySelector('input[placeholder="Store / Company Name"]'))`)); i++) await sleep(500);
+  check('after signing up, the setup form is there', await page.eval(`Boolean(document.querySelector('input[placeholder="Store / Company Name"]'))`));
+  await type('input[placeholder="Store / Company Name"]', 'Browser Bakery');
+  check('there is no username field: the account is the name', !(await page.eval(`Boolean(document.querySelector('input[placeholder="Your Username"]'))`)));
+  for (let i = 0; i < 20 && !(await page.eval(`Boolean(document.querySelector('[data-testid="claim-hold"]'))`)); i++) await sleep(250);
+  await sleep(1500); // the server hold is taken a moment after the setup starts
+  const held = await (await fetch(`http://localhost:${apiPort}/plots/${lot.id}/hold`)).json();
+  check('setting it up holds the plot on the server', held.held === true && held.secondsLeft > 0, JSON.stringify(held));
+  await page.eval(`[...document.querySelectorAll('button[type=submit]')].find((b) => /Claim/.test(b.textContent)).click()`);
   for (let i = 0; i < 20 && !(await page.eval(`Boolean(window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}).owner)`)); i++) await sleep(500);
-  check('after signing up, the claim carries on by itself and the plot is yours', await page.eval(`(() => { const p = window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}); return p.owner === 'BrowserBaker' && p.userClaimed && p.title === 'Browser Bakery'; })()`));
+  check('the claim goes through and the plot is yours', await page.eval(`(() => { const p = window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}); return p.owner === 'BrowserBaker' && p.userClaimed && p.title === 'Browser Bakery'; })()`));
   check('the form is gone', !(await page.eval(`document.body.innerText.includes('Sign in to continue')`)));
   const server = await (await fetch(`http://localhost:${apiPort}/plots/${lot.id}`)).json();
   check('the server has the claim', server.owner === 'BrowserBaker' && server.title === 'Browser Bakery');

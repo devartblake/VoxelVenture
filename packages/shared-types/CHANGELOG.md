@@ -1,5 +1,21 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.9.0 (2026-10-19)
+
+The plot economy's data is recorded (`services/api/economy.mjs`, [plot_economy_data.md](../../docs/monetization/plot_economy_data.md)). New contracts, all version 1:
+
+- `economy.plot-hold`: the body of `POST /plots/:id/hold`: the setup the claim form shows (`leaseDays`, `buildingType`, `exterior`), all optional.
+- `economy.plot-hold.result`: its answer: `{ plotId, until, secondsLeft, quote: { priceCents, termDays } }`.
+- `economy.plot-hold.state`: `GET /plots/:id/hold`: `{ held, mine, secondsLeft }` (never who holds it).
+- `economy.plot-intent` and `economy.plot-intent.result`: `POST /plots/:id/intent`, a step the game sends (`card_open`, signed in or not; `open`, the take-over form, signed in), and `{ recorded, verified }`. Setting a plot up is the hold, which needs an account.
+- `economy.presence-ping`: the body of `POST /presence/ping`, now with the optional `areas` the game passed through outdoors.
+- `economy.plot-watch`: `GET`, `POST` and `DELETE /plots/:id/watch`: `{ watching }`; for the plot's tenant, `GET` also gives `watchers`, how many watch (never who).
+- `economy.plot-watchers`: `GET /admin/plots/:id/watchers` (admin): who watches, `{ plotId, title, watchers: [{ accountId, username, since }] }`.
+- `economy.report`: `GET /admin/economy`, per tier, per district and in all; the most watched plots list who watches them (`watchedBy`).
+- `API_CONTRACTS` now holds 30.
+
+No existing contract changed.
+
 ## 0.8.0 (2026-10-18)
 
 Plot leases are short and priced per 30 days (`lib/game/leases.js`, `lib/game/landPrice.js`; [plot pricing](../../docs/monetization/plot_pricing_scenarios.md)):

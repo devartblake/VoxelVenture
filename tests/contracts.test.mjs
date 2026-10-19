@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', types.API_CONTRACTS.length === 21 && Object.keys(CONTRACTS).length === 21 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
+check('contract ids are unique', types.API_CONTRACTS.length === 30 && Object.keys(CONTRACTS).length === 30 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 1); // + test.scenario
 
 // ---- the shared values are the ones the server and the funnel use
 import { OUTCOMES } from '@voxelventure/analytics';
@@ -141,6 +141,22 @@ try {
   check('a vote can be cast', voted.status === 200, JSON.stringify(voted.data));
   holds('the answer to a vote', types.WEEKLY_VOTE, voted.data);
   holds('the vote with a leader', types.WEEKLY_VOTE, (await call('GET', '/votes')).data);
+
+  // the plot economy's data (economy.mjs)
+  const emptyLot = api.db.prepare("SELECT id FROM plots WHERE owner_name IS NULL AND claimable = 1 AND json_extract(facts, '$.admin') = 0 ORDER BY id").get().id;
+  const ping = { visitor: 'contract-visitor', areas: ['0:0', '-1:2'] };
+  holds('a presence ping with the areas passed', types.PRESENCE_PING, ping);
+  check('the ping still answers as before', (await call('POST', '/presence/ping', { body: ping })).data?.ok === true);
+  const setup = { leaseDays: 365, buildingType: 'shop' };
+  holds('a hold\'s setup', types.PLOT_HOLD, setup);
+  holds('the answer to a hold', types.PLOT_HOLD_RESULT, (await call('POST', `/plots/${emptyLot}/hold`, { token: cat.token, body: setup })).data);
+  holds('the hold seen by another player', types.PLOT_HOLD_STATE, (await call('GET', `/plots/${emptyLot}/hold`, { token: bob.token })).data);
+  const step = { step: 'card_open', visitor: 'contract-visitor' };
+  holds('a step the game sends', types.PLOT_INTENT, step);
+  holds('the answer to a step', types.PLOT_INTENT_RESULT, (await call('POST', `/plots/${built[0].id}/intent`, { body: step })).data);
+  holds('watching', types.PLOT_WATCH, (await call('POST', `/plots/${built[0].id}/watch`, { token: cat.token })).data);
+  holds('who watches, for the admin', types.PLOT_WATCHERS, (await call('GET', `/admin/plots/${built[0].id}/watchers`, { token: 'admin' })).data);
+  holds('the economy report', types.ECONOMY_REPORT, (await call('GET', '/admin/economy', { token: 'admin' })).data);
 } catch (err) {
   fails++;
   console.log('FAIL', err.stack);

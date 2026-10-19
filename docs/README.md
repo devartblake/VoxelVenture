@@ -56,6 +56,7 @@ Payments, attribution, prices, the pilot, and the policies to approve.
 | Document | Read it for |
 | :--- | :--- |
 | [conversions.md](monetization/conversions.md) | Phase 5: the funnel from impression to result, meeting and quote requests, purchases credited by click id (per-business conversion keys, the pixel), coupon redemptions, outcome families each with its own cost, verified revenue and return on spend, renewals |
+| [plot_economy_data.md](monetization/plot_economy_data.md) | The plot economy's data: the server's claim hold, claim intent, foot traffic per area, take-over attempts, "watch this plot", and the report at `/admin/economy` that a demand index will be fitted on |
 | [pilot.md](monetization/pilot.md) | Phase 6: the pilot dashboard at `/admin/pilot` (and `npm run moderate -- pilot`), each pilot business week by week, the merchants' weekly check-in, and the criteria that lift the world freeze |
 | [takeover_payouts.md](monetization/takeover_payouts.md) | Why the 1.25x take-over rule stays in Gold and real-money take-overs are conventional leases: the legal, tax, fraud and economic reasons |
 | [billing.md](monetization/billing.md) | Phase 4 payments through Stripe Checkout: the Launch Pack, Pro and sponsored placements, and in the game paid leases (claim, take-over, renewal) and market stalls; webhooks, reconciliation, refunds, receipts |

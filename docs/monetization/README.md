@@ -11,6 +11,7 @@ Documents are stored in their primary topic directories. Related service and dep
 | [billing.md](billing.md) |
 | [conversions.md](conversions.md) |
 | [pilot.md](pilot.md): the pilot dashboard, its figures and the criteria that lift the freeze |
+| [plot_economy_data.md](plot_economy_data.md): what is recorded for the plot economy (claim hold, claim intent, foot traffic, take-over attempts, watches), its definitions, retention and the admin report |
 | [policy_review.md](policy_review.md) |
 | [pricing_analysis.md](pricing_analysis.md) |
 | [plot_pricing_scenarios.md](plot_pricing_scenarios.md): the real price levels, every tier at 7, 14 and 30 days, with and without Pro, and the outside prices |
