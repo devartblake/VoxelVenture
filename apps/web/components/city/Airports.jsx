@@ -7,6 +7,12 @@ import { modelFor } from '@/lib/content/models';
 import Label3D from './Label3D';
 import StaticBatch from './StaticBatch';
 
+// The airport's flat ground layers, bottom to top. They overlap (taxiways on the apron, the runway over the taxiways' ends, the markings
+// on the runway), so each sits a clear step above the one below AND draws with a depth bias (polygonOffset): zoomed out, a gap of a
+// thousandth of a unit is below what the depth buffer can tell apart, and the layers flickered through each other.
+const LAYER = { apron: 0.03, taxiway: 0.045, runway: 0.06, marking: 0.075 };
+const bias = (n) => ({ polygonOffset: true, polygonOffsetFactor: -n, polygonOffsetUnits: -n });
+
 const HANGAR_HEIGHT = 3.4;
 
 const rectCentre = (r) => [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2];
@@ -104,9 +110,9 @@ function Airport({ airport }) {
   return (
     <group>
       {/* apron and taxiways from each parking spot to the runway */}
-      <mesh position={[ax, 0.012, az]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh position={[ax, LAYER.apron, az]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[aw, ad]} />
-        <meshStandardMaterial color="#a3a3a3" roughness={1} />
+        <meshStandardMaterial color="#a3a3a3" roughness={1} {...bias(1)} />
       </mesh>
       {parking.map((p, i) => {
         const toRunway = alongX ? [0, rcz - p.z] : [rcx - p.x, 0];
@@ -114,31 +120,31 @@ function Airport({ airport }) {
         const mid = [p.x + toRunway[0] / 2, p.z + toRunway[1] / 2];
         return (
           <group key={i}>
-            <mesh position={[mid[0], 0.014, mid[1]]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <mesh position={[mid[0], LAYER.taxiway, mid[1]]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
               <planeGeometry args={alongX ? [2.6, len] : [len, 2.6]} />
-              <meshStandardMaterial color="#a3a3a3" roughness={1} />
+              <meshStandardMaterial color="#a3a3a3" roughness={1} {...bias(2)} />
             </mesh>
             {/* the parking spot: a yellow square */}
-            <mesh position={[p.x, 0.02, p.z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh position={[p.x, LAYER.marking, p.z]} rotation={[-Math.PI / 2, 0, 0]}>
               <ringGeometry args={[0.9, 1.05, 4, 1, Math.PI / 4]} />
-              <meshBasicMaterial color="#facc15" />
+              <meshBasicMaterial color="#facc15" {...bias(4)} />
             </mesh>
           </group>
         );
       })}
 
       {/* runway */}
-      <mesh position={[rcx, 0.016, rcz]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh position={[rcx, LAYER.runway, rcz]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[rw, rd]} />
-        <meshStandardMaterial color="#27272a" roughness={0.95} />
+        <meshStandardMaterial color="#27272a" roughness={0.95} {...bias(3)} />
       </mesh>
       {[-1, 1].map((side) => {
         const [x, z] = at(0, side * (runway.width / 2 - 0.2));
         const [w, d] = size(runway.length - 1, 0.12);
         return (
-          <mesh key={side} position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh key={side} position={[x, LAYER.marking, z]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[w, d]} />
-            <meshBasicMaterial color="#e5e7eb" />
+            <meshBasicMaterial color="#e5e7eb" {...bias(4)} />
           </mesh>
         );
       })}
@@ -146,9 +152,9 @@ function Airport({ airport }) {
         const [x, z] = at(u, 0);
         const [w, d] = size(1.8, 0.22);
         return (
-          <mesh key={u} position={[x, 0.021, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh key={u} position={[x, LAYER.marking, z]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[w, d]} />
-            <meshBasicMaterial color="#f8fafc" />
+            <meshBasicMaterial color="#f8fafc" {...bias(4)} />
           </mesh>
         );
       })}
@@ -156,9 +162,9 @@ function Airport({ airport }) {
         const [x, z] = at(end * (runway.length / 2 - 1.6), v);
         const [w, d] = size(2, 0.3);
         return (
-          <mesh key={`${end}-${v}`} position={[x, 0.021, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh key={`${end}-${v}`} position={[x, LAYER.marking, z]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[w, d]} />
-            <meshBasicMaterial color="#f8fafc" />
+            <meshBasicMaterial color="#f8fafc" {...bias(4)} />
           </mesh>
         );
       })}
@@ -244,6 +250,7 @@ function Airport({ airport }) {
 }
 
 // Every airport (layout.airports). `seed` remounts the baked batch when the city is regenerated.
+
 export default function Airports({ airports, seed }) {
   return (airports ?? []).map((airport) => (
     <group key={`${seed}-${airport.id}`}>
