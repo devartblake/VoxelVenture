@@ -19,6 +19,7 @@ BASE=/srv/voxelventure-staging
 ETC=/etc/voxelventure/staging
 DOMAIN=${STAGING_DOMAIN:-staging.voxelventure.app}
 KEEP=${STAGING_KEEP:-3}
+CARRY_DAYS=${CARRY_DAYS:-14} # how long a release keeps the site files of the ones before it (carry_static)
 UNITS=(voxelventure-staging-api voxelventure-staging-presence voxelventure-staging-web)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" # the project this script came with
 # Out of the folder it was started from: the voxel user runs parts of this (the backup, npm), and a folder it cannot enter (root's home)
@@ -63,6 +64,16 @@ render_env() {
 }
 
 live_release() { readlink -f "$BASE/current" 2>/dev/null || true; }
+
+# the site's files from the live release (the hashed /_next/static chunks), copied into a new one: a page opened before the switch still loads
+# the parts it fetches later (opening a building, the editor) instead of failing with a ChunkLoadError. The new build's own files win; carried
+# ones keep their age and go after CARRY_DAYS (the new build's are just made, so they never do).
+carry_static() {
+  local from="$1/apps/web/.next/static" to="$2/apps/web/.next/static"
+  [ -d "$from" ] && [ -d "$to" ] || return 0
+  cp -rp --update=none "$from/." "$to/"
+  find "$to" -type f -mtime +"$CARRY_DAYS" -delete
+}
 releases() { find "$BASE/releases" -mindepth 1 -maxdepth 1 -type d | sort; }
 
 # the three processes answer on this machine (the API with its world, the presence server, the site's pages)
@@ -163,6 +174,8 @@ cmd_deploy() {
   )
   mkdir -p "$rel/apps/web/.next/cache"
   chown -R voxel:voxel "$rel/apps/web/.next"
+  [ -n "$prev" ] && carry_static "$prev" "$rel"
+  chown -R voxel:voxel "$rel/apps/web/.next/static"
 
   say "switch"
   snapshot "$stamp"
