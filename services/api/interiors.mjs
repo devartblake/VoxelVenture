@@ -8,7 +8,7 @@ import { imp } from '../../scripts/lib-loader.mjs';
 //   - Every save names the revision it was based on; an older one is refused (409), so two tabs never overwrite each other unseen.
 //   - A design belongs to the owner who saved it. A claim or a take-over removes it (core.mjs), and one saved by any other account than
 //     today's owner is treated as no design at all, so a new owner never inherits, and never shows, the last owner's furniture.
-//   - A lease that has ended stops the editing: in the grace week and after it, the tenant (still the owner until someone takes the plot
+//   - A lease that has ended stops the editing: in its 3 grace days and after them, the tenant (still the owner until someone takes the plot
 //     over) can no longer change the inside, only renew; visitors still see the design. Renewing gives the editing back. The lease emails say
 //     so (community.mjs sendLeaseNotices).
 const { cleanDesign, roomForPlot, DESIGN_VERSION, MAX_BODY_BYTES } = await imp('content/interiorDesign.js');
@@ -29,7 +29,7 @@ function ownPlot(db, account, plotId) {
   requireAccount(account);
   const plot = getPlot(db, plotId);
   if (!plot.owner_account || plot.owner_account !== account.id) fail(403, 'Only the owner can change the inside of this building.', 'forbidden');
-  if (['grace', 'open'].includes(leaseState(plot.lease_end, now()))) fail(403, 'The lease on this building has ended. Renew it to change the inside again.', 'lease_ended');
+  if (['grace', 'open'].includes(leaseState(plot.lease_end, now(), plot.lease_days))) fail(403, 'The lease on this building has ended. Renew it to change the inside again.', 'lease_ended');
   return plot;
 }
 // the revision a change was based on must still be the current one

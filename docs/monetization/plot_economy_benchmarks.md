@@ -6,7 +6,7 @@ Written for: the owner, deciding the plot economy.
 
 This document compares the proposed plot economy with real markets: real shop rents, virtual land, the listing and visibility products local businesses already pay for, dynamic pricing that people accept as fair, and card fees. Research date: 2026-10-18. Every figure has a source. Figures marked **(estimate)** come from one blog or vendor and are not audited data. Where a figure could not be found, the document says so.
 
-The proposal being checked (from the sales funnel proposal, not built yet):
+The proposal being checked (from the [sales funnel proposal](../product/sales_funnel_proposal.md); the terms and the Pro discount are built, the demand index is not):
 
 | Item | Proposed |
 | :--- | :--- |

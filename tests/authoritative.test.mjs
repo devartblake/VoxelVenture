@@ -57,7 +57,7 @@ try {
   check('the audit trail is admin-only', (await call('GET', '/admin/audit')).status === 403 && (await call('GET', '/admin/audit', { token: amy.token })).status === 403);
   const forLot = (await audit(`?target_kind=plot&target_id=${lot.id}`)).entries;
   check('the claim and the edits are recorded, newest first, with who did them', forLot.map((e) => e.action).join() === 'plot.update,plot.update,plot.claim' && forLot.every((e) => e.actor.kind === 'account' && e.actor.name === 'Amy'), forLot.map((e) => e.action).join());
-  check('the claim records its facts', forLot.at(-1).detail.title === 'Amy Tower' && forLot.at(-1).detail.value > 0 && forLot.at(-1).detail.leaseDays === 365);
+  check('the claim records its facts', forLot.at(-1).detail.title === 'Amy Tower' && forLot.at(-1).detail.value > 0 && forLot.at(-1).detail.leaseDays === 30);
   check('the edit records which fields changed', forLot[0].detail.fields.join() === 'description' && forLot[1].detail.fields.join() === 'exterior');
   const failed = api.db.prepare('SELECT COUNT(*) AS n FROM audit_log').get().n;
   check('a refused change writes no record', (await call('POST', `/plots/${lot.id}/claim`, { token: bob.token, body: biz })).status === 409 && api.db.prepare('SELECT COUNT(*) AS n FROM audit_log').get().n === failed && failed > before);

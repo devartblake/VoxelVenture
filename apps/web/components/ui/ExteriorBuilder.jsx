@@ -8,12 +8,12 @@ import { BACKS, MIN_ROOM, backRoom } from '@/lib/content/backyards';
 import { useCityStore } from '@/lib/state/store';
 import { choiceCost, outsideCost } from '@/lib/game/claimPrice';
 
-// "free", or what a choice adds a year ("+$1.20 a year"), from the same prices the server charges (lib/game/claimPrice.js)
-const priceTag = (amount) => (amount > 0 ? `+$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} a year` : 'free');
+// "free", or what a choice adds for 30 days ("+$1.20 / 30 days"), from the same prices the server charges (lib/game/claimPrice.js)
+const priceTag = (amount) => (amount > 0 ? `+$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / 30 days` : 'free');
 
 // The outside of a building: floors, shape, colours and a rooftop feature (lib/game/exterior.js). It only edits a configuration; the caller decides what to do
 // with it: the claim form keeps it until the player claims (the lot shows the building meanwhile), the owner's editor saves a free change at once and asks
-// for a payment for a priced one. Beside each choice it says whether it is free (the basic outside) or what it adds a year (lib/content/exteriorPrices.js).
+// for a payment for a priced one. Beside each choice it says whether it is free (the basic outside) or what it adds for 30 days (lib/content/exteriorPrices.js).
 //   plot    the lot or the building       type   the kind of business       value   the current configuration       onChange(config)
 export default function ExteriorBuilder({ plot, type, value, onChange }) {
   const config = useMemo(() => cleanExterior(value, plot, type), [value, plot, type]);
@@ -25,14 +25,14 @@ export default function ExteriorBuilder({ plot, type, value, onChange }) {
   const set = (patch) => onChange(cleanExterior({ ...config, ...patch }, plot, type));
   const wall = wallColorOf(config);
   const btn = 'rounded-full border px-2.5 py-1 text-[11px] transition';
-  const yearly = useMemo(() => outsideCost(config, plot, type), [config, plot, type]);
+  const perPeriod = useMemo(() => outsideCost(config, plot, type), [config, plot, type]);
   const nextFloor = config.floors < range.max ? choiceCost(config, { floors: config.floors + 1 }, plot, type) : 0;
 
   return (
     <div className="space-y-3 rounded-xl border border-sx-stroke bg-sx-alt/40 p-3 text-xs text-slate-200" data-testid="exterior-builder">
-      {/* what this outside costs a year, on top of the land */}
-      <p className="rounded-lg border border-sx-stroke bg-sx-page/60 px-2 py-1 text-[11px] text-slate-300" data-testid="outside-yearly">
-        {yearly.total > 0 ? <>This outside: <b className="text-white">${yearly.total.toLocaleString()} a year</b> on top of the land ({yearly.lines.map((l) => l.label.toLowerCase()).join(', ')}).</> : <>This outside is the basic one: <b className="text-white">free</b>.</>}
+      {/* what this outside costs for 30 days, on top of the land */}
+      <p className="rounded-lg border border-sx-stroke bg-sx-page/60 px-2 py-1 text-[11px] text-slate-300" data-testid="outside-price">
+        {perPeriod.total > 0 ? <>This outside: <b className="text-white">${perPeriod.total.toLocaleString()} for 30 days</b> on top of the land ({perPeriod.lines.map((l) => l.label.toLowerCase()).join(', ')}).</> : <>This outside is the basic one: <b className="text-white">free</b>.</>}
       </p>
 
       {/* floors */}

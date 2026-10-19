@@ -7,6 +7,10 @@
 
 export const DAY_MS = 86400000;
 
+// An account with Pro on any of its business profiles pays this share less for a plot lease in the 3D city: a claim, a take-over and a renewal (not
+// outside upgrades, not the other products). lib/game/leases.js applies it; the server decides who has Pro (services/api/core.mjs hasPro).
+export const PRO_PLOT_DISCOUNT = 0.15;
+
 export const PRODUCTS = {
   launch: {
     id: 'launch',
@@ -22,7 +26,7 @@ export const PRODUCTS = {
     mode: 'subscription',
     cents: 1900,
     interval: 'month',
-    pitch: 'Where visitors came from, campaign results, the 30-day chart, CSV export of your figures and an offer at the top of your page.',
+    pitch: `Where visitors came from, campaign results, the 30-day chart, CSV export of your figures, an offer at the top of your page and ${Math.round(PRO_PLOT_DISCOUNT * 100)}% off plot leases in the 3D city.`,
   },
   sponsored: {
     id: 'sponsored',
