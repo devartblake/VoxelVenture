@@ -45,7 +45,10 @@ export const text = (v, max) => [...String(v ?? '')].filter((c) => c.charCodeAt(
 // seeded before that (or by an older generator) is brought up to date every time the server starts.
 export function seedWorld(db, seed = 20260101) {
   const city = generateCity(seed);
-  if (db.prepare('SELECT COUNT(*) AS n FROM plots').get().n > 0) return { seeded: false, land: refreshLand(db, city) };
+  if (db.prepare('SELECT COUNT(*) AS n FROM plots').get().n > 0) {
+    const land = refreshLand(db, city);
+    return { seeded: false, land, repriced: repriceToPeriods(db) };
+  }
   const ins = db.prepare('INSERT INTO plots (id, district, building_type, owner_name, title, website, variant, value, base_visits, claimable, facts, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
   const led = db.prepare("INSERT INTO ledger (plot_id, kind, owner_name, title, price, at) VALUES (?, 'open', ?, ?, ?, ?)");
   transaction(db, () => {
@@ -55,6 +58,7 @@ export function seedWorld(db, seed = 20260101) {
       led.run(p.id, `Building #${p.id}`, `Building #${p.id}`, Math.max(1, Math.round(value * 0.8)), now() - (10 + (p.id % 40)) * DAY);
     }
   });
+  db.exec(`PRAGMA user_version = ${PERIOD_PRICES}`); // a new database is priced per 30 days from the start
   return { seeded: true, plots: city.plots.length };
 }
 // Writes the generator's pricing attributes into the facts of every plot whose stored ones differ (the generator works them out from the city's layout:
@@ -74,6 +78,21 @@ function refreshLand(db, city) {
     }
   });
   return changed;
+}
+
+// Once per database: a plot's value was the price of a year (before the 7, 14 and 30-day leases); it is now the price of 30 days. Every player's
+// plot is re-priced as a new 30-day lease of it, with the outside it has (no Pro discount: the value is what the business is worth), so a take-over
+// is priced from the new levels. Marked done with SQLite's user_version (1). Returns how many plots changed.
+const PERIOD_PRICES = 1;
+function repriceToPeriods(db) {
+  if (db.prepare('PRAGMA user_version').get().user_version >= PERIOD_PRICES) return 0;
+  const rows = db.prepare('SELECT * FROM plots WHERE owner_account IS NOT NULL').all();
+  const put = db.prepare('UPDATE plots SET value = ? WHERE id = ?');
+  transaction(db, () => {
+    for (const r of rows) put.run(leaseQuote(pricedPlot(r), r.exterior ? JSON.parse(r.exterior) : null, r.building_type ?? 'shop', 30).period, r.id);
+  });
+  db.exec(`PRAGMA user_version = ${PERIOD_PRICES}`);
+  return rows.length;
 }
 
 // ---- accounts --------------------------------------------------------------------------------------------------------

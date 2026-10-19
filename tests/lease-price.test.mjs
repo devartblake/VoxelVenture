@@ -151,6 +151,21 @@ try {
   const city = generateCity(20260101);
   const sample = city.plots.find((p) => p.luxury);
   check('an older database gets each plot\'s pricing attributes when the server starts', again.seeded === false && again.land === city.plots.length && JSON.stringify(JSON.parse(db.prepare('SELECT facts FROM plots WHERE id = ?').get(sample.id).facts).land) === JSON.stringify(sample.land) && core.seedWorld(db, 20260101).land === 0, JSON.stringify(again));
+  {
+    // a database from before the 30-day prices: a player's plot valued at a year's price is re-priced once, as a new 30-day lease of it
+    const acct = core.signup(db, { username: 'oldtenant', password: 'password123' });
+    const accountId = acct.account?.id ?? acct.id ?? db.prepare("SELECT id FROM accounts WHERE username = 'oldtenant'").get().id;
+    const lot = db.prepare('SELECT * FROM plots WHERE claimable = 1 AND owner_name IS NULL LIMIT 1').get();
+    db.prepare("UPDATE plots SET owner_account = ?, owner_name = 'oldtenant', building_type = 'shop', value = 9999 WHERE id = ?").run(accountId, lot.id);
+    const fresh = db.prepare('PRAGMA user_version').get().user_version;
+    db.exec('PRAGMA user_version = 0');
+    const r = core.seedWorld(db, 20260101);
+    const v = db.prepare('SELECT value FROM plots WHERE id = ?').get(lot.id).value;
+    check('a new database starts priced per 30 days', fresh === 1);
+    check('an older one re-prices the plots players hold once, from the 30-day price', r.repriced >= 1 && v === leaseQuote(core.pricedPlot(db.prepare('SELECT * FROM plots WHERE id = ?').get(lot.id)), null, 'shop', 30).period && v < 9999, JSON.stringify({ r, v }));
+    db.prepare('UPDATE plots SET value = 1234 WHERE id = ?').run(lot.id);
+    check('and only once', core.seedWorld(db, 20260101).repriced === 0 && db.prepare('SELECT value FROM plots WHERE id = ?').get(lot.id).value === 1234);
+  }
   db.close();
 } catch (e) {
   fails++;
