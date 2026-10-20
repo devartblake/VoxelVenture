@@ -15,7 +15,7 @@
     "profile": [{ "type": "profile", "name": "Amy", "appearance": { "shirt": "shirt-green" } }],
     "chat.send": [{ "type": "chat.send", "clientMessageId": "c_0001-abcd", "channel": "nearby", "text": "Hello there" }],
     "chat": [{ "type": "chat", "text": "hello there" }],
-    "perf": [{ "type": "perf", "fps": 58.3, "calls": 480, "triangles": 250000, "geometries": 300, "textures": 40 }],
+    "perf": [{ "type": "perf", "fps": 58.3, "calls": 480, "triangles": 250000, "geometries": 300, "textures": 40 }, { "type": "perf", "fps": 27.5, "calls": 210, "triangles": 90000, "geometries": 200, "textures": 30, "quality": "low", "qualityReasons": "coarse-pointer,fps<22", "frameP95": 48.2 }],
     "error": [{ "type": "error", "url": "/", "kind": "error", "message": "TypeError: x is undefined", "source": "app.js:10:5", "stack": "TypeError: x is undefined\n    at f", "count": 1 }]
   },
   "server": {

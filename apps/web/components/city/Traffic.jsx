@@ -2,7 +2,8 @@
 
 import { remoteParkedCars, useNet } from '@/lib/net/multiplayer';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import * as THREE from 'three';
 import { avatarState } from '@/lib/sim/avatarState';
 import { surfaceHeight } from '@/lib/city/surfaceHeight';
@@ -139,7 +140,7 @@ export default function Traffic({ layout }) {
     [geo, mat]
   );
 
-  useFrame((state, delta) => {
+  useGatedFrame(LOOPS.distantSimulation, (state, delta) => {
     sim.update(delta, state.clock.elapsedTime);
     if (!body.current || !legs.current) return; // first frame, before the meshes exist
 

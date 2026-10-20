@@ -1,6 +1,6 @@
 {
   "name": "@voxelventure/shared-types",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "Versioned contracts (JSON-Schema shapes and enums) for what crosses a boundary, and a small validator.",
   "type": "module",

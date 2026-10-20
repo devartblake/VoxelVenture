@@ -2,7 +2,8 @@
 
 import { remoteParkedCars, useNet } from '@/lib/net/multiplayer';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import * as THREE from 'three';
 import { avatarState } from '@/lib/sim/avatarState';
 import { isBlocked } from '@/lib/sim/collision';
@@ -149,7 +150,7 @@ export default function Vehicles() {
     };
   }, []);
 
-  useFrame((state, rawDelta) => {
+  useGatedFrame(LOOPS.visible, (state, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05);
     bobTime.current += dt;
     const t = bobTime.current;

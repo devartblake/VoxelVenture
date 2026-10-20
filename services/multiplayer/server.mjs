@@ -179,6 +179,7 @@ function summary(p) {
     device: p.device,
     fps: p.fps,
     render: p.render,
+    quality: p.quality ?? null,
     errorCount: p.errorCount,
     errors: p.errors,
   };
@@ -545,6 +546,8 @@ wss.on('connection', (ws, req) => {
     } else if (m.type === 'perf') {
       p.fps = Math.round(num(m.fps, 0, 1000) * 10) / 10;
       p.render = { calls: Math.round(num(m.calls, 0, 1e7)), triangles: Math.round(num(m.triangles, 0, 1e9)), geometries: Math.round(num(m.geometries, 0, 1e7)), textures: Math.round(num(m.textures, 0, 1e7)) };
+      // the quality tier the game draws at, and why (lib/performance/qualityPolicy.js); an older game sends none
+      if (typeof m.quality === 'string') p.quality = { tier: ['low', 'medium', 'high'].includes(m.quality) ? m.quality : 'unknown', reasons: str(m.qualityReasons, 120), frameP95: Math.round(num(m.frameP95, 0, 1e4) * 10) / 10 };
     } else if (m.type === 'error') {
       const entry = {
         time: now,

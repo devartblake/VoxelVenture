@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { devToolsOn } from '@/lib/dev/devTools';
 import { PROP_CATALOG } from '@/lib/content/propCatalog';
@@ -12,6 +12,8 @@ import Label3D from '@/components/city/Label3D';
 // small arrow on the ground showing which way the model faces (+Z). Each model is lifted to rest on the floor and centred (some, such as the coaster track pieces, are
 // modelled with their origin at the top of the track, so they sit below y = 0 where they are used unless a caller lifts them by the catalog's `y0`). Used to check the size and the way round of the Kenney models before they are placed.
 // ?kit=coaster shows one kit; ?cam=x,y,z,tx,ty,tz sets the camera and what it looks at.
+// ?frameloop=demand draws only when something changes (a model loads, the camera moves): the demand-rendering spike of
+// docs/architecture/performance_policy.md. window.__vvPreview.frames() counts the frames drawn, to compare it with the default.
 function Row({ models, z, label }) {
   const { geometries, materials } = useProps();
   let x = 0;
@@ -40,11 +42,24 @@ function Row({ models, z, label }) {
   );
 }
 
+function FrameCounter() {
+  const gl = useThree((s) => s.gl);
+  const frameloop = useThree((s) => s.frameloop);
+  useEffect(() => {
+    window.__vvPreview = { frames: () => gl.info.render.frame, frameloop };
+    return () => {
+      delete window.__vvPreview;
+    };
+  }, [gl, frameloop]);
+  return null;
+}
+
 export default function ModelPreview() {
   const on = devToolsOn();
   const kit = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('kit') : null;
   const cam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('cam') ?? '').split(',').map(Number) : [];
   const camOk = cam.length === 6 && cam.every(Number.isFinite);
+  const frameloop = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('frameloop') === 'demand' ? 'demand' : 'always';
   const groups = useMemo(() => {
     const by = new Map();
     for (const m of PROP_CATALOG) {
@@ -61,7 +76,8 @@ export default function ModelPreview() {
   if (!on) return <main className="p-8 text-slate-300">This page is a design tool and is not part of release builds.</main>;
   return (
     <main className="h-screen w-screen bg-[#0b1020]" data-testid="model-preview">
-      <Canvas camera={{ position: camOk ? cam.slice(0, 3) : [18, 26, 40], fov: 38 }} shadows>
+      <Canvas camera={{ position: camOk ? cam.slice(0, 3) : [18, 26, 40], fov: 38 }} shadows frameloop={frameloop}>
+        <FrameCounter />
         <ambientLight intensity={0.9} />
         <directionalLight position={[10, 20, 14]} intensity={1.6} castShadow />
         <OrbitControls target={camOk ? cam.slice(3) : [18, 0, groups.length * 2.4]} />

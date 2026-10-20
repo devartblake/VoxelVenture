@@ -162,7 +162,10 @@ State also holds `billboards`, `selectedBillboardId`, `gold` and `completedQuest
 **Avatar and movement** (`apps/web/components/city/Avatar.jsx`, `lib/sim/avatarState.js`)
 - A voxel character (about 1 unit tall) with walk animation. **WASD / arrow keys** move it relative to the screen, **Shift** runs, **click the ground** to walk there (it gives up on a target it can't reach). The camera follows while it walks and can still be panned when it stands still. Typing in a form, an open interior or the Wardrobe pauses the keys.
 - Its live position is plain mutable data (`avatarState`), not React state, because it changes every frame. The mini-map and the interaction check read it.
-- It starts on the first arterial avenue and respawns when the city is regenerated.
+- **Where it starts** (`lib/game/spawn.js`, `tests/spawn.test.mjs`): new players are spread over the city instead of all appearing at one spot. `spawnCandidates` samples both pavements of every straight road every 6 units (not the airport roads) and keeps the points that are free of anything solid (buildings, water, hills, hedges, stalls), not on a runway or apron, not inside a plot, and with at least 3 businesses within 25 units. No district keeps more than 30% of the points (the extra ones are thinned evenly). On the live city (seed 20260101) that is 1432 points in 10 districts, the largest (Meadow Quarter) with 25%. Each page load picks one at random (`pickSpawn`), and keeps it for that city, so changing the camera view does not move you.
+  - A building link (`/?plot=12`, `/b/12`) starts you at the point nearest that building.
+  - `?spawn=fixed` keeps the old spot on the first arterial avenue (`findSpawn`), for tests and demos; the browser tests use it. It is also the fallback when a city has no good point.
+  - The game does not save your position, so a returning player also gets a new random spot. A regenerated city gets a new pick.
 
 **Collisions** (`lib/sim/collision.js`, `lib/city/parkGeometry.js`)
 - Solid: claimed buildings, the park's hedge (gates are open), fountain, monument, benches and tree trunks, billboard posts, roundabout islands. Walkable: roads, sidewalks, crossings, empty lots, park paths.

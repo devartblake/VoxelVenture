@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import StaticBatch from './StaticBatch';
 import Label3D from './Label3D';
 import { registerGlow } from './nightLights';
@@ -56,7 +57,7 @@ function FerrisWheel({ d, bulbs }) {
   const cars = useRef([]);
   const { radius, hub } = d;
   const gondolas = 10;
-  useFrame((_, dt) => {
+  useGatedFrame(LOOPS.distantOrnament, (_, dt) => {
     if (!wheel.current) return;
     wheel.current.rotation.z += dt * 0.18;
     for (const c of cars.current) if (c) c.rotation.z = -wheel.current.rotation.z; // the cabins hang level
@@ -112,7 +113,7 @@ function FerrisWheel({ d, bulbs }) {
 function Carousel({ d, bulbs }) {
   const spin = useRef(null);
   const horses = useRef([]);
-  useFrame((state, dt) => {
+  useGatedFrame(LOOPS.distantOrnament, (state, dt) => {
     if (spin.current) spin.current.rotation.y += dt * 0.7;
     const t = state.clock.elapsedTime;
     horses.current.forEach((h, i) => h && (h.position.y = 0.9 + Math.sin(t * 2.4 + i) * 0.22));
@@ -151,7 +152,7 @@ function Carousel({ d, bulbs }) {
 function Swings({ d }) {
   const top = useRef(null);
   const chairs = useRef([]);
-  useFrame((state, dt) => {
+  useGatedFrame(LOOPS.distantOrnament, (state, dt) => {
     if (top.current) top.current.rotation.y += dt * 1.1;
     chairs.current.forEach((c) => c && (c.rotation.z = 0.5));
   });
@@ -180,7 +181,7 @@ function Swings({ d }) {
 // the roller coaster's train: three cars that follow the track
 function Train({ track, tilt, ready }) {
   const cars = useRef([]);
-  useFrame((state) => {
+  useGatedFrame(LOOPS.distantOrnament, (state) => {
     const t = (state.clock.elapsedTime / 38) % 1;
     cars.current.forEach((car, i) => {
       if (!car) return;

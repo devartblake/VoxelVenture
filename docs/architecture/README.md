@@ -14,6 +14,7 @@ Documents are stored in their primary topic directories. Related service and dep
 | [adr/0002-workspaces.md](adr/0002-workspaces.md): Phase C step 1, npm workspaces, imports by `@voxelventure/*` name, the adapters retired |
 | [adr/0003-apps-and-services.md](adr/0003-apps-and-services.md): Phase C steps 2 to 5, the app in `apps/web/`, the API and the presence server in `services/` |
 | [adr/0004-presence-protocol-contracts.md](adr/0004-presence-protocol-contracts.md): the presence protocol as executable contracts (adoption plan Track B) |
+| [performance_policy.md](performance_policy.md): the capability and quality policy, frame-loop inventory, budgets and device measurement (adoption plan Track C) |
 | [../../tests/journeys/README.md](../../tests/journeys/README.md): the business journeys and their shared agents (adoption plan Track A) |
 | [../../packages/README.md](../../packages/README.md): the shared packages and their contracts |
 | [authoritative_data.md](authoritative_data.md) |

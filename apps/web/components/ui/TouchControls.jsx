@@ -6,6 +6,7 @@ import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
 import { usePanel } from '@/lib/state/panelStore';
 import { avatarState } from '@/lib/sim/avatarState';
+import { TOUCH_UI_QUERY } from '@/lib/performance/capabilityProfile';
 
 const RADIUS = 48; // how far the thumb can push the knob
 
@@ -24,7 +25,7 @@ export default function TouchControls() {
   const busy = useCityStore((s) => Boolean(s.activeInteriorPlot || s.wardrobeOpen || s.selectedPlot || s.selectedPark || s.selectedBillboardId)) || panelOpen;
 
   useEffect(() => {
-    const q = window.matchMedia('(pointer: coarse), (max-width: 639px)');
+    const q = window.matchMedia(TOUCH_UI_QUERY); // touch devices and narrow windows (lib/performance/capabilityProfile.js)
     const update = () => setShow(q.matches);
     update();
     q.addEventListener('change', update);

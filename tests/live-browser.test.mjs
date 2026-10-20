@@ -45,7 +45,7 @@ try {
   children.push(spawn(process.execPath, [next, 'start', 'apps/web', '-p', String(webPort)], { cwd: root, env, stdio: 'ignore' }));
   for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://localhost:${webPort}/`)).ok && (await fetch(`http://localhost:${apiPort}/health`)).ok && (await fetch(`http://localhost:${mpPort}/health`)).ok) break; } catch { /* starting */ } await sleep(500); }
 
-  const page = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&mp=${mpPort}`, { width: 1400, height: 1000 });
+  const page = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1400, height: 1000 });
   for (let i = 0; i < 120 && !(await page.eval('Boolean(window.__vvStore && window.__vvPanel)').catch(() => false)); i++) await sleep(500);
   await sleep(2500);
   check('the page loads and nothing asks for a sign-in', !(await page.eval(`document.body.innerText.includes('Sign in to continue')`)));
@@ -81,7 +81,7 @@ try {
   check('the server has the claim', server.owner === 'BrowserBaker' && server.title === 'Browser Bakery');
 
   // another visitor (a second page, no account) sees it after a sync, and is not asked to sign in to look
-  const other = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&mp=${mpPort}`, { width: 1200, height: 800 });
+  const other = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1200, height: 800 });
   for (let i = 0; i < 120 && !(await other.eval(`Boolean(window.__vvStore && window.__vvStore.getState().plots.find((q) => q.id === ${lot.id})?.owner)`).catch(() => false)); i++) await sleep(500);
   check('a second visitor sees the new building without signing in', await other.eval(`(() => { const p = window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}); return p.owner === 'BrowserBaker' && !p.userClaimed; })()`));
   check('and no console errors on either page', page.problems().length === 0 && other.problems().length === 0, [...page.problems(), ...other.problems()].slice(0, 2).join(' | '));
@@ -184,7 +184,7 @@ try {
   check('pressing the button counts it, and its link carries the click id', /^https:\/\/bakery\.test\/shop\?vv_click=[A-Za-z0-9]{10,32}$/.test(href) && (await until((f) => f.ctaClicks >= 1)), href);
   check('no console errors on the business pages', visitor.problems().length === 0, visitor.problems().slice(0, 2).join(' | '));
   // the same visitor goes into the 3D city: walking into the building and pressing its website link count for the profile too
-  await visitor.eval(`location.href = '/?diag=1&view=iso&mp=${mpPort}'; 1`);
+  await visitor.eval(`location.href = '/?diag=1&view=iso&spawn=fixed&mp=${mpPort}'; 1`);
   check('the city knows the building is linked to the profile', await waitFor(visitor, `Boolean(window.__vvStore) && window.__vvStore.getState().plots.find((q) => q.id === ${lot.id})?.profileSlug === 'browser-bakery'`, 60));
   await visitor.eval(`window.__vvStore.getState().openInterior(window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}))`);
   check('walking into the 3D storefront is a store entry for the profile', await until((f) => f.storeEntries >= 1));

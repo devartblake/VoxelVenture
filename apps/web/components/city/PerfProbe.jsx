@@ -2,8 +2,10 @@
 
 import { useMarket } from '@/lib/state/marketStore';
 import { useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
 import { perfStats } from '@/lib/dev/perfStats';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { measureCity, qualityGate, useGatedFrame, useQuality, useQualityDirector, useWorldRenderGate } from '@/lib/performance/runtime';
 import { usePanel } from '@/lib/state/panelStore';
 import { useView } from '@/lib/state/viewStore';
 import { avatarState } from '@/lib/sim/avatarState';
@@ -23,8 +25,15 @@ const diagnosticsOn = () => process.env.NODE_ENV !== 'production' || new URLSear
 //   window.__vvAvatar the avatar's live state; window.__vvFleet { store, refs } the vehicles
 //   window.__vvThree  the three.js state (camera, controls)
 //   window.__vvScene  the scene (count meshes)
+//   window.__vvQuality  the quality policy's store: the tier in force, its reasons, settings, profile and measured frame rate
+//   window.__vvFrameGate  the policy's per-frame state (the frame counter, what covers the world)
+//   window.__vvMeasure  measureCity(): frame times, draw calls and triangles at the fixed camera spots (scripts/perf-measure.mjs)
+// It also runs the capability policy (lib/performance/runtime.js): the quality director, which keeps the tier and the
+// visibility state current before any other frame callback, and the gate that draws the world.
 // Renders nothing.
 export default function PerfProbe() {
+  useQualityDirector();
+  useWorldRenderGate();
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const get = useThree((s) => s.get);
@@ -42,6 +51,9 @@ export default function PerfProbe() {
     window.__vvThree = get;
     window.__vvScene = scene;
     window.__vvPerf = perfStats;
+    window.__vvQuality = useQuality;
+    window.__vvFrameGate = qualityGate;
+    window.__vvMeasure = (options = {}) => measureCity({ get, ...options });
     return () => {
       delete window.__vvStore;
       delete window.__vvDraft;
@@ -53,10 +65,14 @@ export default function PerfProbe() {
       delete window.__vvThree;
       delete window.__vvScene;
       delete window.__vvPerf;
+      delete window.__vvQuality;
+      delete window.__vvFrameGate;
+      delete window.__vvMeasure;
     };
   }, [get, scene]);
 
-  useFrame(() => {
+  // (sampled at the tier's diagnostic rate; the counters are those of the last frame drawn)
+  useGatedFrame(LOOPS.diagnostics, () => {
     const { render, memory } = gl.info;
     perfStats.calls = render.calls;
     perfStats.triangles = render.triangles;

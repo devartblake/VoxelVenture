@@ -1,6 +1,6 @@
 # Changelog: @voxelventure/shared-types
 
-## 0.11.0 (2026-10-19)
+## 0.12.0 (2026-10-20)
 
 The admin sign-in (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-sign-in)): admin accounts in the database, a session cookie, and the presence monitor's figures through the API. New contracts, all version 1:
 
@@ -15,6 +15,10 @@ The admin sign-in (`services/api/admin.mjs`, [backend.md](../../docs/architectur
 - `API_CONTRACTS` now holds 44.
 
 No existing contract changed. Every existing admin route takes a signed-in admin's session as well as `Authorization: Bearer ADMIN_TOKEN`.
+
+## 0.11.0 (2026-10-19)
+
+- `presence.client.perf` (still version 1, protocol 2): three optional fields, `quality` (`low`, `medium` or `high`: the tier the game draws at), `qualityReasons` (why, comma-separated, at most 120 characters) and `frameP95` (the 95th-percentile frame time in ms). The presence server keeps them as the player's `quality` for the `/admin` monitor. An older game sends none, and an older server ignores them ([performance policy](../../docs/architecture/performance_policy.md)).
 
 ## 0.10.0 (2026-10-19)
 

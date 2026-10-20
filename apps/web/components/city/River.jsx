@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 
 const BANK = 1.2; // sandy bank beyond the water on each side
 const WATER_Y = 0.026;
@@ -19,7 +20,7 @@ export default function River({ river, bridges }) {
   const cx = (x0 + x1) / 2;
   const cz = (z0 + z1) / 2;
 
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (water.current) water.current.material.emissiveIntensity = 0.16 + Math.sin(clock.elapsedTime * 1.1) * 0.06;
   });
 
