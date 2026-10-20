@@ -453,7 +453,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY,
   account_id INTEGER NOT NULL REFERENCES accounts(id),
   business_id INTEGER REFERENCES businesses(id),  -- launch, pro and sponsored: the profile they are for
-  product TEXT NOT NULL,                         -- launch | pro | sponsored | lease (claim, take over or renew a plot) | market (a stall)
+  product TEXT NOT NULL,                         -- launch | pro | sponsored | lease (claim, take over or renew a plot) | market (a stall) | cart (a cart's one payment: its lines are child orders, parent_id)
   target TEXT,                                   -- lease: plot:<id>; market: booking:<id>
   request TEXT,                                  -- lease: JSON { action, input }: what is done once it is paid
   label TEXT,                                    -- what was bought, in words (the order lists)
@@ -473,6 +473,28 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS orders_business ON orders(business_id, id);
 CREATE INDEX IF NOT EXISTS orders_status ON orders(status, created_at);
 CREATE INDEX IF NOT EXISTS orders_target ON orders(target, status);
+-- The cart (services/api/cart.mjs, docs/monetization/billing.md#the-cart): one per account, its lines, each priced on the server. Adding a line holds
+-- nothing; checkout holds every line at once and makes one parent order (product 'cart') with a child order per line (orders.parent_id).
+CREATE TABLE IF NOT EXISTS carts (
+  account_id INTEGER PRIMARY KEY REFERENCES accounts(id),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS cart_items (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES carts(account_id),
+  kind TEXT NOT NULL,                            -- claim | takeover | renew | exterior | launch | pro | sponsored | stall
+  target TEXT NOT NULL,                          -- plot:<id> | business:<id> | stall:<site>:<week>:<stall>:<start>
+  business_id INTEGER REFERENCES businesses(id), -- launch, pro and sponsored: the profile they are for
+  placement TEXT,                                -- sponsored: discover | category:<id> | district:<id>
+  request TEXT,                                  -- JSON: what the line does (a plot's setup, a stall's booking), cleaned
+  label TEXT NOT NULL,
+  cents INTEGER NOT NULL,                        -- the server's price, at add time (and again at checkout)
+  discount_cents INTEGER NOT NULL DEFAULT 0,     -- of which the Pro plot discount took off this much
+  previous_cents INTEGER,                        -- the price before checkout found it changed (shown until the next checkout)
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cart_items_account ON cart_items(account_id, id);
 -- Every Stripe event applied, by its id: a webhook delivered twice (Stripe retries) is applied once.
 CREATE TABLE IF NOT EXISTS stripe_events (
   id TEXT PRIMARY KEY,
@@ -569,7 +591,7 @@ CREATE TABLE IF NOT EXISTS traffic_seen (
   hours INTEGER NOT NULL DEFAULT 0,              -- a bit per hour (UTC) the player passed
   PRIMARY KEY (day, area_id, who)
 );
--- "Watch this plot": a signed-in player is emailed when an occupied plot's lease enters its grace week and when it opens to a buyout (once each per
+-- "Watch this plot": a signed-in player is emailed when an occupied plot's lease ends (its grace days) and when it opens to a buyout (once each per
 -- lease end). Only admins see how many watch a plot.
 CREATE TABLE IF NOT EXISTS plot_watches (
   plot_id INTEGER NOT NULL REFERENCES plots(id),

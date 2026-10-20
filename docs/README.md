@@ -26,6 +26,7 @@ What VoxelVenture is and does: the concept, the funnel, the features.
 | Document | Read it for |
 | :--- | :--- |
 | [overview.md](product/overview.md) | **Start here.** What the project is, how to run and test it, how the city, game and multiplayer work, and what is next |
+| [sales_funnel_proposal.md](product/sales_funnel_proposal.md) | The sales funnel (free profile, then a 3D storefront, then the next business options), the 7, 14 and 30-day leases, the Pro plot discount, the cart and the plot economy: decided 2026-10-18 |
 | [business_funnel.md](product/business_funnel.md) | Phase 2: free business profiles, the public pages (`/discover`, `/business/[slug]`, categories, districts), calls to action, referral links, owner onboarding and upgrade prompts |
 | [voxelventure_blueprint.md](product/voxelventure_blueprint.md) | The product concept and the ClaimAvenue analysis |
 | [market.md](product/market.md) | The pop-up market: spots, tiers, weekly layouts, booking, shops, notices |
@@ -61,6 +62,8 @@ Payments, attribution, prices, the pilot, and the policies to approve.
 | [takeover_payouts.md](monetization/takeover_payouts.md) | Why the 1.25x take-over rule stays in Gold and real-money take-overs are conventional leases: the legal, tax, fraud and economic reasons |
 | [billing.md](monetization/billing.md) | Phase 4 payments through Stripe Checkout: the Launch Pack, Pro and sponsored placements, and in the game paid leases (claim, take-over, renewal) and market stalls; webhooks, reconciliation, refunds, receipts |
 | [policy_review.md](monetization/policy_review.md) | The draft policies at `/legal`: what to fill in, what to decide, and where the product does not yet match them, before a lawyer's review and approval |
+| [plot_pricing_scenarios.md](monetization/plot_pricing_scenarios.md) | **The real price levels**: every tier at 7, 14 and 30 days (lease, take-over, renewal), with and without Pro, the outside prices and a full city's revenue |
+| [plot_economy_benchmarks.md](monetization/plot_economy_benchmarks.md) | Outside benchmarks for the plot economy, with sources: real shop rents, virtual land, what local businesses pay for listings, fair dynamic pricing and card fees |
 | [pricing_analysis.md](monetization/pricing_analysis.md) | Land prices: the rules (real-estate grounds, location grades), the numbers on a whole city at full occupancy, heatmaps, floors and the claim form |
 
 ### Architecture

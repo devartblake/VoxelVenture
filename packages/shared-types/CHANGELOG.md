@@ -1,8 +1,24 @@
 # Changelog: @voxelventure/shared-types
 
-## Unreleased
+## 0.11.0 (2026-10-19)
 
 - `presence.client.perf` (still version 1, protocol 2): three optional fields, `quality` (`low`, `medium` or `high`: the tier the game draws at), `qualityReasons` (why, comma-separated, at most 120 characters) and `frameP95` (the 95th-percentile frame time in ms). The presence server keeps them as the player's `quality` for the `/admin` monitor. An older game sends none, and an older server ignores them ([performance policy](../../docs/architecture/performance_policy.md)).
+
+## 0.10.0 (2026-10-19)
+
+The cart: several purchases in one Stripe payment (`services/api/cart.mjs`, [billing.md](../../docs/monetization/billing.md#the-cart)). New contracts, all version 1:
+
+- `cart.item`: the body of `POST /cart/items`: `{ kind, plotId?, business?, placement?, input? }`. Never a price.
+- `cart.view`: `GET /cart` (and the answer to `DELETE /cart` and `DELETE /cart/items/:id`): the lines with their server prices, the Pro discount on each, the old price when checkout found it changed, the subtotal, discount and total, `missingCents` to the minimum, `ready`, `feeSavedCents` and a checkout still open (`pending`).
+- `cart.add.result`: the answer to `POST /cart/items`: `{ added, cart }`.
+- `cart.checkout.result`: the answer to `POST /cart/checkout`: `{ checkout: { orderId, url, cents, mode } }` (`mode` is `subscription` with Pro in the cart), or without payments `{ done, cart }`.
+- `cart.checkout.refused`: a refused checkout (409): `cart_unavailable` with `problems`, `price_changed` with `changed`, or `below_minimum` with `missingCents`; each with the cart.
+- `CART_KINDS` (exported with them): the kinds of line.
+- `API_CONTRACTS` now holds 35.
+
+The order lists (`GET /me/orders`, `GET /admin/billing/orders`) carry `parentId` on each order: a cart's line points at the cart's own order (product `cart`). Not a contract.
+
+No existing contract changed.
 
 ## 0.9.0 (2026-10-19)
 

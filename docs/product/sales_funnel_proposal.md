@@ -2,7 +2,7 @@
 
 [Product](README.md) | [The business-first funnel (built)](business_funnel.md) | [Plot pricing: the real price levels](../monetization/plot_pricing_scenarios.md) | [Billing](../monetization/billing.md)
 
-Status: **decided 2026-10-18; terms and the Pro discount built in pricing/short-terms; the cart next.** Written for: the owner, to decide the lease terms, the plan tie-in and the cart before any of it is built. The decisions taken are marked in [section 6](#6-decisions-for-the-owner); the built price levels are in [plot pricing](../monetization/plot_pricing_scenarios.md).
+Status: **decided 2026-10-18; terms and the Pro discount built in pricing/short-terms; the plot economy's data built; the cart built in billing/cart ([billing.md](../monetization/billing.md#the-cart)).** Written for: the owner, to decide the lease terms, the plan tie-in and the cart before any of it is built. The decisions taken are marked in [section 6](#6-decisions-for-the-owner); the built price levels are in [plot pricing](../monetization/plot_pricing_scenarios.md).
 
 ## 1. Why the lease terms need a rethink
 
@@ -81,6 +81,8 @@ flowchart LR
 
 ## 4. A cart in the sales flow
 
+**Built** (billing/cart, `services/api/cart.mjs`, [billing.md](../monetization/billing.md#the-cart)). As decided below, with two changes the owner made: **up to 3 plots** per cart (not one), and **Pro in the same checkout** gives the cart's plot lines the Pro price at once.
+
 Today every purchase is its own Stripe checkout. A cart lets a business take the whole step at once, for example a 30-day plot, a spire, the Launch Pack and a week on a category page, and pay once.
 
 **What can go in it:**
@@ -101,7 +103,7 @@ Today every purchase is its own Stripe checkout. A cart lets a business take the
   - **Line by line,** when the payment arrives, using the actions that already exist (`payLease`, the stall booking, the placements).
   - **A failed line is refunded on its own,** for example a plot someone else took after the hold ran out; the rest still goes through.
 - **Rules:**
-  - one plot per cart (a business has one storefront at a time);
+  - ~~one plot per cart (a business has one storefront at a time)~~ **decided: up to 3 plot lines** (a lease, take-over, renewal or outside upgrade each count as one; each plot once);
   - a minimum total of $4 (decided; this proposal said $2), so the fee never takes more than about 10%;
   - the cart is emptied when checkout completes.
 - **Where it shows:** a cart button in the game's header and on the business pages, and "Add to cart" next to today's buy buttons. "Buy now" stays for a single item.
@@ -151,7 +153,7 @@ Today every purchase is its own Stripe checkout. A cart lets a business take the
    - The renewal window is the last 7 days of a 14- or 30-day lease and the last 3 days of a 7-day lease; the grace after the end is 3 days (it was 7).
 2. **Renewal discount:** **decided, built: 10%** (in place of 50%). **Auto-renew: not now.** It needs saved payment methods, so it waits for them.
 3. **Pro and the storefront:** **decided, built: 15% off plots.** An account with at least one business profile on Pro pays 15% less for a claim, a take-over and a renewal. Outside upgrades and the other products are not discounted. The forms show the discount as its own line, or a "Pro members get 15% off plots" hint that links to the upgrade. (Not A, B or C as written.)
-4. **Cart:** **next.** A **$4 minimum** total, which keeps Stripe's fee at about 10% or less. One plot per cart and Pro in the same checkout are settled when it's built.
+4. **Cart:** **decided, built.** A **$4 minimum** total, which keeps Stripe's fee at about 10% or less; one payment saves 30¢ for each extra item. Up to **3 plot lines** a cart, each plot once. **Pro in the same checkout:** one subscription-mode session, Pro recurring and the rest one-time; the plot lines get the Pro price at once, and keep it if the Pro line fails or is refunded (not clawed back). A line that can no longer be done once paid is refunded on its own.
 5. **Deploy:** **decided:** #51's 3/6/12-month terms never go live; the 7/14/30-day terms replace them. All the server's prices so far are demo data.
 6. **Plot economy:** open.
 
@@ -160,7 +162,7 @@ Today every purchase is its own Stripe checkout. A cart lets a business take the
 ## 7. Build order once decided
 
 1. **Terms and prices:** 7/14/30 days, the 30-day price formula, the renewal discount and the Pro discount. **Built** (pricing/short-terms), except auto-renew, which waits for saved payment methods.
-2. **The cart:** tables, API, one checkout, line-by-line fulfilment and refunds, plus the header button and "Add to cart".
+2. **The cart:** tables, API, one checkout, line-by-line fulfilment and refunds, plus the header button and "Add to cart". **Built** (billing/cart).
 3. **The funnel:**
    - the prompts at each stage, from verified figures;
    - the "Launch your storefront" bundle.

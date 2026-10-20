@@ -213,6 +213,12 @@ export async function tracked(db, account, plotId, kind, fn) {
   } else safe(() => onClaimed(db, { plotId, accountId: account.id, action: kind }));
   return out;
 }
+// The cart's checkout (cart.mjs) writes the same steps for each claim or take-over line: 'checkout' when its payment starts (at the line's price and
+// term), 'failed' when the line was refused (409). Other lines (a renewal, an outside upgrade) are not steps towards a plot.
+export function onCartLine(db, { accountId, plotId, action, step, priceCents = null, termDays = null }) {
+  if (action !== 'claim' && action !== 'takeover') return;
+  safe(() => recordStep(db, accountId, plotId, action, step, step === 'checkout' ? { priceCents, termDays } : {}));
+}
 function recordStep(db, accountId, plotId, kind, step, extra = {}) {
   const row = getPlot(db, plotId);
   return recordIntent(db, { row, kind, step, who: { accountId, visitor: null }, verified: true, ...extra });

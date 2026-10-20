@@ -53,7 +53,7 @@ Each row of `plot_intents` is one step. Its fields:
 | `open` | the game, signed in | The take-over form is opened (its price is written as a `quote` too) |
 | `hold` | the server hold | The player starts setting an empty plot up |
 | `quote` | the server, from the setup sent with the hold | The price the claim form shows, and its term. Written when it changes, at most once per price and term in half an hour. **The price is always worked out by the server from the setup; a client never sends a number.** |
-| `checkout` | the server | A payment is started (with payments on), at the order's price and term |
+| `checkout` | the server | A payment is started (with payments on), at the order's price and term; a claim or take-over in a cart writes it for its own line when the cart's checkout opens (`cart.mjs`), and `failed` when the cart's checkout refuses that line |
 | `claimed` / `taken_over` | the server | It happened: at once without payments, or when the payment arrives. At the price in the ledger. |
 | `failed` | the server | The claim or take-over was refused with a 409: somebody was first, the price changed, the lease protects it, or someone else holds it |
 | `abandoned` | the server | A server hold ended without a claim or a checkout: it ran out, was let go, or the player held another plot. A hold that ended in a checkout isn't abandoned: how the checkout ended is in `orders`. |

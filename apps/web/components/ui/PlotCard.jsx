@@ -34,6 +34,30 @@ import { useAccount } from '@/lib/state/accountStore';
 import { composeTo } from '@/lib/state/chatStore';
 import { voteProblem } from '@/lib/game/buildingOfWeek';
 import { holdRemote, releaseRemote, sendIntent, watchingRemote, watchRemote } from '@/lib/data/economy';
+import { plotSetup, useCart } from '@/lib/state/cartStore';
+
+// "Add to cart" beside a buy button (with a game server, signed in): the line goes into the server's cart, to be paid with other things in one payment
+// (services/api/cart.mjs). `item` is the line, or a function that makes it (null: the form is not filled in yet). Holds nothing.
+function AddToCart({ item, disabled = false, testId = 'add-to-cart' }) {
+  const account = useAccount((s) => s.account);
+  const busy = useCart((s) => s.busy);
+  if (!apiOn() || !account) return null;
+  const add = async () => {
+    const line = typeof item === 'function' ? item() : item;
+    if (!line) return;
+    try {
+      const added = await useCart.getState().add(line);
+      useCityStore.getState().notify(`Added to your cart: ${added?.label ?? 'done'}. Open the cart from the top bar.`);
+    } catch (e) {
+      useCityStore.getState().notify(e.message);
+    }
+  };
+  return (
+    <button type="button" disabled={disabled || busy} onClick={add} className="min-h-11 w-full rounded-lg border border-sx-stroke bg-sx-alt/80 px-3 text-xs font-medium text-slate-100 hover:bg-sx-stroke disabled:opacity-40" data-testid={testId}>
+      Add to cart
+    </button>
+  );
+}
 
 // A question for whoever owns this building now (it opens a new message in Chat; signing in first if needed).
 function MessageOwner({ plot }) {
@@ -265,6 +289,7 @@ function OwnerOutside({ plot }) {
               Undo
             </button>
           </div>
+          {!ended && <AddToCart item={{ kind: 'exterior', plotId: plot.id, input: { exterior: pending.config } }} disabled={busy} testId="exterior-add-to-cart" />}
         </div>
       )}
       <p className="text-[10px] text-slate-500">Free changes show in the city straight away. More floors mean a bigger building on the map and more rooms to design inside.</p>
@@ -335,6 +360,7 @@ function TakeOver({ plot }) {
       <button type="submit" disabled={!isValidLogo(form.logo)} className="w-full rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-amber-500 disabled:opacity-40">
         Take over for ${price.toLocaleString()}
       </button>
+      <AddToCart disabled={!isValidLogo(form.logo)} testId="takeover-add-to-cart" item={() => (form.title ? { kind: 'takeover', plotId: plot.id, input: plotSetup({ title: form.title, buildingType: form.type, website: form.link || 'https://example.com', variant: form.variant, logo: form.logo, description: form.about }) } : null)} />
     </form>
   );
 }
@@ -403,6 +429,7 @@ function LeaseBox({ plot }) {
         </div>
       )}
       {canRenew && <div className="mt-1"><ProNote pro={pro} discount={renewal.discount} /></div>}
+      {canRenew && typeof plot.id === 'number' && <div className="mt-1.5"><AddToCart item={{ kind: 'renew', plotId: plot.id, input: { leaseDays: days } }} disabled={busy} testId="renew-add-to-cart" /></div>}
     </div>
   );
 }
@@ -860,6 +887,7 @@ export default function PlotCard() {
             <button type="submit" disabled={!isValidLogo(logo)} className="w-full rounded-lg bg-green-600 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-green-500 disabled:opacity-40">
               Claim {p.luxury ? 'Luxury Estate' : p.prime ? 'Prime Plot' : 'Plot'} (${claim.total.toLocaleString()})
             </button>
+            <AddToCart disabled={!isValidLogo(logo)} testId="claim-add-to-cart" item={() => (plotTitle ? { kind: 'claim', plotId: p.id, input: plotSetup({ title: plotTitle, buildingType, website: plotLink || 'https://example.com', variant, logo, description: plotAbout, leaseDays, exterior: sent }) } : null)} />
           </form>
           )}
         </Fold>

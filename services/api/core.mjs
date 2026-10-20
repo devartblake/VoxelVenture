@@ -256,7 +256,8 @@ export function plotHeldByOther(db, plotId, accountId, at = now()) {
 const HELD = 'Someone is paying for this plot right now. Try again in half an hour, or pick another.';
 
 // Claim an empty lot. Atomic: if two players race for it, exactly one wins and the other gets 409.
-export function claimPlot(db, account, id, input) {
+// opts.pro (the cart, billing.mjs; never from a browser): price as Pro or not, in place of asking hasPro, for a cart that buys Pro in the same payment.
+export function claimPlot(db, account, id, input, opts = {}) {
   requireAccount(account);
   const b = cleanBusiness(input);
   return transaction(db, () => {
@@ -268,7 +269,7 @@ export function claimPlot(db, account, id, input) {
     // the price the claim form shows (lib/game/claimPrice.js): the land and the outside chosen are the price of 30 days, the plot's value; the term pays
     // its share, less 15% if the account has Pro
     const exterior = exteriorOf(input, p, b.buildingType);
-    const quote = leaseQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term, { pro: hasPro(db, account.id) });
+    const quote = leaseQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term, { pro: opts.pro ?? hasPro(db, account.id) });
     const price = quote.total;
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=? AND owner_name IS NULL')
       .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.period, term, now(), now() + term * LEASE_DAY, now(), p.id);
@@ -280,7 +281,7 @@ export function claimPlot(db, account, id, input) {
 
 // Take over a business that is not yours: pay 1.25x what it is worth (a player's: its value, the price of 30 days; the city's own: its land) and the
 // outside you choose, for 30 days, or the term's share of that (less 15% with Pro); the old owner is paid out and logged. Atomic.
-export function takeOverPlot(db, account, id, input) {
+export function takeOverPlot(db, account, id, input, opts = {}) {
   requireAccount(account);
   const b = cleanBusiness(input);
   return transaction(db, () => {
@@ -293,7 +294,7 @@ export function takeOverPlot(db, account, id, input) {
     // the price the caller saw must still be the price (somebody may have taken it over in the meantime)
     const term = leaseTerm(input);
     const exterior = exteriorOf(input, p, b.buildingType);
-    const quote = takeoverQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term, { pro: hasPro(db, account.id) });
+    const quote = takeoverQuote(pricedPlot(p), exterior ? JSON.parse(exterior) : null, b.buildingType, term, { pro: opts.pro ?? hasPro(db, account.id) });
     const price = quote.total;
     if (input.expectedPrice != null && Number(input.expectedPrice) !== price) fail(409, 'The price changed: reload the plot.', 'price_changed');
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, paid_to, at) VALUES (?, 'takeover', ?, ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, p.owner_name, now());

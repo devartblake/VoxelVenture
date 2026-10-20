@@ -1,23 +1,24 @@
 // Uploads the interior props (apps/web/public/items/<id>/model.glb and thumbnail.webp) and their manifest to the props bucket in object storage
 // (Linode Object Storage, S3-compatible), with rclone, under the manifest's content-addressed keys (scripts/props/build-manifest.mjs).
 //   npm run props:upload -- --dry-run                           list what would be uploaded, with content types and cache headers (no rclone needed)
-//   PROPS_REMOTE=linode:voxelventure-props npm run props:upload  upload (or --remote linode:voxelventure-props)
+//   PROPS_REMOTE=props:vv-asset-prod npm run props:upload       upload (or --remote props:vv-asset-prod); production's bucket is vv-asset-prod
 // No secret goes on the command line: the bucket's keys are in rclone's settings file, RCLONE_CONFIG (default /etc/voxelventure/rclone.conf
 // when it exists, the file deploy/backup.sh uses too), under the remote's name. PROPS_REMOTE is only "<remote name>:<bucket>".
 // It only adds: files are copied (rclone copy --checksum skips one already there), nothing in the bucket is deleted, so a design saved with
 // an older key keeps loading. The manifest goes last, so it never lists a file that is not there yet.
 //
 // The bucket (once, in Linode Cloud Manager or with s3cmd; the owner's runbook has the steps):
-//   - a bucket of its own for the props, e.g. voxelventure-props, in the region the server is in (not the backups bucket: this one is public)
+//   - a bucket of its own for the props (production: vv-asset-prod, us-east-1), in the region the server is in (not the backups bucket: this one is public)
 //   - public read for the props: each file is uploaded with the public-read ACL (PROPS_ACL=private to leave that to a bucket policy instead).
 //     Its public address, https://<bucket>.<region>.linodeobjects.com, is NEXT_PUBLIC_PROPS_BASE_URL in /etc/voxelventure/web.env.
 //   - CORS: the browser fetches the .glb models from the page, so GET (and HEAD) must be allowed from https://voxelventure.app and
-//     https://staging.voxelventure.app: scripts/props/cors.xml, applied with  s3cmd setcors scripts/props/cors.xml s3://voxelventure-props
-//   - the rclone remote, in /etc/voxelventure/rclone.conf (chmod 640, root:voxel), e.g.
-//       [linode]
+//     https://staging.voxelventure.app: scripts/props/cors.xml, applied with  s3cmd setcors scripts/props/cors.xml s3://vv-asset-prod
+//   - the rclone remote, in /etc/voxelventure/rclone.conf (chmod 640, root:voxel), beside the backups' [linode] remote, with its own key
+//     (Limited Access, read/write on the props bucket only). No comment after a [section] name: rclone then can't read the file at all. E.g.
+//       [props]
 //       type = s3
-//       provider = Linode
-//       endpoint = us-ord-1.linodeobjects.com
+//       provider = Other
+//       endpoint = us-east-1.linodeobjects.com
 //       access_key_id = ...      (an access key limited to the props bucket, read/write)
 //       secret_access_key = ...
 // Every file is sent with Cache-Control "public, max-age=31536000, immutable" (its key changes when it does) and its content type
@@ -83,7 +84,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
 
   if (!remote || !/^[\w.-]+:[\w.-]+/.test(remote)) {
-    console.error('Name the bucket as an rclone remote: PROPS_REMOTE=linode:voxelventure-props (or --remote). See this script\'s header for setting it up.');
+    console.error('Name the bucket as an rclone remote: PROPS_REMOTE=props:vv-asset-prod (or --remote). See this script\'s header for setting it up.');
     process.exit(2);
   }
   if (!process.env.RCLONE_CONFIG && fs.existsSync('/etc/voxelventure/rclone.conf')) process.env.RCLONE_CONFIG = '/etc/voxelventure/rclone.conf';

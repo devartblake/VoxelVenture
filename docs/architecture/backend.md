@@ -94,6 +94,20 @@ What a demand index will be fitted on after the pilot ([plot_economy_data.md](..
 - **Tables:** `plot_holds`, `plot_intents`, `street_traffic`, `traffic_seen`, `plot_watches`.
 - **Tests:** `tests/economy.test.mjs`.
 
+## The cart (`services/api/cart.mjs`)
+Several purchases in one Stripe payment ([billing.md](../monetization/billing.md#the-cart)). One cart per account; every line is priced on the server when it is added and again at checkout. Contracts: `cart.*` in `@voxelventure/shared-types`.
+
+| Route | Who | What |
+| --- | --- | --- |
+| `GET /cart` | Signed in | The lines (each with its price, the Pro discount on it, and the old price if checkout found it changed), the subtotal, the Pro discount, the total, `missingCents` to the $4 minimum, `ready`, and a checkout still open (`pending`) |
+| `POST /cart/items` | Signed in | Add a line: `{ kind, plotId?, business?, placement?, input? }` (kinds: `claim`, `takeover`, `renew`, `exterior`, `launch`, `pro`, `sponsored`, `stall`). Checked and priced now; holds nothing. `409 plot_in_cart`, `too_many_plots` (3), `pro_in_cart`, `already_in_cart`, `cart_full` (10), or the purchase's own refusal. The business products need payments on (`503 billing_off`). |
+| `DELETE /cart/items/<id>`, `DELETE /cart` | Signed in | Remove a line; empty the cart |
+| `POST /cart/checkout` | Signed in | Payments on: every line checked and held at once, one parent order (`product = 'cart'`) with a child order per line (`orders.parent_id`), and `{ checkout: { orderId, url, cents, mode } }` (`subscription` with Pro, else `payment`). Payments off: the lines done at once, `{ done, cart }`. Refused with `409 cart_unavailable` (`problems`: which lines and why; nothing held), `price_changed` (the cart now shows the new prices) or `below_minimum` (`missingCents`). |
+
+- **Hooks elsewhere:** the webhook and reconciliation fulfil a paid cart line by line and refund a line that can no longer be done on its own (`billing.mjs` `markCartPaid`, `refundOrder`); a claim or take-over line writes the plot economy's `checkout` step when the session opens, and `failed` when checkout refuses it (`economy.onCartLine`).
+- **Tables:** `carts`, `cart_items`; `orders.parent_id`.
+- **Tests:** `tests/cart.test.mjs`.
+
 ## Chat and private messages (`services/api/messaging.mjs`)
 Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The API keeps everything that lasts or needs an account; the presence server only passes nearby lines on.
 - **Signed-in chat:** `POST /messaging/ticket` gives a signed-in game a one-use ticket (a minute); the presence server redeems it (`/internal/messaging/redeem`, with `MP_NOTIFY_SECRET`) and from then on that connection speaks as the account. Every half minute it asks which bindings are still good (`/internal/messaging/bindings`): signing out or a ban ends them.
@@ -113,7 +127,7 @@ Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The
 - **`MESSAGING_READONLY=1`** pauses every messaging write (sending, read positions, requests, blocks, reports, nearby lines) with `503`, while reading and the rest of the game carry on: used while moving messages.
 
 ## What it does not do yet
-- **Payments and Gold on the server** (task 6): with Stripe set up, claims, take-overs, renewals and market stalls are paid through Stripe Checkout ([billing.md](../monetization/billing.md)). Without Stripe, a claim records its price in the ledger but charges nothing. The server's Credits move only through visit quests and their budgets; nothing is bought with money, and the game's own Gold stays local.
+- **Payments and Gold on the server** (task 6): with Stripe set up, claims, take-overs, renewals and market stalls are paid through Stripe Checkout ([billing.md](../monetization/billing.md)), one by one or together through the cart. Without Stripe, a claim records its price in the ledger but charges nothing. The server's Credits move only through visit quests and their budgets; nothing is bought with money, and the game's own Gold stays local.
 - **Realtime:** done for ownership and ad changes (push from the API through the presence server). With a server, the building card's statistics and history come from `/plots/<id>/stats` and `/plots/<id>/history` (`lib/data/liveStats.js`); the simulated provider is used only without one.
 - Automatic image moderation needs an outside service (the hook is there); until one is set up, pictures are caught by reports. Production needs HTTPS, a real `API_ORIGIN`, backups of the database file (or Postgres), and a longer-lived session store.
 

@@ -1,5 +1,5 @@
 <!-- The props bucket's CORS rules (scripts/props/upload.mjs): the site and staging may fetch the props (the .glb models) from the page.
-     s3cmd setcors scripts/props/cors.xml s3://voxelventure-props        and check with: s3cmd info s3://voxelventure-props -->
+     s3cmd setcors scripts/props/cors.xml s3://vv-asset-prod        and check with: s3cmd info s3://vv-asset-prod -->
 <CORSConfiguration>
   <CORSRule>
     <AllowedOrigin>https://voxelventure.app</AllowedOrigin>
