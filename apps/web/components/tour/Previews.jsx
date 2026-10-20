@@ -83,7 +83,7 @@ export function ClaimPreview({ plot }) {
         <div className="flex justify-between text-emerald-300" data-testid="tour-pro-discount"><span>Pro: {month.proOff}% off plots</span><span className="font-mono">−{dollars(Math.round((month.price - month.proPrice) * 100) / 100)}</span></div>
         <div className="mt-1 flex justify-between border-t border-sx-stroke pt-1 font-bold text-white"><span>Total with Pro</span><span className="font-mono">{dollars(month.proPrice)}</span></div>
       </div>
-      <button type="button" disabled className="min-h-11 w-full rounded-lg bg-green-600 text-sm font-medium text-white opacity-50">Claim plot ({dollars(month.price)})</button>
+      <button type="button" disabled className="min-h-11 w-full rounded-lg bg-green-600 text-sm font-medium text-white opacity-50">Claim plot ({dollars(month.proPrice)} with Pro)</button>
       <Note>Preview: in the tour nothing is claimed or paid. In the city the same form is open to anyone signed in.</Note>
     </div>
   );
