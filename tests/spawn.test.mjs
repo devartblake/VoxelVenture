@@ -7,7 +7,7 @@ const { generateCity } = await imp('city/cityGenerator.js');
 const { buildCollisionMap, findSpawn, isBlocked, AVATAR_RADIUS } = await imp('sim/collision.js');
 const { findWalkPath, prepareWalkMap } = await imp('sim/pathfind.js');
 const { graphFor } = await imp('city/routing.js');
-const { spawnCandidates, pickSpawn, startSpot, spawnMode, rememberLink, SPAWN_NEAR, SPAWN_BUSINESSES } = await imp('game/spawn.js');
+const { spawnCandidates, pickSpawn, startSpot, spawnMode, rememberLink, facingCentre, SPAWN_NEAR, SPAWN_BUSINESSES, SPAWN_EDGE } = await imp('game/spawn.js');
 
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
@@ -37,6 +37,12 @@ for (const seed of [20260101, 7, 42]) {
   check(`seed ${seed}: none inside a plot (built or empty)`, inPlot.length === 0, JSON.stringify(inPlot.slice(0, 2)));
   const lonely = list.filter((c) => plots.filter((p) => p.owner && p.buildingType !== 'house' && Math.hypot(p.x - c.x, p.z - c.z) <= SPAWN_NEAR).length < SPAWN_BUSINESSES);
   check(`seed ${seed}: each has at least ${SPAWN_BUSINESSES} businesses within ${SPAWN_NEAR} units`, lonely.length === 0, String(lonely.length));
+  {
+    // never on the outer edge: no spot further from the centre than SPAWN_EDGE of the businesses
+    const reach = plots.filter((p) => p.owner && p.buildingType !== 'house').map((p) => Math.hypot(p.x - layout.center.x, p.z - layout.center.z)).sort((x, y) => x - y);
+    const edge = reach[Math.floor(SPAWN_EDGE * reach.length)];
+    check(`seed ${seed}: no spot on the outer edge (beyond ${edge.toFixed(0)} from the centre)`, list.every((c) => Math.hypot(c.x - layout.center.x, c.z - layout.center.z) <= edge + 1e-9));
+  }
   check(`seed ${seed}: the same list every time`, JSON.stringify(spawnCandidates(layout, collision, plots)) === JSON.stringify(list));
 
   // every spot can be walked to from the old fixed spot (none is on a walled-in island)
@@ -97,6 +103,17 @@ for (const seed of [20260101, 7, 42]) {
   const empty = { ...layout, seed: 124, roads: layout.roads.filter((r) => r.kind === 'avenue' && r.class === 'arterial') };
   const noPlots = startSpot({ layout: empty, collision, plots: [] });
   check('with no good spot it falls back to the old one', JSON.stringify(noPlots) === JSON.stringify(findSpawn(empty, collision)));
+}
+
+{
+  // the follow camera starts on the side away from the centre, looking across the avatar into the city
+  const centre = { center: { x: 10, z: -5 } };
+  const at = (az, d = 28) => ({ x: Math.sin(az) * d, z: Math.cos(az) * d }); // the camera's offset from the avatar (FollowCamera)
+  for (const spot of [{ x: 110, z: -5 }, { x: 10, z: 170 }, { x: -60, z: -90 }]) {
+    const cam = at(facingCentre(spot, centre));
+    const toCentre = { x: centre.center.x - spot.x, z: centre.center.z - spot.z };
+    check(`the camera looks from ${spot.x},${spot.z} towards the centre`, cam.x * toCentre.x + cam.z * toCentre.z < 0); // the camera is behind: opposite the centre
+  }
 }
 
 console.log(fails ? `\n${fails} check(s) failed` : '\nall spawn checks passed');
