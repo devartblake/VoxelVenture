@@ -5,6 +5,7 @@ Phase 4 of the [competitive alignment review](../competitive-research/claimavenu
 - **Business profiles:** the Launch Pack, Pro and sponsored placements.
 - **The game:** leases (claiming, taking over or renewing a plot), building onto a plot's outside, and market stalls ([below](#in-the-game-leases-and-market-stalls)).
 - **The cart:** any of these together, in one payment ([below](#the-cart)).
+- **Promo codes:** discount codes the owner makes in `/admin/promos`, applied at any of these checkouts ([below](#promo-codes)).
 
 The code is in `services/api/billing.mjs`. The catalogue is in `packages/business-core/src/plans.js`, imported everywhere as `@voxelventure/business-core` ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). The tests are `tests/billing.test.mjs` and `tests/billing-game.test.mjs`, which run against a fake Stripe server.
 
@@ -116,6 +117,81 @@ If any line cannot be had, nothing is held, no session is opened, and the answer
 **Without payments** (no Stripe settings): the game's lines (plots, stalls) are done at once when the cart is checked out, all or nothing, as their own routes do without payments. The Launch Pack, Pro and sponsored weeks cannot go in the cart (`503 billing_off`, as their own checkout).
 
 **Where it shows:** a cart button with a count in the game's header and in the business pages' menu, `/cart` (the lines with their prices, the Pro discount, the total, the $4 note, remove buttons and Checkout), and **Add to cart** beside the existing buy buttons: the claim form, a take-over, a renewal, a paid outside upgrade, the market stall form, and the Launch Pack, Pro and sponsored buttons on `/business/manage`.
+
+## Promo codes
+
+Discount codes for **VoxelVenture's own services**, made by the owner in `/admin/promos` (`services/api/promo.mjs`; the pricing rule is `promoDiscount` in `@voxelventure/business-core`, the same function the pages use to show it). Not the merchants' coupons: a business giving its own customers a coupon (`coupon_claims`, [conversions.md](conversions.md)) is a different feature, and nothing here touches it. Tests: `tests/promo.test.mjs`.
+
+**A code** (`promo_codes`): its text (unique whatever the case; stored upper case), **percent** (1 to 100) or an **amount** (cents), the **product groups** it covers, a **minimum total**, **uses in all** (none: unlimited) and **per account** (default 1), a **start** and an **end** (none: no end), **new customers only**, active or not, a campaign and a note, who made it and when.
+
+| Group | Covers |
+| --- | --- |
+| `plots` | A claim, a take-over and a renewal |
+| `outside` | A building upgrade (the outside) |
+| `launch` | The Launch Pack |
+| `pro` | Pro, **the first month only** |
+| `sponsored` | Sponsored weeks |
+| `market` | Market stalls |
+| `all` | Everything above |
+
+The groups and which purchase is in which are `PROMO_GROUPS` in `@voxelventure/business-core`, the one place the server and the pages read.
+
+**Applying one.** One code per checkout: "Have a code?" under the price on the claim form, a take-over, a renewal, a paid outside upgrade, the market stall form, a profile's plans on `/business/manage` (the Launch Pack, Pro and sponsored weeks), and the cart. A single checkout sends it as `promoCode` beside what it already sends; the cart keeps it on the server (`POST /cart/promo`). `POST /promo/check` lets a page check a code before paying. The browser never sends an amount.
+
+**The price.** The server prices the code at checkout, every time:
+
+- only on the lines the code covers, and **after** the Pro plot discount and the renewal discount (the code comes last);
+- percent: each covered line loses that share, to the cent; amount: the amount, at most what the covered lines cost, shared over them in proportion to their price;
+- the minimum total is compared with the whole checkout before the code;
+- if what is left to pay is above $0 but under **$0.50** (Stripe's minimum), the discount is made smaller so the payment is exactly $0.50;
+- shown as its own line: "Code SPRING25: −$X" on the forms, and its own line in the cart (with each line's share).
+
+**What Stripe is sent.**
+
+| Purchase | How the code is charged |
+| --- | --- |
+| A one-time line (a lease, take-over, renewal, outside upgrade, stall, the Launch Pack, a sponsored week) | Its `unit_amount` is its price less its share of the code. The order's `cents` is what is charged, `promo_cents` what the code took off |
+| Pro (a subscription) | The recurring price stays the catalogue's ($19 a month). The code takes the **first month** down with a Stripe coupon made for that order alone (`POST /v1/coupons`: `amount_off` in cents, `duration: once`, `max_redemptions: 1`, idempotency key `vv-promo-coupon-<order>`) passed in the session's `discounts`. Every month after is charged in full |
+| A cart with Pro | Subscription mode as before: the one-time lines at their price less their share; Pro at its full price, its share as the same one-off coupon on the first invoice |
+
+**Free orders.** A checkout the code makes free (a total of $0) opens **no Stripe session**: the order is paid at 0 cents and carried out at once, exactly as a payment would carry it out (`billing.mjs` `comp`), audited as `billing.free_order`, and the player is sent to the same "paid" page (`?paid=<order>`). A cart that is free does every line at once the same way (`mode: 'free'`). **Decided: Pro still goes through Stripe** even when its first month is free: the session completes with nothing to pay (`payment_status: no_payment_required`) and saves a card, so the plan can renew. A free order is not a "customer" for new-customers-only codes, and has no Stripe receipt.
+
+**The cart's $4 minimum** is on the total before the code. A cart that meets it may then cost less than $4, or nothing.
+
+**Uses** (`promo_redemptions`, one per checkout, on the order it made: a single purchase, or a cart's parent order):
+
+| Status | When |
+| --- | --- |
+| `reserved` | The checkout started. It counts toward the limits at once, so a code with one use left cannot be used in two checkouts at the same time |
+| `redeemed` | The payment arrived (the webhook or reconciliation), or a free order was done |
+| `released` | The checkout expired, failed or was replaced. The use is free again |
+| `voided` | The order was refunded in full. The use is free again |
+
+- Using the same code again while an earlier checkout of yours still holds it **replaces** that checkout: its holds are let go and its Stripe page is closed (as checking out a cart again does).
+- A **cart line refunded** on its own takes that line's share off what the code is counted as having given (`cents_off`); the last line refunded voids the use.
+- A payment that arrives for a checkout that was given up still counts: the use is redeemed.
+
+**Errors.** **Decided:** one generic answer, `400 promo_invalid` "That code isn't valid.", for every reason a guesser could learn something from: an unknown code, one switched off, not started, ended, used up, or new customers only. A clear reason only where the player already knows the code or can act on it:
+
+- `409 promo_used`: "You have already used this code." (only ever about your own uses);
+- `400 promo_not_applicable`: "This code doesn't apply to what you're buying.";
+- `400 promo_minimum`: "This code needs a total of at least $X before the discount."
+
+The admin sees the real state of each code in `/admin/promos`.
+
+**Guessing.** Failed tries that get the generic answer are counted **per account and per network** (the network only as a hash, in memory). After `PROMO_TRIES` (default 10) in `PROMO_TRY_MINUTES` (default 15), every code check from that account or network is refused with `429 promo_rate_limited` (and `retryAfterMs`) until the window ends, a right code too. A restart forgets the counts.
+
+**The admin side** (`/admin/promos`, linked from the other admin pages; the API's admin check, the same one as every `/admin` route):
+
+- **Make** one code (one you choose, or generated) or a batch of up to 500 generated codes for a campaign. A generated code is `VV-XXXX-XXXX` (the prefix can change) from letters and digits nobody misreads (no 0, O, 1, I or L), never one that exists. The form's defaults: percent off, everything, one use per account, no total limit, no end.
+- **List** with filters (status, group, text, campaign) and each code's usage: uses paid and in checkout, what was taken off, what those orders brought in. **One code** with every use of it.
+- **Deactivate and reactivate**; change the **limits, dates, minimum, new-customers flag and note**. What a code takes off and what it covers cannot change once made (every use is priced by the same rule): make a new code instead.
+- **Export** the list as CSV. **Copy** a code, or a whole batch.
+- Every change is in the audit trail (`promo.create`, `promo.update`, `promo.deactivate`, `promo.reactivate`), and every checkout, payment and refund records the code it used.
+
+**Terms.** The refund policy and the terms say it: one code per checkout, no cash value, it cannot be combined with another code, Pro codes cover the first month only, a code can be withdrawn or changed, and a refund is of what was paid ([`lib/legal/policies.js`](../../lib/legal/policies.js)).
+
+**For the owner to decide:** the defaults above (10 failed tries in 15 minutes; the generic error), whether a code may ever cover more than Pro's first month (a `duration: repeating` coupon), and whether a refunded customer should count as a customer for new-customers-only codes (today they do).
 
 ## Refunds and support
 

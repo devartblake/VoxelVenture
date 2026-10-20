@@ -56,6 +56,7 @@ export default function CartPage() {
                   <p className="text-xs uppercase tracking-wide text-sx-muted">{KIND[i.kind] ?? i.kind}</p>
                   <p className="break-words text-slate-100">{i.label}</p>
                   {i.discountCents > 0 && <p className="text-xs text-emerald-300">Pro price: {money(i.discountCents)} off</p>}
+                  {i.promoCents > 0 && <p className="text-xs text-emerald-300">Code {cart.promo?.code}: {money(i.promoCents)} off</p>}
                   {i.previousCents != null && i.previousCents !== i.cents && <p className="text-xs text-amber-300">The price changed: it was {money(i.previousCents)}.</p>}
                   {problems[i.id] && <p className="text-xs text-rose-300" role="alert">Cannot be bought now: {problems[i.id]}</p>}
                 </div>
@@ -65,16 +66,14 @@ export default function CartPage() {
             ))}
           </ul>
           <dl className="mt-4 space-y-1 rounded-2xl border border-sx-stroke bg-sx-alt/50 p-4 text-sm">
-            {cart.discountCents > 0 && (
-              <>
-                <div className="flex justify-between text-slate-300"><dt>Subtotal</dt><dd className="font-mono">{money(cart.subtotalCents)}</dd></div>
-                <div className="flex justify-between text-emerald-300"><dt>Pro discount (15% off plots)</dt><dd className="font-mono">−{money(cart.discountCents)}</dd></div>
-              </>
-            )}
+            {(cart.discountCents > 0 || cart.promo?.cents > 0) && <div className="flex justify-between text-slate-300"><dt>Subtotal</dt><dd className="font-mono">{money(cart.subtotalCents)}</dd></div>}
+            {cart.discountCents > 0 && <div className="flex justify-between text-emerald-300"><dt>Pro discount (15% off plots)</dt><dd className="font-mono">−{money(cart.discountCents)}</dd></div>}
+            {cart.promo?.cents > 0 && <div className="flex justify-between text-emerald-300" data-testid="cart-promo"><dt>Code {cart.promo.code}{cart.items.some((i) => i.kind === 'pro' && i.promoCents > 0) ? ' (Pro: first month only)' : ''}</dt><dd className="font-mono">−{money(cart.promo.cents)}</dd></div>}
             <div className="flex justify-between text-base font-semibold text-white"><dt>Total</dt><dd className="font-mono" data-testid="cart-total">{money(cart.totalCents)}</dd></div>
             {cart.feeSavedCents > 0 && <p className="text-xs text-sx-muted">One payment instead of {cart.count} saves {money(cart.feeSavedCents)} in card fees.</p>}
             {cart.missingCents > 0 && <p className="text-xs text-amber-300" data-testid="cart-minimum">A cart checkout is at least {money(cart.minimumCents)}: add {money(cart.missingCents)} more, or use Buy now for a single item.</p>}
           </dl>
+          {cart.payments && <CartPromo cart={cart} busy={busy} />}
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" disabled={busy || !cart.ready} onClick={() => useCart.getState().checkout()} className="min-h-11 flex-1 rounded-xl bg-gradient-to-r from-sx-purple to-sx-blue px-5 font-bold text-white hover:brightness-110 disabled:opacity-40" data-testid="cart-checkout">
               {cart.payments ? `Check out · ${money(cart.totalCents)}` : 'Check out'}
@@ -85,6 +84,43 @@ export default function CartPage() {
         </>
       )}
     </div>
+  );
+}
+
+// "Have a code?": one promo code for the whole cart (services/api/promo.mjs). The server checks it on the cart's lines and keeps it with the cart; it
+// comes off the lines it covers, after the Pro discount, and is checked again at checkout.
+function CartPromo({ cart, busy }) {
+  const promoError = useCart((s) => s.promoError);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  if (cart.promo)
+    return (
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sx-stroke p-3 text-sm" data-testid="cart-promo-applied">
+        <span className={cart.promo.error ? 'text-amber-300' : 'text-emerald-300'}>
+          Code {cart.promo.code}{cart.promo.label ? ` (${cart.promo.label})` : ''}{cart.promo.error ? `: ${cart.promo.error} Remove it to check out.` : ''}
+        </span>
+        <button type="button" disabled={busy} onClick={() => useCart.getState().removePromo()} className="min-h-11 rounded-lg border border-sx-stroke px-3 text-slate-200 hover:bg-sx-alt disabled:opacity-40">Remove code</button>
+      </div>
+    );
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="mt-3 min-h-11 text-sm text-sx-cyan underline hover:text-white" data-testid="cart-promo-open">
+        Have a code?
+      </button>
+    );
+  const apply = async (e) => {
+    e.preventDefault();
+    if (draft.trim() && (await useCart.getState().applyPromo(draft.trim()))) setDraft('');
+  };
+  return (
+    <form onSubmit={apply} className="mt-3 space-y-1">
+      <div className="flex gap-2">
+        <label htmlFor="cart-promo" className="sr-only">Promo code</label>
+        <input id="cart-promo" value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={32} autoComplete="off" autoCapitalize="characters" spellCheck={false} placeholder="Promo code" className="min-h-11 min-w-0 flex-1 rounded-lg border border-sx-stroke bg-sx-panel px-3 uppercase text-white focus:border-sx-cyan focus:outline-none" data-testid="cart-promo-input" />
+        <button type="submit" disabled={busy || !draft.trim()} className="min-h-11 rounded-lg border border-sx-stroke px-4 text-sm text-slate-100 hover:bg-sx-alt disabled:opacity-40">Apply</button>
+      </div>
+      {promoError && <p role="alert" className="text-sm text-rose-300">{promoError}</p>}
+    </form>
   );
 }
 
@@ -106,7 +142,7 @@ function PaymentReturn() {
         if (o.status === 'paid' || o.status === 'refunded') {
           const lines = (await request('GET', '/me/orders')).orders.filter((x) => x.parentId === Number(paid));
           const back = lines.filter((x) => x.status === 'refunded');
-          setState({ ok: true, text: `Thank you: your purchase is done. Stripe emails your receipt.${back.length ? ` ${back.map((x) => x.label).join(', ')} could no longer be had, so ${back.length === 1 ? 'it was' : 'they were'} refunded.` : ''}` });
+          setState({ ok: true, text: `Thank you: your purchase is done.${o.cents > 0 ? ' Stripe emails your receipt.' : ''}${back.length ? ` ${back.map((x) => x.label).join(', ')} could no longer be had, so ${back.length === 1 ? 'it was' : 'they were'} refunded.` : ''}` });
           return useCart.getState().load();
         }
         if (o.status !== 'pending') return setState({ ok: false, text: 'That payment did not go through. Nothing was charged, and your cart is kept.' });

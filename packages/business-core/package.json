@@ -1,6 +1,6 @@
 {
   "name": "@voxelventure/business-core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Products, prices, placements, plans and entitlements.",
   "type": "module",

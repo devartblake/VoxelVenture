@@ -10,6 +10,7 @@ import { apiOn } from '@/lib/data/api';
 import { HOURS, MARKET_LIMITS, MARKET_STYLES, TIERS, TIER_COLOURS, cleanParams, dollars, planMarket } from '@/lib/market/layout';
 import { addWeeks, autoParams, bookingEnd, bookingProblem, earliestStart, weekLabel, weekStartOf, weekWindow } from '@/lib/market/weeks';
 import { cleanRates } from '@/lib/market/local';
+import PromoField from '../PromoField';
 
 // The pop-up market panel: the plan of the market with every stall coloured by how busy it is, the stall you picked (its price and a booking form for
 // 24, 48 or 72 hours), your own bookings, and, for an admin, the weekly layout editor.
@@ -287,6 +288,7 @@ function StallCard({ data, stall }) {
           )}
           <input value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={60} placeholder="Your stall's name" className="mb-1.5 w-full rounded-md border border-sx-stroke bg-sx-page px-2 py-1.5 text-slate-100 placeholder:text-slate-500" aria-label="Stall name" />
           <input value={product} onChange={(e) => setProduct(e.target.value)} maxLength={120} placeholder="What you sell (optional)" className="mb-2 w-full rounded-md border border-sx-stroke bg-sx-page px-2 py-1.5 text-slate-100 placeholder:text-slate-500" aria-label="What you sell" />
+          <div className="mb-2"><PromoField scope="stall" kind="stall" cents={stall.cents} /></div>
           <button type="button" disabled={busy || !chosen || !brand.trim()} onClick={submit} className="w-full rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-40">
             Book for {dollars(stall.cents)}
           </button>

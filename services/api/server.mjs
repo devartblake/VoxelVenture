@@ -21,6 +21,7 @@
 //   NODE_ENV=production (or API_STRICT=1)  refuse to start with unsafe settings (services/api/config.mjs)
 //   INTERNAL_SECRET  the credential the messaging service and this API use with each other (needed with MESSAGING_SERVICE_URL)
 //   STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / PUBLIC_SITE_URL / TERMS_URL   payments through Stripe Checkout (services/api/billing.mjs)
+//   PROMO_TRIES / PROMO_TRY_MINUTES   failed promo code tries allowed per account and per network, and the window (defaults 10 in 15 minutes: promo.mjs)
 //   SOCIAL_POSTS / X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_SECRET / PUBLIC_SITE_URL   welcome posts on X (services/api/social.mjs)
 //   REFERRAL_SECRET  signs referral codes (?ref= links, services/api/business.mjs). Set it in production; changing it voids every shared link
 //   PROFILE_VIEW_CAP / PROFILE_CTA_CAP   verified profile views and call-to-action presses per network per profile per day (defaults 3 and 1)
@@ -40,6 +41,7 @@ import * as auditLog from './audit.mjs';
 import * as social from './social.mjs';
 import * as billing from './billing.mjs';
 import * as cart from './cart.mjs';
+import * as promo from './promo.mjs';
 import * as conversions from './conversions.mjs';
 import * as pilot from './pilot.mjs';
 import * as interiors from './interiors.mjs';
@@ -157,6 +159,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   });
   // what verifying a step of the plot economy's data needs (economy.mjs): as a visit, a few seconds of presence first
   const intentCtx = (req) => ({ ip: clientIp(req), userAgent: req.headers['user-agent'], salt: env.IP_SALT, minAgeMs: env.HUMAN_MIN_AGE_MS != null ? Number(env.HUMAN_MIN_AGE_MS) : undefined });
+  // what a checkout passes on to a promo code check (promo.mjs): the network (for the guessing limit) and what to do once a free order is carried out
+  const payCtx = (req) => ({ ip: clientIp(req), after: afterPaid });
   const BUSINESS = { title: 0, description: 1, website: 1 };
   const PROFILE = { name: 0, tagline: 0, description: 1 };
   const adminOnly = (token) => {
@@ -242,7 +246,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/plots\/(\d+)\/claim$/)) && m === 'POST') {
       const b = await screened(req, BUSINESS);
       return economy.tracked(db, account, r[1], 'claim', async () => {
-        if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'claim', b, env); // paid: the claim happens once the payment arrives
+        if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'claim', b, env, fetch, payCtx(req)); // paid: the claim happens once the payment arrives
         const out = logged(A.byAccount(account), 'plot.claim', { kind: 'plot', id: r[1] }, () => core.claimPlot(db, account, r[1], b), (o) => ({ title: o.title, value: o.value, leaseDays: o.lease?.days ?? null }));
         push('plot', [Number(r[1])]);
         if (social.welcomePlot(db, r[1], account.id, env)) setImmediate(postSocial);
@@ -252,7 +256,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/plots\/(\d+)\/takeover$/)) && m === 'POST') {
       const b = await screened(req, BUSINESS);
       return economy.tracked(db, account, r[1], 'takeover', async () => {
-        if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'takeover', b, env);
+        if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'takeover', b, env, fetch, payCtx(req));
         const out = logged(A.byAccount(account), 'plot.takeover', { kind: 'plot', id: r[1] }, () => core.takeOverPlot(db, account, r[1], b), (o) => ({ title: o.plot.title, paidOut: o.paidOut, previousOwner: o.previousOwner, previousAccount: o.previousAccount ?? null }));
         engage.notifyTakeover(db, out.previousAccount, { title: out.plot.title, newOwner: out.plot.owner, paidOut: out.paidOut, plotId: out.plot.id });
         delete out.previousAccount;
@@ -286,7 +290,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const b = await body(req);
       const shown = (o) => ({ plot: o.plot, paid: o.paid });
       if (billing.billingOn(env)) {
-        const out = await billing.payLease(db, account, r[1], 'exterior', b, env);
+        const out = await billing.payLease(db, account, r[1], 'exterior', b, env, fetch, payCtx(req));
         if (out.checkout) return out;
         push('plot', [Number(r[1])]);
         return shown(out);
@@ -374,7 +378,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     // leases, and Building of the Week
     if ((r = p.match(/^\/plots\/(\d+)\/renew$/)) && m === 'POST') {
       const b = await body(req);
-      if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'renew', b, env);
+      if (billing.billingOn(env)) return billing.payLease(db, account, r[1], 'renew', b, env, fetch, payCtx(req));
       const out = logged(A.byAccount(account), 'plot.renew', { kind: 'plot', id: r[1] }, () => community.renewLease(db, account, r[1], b), (o) => ({ paid: o.paid, leaseDays: o.plot?.lease?.days ?? null }));
       push('plot', [Number(r[1])]);
       return out;
@@ -401,7 +405,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/market/mine') return market.myBookings(db, account);
     if (m === 'POST' && p === '/market/book') {
       const b = await screened(req, { brand: 0, product: 1 });
-      if (billing.billingOn(env)) return billing.payStall(db, seed, account, b, env); // paid: a pending booking holds the stall until the payment arrives
+      if (billing.billingOn(env)) return billing.payStall(db, seed, account, b, env, fetch, payCtx(req)); // paid: a pending booking holds the stall until the payment arrives
       const out = logged(A.byAccount(account), 'market.book', (o) => ({ kind: 'booking', id: o.booking.id }), () => market.book(db, seed, account, b), (o) => ({ stall: o.stall.id, site: b.siteCode ?? null, week: b.week ?? null, cents: o.paid }));
       push('market', [out.stall.id]);
       return out;
@@ -485,7 +489,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     // billing (billing.mjs, docs/monetization/billing.md)
     if (m === 'GET' && p === '/billing/config') return { enabled: billing.billingOn(env), termsUrl: env.TERMS_URL || null };
     if (m === 'GET' && p === '/billing/availability') return billing.availability(db, url.searchParams.get('placement'));
-    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/checkout$/)) && m === 'POST') return billing.createCheckout(db, account, r[1], await body(req), env);
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/checkout$/)) && m === 'POST') return billing.createCheckout(db, account, r[1], await body(req), env, fetch, payCtx(req));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/pro\/cancel$/)) && m === 'POST') return billing.cancelPro(db, account, r[1], env);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/export\.csv$/)) && m === 'GET') return business.exportCsv(db, account, r[1]);
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/offer$/)) && m === 'PUT') { const b = await screened(req, { text: 0 }); return logged(A.byAccount(account), 'business.offer', { kind: 'business', id: r[1] }, () => business.setOffer(db, account, r[1], b), (o) => ({ offer: o.offer })); }
@@ -500,7 +504,17 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       return cart.addItem(db, seed, account, b, env);
     }
     if ((r = p.match(/^\/cart\/items\/(\d+)$/)) && m === 'DELETE') return cart.removeItem(db, seed, account, r[1], env);
-    if (m === 'POST' && p === '/cart/checkout') return cart.checkout(db, seed, account, env, fetch, afterPaid);
+    if (m === 'POST' && p === '/cart/checkout') return cart.checkout(db, seed, account, env, fetch, afterPaid, payCtx(req));
+    if (m === 'POST' && p === '/cart/promo') return cart.setPromo(db, account, (await body(req)).code, env, payCtx(req));
+    if (m === 'DELETE' && p === '/cart/promo') return cart.clearPromo(db, account, env);
+    // promo codes (promo.mjs, docs/monetization/billing.md#promo-codes): a player checks one for a purchase; the admin makes and manages them
+    if (m === 'POST' && p === '/promo/check') return promo.describe(db, account, await body(req), { ip: clientIp(req), env });
+    if (m === 'GET' && p === '/admin/promos') return (adminOnly(token), promo.listPromos(db, Object.fromEntries(['status', 'q', 'group', 'campaign'].map((k) => [k, url.searchParams.get(k)]))));
+    if (m === 'GET' && p === '/admin/promos.csv') return (adminOnly(token), promo.promosCsv(db, Object.fromEntries(['status', 'q', 'group', 'campaign'].map((k) => [k, url.searchParams.get(k)]))));
+    if (m === 'POST' && p === '/admin/promos') return (adminOnly(token), promo.createPromos(db, await body(req), A.ADMIN));
+    if ((r = p.match(/^\/admin\/promos\/(\d+)$/)) && m === 'GET') return (adminOnly(token), promo.promoDetail(db, r[1]));
+    if ((r = p.match(/^\/admin\/promos\/(\d+)$/)) && m === 'PATCH') return (adminOnly(token), promo.updatePromo(db, r[1], await body(req), A.ADMIN));
+    if ((r = p.match(/^\/admin\/promos\/(\d+)\/(deactivate|reactivate)$/)) && m === 'POST') return (adminOnly(token), promo.updatePromo(db, r[1], { active: r[2] === 'reactivate' }, A.ADMIN));
     if (m === 'GET' && p === '/me/orders') return billing.myOrders(db, account);
     if ((r = p.match(/^\/me\/orders\/(\d+)$/)) && m === 'GET') return billing.orderStatus(db, account, r[1]);
     if (m === 'GET' && p === '/admin/billing/orders') return (adminOnly(token), billing.adminOrders(db, url.searchParams.get('status')));
