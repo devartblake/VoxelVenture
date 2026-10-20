@@ -335,7 +335,7 @@ tests/
     └── deterministic-pilot-city.mjs
 
 scripts/
-└── load-test-presence.mjs       # retained; may import the shared presence agent later
+└── load-test-presence.mjs       # retained; now built on the shared presence agent
 ```
 
 Do not move the current tests during the first slice. Extract shared helpers behind compatibility imports, then migrate individual journeys.
@@ -919,7 +919,7 @@ Each implementation PR should have one concern. Do not combine structural reloca
 - `npm test`
 - production build
 - selected browser journeys
-- presence load test at the certified target
+- presence load test at the certified target (`npm run load:presence -- --full`, within its budgets)
 - mobile-device or GPU-capable browser evidence
 - documentation link validation
 
@@ -1096,7 +1096,7 @@ The following analysis compares the recommended target with the current project 
 | Idle rendering efficiency | Visibility-aware pausing and measured quality tiers | **Track C:** the frame loops are inventoried and classified; `lib/performance/` holds the capability, quality and visibility policies, with tiers, hysteresis, `?quality=` and diagnostics. The covered city is drawn at 4 fps. A fixed-spot benchmark exists; demand rendering was assessed on a bounded route | Budgets are not yet confirmed on real devices; the fully zoomed-out view is over its draw-call and triangle budgets | P0/P1 | Real-device runs; a distance level of detail for the models below zoom 9 |
 | Asset manifest | Technical, legal, placement, moderation, and fallback metadata | Generated catalog has geometry, dimensions, size, class, URL | Missing normalized license, slot, LOD/fallback, usage-policy, moderation fields | P1 | Add metadata overlay and shared asset contract |
 | Browser agents | Reusable visitor, merchant, resilience, and realtime actors | **Done (Track A):** shared agents in `tests/agents/` and four milestone journeys in `tests/journeys/` (visitor, merchant, reconnect and resilience, attribution), runnable against staging | Not yet run against staging (Phase D) | Done | Run the suite against staging before each pilot release |
-| Multiplayer load agents | Protocol-aware, reusable agents tied to acceptance budgets | Synthetic 500-client presence load test exists | Load test focuses on presence throughput, not full auth/reconnect/business journeys | P0/P1 | Reuse presence actor, add auth/reconnect/slow-client scenarios |
+| Multiplayer load agents | Protocol-aware, reusable agents tied to acceptance budgets | **Done:** `scripts/load-test-presence.mjs` composes realistic sessions on the shared presence agent: 500 players, 150 signed in through tickets, with nearby chat, players entering and leaving view, drops and clean closes with reconnects, slow and frozen clients, and an abuse mix. It holds 18 acceptance budgets and exits non-zero on a breach. `--quick` runs in CI (`tests/presence-load.test.mjs`). The full run passed locally ([presence_scale.md](presence_scale.md)) | Not yet run against staging (needs `MP_MAX_PER_IP` raised for the run). It found that `online` overviews are half of the bytes under churn | Done | Run `--full` against staging before the pilot; decide the `online` throttle |
 | Realtime schemas | Executable, versioned client/server contracts | **Done (Track B):** every protocol-2 message has a contract in `shared-types`. The server checks `hello` and `auth` against them and answers another protocol version. Tests hold golden examples and the real traffic to them | None for protocol 2 | Done | Keep the contracts and the CHANGELOG in step with every protocol change |
 | Interest management | Proximity/district scoped updates | Grid-based proximity, maximum visible, compact deltas already implemented | No material pre-pilot gap | Maintain | Keep and certify with load budgets |
 | Server authority | Authority for abuse-sensitive and commercial actions | Commercial data authoritative in API; positions remain client-reported by design | Movement cannot prove location; acceptable while no rewards depend on it | Conditional | Add scoped authority only when a protected action requires it |
@@ -1117,7 +1117,7 @@ The following analysis compares the recommended target with the current project 
 
 1. ✅ Realtime message contracts (Track B).
 2. ✅ Reusable deterministic visitor and merchant journeys (Track A).
-3. Staging-capable browser and reconnect evidence. The journeys can now run against staging (6.6); the evidence comes with Phase D.
+3. Staging-capable browser and reconnect evidence. The journeys can now run against staging (6.6); the evidence comes with Phase D. The presence load test now covers reconnects, signed-in chat, slow clients and abuse at 500 players, with budgets, and passes locally. It can run against staging (`--mp`/`--api --allow-writes`); that run is still to do.
 4. ✅ A documented performance budget and centralized capability policy (Track C, [performance_policy.md](performance_policy.md)). The budgets are proposed and measured on a desktop; real-device confirmation is item 6 of section 19.
 5. Third-party admission and provenance controls for any borrowed material.
 
