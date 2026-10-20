@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BUSINESS_DISTRICTS, CATEGORIES, listJsonLd } from '@voxelventure/business-core';
-import { getBuildingOfWeek, getFeatured, isDemo, listBusinesses, siteUrl } from '@/lib/business/source';
+import { getBuildingOfWeek, getFeatured, getSampleBusiness, isDemo, listBusinesses, siteUrl } from '@/lib/business/source';
+import { TOUR_BUSINESS } from '@/lib/tour/tours';
 import { BusinessList, FeaturedList } from '@/components/business/BusinessCard';
 import WeekFeature from '@/components/business/WeekFeature';
 
@@ -17,10 +18,13 @@ export async function generateMetadata({ searchParams }) {
 }
 
 // The discovery landing page: search, categories, districts and the newest businesses.
+// In a demo tour (?tour=, docs/product/pilot_tour.md) with no sponsored business yet, the tour's own business shows in the Sponsored row as a sample.
 export default async function Discover({ searchParams }) {
-  const { q: raw } = await searchParams;
+  const { q: raw, tour } = await searchParams;
   const q = String(raw ?? '').slice(0, 60).trim();
-  const [{ total, profiles }, featured, week] = await Promise.all([listBusinesses({ q, limit: 30 }), q ? { sponsored: [], launches: [] } : getFeatured('discover'), q ? null : getBuildingOfWeek()]);
+  const [{ total, profiles }, live, week] = await Promise.all([listBusinesses({ q, limit: 30 }), q ? { sponsored: [], launches: [] } : getFeatured('discover'), q ? null : getBuildingOfWeek()]);
+  const sample = tour && !q && !live.sponsored.length ? await getSampleBusiness(TOUR_BUSINESS.slug) : null;
+  const featured = sample ? { ...live, sponsored: [sample] } : live;
   return (
     <>
       {!q && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: listJsonLd({ name: 'Discover businesses on VoxelVenture', description: 'Independent shops, studios, software and creators, with free pages and 3D storefronts.', url: `${siteUrl()}/discover` }, profiles, siteUrl()) }} />}
@@ -35,7 +39,7 @@ export default async function Discover({ searchParams }) {
       </section>
 
       {!q && <WeekFeature week={week} />}
-      <FeaturedList title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
+      <FeaturedList id="sponsored" title={sample ? 'Sponsored (a sample for the tour)' : 'Sponsored'} profiles={featured.sponsored} badge="Sponsored" />
       <FeaturedList title="New this week" profiles={featured.launches} badge="New this week" />
 
       {!q && (

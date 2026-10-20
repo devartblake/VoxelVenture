@@ -558,8 +558,8 @@ function Orders() {
 }
 
 // The journey from being seen to a result, verified, for 30 days (@voxelventure/analytics), each step with its share of the step it
-// follows from (visits, for everything after a visit).
-function Funnel({ stats, ctaLabel }) {
+// follows from (visits, for everything after a visit). Also the demo tour's dashboard preview (apps/web/components/tour/FiguresPreview.jsx).
+export function Funnel({ stats, ctaLabel }) {
   const steps = FUNNEL.map((f) => ({ ...f, hint: f.id === 'ctaClicks' ? `Presses of “${ctaLabel}”.` : f.hint, value: stats[f.id] ?? 0 }));
   const top = Math.max(1, ...steps.map((x) => x.value));
   return (
@@ -587,7 +587,7 @@ function Funnel({ stats, ctaLabel }) {
 
 // What came of it, by outcome family (@voxelventure/analytics): leads, coupon claims, coupons redeemed and purchases, each with its own
 // cost, never added together (one customer can be in several). Then revenue by how far it can be trusted, and the return on what was spent.
-function Results({ stats }) {
+export function Results({ stats }) {
   const cents = (c) => (c == null ? '–' : `$${(c / 100).toFixed(2)}`);
   const byId = Object.fromEntries((stats.outcomes ?? []).map((o) => [o.id, o]));
   const leadsDetail = RESULTS.filter((r) => ['newsletterSignups', 'meetingRequests', 'quoteRequests'].includes(r.id) && stats[r.id]).map((r) => `${stats[r.id]} ${r.label.toLowerCase()}`).join(', ');

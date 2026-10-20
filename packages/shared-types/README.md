@@ -59,6 +59,8 @@ The WebSocket messages between the game (`lib/net/multiplayer.js`) and the prese
 
 `TEST_SCENARIO` (`test.scenario`, version 1, [`contracts/test-scenario.js`](src/contracts/test-scenario.js)) is the shape of a business journey's scenario: the seed, the device, the participants, the starting accounts and businesses, the milestones in order, the timeout, the allowed links and the budgets. The scenarios are in [`tests/fixtures/deterministic-pilot-city.mjs`](../../tests/fixtures/deterministic-pilot-city.mjs), and [`tests/journeys/`](../../tests/journeys/README.md) runs them. A scenario has no place for a password or a token, and its links must use the example domains. `TEST_SCENARIO` is in `CONTRACTS` but not in `API_CONTRACTS`, because it never travels over the wire.
 
+`DEMO_TOUR` (`demo.tour`, version 1, [`contracts/demo-tour.js`](src/contracts/demo-tour.js)) is the shape of a guided demo tour, such as the pilot walk-through in [`lib/tour/tours.js`](../../lib/tour/tours.js). It has the city's seed (as a scenario does) and its ordered stops. Each stop has a caption, a camera target and view, an optional action that only shows something, and a duration. A page action can only name a public path of the site. Like `TEST_SCENARIO`, it is in `CONTRACTS` only. See [pilot_tour.md](../../docs/product/pilot_tour.md).
+
 ## Enums
 
 | Name | Values | Must equal |

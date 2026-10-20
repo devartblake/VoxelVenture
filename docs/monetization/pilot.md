@@ -14,21 +14,22 @@ It then checks the criteria that lift the [world-expansion freeze](../roadmap/wo
 ## Running a pilot
 
 1. **Start the API with an admin token.** Start the API with `ADMIN_TOKEN` set, and build the app with `NEXT_PUBLIC_LIVE_API_URL` set.
-2. **Have each business list itself.** Each business makes its free profile at `/business/new`.
-3. **Add the businesses to the pilot.** Use either:
+2. **Show each prospective business the pilot tour.** Open `/?tour=pilot` in a meeting, or send its recording (`node scripts/tour-record.mjs`). In two and a half minutes it shows a storefront, its card and room, the business page, the verified figures, claiming a lot with the 7, 14 and 30-day prices and the Pro discount, the cart, and Discover. It changes nothing on the site. See [pilot_tour.md](../product/pilot_tour.md).
+3. **Have each business list itself.** Each business makes its free profile at `/business/new`.
+4. **Add the businesses to the pilot.** Use either:
    - the admin page: **`/admin/pilot`** (enter the admin token; it is kept for that tab only);
    - or the command line: `npm run moderate -- pilot add <slug> "how we met"`.
 
    The note is for you alone. To take a business out, use **Remove** or `pilot remove <slug>`. Its record is kept, but it no longer counts.
-4. **Read the dashboard each week.** Use `/admin/pilot`, or `npm run moderate -- pilot` in a terminal. `npm run moderate -- pilot csv > pilot.csv` saves the figures as a spreadsheet, with one line per business per week.
-5. **Owners answer the weekly check-in.** Their dashboard shows it while they are in the pilot. There are four questions:
+5. **Read the dashboard each week.** Use `/admin/pilot`, or `npm run moderate -- pilot` in a terminal. `npm run moderate -- pilot csv > pilot.csv` saves the figures as a spreadsheet, with one line per business per week.
+6. **Owners answer the weekly check-in.** Their dashboard shows it while they are in the pilot. There are four questions:
    - how useful VoxelVenture was this week (1 to 5);
    - what it brought them;
    - what is missing;
    - whether they would pay for it as it is.
 
    Sending it again the same week replaces that week's answers.
-6. **Record the decision at the end.** When every criterion is met, record the decision in [world_freeze.md](../roadmap/world_freeze.md) and lift the freeze as described there.
+7. **Record the decision at the end.** When every criterion is met, record the decision in [world_freeze.md](../roadmap/world_freeze.md) and lift the freeze as described there.
 
 Before the pilot starts, tick **Every published business** (or call `GET /admin/pilot?all=1`) to try the dashboard on all profiles. That view is a preview only. The verdict that counts is the one for pilot members.
 

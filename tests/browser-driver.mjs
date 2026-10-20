@@ -60,8 +60,10 @@ export async function openPage(url, { width = 1200, height = 800, mobile = false
   let id = 0;
   const pending = new Map();
   const consoleLines = [];
+  const listeners = new Set(); // on(fn): every DevTools event, e.g. Network.requestWillBeSent after cdp('Network.enable')
   ws.on('message', (raw) => {
     const m = JSON.parse(raw.toString());
+    if (m.method && listeners.size) for (const fn of listeners) fn(m);
     if (m.id && pending.has(m.id)) {
       const { resolve, reject } = pending.get(m.id);
       pending.delete(m.id);
@@ -117,6 +119,8 @@ export async function openPage(url, { width = 1200, height = 800, mobile = false
     },
     /** A raw DevTools Protocol call, for what the helpers here do not cover (emulated media, raw touch points). */
     cdp: call,
+    /** Listens to the DevTools events ({ method, params }) from now on; returns a function that stops listening. */
+    on: (fn) => (listeners.add(fn), () => listeners.delete(fn)),
     // Touch (a page opened with mobile: true has touch emulation on): a tap, a one-finger drag, a two-finger pinch (`scale` > 1
     // spreads the fingers apart, < 1 brings them together) and a long press. Each point is { x, y } in CSS pixels.
     tap: async (x, y) => {

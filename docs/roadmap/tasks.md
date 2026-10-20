@@ -113,6 +113,13 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Failures:** each names its milestone and its kind (product, rendering or environment). CI sets `JOURNEY_STRICT=1` and uploads the sanitized logs and screenshots of a failed run.
   - **Staging:** `JOURNEY_*_URL` and `JOURNEY_ALLOW_WRITES=1` point the suite at a running stack.
   - **Defect found:** a chat line retried after a reconnect was said twice. The presence server now remembers answers per account too.
+- [x] **The pilot tour** (the "Deterministic demos" gap of the [adoption plan](../architecture/external_voxel_repositories_adoption_plan.md), section 17; [pilot_tour.md](../product/pilot_tour.md)):
+  - **What:** a guided demo for prospective pilot businesses, live or recorded. "Pilot walk-through" has 10 stops in about 2.5 minutes on seed 20260101: the city, a storefront and its card, the room inside, the business page, the verified figures, the claim form with the 7, 14 and 30-day prices and the Pro discount, the cart, Discover's sponsored row, and the pilot.
+  - **The manifest:** the `demo.tour` contract (`shared-types` 0.14.0), next to `test.scenario`.
+  - **Playing it:** `/?tour=pilot` flies the existing follow camera from stop to stop, with a caption card and Back, Pause, Next and Exit. It works with ← →, Page Up and Down, Space and Esc, and with touch. With reduced motion it cuts instead of flying.
+  - **Read-only:** writes to the API are refused, no presence is sent, and the saved game is neither loaded nor saved. The claim form, the cart and the owner's figures are shown as previews.
+  - **Recording:** `node scripts/tour-record.mjs` saves a screenshot per stop (and with `--frames`, a frame sequence) and a storyboard to `artifacts/tour/<time>/`.
+  - **Tests:** `tests/tour.test.mjs`, a fifth journey (`pilot-tour`, against the API) and a phone run in demo mode in the browser test.
 - [x] **Presence load test with realistic sessions** (the "multiplayer load agents" of the [adoption plan](../architecture/external_voxel_repositories_adoption_plan.md), section 17; [presence_scale.md](../architecture/presence_scale.md)):
   - **Who:** guests and signed-in players (sign-up, a sign-in, a one-use ticket), on the journeys' presence agent. They walk and drive, so they come into and leave each other's view, and they talk nearby.
   - **Trouble:** drops and clean closes with the game's backoff and a fresh ticket, and lines retried after a lost answer. Slow readers, frozen clients, and an abuse mix (malformed, floods, spent, made-up and expired tickets, a stale protocol, oversized messages).
@@ -237,7 +244,8 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 
 - the pilot dashboard (`/admin/pilot`, `npm run moderate -- pilot`), with activation, qualified visits, leads, redemptions, purchases, verified revenue, payments, renewals and weekly retention per business;
 - the criteria that lift the freeze;
-- a weekly merchant check-in on the owner's dashboard ([pilot.md](../monetization/pilot.md)).
+- a weekly merchant check-in on the owner's dashboard ([pilot.md](../monetization/pilot.md));
+- a guided tour to show prospective businesses, live at `/?tour=pilot` or recorded ([pilot_tour.md](../product/pilot_tour.md)).
 
 **Left:** recruit 10-20 businesses in two districts and run it for four weeks | the pilot (needs you) |
 | 48 | ✅ Phase B ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)), complete. **Done:**

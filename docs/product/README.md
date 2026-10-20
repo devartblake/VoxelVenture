@@ -15,6 +15,7 @@ Documents are stored in their primary topic directories. Related service and dep
 | [interiors_fixtures.md](interiors_fixtures.md) |
 | [market.md](market.md) |
 | [overview.md](overview.md) |
+| [pilot_tour.md](pilot_tour.md) |
 | [sales_funnel_proposal.md](sales_funnel_proposal.md) |
 | [voxelventure_blueprint.md](voxelventure_blueprint.md) |
 | [world_map.md](world_map.md) |
