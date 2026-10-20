@@ -7,18 +7,12 @@
 voxelventure.app {
 	encode zstd gzip
 
-	# The presence monitor page has no login of its own: put a password on it.
-	# Make the hash with:  caddy hash-password
-	# /mp-status is the presence server's /status, reached through this protected address (the monitor page reads it:
-	# NEXT_PUBLIC_MP_HTTP in web.env).
-	@monitor path /admin /admin/* /mp-status
-	basic_auth @monitor {
-		admin REPLACE_WITH_A_CADDY_HASH
-	}
-
+	# The admin pages (/admin, /admin/*) have their own sign-in (/admin/login, accounts in the API's database: deploy/README.md), so Caddy
+	# puts no password on them. Their data comes from the API, which checks the admin's session on every call.
+	# The presence server's /status is not public: the monitor page reads it through the API (GET /admin/presence, admins only).
+	# /mp-status, its old address here, is gone.
 	handle /mp-status {
-		rewrite * /status
-		reverse_proxy 127.0.0.1:3001
+		respond 404
 	}
 
 	handle {

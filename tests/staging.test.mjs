@@ -54,7 +54,7 @@ const caddy = read('deploy', 'Caddyfile.staging');
 const block = (host) => caddy.match(new RegExp(`^${host.replace(/\./g, '\\.')} \\{([\\s\\S]*?)^\\}`, 'm'))?.[1] ?? '';
 check('Caddy sends each staging address to its port', block('staging.voxelventure.app').includes(`127.0.0.1:${port.web}`) && block('api.staging.voxelventure.app').includes(`127.0.0.1:${port.api}`) && block('play.staging.voxelventure.app').includes(`127.0.0.1:${port.presence}`));
 check('and never to production\'s', !/127\.0\.0\.1:300[0-3]\b/.test(caddy));
-check('search engines are kept out, and the monitor and internal addresses are not public', /noindex/.test(block('staging.voxelventure.app')) && /Disallow: \//.test(caddy) && /handle \/admin\*/.test(caddy) && /@internal path \/internal/.test(block('api.staging.voxelventure.app')) && /\/notify/.test(block('play.staging.voxelventure.app')));
+check('search engines are kept out; the presence status and internal addresses are not public; the admin pages have their own sign-in', /noindex/.test(block('staging.voxelventure.app')) && /Disallow: \//.test(caddy) && /handle \/mp-status \{\s*respond 404/.test(block('staging.voxelventure.app')) && !/basic_auth|handle \/admin/.test(caddy) &&/@internal path \/internal/.test(block('api.staging.voxelventure.app')) && /\/notify/.test(block('play.staging.voxelventure.app')));
 check('production\'s Caddyfile has no staging blocks (setup imports them, so they come and go with staging)', !/staging/.test(read('deploy', 'Caddyfile')));
 
 // ---- the script's guards

@@ -21,7 +21,7 @@ This is Phase D of the [migration plan](../docs/architecture/modular_monorepo_mi
 **How staging differs from production:**
 - **No email.** Mail is written to files in `data/outbox`, never sent.
 - **Stripe test keys only.** A deploy refuses a live key.
-- **Hidden.** It has no `/admin` monitor, and search engines are told not to index it (`robots.txt` and `X-Robots-Tag`).
+- **Hidden.** Search engines are told not to index it (`robots.txt` and `X-Robots-Tag`). Its admin pages sign in against its own admin accounts, made at `/admin/setup` with staging's own `ADMIN_TOKEN` ([README.md](README.md#admin-sign-in)).
 
 It uses the same `voxel` user, Node and Caddy as production. It shares nothing else with production.
 

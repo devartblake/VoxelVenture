@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useAdmin } from '@/components/admin/AdminShell';
 
-// Live view of every connected client and the errors they have reported (services/multiplayer/server.mjs, /status).
-// Development tool for a trusted LAN: the status endpoint has no login.
+// Live view of every connected client and the errors they have reported (services/multiplayer/server.mjs, /status). The presence server's
+// /status is not public: this page reads it through the API (GET /admin/presence), signed in (components/admin/AdminShell.jsx).
 
 const ago = (ms) => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -21,20 +22,19 @@ export default function AdminPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
+  const { call } = useAdmin();
 
   useEffect(() => {
     let alive = true;
-    const url = process.env.NEXT_PUBLIC_MP_HTTP ?? `${window.location.protocol}//${window.location.hostname}:3001/status`;
     const load = async () => {
       try {
-        const res = await fetch(url, { cache: 'no-store' });
-        const json = await res.json();
+        const json = await call('/admin/presence');
         if (alive) {
           setData(json);
           setError('');
         }
-      } catch {
-        if (alive) setError(`Cannot reach the multiplayer server at ${url}. Start it with: npm run mp (or npm run dev:all)`);
+      } catch (e) {
+        if (alive) setError(e.code === 'presence_unavailable' ? `${e.message} Start it with: npm run mp (or npm run dev:all). The API finds it at MP_STATUS_URL, or beside MP_NOTIFY_URL.` : e.message);
       }
     };
     load();
@@ -43,12 +43,12 @@ export default function AdminPage() {
       alive = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [call]);
 
   const now = data?.now ?? Date.now();
 
   return (
-    <div className="h-dvh overflow-y-auto bg-[#090d16] text-slate-100">
+    <div className="text-slate-100">
       <div className="mx-auto max-w-6xl px-4 py-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-xl font-bold">Client monitor</h1>

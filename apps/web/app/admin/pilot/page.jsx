@@ -1,35 +1,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { apiBase } from '@/lib/data/api';
+import { useAdmin } from '@/components/admin/AdminShell';
 
 // The pilot dashboard (services/api/pilot.mjs, docs/monetization/pilot.md): each pilot business week by week, the merchants' feedback, and
-// whether the criteria that lift the world-expansion freeze are met. Needs the API (NEXT_PUBLIC_LIVE_API_URL) and its ADMIN_TOKEN, which is
-// kept for this browser tab only.
-const TOKEN_KEY = 'voxelventure-admin'; // the same key as the market's admin tools (lib/state/marketStore.js): one sign-in for both
-const readToken = () => {
-  try {
-    return sessionStorage.getItem(TOKEN_KEY) || '';
-  } catch {
-    return '';
-  }
-};
-const keepToken = (t) => {
-  try {
-    if (t) sessionStorage.setItem(TOKEN_KEY, t);
-    else sessionStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* storage unavailable: asked again next time */
-  }
-};
+// whether the criteria that lift the world-expansion freeze are met. Needs the API (NEXT_PUBLIC_LIVE_API_URL) and a signed-in admin
+// (components/admin/AdminShell.jsx).
 const usd = (cents) => `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
 const pct = (x) => `${Math.round(x * 100)}%`;
 const shortWeek = (w) => new Date(`${w}T00:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const PAY = { yes: 'Would pay', maybe: 'Maybe', no: 'Would not pay' };
 
 export default function PilotPage() {
-  const [token, setToken] = useState('');
-  const [draft, setDraft] = useState('');
   const [weeks, setWeeks] = useState(4);
   const [all, setAll] = useState(false);
   const [data, setData] = useState(null);
@@ -38,30 +20,20 @@ export default function PilotPage() {
   const [open, setOpen] = useState(null);
   const [slug, setSlug] = useState('');
   const [note, setNote] = useState('');
-  const base = apiBase();
-
-  useEffect(() => setToken(readToken()), []);
-
-  const call = useCallback(async (method, path, body) => {
-    const res = await fetch(`${base}${path}`, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(json.error ?? `The API answered ${res.status}.`), { status: res.status });
-    return json;
-  }, [base, token]);
+  const admin = useAdmin();
+  const call = useCallback((method, path, body) => admin.call(path, { method, body }), [admin]);
 
   const load = useCallback(async () => {
-    if (!token || !base) return;
     setBusy(true);
     try {
       setData(await call('GET', `/admin/pilot?weeks=${weeks}${all ? '&all=1' : ''}`));
       setError('');
     } catch (e) {
-      setError(e.status === 403 ? 'That admin token is not right.' : e.message);
-      if (e.status === 403) (keepToken(''), setToken(''));
+      setError(e.message);
     } finally {
       setBusy(false);
     }
-  }, [call, token, base, weeks, all]);
+  }, [call, weeks, all]);
   useEffect(() => {
     load();
   }, [load]);
@@ -87,8 +59,12 @@ export default function PilotPage() {
     }
   };
   const download = async () => {
-    const res = await fetch(`${base}/admin/pilot.csv?weeks=${weeks}${all ? '&all=1' : ''}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) return setError('The spreadsheet could not be made.');
+    let res;
+    try {
+      res = await admin.call(`/admin/pilot.csv?weeks=${weeks}${all ? '&all=1' : ''}`, { raw: true });
+    } catch {
+      return setError('The spreadsheet could not be made.');
+    }
     const url = URL.createObjectURL(await res.blob());
     const a = Object.assign(document.createElement('a'), { href: url, download: `pilot-${data?.currentWeek ?? 'figures'}.csv` });
     a.click();
@@ -96,7 +72,7 @@ export default function PilotPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100 sm:px-6">
+    <main className="px-4 py-6 text-slate-100 sm:px-6">
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <h1 className="text-xl font-bold">Pilot dashboard</h1>
@@ -104,21 +80,9 @@ export default function PilotPage() {
           <a href="/admin/economy" className="ml-auto text-sm text-cyan-300 hover:underline">Plot economy</a>
         </header>
 
-        {!base && <p className="mt-6 rounded-lg border border-amber-900 bg-amber-950/30 p-4 text-sm">This page needs the API: build the app with <code>NEXT_PUBLIC_LIVE_API_URL</code> set, and start it with <code>npm run api</code>.</p>}
-
-        {base && !token && (
-          <form className="mt-6 flex max-w-md flex-col gap-2" onSubmit={(e) => (e.preventDefault(), keepToken(draft.trim()), setToken(draft.trim()))}>
-            <label htmlFor="admin-token" className="text-sm text-slate-300">Admin token (the API&apos;s <code>ADMIN_TOKEN</code>; kept for this tab only)</label>
-            <div className="flex gap-2">
-              <input id="admin-token" type="password" autoComplete="off" value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-11 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3" />
-              <button className="min-h-11 rounded-lg bg-cyan-600 px-4 font-medium text-white hover:bg-cyan-500">Open</button>
-            </div>
-          </form>
-        )}
-
         {error && <p role="alert" className="mt-4 rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{error}</p>}
 
-        {token && data && (
+        {data && (
           <>
             <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
               <label className="flex items-center gap-2">Weeks
@@ -128,9 +92,7 @@ export default function PilotPage() {
               </label>
               <label className="flex items-center gap-2"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Every published business (a preview, not the pilot)</label>
               <button onClick={load} disabled={busy} className="min-h-9 rounded-md border border-slate-700 px-3 hover:bg-slate-800">{busy ? 'Loading…' : 'Refresh'}</button>
-              <button onClick={download} className="min-h-9 rounded-md border border-slate-700 px-3 hover:bg-slate-800">Download CSV</button>
-              <button onClick={() => (keepToken(''), setToken(''), setData(null))} className="ml-auto min-h-9 px-2 text-slate-400 hover:text-slate-200">Sign out</button>
-            </div>
+              <button onClick={download} className="min-h-9 rounded-md border border-slate-700 px-3 hover:bg-slate-800">Download CSV</button>            </div>
 
             <section aria-labelledby="criteria" className="mt-5">
               <h2 id="criteria" className="sr-only">Criteria</h2>

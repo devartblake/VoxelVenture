@@ -1,6 +1,6 @@
 # Staging (deploy/STAGING.md): a second copy of the game on the same machine, on its own ports, with its own database and secrets. It is
-# for the business journeys (tests/journeys/) and deploy rehearsals, not for the public: search engines are told to stay away, and the
-# monitor and every internal address answer 404. `deploy/staging.sh setup` copies this file to /etc/caddy/staging.caddy and imports it
+# for the business journeys (tests/journeys/) and deploy rehearsals, not for the public: search engines are told to stay away, and every
+# internal address answers 404. The admin pages are there, behind their own sign-in, as in production (staging has its own admin accounts). `deploy/staging.sh setup` copies this file to /etc/caddy/staging.caddy and imports it
 # from /etc/caddy/Caddyfile.
 # DNS: A records for staging, api.staging and play.staging under voxelventure.app, pointing at the Linode (deploy/STAGING.md).
 
@@ -15,10 +15,8 @@ staging.voxelventure.app {
 			Disallow: /
 			ROBOTS 200
 	}
-	# no monitor on staging: production's is password-protected, this one is simply not there
-	handle /admin* {
-		respond 404
-	}
+	# the admin pages sign in against staging's own API (its own accounts, its own ADMIN_TOKEN); the presence status is read through it
+	# (GET /admin/presence), never from here
 	handle /mp-status {
 		respond 404
 	}

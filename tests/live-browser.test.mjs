@@ -17,7 +17,8 @@ const apiPort = await free();
 const webPort = await free();
 const mpPort = await free(); // a presence server of the test's own, joined to its API (not whatever runs on 3001)
 const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-live-mp-'));
-const env = { ...process.env, NEXT_PUBLIC_LIVE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_SECRET: 'live-test', INTERNAL_SECRET: 'live-inside' };
+const ADMIN_TOKEN = 'live-admin-token';
+const env = { ...process.env, NEXT_PUBLIC_LIVE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_SECRET: 'live-test', INTERNAL_SECRET: 'live-inside', ADMIN_TOKEN };
 // MESSAGING_IMPL=fastapi: the same run with messaging served by the Python service (docs/architecture/node_fastapi_architecture_plan.md, step 5)
 const FASTAPI = process.env.MESSAGING_IMPL === 'fastapi';
 const msgPort = await free();
@@ -194,6 +195,40 @@ try {
   await visitor.close();
   await page.close();
   await other.close();
+
+  // ---- the admin sign-in, for real (services/api/admin.mjs, apps/web/app/admin): the site and the API on two origins of the same site, the
+  // session in an HttpOnly cookie on the API's host, sent back with credentials: 'include'
+  const ADMIN_PW = 'browser admin password';
+  const adm = await openPage(`http://localhost:${webPort}/admin/economy`, { width: 390, height: 800, mobile: true });
+  check('admin: an admin page without a session goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && new URLSearchParams(location.search).get('next') === '/admin/economy'`, 30));
+  check('admin: with no admin account yet, the sign-in points to the setup', await waitFor(adm, `Boolean(document.querySelector('[data-testid="admin-setup-needed"] a[href="/admin/setup"]'))`, 20));
+  await adm.eval(`location.href = '/admin/setup'; 1`);
+  await waitFor(adm, `document.querySelector('[data-testid="admin-setup-form"]')?.dataset.ready === '1'`, 20);
+  await type2(adm, '#token', ADMIN_TOKEN);
+  await type2(adm, '#username', 'boss');
+  await type2(adm, '#password', ADMIN_PW);
+  await type2(adm, '#confirm', ADMIN_PW);
+  await adm.eval(`document.querySelector('[data-testid="admin-setup-form"] button[type=submit]').click()`);
+  check('admin: the setup makes the account and goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('created=1')`, 20), await adm.eval(`location.href + ' | ' + (document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? '') + ' | ' + [...document.querySelectorAll('input')].map((i) => i.id + '=' + i.value.length).join(',')`).catch((e) => e.message));
+  const stored = await adm.eval(`JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage), document.cookie])`);
+  check('admin: the token is kept nowhere in the browser, not even in the address', !stored.includes(ADMIN_TOKEN) && !(await adm.eval('location.href')).includes(ADMIN_TOKEN));
+  await adm.eval(`location.href = '/admin/login?next=' + encodeURIComponent('/admin/economy'); 1`);
+  await waitFor(adm, `document.querySelector('[data-testid="admin-login-form"]')?.dataset.ready === '1' && !document.querySelector('[data-testid="admin-login-form"] fieldset').disabled`, 20);
+  await type2(adm, '#username', 'boss');
+  await type2(adm, '#password', 'not the password');
+  await adm.eval(`document.querySelector('[data-testid="admin-login-form"] button[type=submit]').click()`);
+  check('admin: a wrong password shows an error on the form', await waitFor(adm, `/did not work/.test(document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? '')`, 20));
+  await type2(adm, '#password', ADMIN_PW);
+  await adm.eval(`document.querySelector('[data-testid="admin-login-form"] button[type=submit]').click()`);
+  check('admin: signing in goes back to the page asked for', await waitFor(adm, `location.pathname === '/admin/economy' && document.querySelector('[data-testid="admin-user"]')?.textContent === 'boss'`, 20));
+  check('admin: the page shows the API\'s figures with the session alone', await waitFor(adm, `/By tier/.test(document.body.innerText)`, 20));
+  check('admin: the session cookie cannot be read by the page', !(await adm.eval(`document.cookie`)).includes('vv_admin'));
+  await adm.eval(`document.querySelector('[data-testid="admin-sign-out"]').click()`);
+  check('admin: signing out goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('signedOut=1')`, 20));
+  await adm.eval(`location.href = '/admin/economy'; 1`);
+  check('admin: and the admin pages are closed again', await waitFor(adm, `location.pathname === '/admin/login'`, 20));
+  check('admin: no console errors on the admin pages', adm.problems().filter((p) => !/401|403|Failed to load resource/.test(p)).length === 0, adm.problems().slice(0, 3).join(' | '));
+  await adm.close();
 } catch (e) {
   fails++;
   console.log('FAIL the live browser test crashed:', e.stack);
