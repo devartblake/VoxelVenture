@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { passwordProblem } from '@/lib/data/admin';
+import { passwordProblem, PASSWORD_HINT } from '@/lib/data/admin';
 import { Field, FormError, SafeForm, useAdmin } from '@/components/admin/AdminShell';
 
 // The admin accounts (GET/POST /admin/admins, PATCH /admin/admins/:id): who can sign in here, adding one, and disabling one (their sessions end
@@ -95,7 +95,7 @@ export default function AdminAccountsPage() {
       <SafeForm onSubmit={add} className="mt-8 max-w-md space-y-4 rounded-xl border border-sx-stroke bg-sx-panel p-5">
         <h2 className="font-semibold text-white">Add an admin</h2>
         <Field id="new-username" label="Username" autoComplete="off" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} />
-        <Field id="new-password" label="A first password" type="password" autoComplete="new-password" hint="At least 12 characters, and not the username. They should change it after signing in." value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field id="new-password" label="A first password" type="password" autoComplete="new-password" hint={`${PASSWORD_HINT} They should change it after signing in.`} value={password} onChange={(e) => setPassword(e.target.value)} />
         <FormError>{formError}</FormError>
         <button type="submit" disabled={busy} className="rounded-lg bg-sx-cyan px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300 disabled:opacity-60">{busy ? 'One moment…' : 'Add the admin'}</button>
       </SafeForm>

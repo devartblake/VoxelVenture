@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { passwordProblem } from '@/lib/data/admin';
+import { passwordProblem, PASSWORD_HINT } from '@/lib/data/admin';
 import { AdminCard, Field, FormError, SafeForm, Submit, useAdmin } from '@/components/admin/AdminShell';
 
 // A signed-in admin changes their own password (POST /admin/password): the current one first. Every other session of theirs ends (another
@@ -40,7 +40,7 @@ export default function AdminPasswordPage() {
       {done && <p role="status" className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">{done}</p>}
       <SafeForm onSubmit={submit}>
         <Field id="current" label="Current password" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-        <Field id="password" label="New password" type="password" autoComplete="new-password" hint="At least 12 characters, and not your username." value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field id="password" label="New password" type="password" autoComplete="new-password" hint={PASSWORD_HINT} value={password} onChange={(e) => setPassword(e.target.value)} />
         <Field id="confirm" label="The new password again" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         <FormError>{error}</FormError>
         <Submit busy={busy}>Change the password</Submit>

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { ApiError } from './core.mjs';
 import { transaction } from './db.mjs';
+import { imp } from '../../scripts/lib-loader.mjs';
 
 // Admin accounts and their sign-in (docs/architecture/backend.md#admin-sign-in). Admins are not players: they live in admin_accounts, each with
 // a salted scrypt hash of their password, and sign in at /admin/login for a session cookie. The API's ADMIN_TOKEN stays the machine credential
@@ -13,7 +14,8 @@ export const SCRYPT = { N: 2 ** 15, r: 8, p: 1, keylen: 32, saltBytes: 16 };
 export const SESSION = { absoluteMs: 12 * 3600_000, idleMs: 2 * 3600_000, touchEveryMs: 60_000 };
 export const COOKIE = '__Host-vv_admin';
 export const LOGIN_LIMIT = { failures: 5, windowMs: 15 * 60_000, lockMs: 15 * 60_000 };
-export const PASSWORD_MIN = 12;
+const { PASSWORD_MIN, passwordProblem } = await imp('data/adminPassword.js');
+export { PASSWORD_MIN };
 const USERNAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{2,31}$/;
 const b64 = (buf) => Buffer.from(buf).toString('base64url');
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -59,9 +61,8 @@ export function checkUsername(username) {
 }
 export function checkPassword(username, password) {
   const pw = String(password ?? '');
-  if (pw.length < PASSWORD_MIN) throw new ApiError(400, `The password must be at least ${PASSWORD_MIN} characters.`, 'weak_password');
-  if (pw.length > 200) throw new ApiError(400, 'The password is too long (200 characters at most).', 'weak_password');
-  if (pw.trim().toLowerCase() === String(username ?? '').trim().toLowerCase()) throw new ApiError(400, 'The password cannot be the username.', 'weak_password');
+  const problem = passwordProblem(username, pw); // lib/data/adminPassword.js: 8+ characters, 3 of 4 kinds, not the username, not a common one
+  if (problem) throw new ApiError(400, problem, 'weak_password');
   return pw;
 }
 
