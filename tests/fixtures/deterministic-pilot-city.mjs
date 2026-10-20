@@ -142,6 +142,27 @@ export const SCENARIOS = {
     allowedExternalLinks: ['cycles.example.com'],
     budgets: { milestoneMs: 20000 },
   },
+
+  // The pilot walk-through (lib/tour/tours.js, the `demo.tour` contract) run end to end against the API: the guided demo the owner shows prospective
+  // pilot businesses. It only looks, so it makes no accounts or businesses: the city's own Combo Cafe (plot 83) and the empty lot next door.
+  pilotTour: {
+    id: 'pilot-tour',
+    schemaVersion: 1,
+    title: 'The pilot walk-through runs from the city to Discover, each stop with its caption, and changes nothing',
+    seed: PILOT_SEED,
+    device: { profile: 'desktop', width: 1400, height: 900 },
+    participants: [{ role: 'visitor', ref: 'prospect' }],
+    milestones: [
+      { id: 'tour-starts', title: '/?tour=pilot opens the city on the first stop, with its caption' },
+      { id: 'every-stop', title: 'Every stop is reached in order, with its caption, and opens what it shows (card, room, pages, previews)' },
+      { id: 'controls', title: 'Back, Pause, Play and the keyboard drive it, and it moves on by itself' },
+      { id: 'reduced-motion', title: 'With reduced motion the camera cuts to each stop instead of flying' },
+      { id: 'nothing-written', title: 'Nothing that changes data was sent: no claim, purchase, visit, ping or presence' },
+      { id: 'exit', title: 'Esc leaves the tour, and the city is an ordinary visit again' },
+    ],
+    timeoutMs: 600000,
+    budgets: { consoleErrors: 0, milestoneMs: 240000, firstRenderMs: 90000 },
+  },
 };
 
 // A visitor id from the seed: the same run makes the same visitors (the API wants 4 to 40 of A-Z a-z 0-9 _ -).

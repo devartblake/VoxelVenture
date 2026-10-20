@@ -27,6 +27,15 @@ import DeepLink from '@/components/DeepLink';
 import SoundEngine from '@/components/SoundEngine';
 import AmbientControls from '@/components/ui/AmbientControls';
 import NoWebGL, { canDrawCity } from '@/components/ui/NoWebGL';
+import TourPlayer from '@/components/tour/TourPlayer';
+import { forgetStaleTour, tourActive } from '@/lib/tour/mode';
+
+// A demo tour (?tour=, docs/product/pilot_tour.md) shows the seeded city, the same every time: the player's own saved game is neither loaded nor
+// overwritten. Decided when this module loads, before anything can set (and so save) the game's state.
+if (typeof window !== 'undefined') {
+  forgetStaleTour(); // this page opened without ?tour= is not part of a tour from before
+  if (tourActive()) useCityStore.persist.setOptions({ storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } });
+}
 
 export default function Home() {
   const [drawable, setDrawable] = useState(true); // checked after mount (the server cannot know); false shows the plain fallback
@@ -37,7 +46,8 @@ export default function Home() {
   useEffect(() => {
     useView.getState().hydrate();
     hydrateMarket();
-    startPresence({ indoors: () => Boolean(useCityStore.getState().activeInteriorPlot) }); // foot traffic is counted outdoors only
+    // foot traffic is counted outdoors only, and not during a demo tour (leaving the tour reloads the page as an ordinary visit)
+    if (!tourActive()) startPresence({ indoors: () => Boolean(useCityStore.getState().activeInteriorPlot) });
     // with a game server: who is signed in, and the owners of every plot (browsing never asks for a sign-in)
     useAccount.getState().hydrate().then(() => startSync());
   }, []);
@@ -78,6 +88,7 @@ export default function Home() {
       <SoundEngine />
       <AmbientControls />
       <AuthDialog />
+      <TourPlayer />
     </main>
   );
 }

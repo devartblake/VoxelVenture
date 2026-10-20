@@ -8,12 +8,13 @@
 //     (regression: "_fiber.refCleanup is not a function" when the plot count changed)
 //   - on a phone the joystick knob sits exactly in the middle of its base, and the base in the middle of the screen
 //   - the multiplayer server sees both clients, with device, frame rate and render stats, and no errors
+//   - the pilot walk-through (?tour=pilot) runs on a phone in demo mode, every stop reached by tapping Next, nothing saved
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
-import { root, sleep } from './helpers.mjs';
+import { imp, root, sleep } from './helpers.mjs';
 import { findBrowser, openPage } from './browser-driver.mjs';
 
 if (!findBrowser()) {
@@ -664,6 +665,35 @@ try {
   check('search engines are told to stay away', await adminPage.eval(`/noindex/.test(document.querySelector('meta[name="robots"]')?.content ?? '')`));
   check('no console errors on the sign-in page', adminPage.problems().length === 0, adminPage.problems().slice(0, 3).join(' | '));
   await adminPage.close();
+
+  // ---- the pilot walk-through (docs/product/pilot_tour.md) in demo mode (this build has no API), on a phone: tapped through with Next, every
+  // stop reached with its caption and what it opens, the buttons big enough for a finger, and nothing saved. tests/journeys/pilot-tour.test.mjs
+  // runs it against the API on a computer, with the keyboard.
+  const { PILOT_TOUR } = await imp('tour/tours.js');
+  const tourPage = await openPage(`http://localhost:${webPort}/?tour=pilot&tourSpeed=6`, { width: 412, height: 860, mobile: true });
+  const tourCaption = (attr) => `document.querySelector('[data-testid="tour-caption"]')?.getAttribute('${attr}')`;
+  check('tour: /?tour=pilot opens on its first stop', await waitFor(tourPage, `${tourCaption('data-tour-stop')} === ${JSON.stringify(PILOT_TOUR.stops[0].id)} && ${tourCaption('data-tour-arrived')} === '1'`, 120));
+  await tourPage.eval(`document.querySelector('[data-testid="tour-pause"]').click(); 1`);
+  const sizes = JSON.parse(await tourPage.eval(`JSON.stringify(['tour-back', 'tour-pause', 'tour-next', 'tour-exit'].map((id) => { const r = document.querySelector('[data-testid="' + id + '"]').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }))`));
+  check('tour: its buttons are at least 44 px for a finger, and the card fits the phone', sizes.every(([w, h]) => w >= 44 && h >= 44) && (await tourPage.eval(`(() => { const r = document.querySelector('[data-testid="tour-caption"]').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; })()`)), JSON.stringify(sizes));
+  const reachedStops = [];
+  for (const [i, s] of PILOT_TOUR.stops.entries()) {
+    const ok = await waitFor(tourPage, `${tourCaption('data-tour-stop')} === ${JSON.stringify(s.id)} && ${tourCaption('data-tour-arrived')} === '1' && document.querySelector('[data-testid="tour-title"]').textContent === ${JSON.stringify(s.title)}`, 30);
+    const kind = s.action?.kind;
+    const opened = !kind || kind === 'card' || kind === 'interior'
+      ? await waitFor(tourPage, kind === 'card' ? `document.body.innerText.includes('Step inside')` : kind === 'interior' ? `document.body.innerText.includes('(Plot #${s.action.plot})')` : 'true', 20)
+      : await waitFor(tourPage, kind === 'page' ? `(document.querySelector('[data-testid="tour-frame"]')?.contentDocument?.querySelector('h1')?.textContent ?? '').length > 0` : `document.querySelector('[data-testid="tour-overlay"]')?.getAttribute('data-kind') === ${JSON.stringify(kind)}`, 30);
+    if (ok && opened) reachedStops.push(s.id);
+    if (i < PILOT_TOUR.stops.length - 1) {
+      const r = JSON.parse(await tourPage.eval(`JSON.stringify(document.querySelector('[data-testid="tour-next"]').getBoundingClientRect())`));
+      await tourPage.tap(r.x + r.width / 2, r.y + r.height / 2);
+    }
+  }
+  check('tour: every stop is reached by tapping Next, and opens what it shows (demo mode)', reachedStops.length === PILOT_TOUR.stops.length, `${reachedStops.length}/${PILOT_TOUR.stops.length}: ${reachedStops.join(', ')}`);
+  check('tour: nothing scrolls sideways on the phone', await tourPage.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1`));
+  check('tour: no game was saved in the browser', !(await tourPage.eval(`localStorage.getItem('voxelventure-save')`)));
+  check('tour: no console errors or uncaught exceptions', tourPage.problems().length === 0, tourPage.problems().slice(0, 3).join(' | '));
+  await tourPage.close();
 
   await page.close();
   await phone.close();

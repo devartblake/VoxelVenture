@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { breadcrumbJsonLd, categoryOf, districtOf, isSlug, profileJsonLd } from '@voxelventure/business-core';
-import { getBuildingOfWeek, getBusiness, isDemo, siteUrl } from '@/lib/business/source';
+import { getBuildingOfWeek, getBusiness, getSampleBusiness, isDemo, siteUrl } from '@/lib/business/source';
 import VoteButton from '@/components/business/VoteButton';
 import CtaButton from '@/components/business/CtaButton';
 import ProfileTracker from '@/components/business/ProfileTracker';
 import ShareProfile from '@/components/business/ShareProfile';
 import ReportProfile from '@/components/business/ReportProfile';
+import { sampleCta } from '@/lib/tour/tours';
 
 async function load(params) {
   const { slug } = await params;
@@ -27,10 +28,16 @@ export async function generateMetadata({ params }) {
   };
 }
 
-// A business's public page: what it is, one call to action, and (if it has one) its 3D storefront in the city.
-export default async function BusinessPage({ params }) {
-  const p = await load(params);
-  if (!p) notFound();
+// A business's public page: what it is, one call to action, and (if it has one) its 3D storefront in the city. In a demo tour (?tour=,
+// docs/product/pilot_tour.md) a business of the seeded city that the live site does not list is shown as a sample.
+export default async function BusinessPage({ params, searchParams }) {
+  const { tour } = await searchParams;
+  const live = await load(params);
+  const found = live ?? (tour && isSlug((await params).slug) ? await getSampleBusiness((await params).slug) : null);
+  if (!found) notFound();
+  const sample = !live && !isDemo();
+  // a sample business has no real link, so in a tour its call to action is an example one (lib/tour/tours.js), to show what the button is
+  const p = tour && found.demo && !found.cta?.url ? { ...found, cta: sampleCta(found.slug) } : found;
   const category = categoryOf(p.category);
   const district = districtOf(p.district);
   const url = `${siteUrl()}/business/${p.slug}`;
@@ -43,6 +50,7 @@ export default async function BusinessPage({ params }) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: profileJsonLd(p, url) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd([{ name: 'Discover', url: `${siteUrl()}/discover` }, ...(category ? [{ name: category.label, url: `${siteUrl()}/category/${category.id}` }] : []), { name: p.name, url }]) }} />
       <ProfileTracker slug={p.slug} />
+      {sample && <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">A sample business of the guided tour, not a real one.</p>}
       <nav aria-label="Breadcrumb" className="mb-4 text-sm text-sx-muted">
         <Link href="/discover" className="hover:text-white">Discover</Link>
         {category && <> / <Link href={`/category/${category.id}`} className="hover:text-white">{category.label}</Link></>}

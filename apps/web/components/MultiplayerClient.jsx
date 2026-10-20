@@ -3,6 +3,7 @@
 import { quietKnownWarnings } from '@/lib/dev/quietWarnings';
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { forgetStaleTour, tourActive } from '@/lib/tour/mode';
 
 quietKnownWarnings(); // before any 3D code runs (see lib/dev/quietWarnings.js)
 
@@ -17,6 +18,9 @@ export default function MultiplayerClient() {
     if (plain) return undefined;
     let stop = null;
     let gone = false;
+    // a demo tour (docs/product/pilot_tour.md) is not a player: it does not join (leaving the tour reloads the page as an ordinary visit)
+    forgetStaleTour(); // a game page opened without ?tour= is not part of one
+    if (tourActive()) return undefined;
     import('@/lib/net/multiplayer').then(({ startNet }) => {
       if (!gone) stop = startNet();
     });

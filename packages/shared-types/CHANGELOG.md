@@ -1,5 +1,19 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.14.0 (2026-10-20)
+
+The guided demo tour ([pilot_tour.md](../../docs/product/pilot_tour.md)). New contract, version 1:
+
+- `demo.tour` (`DEMO_TOUR`, [`contracts/demo-tour.js`](src/contracts/demo-tour.js)): a tour the game's player (`?tour=<id>`) and `scripts/tour-record.mjs` run. It has the city's seed, as `test.scenario` does, and its ordered stops. Each stop has:
+  - a caption (a title and one or two sentences);
+  - a camera target: a plot, a district, a named place or a point;
+  - the camera: a follow view preset, distance, pitch, and a heading or `'front'`;
+  - an optional action that only shows something: `card`, `interior` or `claim` on a plot; `page` on a public path (never an outside link); or `dashboard` or `cart`;
+  - a duration.
+- It is in `CONTRACTS`, next to `test.scenario`, and not in `API_CONTRACTS`: it never travels over the wire. `API_CONTRACTS` still holds 53.
+
+No existing contract changed.
+
 ## 0.13.0 (2026-10-20)
 
 Promo codes: discount codes the owner makes for VoxelVenture's own services (`services/api/promo.mjs`, [billing.md](../../docs/monetization/billing.md#promo-codes)). Not the merchants' coupons (`coupon.*`, unchanged). New contracts, all version 1:

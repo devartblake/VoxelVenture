@@ -35,6 +35,7 @@ What VoxelVenture is and does: the concept, the funnel, the features.
 | [boats_piers_riverwalk.md](product/boats_piers_riverwalk.md) | Boats that sail themselves to a pier, piers and fishing from them, the riverwalk, river estates |
 | [behind_the_building.md](product/behind_the_building.md) | The "Behind the building" option in the plot menu: car park, garden, patio, storage, pool |
 | [world_map.md](product/world_map.md) | The world map (M): controls, waypoints and routes, and how it stays fast |
+| [pilot_tour.md](product/pilot_tour.md) | The guided sales demo for prospective pilot businesses: `/?tour=pilot` (ten stops, read-only), its keys, recording it with `scripts/tour-record.mjs`, and how to edit or add a tour |
 
 ### Roadmap
 

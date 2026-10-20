@@ -8,11 +8,12 @@ These tests walk through what a pilot business and its visitors actually do, fro
 | [`merchant-onboarding`](merchant-onboarding.test.mjs) | 10 | A merchant signs up, creates a free profile, claims a lot and links the building. They change the call to action and set a coupon; an offer on the free plan asks for Pro. Then they see the dashboard and its figures and answer the pilot check-in |
 | [`reconnect-and-recovery`](reconnect-and-recovery.test.mjs) | 15 | Two signed-in players meet, chat, drop their connection and come back, and no player or line is duplicated. The presence server is also sent stale protocols, spent tickets, malformed input, floods and a slow receiver |
 | [`attribution-deduplication`](attribution-deduplication.test.mjs) | 7 | One visitor's view, press and purchase are each counted once. This holds however often the page, the pixel and the business's server report them |
+| [`pilot-tour`](pilot-tour.test.mjs) | 6 | The guided sales tour ([pilot_tour.md](../../docs/product/pilot_tour.md)) runs from the first stop to the last, each stop with its caption and what it opens. It checks the controls, the keyboard and reduced motion. No request that changes data leaves the browser, and a saved game is untouched. It sets nothing up first: the tour shows the city's own business |
 
 ## Running them
 
 ```sh
-npm run test:journeys                                  # all four
+npm run test:journeys                                  # all five
 node tests/journeys/merchant-onboarding.test.mjs      # one
 ```
 
