@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { Ban, CheckCircle2, ShieldCheck, UserPlus } from 'lucide-react';
 import { passwordProblem, PASSWORD_HINT } from '@/lib/data/admin';
-import { Field, FormError, SafeForm, useAdmin } from '@/components/admin/AdminShell';
+import { Field, FormError, SafeForm, Submit, useAdmin } from '@/components/admin/AdminShell';
+import { Alert, Badge, Button, DataTable, PageHeader, Section, StatusPill } from '@/components/admin/ui';
 
 // The admin accounts (GET/POST /admin/admins, PATCH /admin/admins/:id): who can sign in here, adding one, and disabling one (their sessions end
 // at once). Nobody can disable themselves or the last admin who can sign in. Every change is in the audit trail.
@@ -61,44 +63,52 @@ export default function AdminAccountsPage() {
     }
   };
 
+  const columns = [
+    {
+      key: 'username',
+      header: 'Username',
+      render: (a) => (
+        <span className="flex items-center gap-2.5">
+          <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sx-purple to-sx-blue text-xs font-bold uppercase text-white">{a.username.slice(0, 2)}</span>
+          <span className="font-medium text-white">{a.username}</span>
+          {a.id === me && <Badge tone="cyan">you</Badge>}
+        </span>
+      ),
+    },
+    { key: 'created', header: 'Created', className: 'whitespace-nowrap text-sx-muted', render: (a) => when(a.createdAt) },
+    { key: 'last', header: 'Last sign-in', className: 'whitespace-nowrap text-sx-muted', render: (a) => when(a.lastLoginAt) },
+    { key: 'status', header: 'Status', render: (a) => (a.disabled ? <StatusPill tone="amber">Disabled</StatusPill> : <StatusPill tone="green">Active</StatusPill>) },
+    {
+      key: 'action',
+      header: 'Action',
+      srOnly: true,
+      align: 'right',
+      render: (a) => a.id !== me && (
+        <Button size="sm" variant={a.disabled ? 'secondary' : 'danger'} icon={a.disabled ? CheckCircle2 : Ban} onClick={() => toggle(a)}>{a.disabled ? 'Enable' : 'Disable'}</Button>
+      ),
+    },
+  ];
+
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
-      <h1 className="text-xl font-bold text-white">Admins</h1>
-      <p className="mt-1 text-sm text-sx-muted">Who can sign in to these pages. Players&apos; accounts are separate and never admins.</p>
-      {error && <p role="alert" className="mt-4 rounded-lg border border-red-900 bg-red-950/50 p-3 text-sm text-red-200">{error}</p>}
-      {notice && <p role="status" className="mt-4 rounded-lg border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-200">{notice}</p>}
+    <div className="space-y-6">
+      <PageHeader eyebrow="Settings" title="Admins" description="Who can sign in to these pages. Players' accounts are separate and never admins." />
+      {error && <Alert tone="error">{error}</Alert>}
+      {notice && <Alert tone="success">{notice}</Alert>}
 
-      <div className="mt-5 overflow-x-auto rounded-xl border border-sx-stroke">
-        <table className="w-full min-w-[32rem] text-left text-sm">
-          <thead className="bg-sx-panel text-xs text-sx-muted">
-            <tr><th className="px-3 py-2">Username</th><th className="px-3 py-2">Created</th><th className="px-3 py-2">Last sign-in</th><th className="px-3 py-2">Status</th><th className="px-3 py-2"><span className="sr-only">Action</span></th></tr>
-          </thead>
-          <tbody>
-            {(list ?? []).map((a) => (
-              <tr key={a.id} className="border-t border-sx-stroke">
-                <td className="px-3 py-2 font-medium">{a.username}{a.id === me && <span className="ml-1 text-xs text-sx-muted">(you)</span>}</td>
-                <td className="px-3 py-2 text-sx-muted">{when(a.createdAt)}</td>
-                <td className="px-3 py-2 text-sx-muted">{when(a.lastLoginAt)}</td>
-                <td className={`px-3 py-2 ${a.disabled ? 'text-amber-300' : 'text-emerald-300'}`}>{a.disabled ? 'Disabled' : 'Active'}</td>
-                <td className="px-3 py-2 text-right">
-                  {a.id !== me && (
-                    <button type="button" onClick={() => toggle(a)} className="rounded-lg border border-sx-line px-2.5 py-1 text-xs hover:border-sx-cyan">{a.disabled ? 'Enable' : 'Disable'}</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {list && list.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-sx-muted">No admins.</td></tr>}
-          </tbody>
-        </table>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <Section title="Accounts" icon={ShieldCheck} description="Disabling an admin signs them out at once. Every change is in the audit trail." bodyClassName="p-3 sm:p-4">
+          <DataTable caption="Admin accounts" columns={columns} rows={list ?? []} rowKey={(a) => a.id} empty={list ? 'No admins.' : 'Loading…'} minWidth="36rem" />
+        </Section>
+
+        <Section title="Add an admin" icon={UserPlus} description="They should change the password after signing in.">
+          <SafeForm onSubmit={add} className="space-y-4">
+            <Field id="new-username" label="Username" autoComplete="off" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} />
+            <Field id="new-password" label="A first password" type="password" autoComplete="new-password" hint={`${PASSWORD_HINT} They should change it after signing in.`} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <FormError>{formError}</FormError>
+            <Submit busy={busy}>Add the admin</Submit>
+          </SafeForm>
+        </Section>
       </div>
-
-      <SafeForm onSubmit={add} className="mt-8 max-w-md space-y-4 rounded-xl border border-sx-stroke bg-sx-panel p-5">
-        <h2 className="font-semibold text-white">Add an admin</h2>
-        <Field id="new-username" label="Username" autoComplete="off" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} />
-        <Field id="new-password" label="A first password" type="password" autoComplete="new-password" hint={`${PASSWORD_HINT} They should change it after signing in.`} value={password} onChange={(e) => setPassword(e.target.value)} />
-        <FormError>{formError}</FormError>
-        <button type="submit" disabled={busy} className="rounded-lg bg-sx-cyan px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300 disabled:opacity-60">{busy ? 'One moment…' : 'Add the admin'}</button>
-      </SafeForm>
-    </main>
+    </div>
   );
 }

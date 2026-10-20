@@ -134,6 +134,25 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **How it plays:** each track plays to its end, then a short quiet, then the next. Day and night change at the end of a track. Getting into a car switches to the radio at once with a crossfade, and so does staying at the arcade or a cafe for a few seconds; walking past changes nothing.
   - **Label:** it shows the track.
   - **Tests:** `tests/music-director.test.mjs` [`docs/world/day_night_sound.md`]
+- [x] **Admin dashboard redesign** ([docs/brand/admin_dashboard.md](../brand/admin_dashboard.md)):
+  - **The frame:** every `/admin` page is in the SynaptixPlay palette.
+    - On a desktop, a sidebar shows the Double-V mark and the pages in groups (Live, Business, Settings), with a placeholder for Promo codes at `/admin/promos`.
+    - On a phone, a menu button opens the pages in a drawer.
+    - A top bar shows the page's name, a live indicator, who is signed in and Sign out.
+  - **The pages:**
+    - **Monitor:** figure cards with trend lines.
+    - **Pilot:** criteria cards and a progress meter.
+    - **Economy:** tabs for tier and district, and bar meters.
+    - **Admins and Account:** cards with the form beside the table.
+    - **Sign-in and setup:** a centred card with the brand mark.
+  - **Unchanged:** behaviour, `data-testid`s and the security rules (`SafeForm`, the cookie only, the redirects).
+  - **Components:** shared in `apps/web/components/admin/ui.jsx`, ready for the promo-codes page.
+  - **Accessibility:**
+    - a cyan focus ring and a skip link;
+    - `aria-current` on the current page;
+    - a drawer that traps the focus, makes the page behind `inert` and closes on Escape;
+    - 44 px targets on phones, reduced motion, and AA contrast.
+  - **Tests:** the live-browser test checks the drawer on a phone.
 - [x] **District street names:** the Meadow Quarter's infill streets take garden-suburb names (Harrogate). The /editor suggests names from the list of the road's district. The avenues, cross streets and puns keep theirs [`docs/world/street_names.md`]
 
 ## To do
