@@ -4,7 +4,8 @@ import { useRotatingAd } from './useRotatingAd';
 import { textOn } from '@/lib/game/adRotation';
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { flightClock, flightPlanFor, flightState, trailPoint } from '@/lib/sim/flight';
 import { useCityStore } from '@/lib/state/store';
 
@@ -101,7 +102,7 @@ function Plane({ index, plan, banner }) {
     return new THREE.Line(g, new THREE.LineBasicMaterial({ color: '#e2e8f0' }));
   }, []);
 
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.distantSimulation, ({ clock }) => {
     const time = flightClock();
     const s = flightState(plan, index, time);
     const g = body.current;

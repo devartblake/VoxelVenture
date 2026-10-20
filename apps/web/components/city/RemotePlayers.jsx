@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { COSMETIC_BY_ID } from '@/lib/game/cosmetics';
 import { remotePlayers, useNet } from '@/lib/net/multiplayer';
 import { Hat, SCALE } from './Avatar';
@@ -31,7 +32,7 @@ function RemoteAvatar({ id }) {
   const shirt = COSMETIC_BY_ID[info?.appearance?.shirt]?.color ?? '#3b82f6';
   const pants = COSMETIC_BY_ID[info?.appearance?.pants]?.color ?? '#1e3a8a';
 
-  useFrame((_, rawDelta) => {
+  useGatedFrame(LOOPS.visible, (_, rawDelta) => {
     const p = remotePlayers.get(id);
     if (!p || !root.current) return;
     const dt = Math.min(rawDelta, 0.1);

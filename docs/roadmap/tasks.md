@@ -112,6 +112,13 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Failures:** each names its milestone and its kind (product, rendering or environment). CI sets `JOURNEY_STRICT=1` and uploads the sanitized logs and screenshots of a failed run.
   - **Staging:** `JOURNEY_*_URL` and `JOURNEY_ALLOW_WRITES=1` point the suite at a running stack.
   - **Defect found:** a chat line retried after a reconnect was said twice. The presence server now remembers answers per account too.
+- [x] **Performance and capability policy** (Track C of the [adoption plan](../architecture/external_voxel_repositories_adoption_plan.md), section 8.5; [performance_policy.md](../architecture/performance_policy.md)):
+  - **Inventory:** the 29 `useFrame` callbacks, classified: 6 continuous-visible, 5 event-driven, 17 pausable, 1 diagnostics. Each callback in the city goes through `useGatedFrame` (`lib/performance/runtime.js`).
+  - **Tiers:** `high`, `medium` and `low`, decided in `lib/performance/` from the pointer, the screen, the GPU's renderer string, the memory and core hints and the measured frame rate, with hysteresis. `high` is the old desktop drawing and `medium` the old touch drawing. `?quality=low|medium|high|auto` forces a tier.
+  - **Pausing:** while the storefront interior covers the city, the decoration stops and the city is drawn 4 times a second. Under the world map, and the panel on a phone, the decoration runs at half rate. With reduced motion the ornaments hold still. In a hidden tab, everything stops. The low tier and zooming out slow the distant and decorative systems.
+  - **Diagnostics:** with `?diag=1`, a badge shows the tier and why, and measures on the device. The `/admin` monitor shows each device's tier, reasons and p95 (`presence.client.perf` gained three optional fields).
+  - **Budgets and measurement:** budgets per tier are proposed, and `scripts/perf-measure.mjs` measures five fixed camera spots per tier. Desktop numbers are recorded; the phone and laptop runs are task 25.
+  - **Tests:** `tests/performance-policy.test.mjs` (the rules), and `tests/browser-touch.test.mjs` (tap, drag, pinch, long press, the joystick, the keyboard and the policy, in a browser).
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
 - [x] **Walking inside a storefront** (a freeze exception, [world_freeze.md](world_freeze.md)):
   - **The avatar:** the visitor's own avatar, in its Wardrobe colours, comes in at the door of the interior viewer. A tap or click on the floor walks it there, round the furniture of the floor shown (a redesign too), and never through the walls or the stairwell.
@@ -172,7 +179,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 ### 4. Verification (no code, needs devices)
 | # | Task |
 | :-: | :--- |
-| 25 | Frame rate on real phones and tablets (the monitor reports it); the Action camera and joystick on touch |
+| 25 | Frame rate on real phones and tablets (the monitor reports it, with the quality tier); the Action camera and joystick on touch. To measure: open the site with `?diag=1`, tap the Quality badge, then **Measure** and **Copy**; on a laptop, `node scripts/perf-measure.mjs` ([performance_policy.md](../architecture/performance_policy.md) section 7) |
 | 26 | Try the logo upload from a phone; storefront embeds (YouTube, Vimeo, itch.io) for real |
 | 27 | Playtest the third-person, Action and **First person** cameras (distance, turn speed, feel). Automated now: the browser test checks that no follow camera ends up inside a building beside tall plots |
 | 28 | Restart the dev server to pick up the `<Html>` patch (no warning when opening interiors in development) |

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import * as THREE from 'three';
 import { ANIMAL_CATALOG } from '@/lib/content/animalCatalog';
 import { parseVox, voxelMesh } from '@/lib/content/vox';
@@ -56,7 +57,7 @@ export default function Animals({ layout }) {
   }, [kinds]);
   const refs = useRef({});
 
-  useFrame((state, delta) => {
+  useGatedFrame(LOOPS.distantSimulation, (state, delta) => {
     if (!sim) return;
     sim.update(delta, state.clock.elapsedTime);
     const t = state.clock.elapsedTime;

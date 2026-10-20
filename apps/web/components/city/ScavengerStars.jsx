@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { avatarState } from '@/lib/sim/avatarState';
 import { scavengerHunt } from '@/lib/game/daily';
 import { useCityStore } from '@/lib/state/store';
@@ -10,7 +11,7 @@ import { useCityStore } from '@/lib/state/store';
 // it; click one to walk to it, then press E (or tap the button).
 function Star({ spot }) {
   const ref = useRef(null);
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (!ref.current) return;
     ref.current.rotation.y = clock.elapsedTime * 2.2;
     ref.current.position.y = 0.55 + Math.sin(clock.elapsedTime * 2.6 + spot.index) * 0.06;

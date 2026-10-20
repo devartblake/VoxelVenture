@@ -393,8 +393,11 @@ try {
     const spots = await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].map((b) => b.innerText)`);
     check(`the interior of ${st.title} has hotspots`, Array.isArray(spots) && ['Whole room', 'Entrance', 'Back wall'].every((t) => spots.includes(t)), JSON.stringify(spots));
     await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.innerText === 'Entrance').click()`);
-    await sleep(400);
-    check('choosing a hotspot marks it', await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.innerText === 'Entrance').getAttribute('aria-pressed') === 'true'`));
+    // (the avatar walks there too, and lights each spot it walks up to on the way, such as the offer desk; since the city behind
+    // the interior is drawn only a few times a second the room runs fast enough for that within moments, so wait for it to arrive)
+    const pressedSpot = `[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.getAttribute('aria-pressed') === 'true')?.innerText ?? null`;
+    const marked = await waitFor(page, `${pressedSpot} === 'Entrance'`, 15);
+    check('choosing a hotspot marks it', marked, marked ? '' : `pressed: ${await page.eval(pressedSpot)}`);
     if (st === pickStores[0]) {
       // the props come from the props bucket in a build with NEXT_PUBLIC_PROPS_BASE_URL, otherwise from the site's own /items
       // (lib/content/interiorProps.js), never from Pascal's CDN: read from the page's network log

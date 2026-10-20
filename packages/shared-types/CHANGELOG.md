@@ -1,5 +1,9 @@
 # Changelog: @voxelventure/shared-types
 
+## Unreleased
+
+- `presence.client.perf` (still version 1, protocol 2): three optional fields, `quality` (`low`, `medium` or `high`: the tier the game draws at), `qualityReasons` (why, comma-separated, at most 120 characters) and `frameP95` (the 95th-percentile frame time in ms). The presence server keeps them as the player's `quality` for the `/admin` monitor. An older game sends none, and an older server ignores them ([performance policy](../../docs/architecture/performance_policy.md)).
+
 ## 0.9.0 (2026-10-19)
 
 The plot economy's data is recorded (`services/api/economy.mjs`, [plot_economy_data.md](../../docs/monetization/plot_economy_data.md)). New contracts, all version 1:

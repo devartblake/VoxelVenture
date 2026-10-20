@@ -73,6 +73,7 @@ export default function AdminPage() {
                     <th className="px-3 py-2">Screen</th>
                     <th className="px-3 py-2">FPS</th>
                     <th className="px-3 py-2" title="draw calls / triangles per frame">Draws / tris</th>
+                    <th className="px-3 py-2" title="the quality tier the game draws at, and why (docs/architecture/performance_policy.md)">Quality</th>
                     <th className="px-3 py-2">City</th>
                     <th className="px-3 py-2">Position</th>
                     <th className="px-3 py-2">Errors</th>
@@ -81,7 +82,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {data.players.length === 0 && (
-                    <tr><td colSpan={10} className="px-3 py-4 text-slate-500">Nobody is connected.</td></tr>
+                    <tr><td colSpan={11} className="px-3 py-4 text-slate-500">Nobody is connected.</td></tr>
                   )}
                   {data.players.map((p) => (
                     <tr key={p.id} className="border-t border-slate-800">
@@ -91,6 +92,7 @@ export default function AdminPage() {
                       <td className="px-3 py-2 font-mono">{p.device?.screen}</td>
                       <td className={`px-3 py-2 font-mono ${p.fps != null && p.fps < 25 ? 'text-amber-300' : ''}`}>{p.fps ?? '–'}</td>
                       <td className="px-3 py-2 font-mono">{p.render ? `${p.render.calls} / ${(p.render.triangles / 1000).toFixed(0)}k` : '–'}</td>
+                      <td className="px-3 py-2 font-mono" title={p.quality?.reasons ?? ''}>{p.quality ? `${p.quality.tier}${p.quality.frameP95 ? ` · p95 ${p.quality.frameP95} ms` : ''}` : '–'}</td>
                       <td className="px-3 py-2 font-mono">#{p.room}</td>
                       <td className="px-3 py-2 font-mono">{p.x.toFixed(0)}, {p.z.toFixed(0)}</td>
                       <td className={`px-3 py-2 font-mono ${p.errorCount ? 'text-red-300' : 'text-slate-500'}`}>{p.errorCount}</td>

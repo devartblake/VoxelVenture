@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { qualityGate } from '@/lib/performance/runtime';
 
 // Small pixel-style textures drawn on a canvas (no image files): speckled grass for the land, a rough slate for the
 // built-up base, and one for each kind of ground patch. They are cached, and filtered "nearest" so they stay crisp
@@ -47,7 +48,7 @@ export function groundTexture(kind, { repeat = null, size = 64 } = {}) {
   // blocky when close, but smoothly averaged with distance (nearest filtering shimmered from the far views)
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.anisotropy = 8;
+  texture.anisotropy = qualityGate.settings.anisotropy; // the tier's texture filtering (8 on high, as before; lib/performance/qualityPolicy.js)
   texture.colorSpace = THREE.SRGBColorSpace;
   if (repeat) {
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;

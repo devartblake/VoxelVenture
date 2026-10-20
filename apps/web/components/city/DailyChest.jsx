@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { avatarState } from '@/lib/sim/avatarState';
 import { dailyChest } from '@/lib/game/daily';
 import { useCityStore } from '@/lib/state/store';
@@ -18,7 +19,7 @@ export default function DailyChest() {
 
   const chest = useMemo(() => (day ? dailyChest(intersections, seed, day) : null), [day, seed, intersections]);
 
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     const t = clock.elapsedTime;
     if (gem.current) {
       gem.current.rotation.y = t * 2;

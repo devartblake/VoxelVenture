@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import * as THREE from 'three';
 import { avatarState } from '@/lib/sim/avatarState';
 import { useMap } from '@/lib/state/mapStore';
@@ -23,7 +24,7 @@ export default function RouteFollower() {
   }, [route]);
   useMemo(() => line?.computeLineDistances(), [line]);
 
-  useFrame((state) => {
+  useGatedFrame(LOOPS.visible, (state) => {
     if (beam.current) beam.current.scale.y = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.08;
     const { autoWalk, route: r } = useMap.getState();
     const w = walk.current;

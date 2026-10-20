@@ -2,7 +2,9 @@
 
 import { useEffect } from 'react';
 import { PerspectiveCamera } from '@react-three/drei';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { avatarState } from '@/lib/sim/avatarState';
 import { useCityStore } from '@/lib/state/store';
 import { PRESETS, useView } from '@/lib/state/viewStore';
@@ -122,7 +124,7 @@ export default function FollowCamera() {
     };
   }, [gl]);
 
-  useFrame((_, delta) => {
+  useGatedFrame(LOOPS.visible, (_, delta) => {
     const { azimuth, pitch, distance, look } = useView.getState();
     if (PRESETS[useView.getState().view]?.fp) {
       // first person: at the eyes, looking along the heading (no smoothing, so looking round is immediate)
