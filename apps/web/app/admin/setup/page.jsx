@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiOn } from '@/lib/data/api';
-import { adminFetch, passwordProblem } from '@/lib/data/admin';
+import { adminFetch, passwordProblem, PASSWORD_HINT } from '@/lib/data/admin';
 import { AdminCard, Field, FormError, SafeForm, Submit } from '@/components/admin/AdminShell';
 
 // The first admin account (POST /admin/setup): only while there is none, and only with the API's ADMIN_TOKEN. The token is typed here, sent
@@ -52,7 +52,7 @@ export default function AdminSetupPage() {
       <SafeForm onSubmit={submit} disabled={!api} data-testid="admin-setup-form">
         <Field id="token" label="Admin token" type="password" autoComplete="off" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} />
         <Field id="username" label="Your username" autoComplete="username" autoCapitalize="none" spellCheck={false} hint="3 to 32 letters, numbers, dots, dashes or underscores." value={username} onChange={(e) => setUsername(e.target.value)} />
-        <Field id="password" label="Password" type="password" autoComplete="new-password" hint="At least 12 characters, and not the username." value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field id="password" label="Password" type="password" autoComplete="new-password" hint={PASSWORD_HINT} value={password} onChange={(e) => setPassword(e.target.value)} />
         <Field id="confirm" label="The same password again" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         <FormError>{error}</FormError>
         <Submit busy={busy}>Create the account</Submit>

@@ -41,7 +41,7 @@ check('?next= keeps a path on this site, with its query', safeNext('/admin/pilot
 check('never another host or a script', ['//evil.test', '/\\evil.test', 'https://evil.test/admin', 'javascript:alert(1)', '/\t/evil.test', '', null].every((n) => safeNext(n) === '/admin'));
 check('never back to the sign-in or the setup', safeNext('/admin/login?next=/x') === '/admin' && safeNext('/admin/setup') === '/admin');
 check('the login link carries it', loginHref('/admin/economy') === '/admin/login?next=%2Fadmin%2Feconomy');
-check('the forms check the password rules first', passwordProblem('amy', 'short') && passwordProblem('amyamyamyamy', 'AMYAMYAMYAMY') && passwordProblem('amy', 'long enough pw', 'other') && !passwordProblem('amy', 'long enough pw', 'long enough pw'));
+check('the forms check the password rules first', passwordProblem('amy', 'short') && passwordProblem('amyamyamyamy', 'AMYAMYAMYAMY') && passwordProblem('amy', 'Long enough pw1', 'other') && !passwordProblem('amy', 'Long enough pw1', 'Long enough pw1'));
 
 // ---- the login guard on its own: 5 failures in 15 minutes lock for 15 minutes
 const g = admin.createLoginGuard();
@@ -106,7 +106,9 @@ try {
   const player = (await call('POST', '/auth/signup', { body: { username: 'Player1', password: 'longenough1' } })).data;
   check('or with a player\'s sign-in', (await call('POST', '/admin/setup', { token: player.token, body: { username: 'owner', password: OWNER_PW } })).status === 403);
   const short = await call('POST', '/admin/setup', { token: TOKEN, body: { username: 'owner', password: 'short pw' } });
-  check('a password under 12 characters is refused', short.status === 400 && short.data.code === 'weak_password');
+  check('a password under 8 characters is refused', (await call('POST', '/admin/setup', { token: TOKEN, body: { username: 'owner', password: 'Ab1!xyz' } })).data.code === 'weak_password');
+  check('so is a short one with fewer than 3 kinds of character', short.status === 400 && short.data.code === 'weak_password');
+  check('so is a common one', (await call('POST', '/admin/setup', { token: TOKEN, body: { username: 'owner', password: 'Password123' } })).data.code === 'weak_password');
   check('so is the username as the password', (await call('POST', '/admin/setup', { token: TOKEN, body: { username: 'ownerowner12', password: 'OwnerOwner12' } })).data.code === 'weak_password');
   const setup = await call('POST', '/admin/setup', { token: TOKEN, body: { username: 'owner', password: OWNER_PW } });
   check('with the token, the first admin is created', setup.status === 200 && setup.data.admin.username === 'owner' && !('password' in setup.data.admin) && !JSON.stringify(setup.data).includes('scrypt'));
