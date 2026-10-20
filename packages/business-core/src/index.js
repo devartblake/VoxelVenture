@@ -2,3 +2,4 @@
 // (docs/architecture/adr/0001-shared-package-boundaries.md). Pure; may depend on shared-types only.
 export * from './plans.js';
 export * from './profile.js';
+export * from './promo.js';

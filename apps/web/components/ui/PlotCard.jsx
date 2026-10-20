@@ -30,6 +30,7 @@ import { claimRemote, openSiteLink, renewRemote, takeOverRemote, updateRemote, u
 import { DEFAULT_TERM, GRACE_DAYS, PRO_PLOT_DISCOUNT, RENEWAL_DISCOUNT, TERMS, chargeOf, describeLease, leaseState, renewalWindowDays, termFor, termOf, termPrice, takeoverAllowed } from '@/lib/game/leases';
 import { useCommunity } from '@/lib/state/communityStore';
 import ReportButton from './ReportButton';
+import PromoField from './PromoField';
 import { useAccount } from '@/lib/state/accountStore';
 import { composeTo } from '@/lib/state/chatStore';
 import { voteProblem } from '@/lib/game/buildingOfWeek';
@@ -280,7 +281,9 @@ function OwnerOutside({ plot }) {
           </p>
           {ended ? (
             <p className="text-amber-200">The lease has ended: renew it first, then you can build onto the outside again.</p>
-          ) : null}
+          ) : (
+            <PromoField scope={`exterior:${plot.id}`} kind="exterior" cents={Math.round(pending.quote.charge * 100)} />
+          )}
           <div className="flex gap-1.5">
             <button type="button" disabled={busy || ended} onClick={pay} className="flex-1 rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 font-bold text-white hover:brightness-110 disabled:opacity-40" data-testid="exterior-pay">
               Pay {money(pending.quote.charge)} and apply
@@ -357,6 +360,7 @@ function TakeOver({ plot }) {
       <input type="url" placeholder="External link (https://...)" value={form.link} onChange={(e) => set('link')(e.target.value)} className={INPUT} />
       <textarea value={form.about} maxLength={160} rows={2} onChange={(e) => set('about')(e.target.value)} placeholder="A line or two about your business (optional)" className={INPUT} />
       <LogoPicker value={form.logo} onChange={set('logo')} title={form.title} type={form.type} />
+      <PromoField scope={`takeover:${plot.id}`} kind="takeover" cents={Math.round(price * 100)} />
       <button type="submit" disabled={!isValidLogo(form.logo)} className="w-full rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-amber-500 disabled:opacity-40">
         Take over for ${price.toLocaleString()}
       </button>
@@ -429,6 +433,7 @@ function LeaseBox({ plot }) {
         </div>
       )}
       {canRenew && <div className="mt-1"><ProNote pro={pro} discount={renewal.discount} /></div>}
+      {canRenew && typeof plot.id === 'number' && <div className="mt-1.5"><PromoField scope={`renew:${plot.id}`} kind="renew" cents={Math.round(renewal.total * 100)} /></div>}
       {canRenew && typeof plot.id === 'number' && <div className="mt-1.5"><AddToCart item={{ kind: 'renew', plotId: plot.id, input: { leaseDays: days } }} disabled={busy} testId="renew-add-to-cart" /></div>}
     </div>
   );
@@ -884,6 +889,7 @@ export default function PlotCard() {
                 {p.land && explainPrice(p.land).length > 1 && <p className="mt-1 text-[10px] text-slate-500">{explainPrice(p.land).join(' · ')}</p>}
               </div>
             )}
+            <PromoField scope={`claim:${p.id}`} kind="claim" cents={Math.round(claim.total * 100)} />
             <button type="submit" disabled={!isValidLogo(logo)} className="w-full rounded-lg bg-green-600 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-green-500 disabled:opacity-40">
               Claim {p.luxury ? 'Luxury Estate' : p.prime ? 'Prime Plot' : 'Plot'} (${claim.total.toLocaleString()})
             </button>

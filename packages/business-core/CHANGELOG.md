@@ -1,5 +1,13 @@
 # Changelog: @voxelventure/business-core
 
+## 0.5.0 (2026-10-19)
+
+Promo codes (`src/promo.js`, [billing.md](../../docs/monetization/billing.md#promo-codes)), shared by the server and the pages:
+
+- `PROMO_GROUPS` (`plots`, `outside`, `launch`, `pro`, `sponsored`, `market`, each with the purchase kinds in it), `PROMO_GROUP_IDS`, `promoGroupOf(kindOrProduct, action?)`, `groupsOf(appliesTo)`.
+- `promoDiscount(promo, lines)`: what a code takes off a checkout's lines, on the eligible lines only (after the Pro and renewal discounts), never leaving less than `STRIPE_MIN_CENTS` (50) to pay except nothing.
+- `normalizeCode`, `PROMO_CODE_RE`, `PROMO_ALPHABET` (generated codes), `PROMO_KINDS`, `promoLabel`.
+
 ## 0.4.0 (2026-10-18)
 
 - `PRO_PLOT_DISCOUNT` (0.15): an account with Pro on any of its business profiles pays 15% less for a plot lease in the 3D city (a claim, a take-over and a renewal). `lib/game/leases.js` applies it; the server decides who has Pro.

@@ -2,9 +2,10 @@ import { attempt, dryRun, transaction } from './db.mjs';
 import * as market from './market.mjs';
 import * as economy from './economy.mjs';
 import * as billing from './billing.mjs';
+import * as promo from './promo.mjs';
 import { ApiError, fail, hasPro, requireAccount } from './core.mjs';
 import { audit, byAccount } from './audit.mjs';
-import { CART, PRODUCTS, categoryOf, districtOf, dollars, isSlug, placementOf, priceOf } from '@voxelventure/business-core';
+import { CART, PRODUCTS, categoryOf, districtOf, dollars, isSlug, placementOf, priceOf, promoGroupOf } from '@voxelventure/business-core';
 
 // The cart (docs/monetization/billing.md#the-cart, docs/product/sales_funnel_proposal.md section 4): several purchases, one Stripe payment, so
 // Stripe's 30¢ a payment is paid once instead of once per item.
@@ -20,6 +21,9 @@ import { CART, PRODUCTS, categoryOf, districtOf, dollars, isSlug, placementOf, p
 //   orders     one parent order (product 'cart', the whole amount, the Stripe session) and a child order per line (orders.parent_id), each the
 //              same order a single purchase makes, so fulfilment, refunds, the audit trail and the order lists work line by line (billing.mjs).
 //   minimum    a checkout of at least CART.minimumCents. "Buy now" on a single item is not a cart and keeps no minimum.
+//   promo      one promo code per cart (POST /cart/promo, promo.mjs): shown as its own line, on the lines it covers, after the Pro discount. The minimum
+//              is the total before the code. Checked again at checkout; the parent order reserves its use and each line carries its share (promo_cents).
+//              A cart the code makes free (and without Pro) is done at once, with no Stripe session.
 // Without payments (billing.billingOn false) the game's lines are done at once, all or nothing, as the game's own routes do without payments;
 // the business products (Launch Pack, Pro, sponsored) cannot be bought without payments (503 billing_off, as their own checkout).
 const PLOT_KINDS = ['claim', 'takeover', 'renew', 'exterior'];
@@ -100,8 +104,18 @@ export function cartView(db, account, env = process.env) {
     business: r.business_id && names.get(r.business_id) ? { slug: names.get(r.business_id).slug, name: names.get(r.business_id).name } : null,
     placement: r.placement ?? null,
   }));
-  const totalCents = items.reduce((a, i) => a + i.cents, 0);
+  const beforeCode = items.reduce((a, i) => a + i.cents, 0);
   const discountCents = items.reduce((a, i) => a + i.discountCents, 0);
+  // the cart's promo code, priced on these lines now (it is checked again, and its use reserved, at checkout)
+  const code = db.prepare('SELECT promo_code FROM carts WHERE account_id = ?').get(account.id)?.promo_code ?? null;
+  let shownPromo = null;
+  if (code) {
+    const r = promo.check(db, account, code, rows.map(lineGroup));
+    shownPromo = r.ok ? { code: r.promo.code, label: promoLabelOf(r.promo), cents: r.discount.cents, error: null } : { code, label: r.promo ? promoLabelOf(r.promo) : null, cents: 0, error: promo.messageOf(r) };
+    if (r.ok) items.forEach((i, n) => (i.promoCents = r.discount.lines[n]));
+  }
+  for (const i of items) i.promoCents ??= 0;
+  const totalCents = beforeCode - (shownPromo?.cents ?? 0);
   const pending = db.prepare("SELECT id, hold_until FROM orders WHERE account_id = ? AND product = 'cart' AND status = 'pending' AND hold_until > ? ORDER BY id DESC LIMIT 1").get(account.id, now());
   return {
     items,
@@ -109,16 +123,36 @@ export function cartView(db, account, env = process.env) {
     plots: items.filter((i) => i.plotId).length,
     maxPlots: CART.maxPlots,
     maxLines: CART.maxLines,
-    subtotalCents: totalCents + discountCents,
+    subtotalCents: beforeCode + discountCents,
     discountCents,
     totalCents,
     minimumCents: CART.minimumCents,
-    missingCents: items.length ? Math.max(0, CART.minimumCents - totalCents) : CART.minimumCents,
-    ready: items.length > 0 && totalCents >= CART.minimumCents,
+    promo: shownPromo,
+    missingCents: items.length ? Math.max(0, CART.minimumCents - beforeCode) : CART.minimumCents,
+    ready: items.length > 0 && beforeCode >= CART.minimumCents,
     feeSavedCents: Math.max(0, items.length - 1) * CART.feeCents,
     payments: billing.billingOn(env),
     pending: pending ? { orderId: pending.id, until: pending.hold_until } : null,
   };
+}
+
+const lineGroup = (r) => ({ group: promoGroupOf(r.kind), cents: r.cents });
+const promoLabelOf = (p) => promo.view(p, { public: true }).label;
+
+// POST /cart/promo { code }: puts a promo code on the cart (one at a time: a new one replaces it), if it can be used on the cart's lines now. Rate
+// limited as any code check is (promo.mjs). DELETE /cart/promo takes it off.
+export function setPromo(db, account, rawCode, env = process.env, ctx = {}) {
+  requireAccount(account);
+  return transaction(db, () => {
+    const r = promo.evaluate(db, account, rawCode, itemsOf(db, account.id).map(lineGroup), { ip: ctx.ip, env });
+    db.prepare('INSERT INTO carts (account_id, created_at, updated_at, promo_code) VALUES (?, ?, ?, ?) ON CONFLICT (account_id) DO UPDATE SET promo_code = excluded.promo_code, updated_at = excluded.updated_at').run(account.id, now(), now(), r.promo.code);
+    return cartView(db, account, env);
+  });
+}
+export function clearPromo(db, account, env = process.env) {
+  requireAccount(account);
+  db.prepare('UPDATE carts SET promo_code = NULL, updated_at = ? WHERE account_id = ?').run(now(), account.id);
+  return cartView(db, account, env);
 }
 
 // Plot lines are priced again (quietly) when Pro comes into or leaves the cart: the discount the cart shows follows it. A line that cannot be priced
@@ -199,6 +233,7 @@ export function removeItem(db, seed, account, id, env = process.env) {
 export function clearCart(db, account, env = process.env) {
   requireAccount(account);
   db.prepare('DELETE FROM cart_items WHERE account_id = ?').run(account.id);
+  db.prepare('UPDATE carts SET promo_code = NULL WHERE account_id = ?').run(account.id);
   return cartView(db, account, env);
 }
 
@@ -208,17 +243,21 @@ export function clearCart(db, account, env = process.env) {
 //   cart_unavailable   a line cannot be had now: `problems` [{ id, label, code, error }] says which and why
 //   price_changed      a price is not the one the cart showed: the cart now shows the new one (previousCents: the old), checkout again to pay it
 //   below_minimum      the total is under CART.minimumCents: `missingCents` is what is missing
-export async function checkout(db, seed, account, env = process.env, fetchImpl = fetch, after = null) {
+// The cart's promo code can no longer be used (promo_invalid, promo_used, promo_not_applicable, promo_minimum): refused with that reason and the cart,
+// nothing held. A cart the code makes free: { checkout: { orderId, url (the paid page), cents: 0, mode: 'free' } }, every line done at once.
+export async function checkout(db, seed, account, env = process.env, fetchImpl = fetch, after = null, ctx = {}) {
   requireAccount(account);
   const on = billing.billingOn(env);
   const rows = itemsOf(db, account.id);
   if (!rows.length) fail(400, 'Your cart is empty.', 'empty_cart');
   if (!on && rows.some((r) => BUSINESS_KINDS.includes(r.kind))) fail(503, 'Payments are not set up yet: the Launch Pack, Pro and sponsored weeks cannot be bought.', 'billing_off');
   const replaced = [];
+  const code = on ? (db.prepare('SELECT promo_code FROM carts WHERE account_id = ?').get(account.id)?.promo_code ?? null) : null;
   let out;
   try {
-    out = transaction(db, () => run(db, seed, account, rows, on, replaced));
+    out = transaction(db, () => run(db, seed, account, rows, on, replaced, { code, ip: ctx.ip, env }));
   } catch (e) {
+    if (e instanceof ApiError && /^promo_/.test(e.code) && e.code !== 'promo_rate_limited') throw e.withData({ cart: cartView(db, account, env) });
     if (!e.late) throw e;
     out = { problems: e.late };
     replaced.length = 0; // rolled back: the checkout it would have replaced is still open
@@ -237,19 +276,24 @@ export async function checkout(db, seed, account, env = process.env, fetchImpl =
   }
   // 4. one Stripe Checkout session: a line per child order; with Pro, subscription mode with Pro as the recurring line
   const { parent, children } = out;
-  const mode = children.some((c) => c.product === 'pro') ? 'subscription' : 'payment';
-  const lines = children.map((c) => ({ name: c.label, cents: c.cents, interval: c.product === 'pro' ? PRODUCTS.pro.interval : null }));
-  const url = await billing.openSession(db, account, parent, { name: parent.label, mode, back: '/cart', metadata: { cart: parent.id }, lines }, env, fetchImpl);
+  for (const s of out.closing) billing.stripe(env, 'POST', `/checkout/sessions/${encodeURIComponent(s)}/expire`, {}, { fetchImpl }).catch(() => {});
+  const proLine = children.find((c) => c.product === 'pro');
+  const mode = parent.cents === 0 && !proLine ? 'free' : proLine ? 'subscription' : 'payment';
+  // a line's price less its share of the code; Pro keeps its full recurring price, its share of the code coming off the first invoice as a coupon
+  const lines = children.map((c) => ({ name: c.label, cents: c.product === 'pro' ? c.cents + c.promo_cents : c.cents, interval: c.product === 'pro' ? PRODUCTS.pro.interval : null }));
+  const url = mode === 'free' ? null : await billing.openSession(db, account, parent, { name: parent.label, mode, back: '/cart', metadata: { cart: parent.id }, lines, couponCents: proLine?.promo_cents ?? 0 }, env, fetchImpl);
   for (const c of children) {
     if (c.product !== 'lease') continue;
     const req = JSON.parse(c.request || '{}');
     economy.onCartLine(db, { accountId: account.id, plotId: Number(String(c.target).split(':')[1]), action: req.action, step: 'checkout', priceCents: c.cents, termDays: req.days ?? null });
   }
-  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: parent.id }, { product: 'cart', cents: parent.cents, mode, lines: children.map((c) => ({ order: c.id, product: c.product, target: c.target, placement: c.placement, cents: c.cents })) });
-  return { checkout: { orderId: parent.id, url, cents: parent.cents, mode } };
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: parent.id }, { product: 'cart', cents: parent.cents, mode, ...billing.promoDetail(parent), lines: children.map((c) => ({ order: c.id, product: c.product, target: c.target, placement: c.placement, cents: c.cents, ...(c.promo_cents ? { promoCents: c.promo_cents } : {}) })) });
+  // free (a code took everything off, and no Pro to start): no Stripe session, every line done now, and the player is sent to the paid page
+  if (mode === 'free') return { checkout: { orderId: parent.id, ...(await billing.comp(db, account, parent, '/cart', env, fetchImpl, after)), mode } };
+  return { checkout: { orderId: parent.id, url, cents: parent.cents, mode, ...billing.shownPromo(parent) } };
 }
 // The checkout's work, in one transaction: price and check every line again, then hold them all (or, without payments, do them).
-function run(db, seed, account, rows, on, replaced) {
+function run(db, seed, account, rows, on, replaced, promoCtx = {}) {
   // a checkout of this cart still open is replaced: what it held is let go (its Stripe page is closed below)
   for (const o of db.prepare("SELECT * FROM orders WHERE account_id = ? AND product = 'cart' AND status = 'pending'").all(account.id)) {
     billing.expire(db, o, 'expired');
@@ -279,6 +323,11 @@ function run(db, seed, account, rows, on, replaced) {
   const total = priced.reduce((a, l) => a + l.cents, 0);
   if (total < CART.minimumCents) return { missingCents: CART.minimumCents - total };
   db.prepare('UPDATE cart_items SET previous_cents = NULL WHERE account_id = ?').run(account.id);
+  // the cart's promo code, on the lines as priced now (the minimum above is before it); its use is reserved with the parent order below
+  const closing = [];
+  const code = on && promoCtx.code ? billing.applyPromo(db, account, promoCtx.code, priced.map((l) => ({ group: promoGroupOf(l.kind), cents: l.cents })), { ip: promoCtx.ip, env: promoCtx.env }, closing) : null;
+  priced.forEach((l, i) => Object.assign(l, { promoCents: code ? code.discount.lines[i] : 0, promoCode: code?.promo.code ?? null }));
+  const off = code?.discount.cents ?? 0;
   // 2. without payments: every line done now (all or nothing)
   if (!on) {
     const done = priced.map((l) => doLine(db, seed, account, l));
@@ -288,7 +337,8 @@ function run(db, seed, account, rows, on, replaced) {
   // 3. everything held at once: one parent order, a child order per line
   const holdUntil = now() + billing.HOLD_MS;
   const label = `Cart: ${priced.length} item${priced.length === 1 ? '' : 's'}`;
-  const parentId = Number(db.prepare("INSERT INTO orders (account_id, product, request, label, cents, hold_until, created_at) VALUES (?, 'cart', ?, ?, ?, ?, ?)").run(account.id, JSON.stringify({ items: priced.map((l) => l.id) }), label, total, holdUntil, now()).lastInsertRowid);
+  const parentId = Number(db.prepare("INSERT INTO orders (account_id, product, request, label, cents, hold_until, created_at, promo_code, promo_cents) VALUES (?, 'cart', ?, ?, ?, ?, ?, ?, ?)").run(account.id, JSON.stringify({ items: priced.map((l) => l.id) }), label, total - off, holdUntil, now(), code ? code.promo.code : null, off).lastInsertRowid);
+  if (code) promo.reserve(db, account, code.promo, parentId, off);
   const late = [];
   const children = priced.map((l) => {
     try {
@@ -301,7 +351,7 @@ function run(db, seed, account, rows, on, replaced) {
   });
   // two lines of the cart that cannot both be had (two stalls at the same time, the last slot of a spot twice): nothing is held
   if (late.length) throw Object.assign(new ApiError(409, unavailableMessage(late), 'cart_unavailable'), { late });
-  return { parent: billing.orderById(db, parentId), children };
+  return { parent: billing.orderById(db, parentId), children, closing };
 }
 
 const shownProblem = ({ id, label, code, error }) => ({ id, label, code, error });
@@ -310,7 +360,7 @@ const unavailableMessage = (list) => `Part of your cart cannot be bought right n
 // A line held for the checkout: the child order (and, for a stall, its pending booking). The same order a single purchase makes.
 function holdLine(db, seed, account, l, { parentId, holdUntil, pro }) {
   const insert = (product, { target = null, request = null, businessId = null, placement = null, hold = holdUntil } = {}) => {
-    const id = Number(db.prepare('INSERT INTO orders (account_id, business_id, product, target, request, label, placement, cents, hold_until, created_at, parent_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(account.id, businessId, product, target, request, l.label, placement, l.cents, hold, now(), parentId).lastInsertRowid);
+    const id = Number(db.prepare('INSERT INTO orders (account_id, business_id, product, target, request, label, placement, cents, hold_until, created_at, parent_id, promo_code, promo_cents) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(account.id, businessId, product, target, request, l.label, placement, l.cents - (l.promoCents ?? 0), hold, now(), parentId, l.promoCents ? l.promoCode : null, l.promoCents ?? 0).lastInsertRowid);
     return billing.orderById(db, id);
   };
   if (PLOT_KINDS.includes(l.kind)) {

@@ -5,6 +5,7 @@ import * as community from './community.mjs';
 import * as market from './market.mjs';
 import { ApiError, fail, requireAccount } from './core.mjs';
 import { audit, ADMIN, SYSTEM, byAccount } from './audit.mjs';
+import * as promo from './promo.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 
 // Payments through Stripe Checkout (phase 4, docs/monetization/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
@@ -21,9 +22,14 @@ import { imp } from '../../scripts/lib-loader.mjs';
 //   4. reconcile  every hour (and on demand) the server asks Stripe about orders still pending and Pro plans still active, so a lost
 //                 webhook cannot leave a customer paid but without what they bought, or a cancelled plan still running
 //
+// Promo codes (promo.mjs): any checkout here takes an optional `promoCode`. The server prices it (on the eligible lines, after the Pro and renewal
+// discounts), reserves the use with the order and charges Stripe the lower amount: a one-time line costs less; Pro's first month is taken off with a
+// Stripe coupon (duration once) so the plan renews at its full price. A checkout a code makes free opens no Stripe session (comp below), except one
+// with Pro, which still goes through Stripe to save a card for the months after.
+//
 // Settings: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PUBLIC_SITE_URL (where Stripe sends the owner back), STRIPE_API_URL (tests only),
 // TERMS_URL and REFUND_POLICY_URL (shown at checkout; both required with a live key).
-import { PRODUCTS, placementOf, priceOf, planOf, DAY_MS } from '@voxelventure/business-core';
+import { PRODUCTS, placementOf, priceOf, planOf, promoGroupOf, DAY_MS } from '@voxelventure/business-core';
 import { categoryOf, districtOf, isSlug } from '@voxelventure/business-core';
 
 const { termLabel } = await imp('game/leases.js');
@@ -84,7 +90,7 @@ export function availability(db, key, at = now()) {
   return { placement: p.key, label: p.label, cents: p.cents, slots: p.slots, free: Math.max(0, p.slots - taken(db, p.key, at)) };
 }
 
-export async function createCheckout(db, account, slug, input, env = process.env, fetchImpl = fetch) {
+export async function createCheckout(db, account, slug, input, env = process.env, fetchImpl = fetch, opts = {}) {
   requireAccount(account);
   if (!billingOn(env)) fail(503, 'Payments are not set up yet.', 'billing_off');
   const b = ownBusiness(db, account, slug);
@@ -97,29 +103,76 @@ export async function createCheckout(db, account, slug, input, env = process.env
     placement = p.key;
   }
   const cents = priceOf(product, placement) ?? fail(400, 'That is not for sale.', 'bad_product');
+  const closing = [];
   // the order (and, for a placement, the held spot) is made atomically, so two owners cannot both take the last spot
   const order = transaction(db, () => {
     if (product === 'pro' && planFor(db, b.id).pro) fail(409, 'This business already has Pro.', 'already_pro');
     if (placement && taken(db, placement) >= placementOf(placement).slots) fail(409, 'That spot is full right now. Try another, or come back when a week ends.', 'placement_full');
-    const r = db.prepare('INSERT INTO orders (account_id, business_id, product, placement, cents, hold_until, created_at) VALUES (?,?,?,?,?,?,?)').run(account.id, b.id, product, placement, cents, placement ? now() + HOLD_MS : null, now());
-    return db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid));
+    const code = applyPromo(db, account, input.promoCode, [{ group: promoGroupOf(product), cents }], { ip: opts.ip, env }, closing);
+    return insertOrder(db, account, code, { business_id: b.id, product, placement, cents, hold_until: placement ? now() + HOLD_MS : null });
   });
+  closeSessions(env, closing, fetchImpl);
   const item = PRODUCTS[product];
   const name = `${item.name}${placement ? ` (${placementOf(placement).label}${placementOf(placement).target ? `: ${placementOf(placement).target}` : ''})` : ''} for ${b.name}`;
-  const url = await openSession(db, account, order, { name, mode: item.mode, interval: item.interval, back: '/business/manage', metadata: { business: b.slug, product } }, env, fetchImpl);
-  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product, placement, cents, business: b.slug });
-  return { orderId: order.id, url };
+  if (order.cents === 0 && item.mode !== 'subscription') return { orderId: order.id, ...(await comp(db, account, order, '/business/manage', env, fetchImpl, opts.after)) };
+  // Pro: the recurring price stays the catalogue's; a code takes its first month down with a one-off Stripe coupon
+  const lines = item.mode === 'subscription' ? [{ name, cents, interval: item.interval }] : null;
+  const url = await openSession(db, account, order, { name, mode: item.mode, interval: item.interval, back: '/business/manage', metadata: { business: b.slug, product }, lines, couponCents: item.mode === 'subscription' ? order.promo_cents : 0 }, env, fetchImpl);
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product, placement, cents: order.cents, business: b.slug, ...promoDetail(order) });
+  return { orderId: order.id, url, cents: order.cents, ...shownPromo(order) };
+}
+
+// ---- promo codes at checkout (promo.mjs) ------------------------------------------------------------------------------------------------
+// A code for a checkout's lines ([{ group, cents }]), inside the checkout's transaction: checked (rate limited; a failure is thrown as the player sees it).
+// An open checkout of this account that holds the same code is given up first (the new one replaces it); its Stripe page is closed afterwards (`closing`).
+export function applyPromo(db, account, rawCode, lines, ctx, closing) {
+  if (rawCode == null || String(rawCode).trim() === '') return null;
+  const r = promo.evaluate(db, account, rawCode, lines, ctx);
+  for (const o of db.prepare("SELECT o.* FROM promo_redemptions r JOIN orders o ON o.id = r.order_id WHERE r.promo_id = ? AND r.account_id = ? AND r.status = 'reserved' AND o.status = 'pending'").all(r.promo.id, account.id)) {
+    expire(db, o, 'expired');
+    if (o.stripe_session) closing.push(o.stripe_session);
+  }
+  return r;
+}
+export const closeSessions = (env, sessions, fetchImpl) => {
+  for (const s of sessions) stripe(env, 'POST', `/checkout/sessions/${encodeURIComponent(s)}/expire`, {}, { fetchImpl }).catch(() => {});
+};
+// A single purchase's order, at its price less the code (`code`: applyPromo's answer, or null), with the code's use reserved.
+function insertOrder(db, account, code, o) {
+  const off = code?.discount.cents ?? 0;
+  const cols = { account_id: account.id, ...o, cents: o.cents - off, promo_code: code ? code.promo.code : null, promo_cents: off, created_at: now() };
+  const id = Number(db.prepare(`INSERT INTO orders (${Object.keys(cols).join(', ')}) VALUES (${Object.keys(cols).map(() => '?').join(', ')})`).run(...Object.values(cols)).lastInsertRowid);
+  if (code) promo.reserve(db, account, code.promo, id, off);
+  return orderById(db, id);
+}
+export const promoDetail = (order) => (order.promo_code ? { promo: order.promo_code, promoCents: order.promo_cents } : {});
+export const shownPromo = (order) => (order.promo_code ? { promo: { code: order.promo_code, cents: order.promo_cents } } : {});
+
+// A checkout a code made free (nothing to pay, and no subscription to start): no Stripe session. The order is paid at 0 cents and carried out at once,
+// exactly as a payment would carry it out; the player is sent to the same "paid" page. A cart's order does the same for every line.
+export async function comp(db, account, order, back, env, fetchImpl, after) {
+  const r = transaction(db, () => {
+    audit(db, byAccount(account), 'billing.free_order', { kind: 'order', id: order.id }, { product: order.product, ...promoDetail(order) });
+    return markPaid(db, orderById(db, order.id), {});
+  });
+  for (const f of [].concat(r?.fulfilled ?? [])) after?.(f);
+  for (const id of [].concat(r?.refund ?? [])) await refundOrder(db, id, SYSTEM, env, fetchImpl, refundWhy(db, id));
+  return { url: `${siteOf(env)}${back}?paid=${order.id}`, cents: 0, free: true, ...shownPromo(order) };
 }
 
 // The Stripe Checkout session for an order, for exactly its amount. If Stripe refuses, the order fails and anything it held is let go.
 // A cart's order passes `lines` (one per child order: { name, cents, interval? }; a line with an interval is the recurring one, Pro), which
 // add up to the order's amount; in subscription mode the other lines are one-time items on the first invoice.
-export async function openSession(db, account, order, { name, mode = 'payment', interval, back, metadata = {}, lines = null }, env, fetchImpl) {
+// `couponCents`: Pro's first month less a promo code, as a Stripe coupon made for this order alone (duration once, amount_off): the recurring price stays
+// the catalogue's, so the months after are charged in full.
+export async function openSession(db, account, order, { name, mode = 'payment', interval, back, metadata = {}, lines = null, couponCents = 0 }, env, fetchImpl) {
   const site = siteOf(env);
   const email = db.prepare('SELECT email, email_verified FROM accounts WHERE id = ?').get(account.id);
   let session;
   try {
+    const coupon = couponCents > 0 ? await stripe(env, 'POST', '/coupons', { amount_off: couponCents, currency: 'usd', duration: 'once', max_redemptions: 1, name: `Code ${order.promo_code ?? ''}`.trim().slice(0, 40), metadata: { order: order.id } }, { idempotencyKey: `vv-promo-coupon-${order.id}`, fetchImpl }) : null;
     session = await stripe(env, 'POST', '/checkout/sessions', {
+      ...(coupon ? { discounts: { 0: { coupon: coupon.id } } } : {}),
       mode,
       client_reference_id: String(order.id),
       customer_email: email?.email_verified ? email.email : undefined,
@@ -168,18 +221,22 @@ export function leaseWould(db, account, plotId, action, input, opts = {}) {
 }
 export const leaseLabel = (action, id, would) => (action === 'exterior' ? `${LEASE_LABEL[action]}: ${would.title} (plot ${id})` : `${LEASE_LABEL[action]}: ${would.title} (plot ${id}, ${termLabel(would.days)})`);
 const LEASE_LABEL = { claim: 'Lease', takeover: 'Take-over lease', renew: 'Lease renewal', exterior: 'Building upgrade' };
-export async function payLease(db, account, plotId, action, input = {}, env = process.env, fetchImpl = fetch) {
+export async function payLease(db, account, plotId, action, body = {}, env = process.env, fetchImpl = fetch, opts = {}) {
   requireAccount(account);
   if (!billingOn(env)) fail(503, 'Payments are not set up yet.', 'billing_off');
   const run = LEASE_ACTIONS[action] ?? fail(400, 'Unknown action.', 'bad_action');
   const id = Number(plotId);
+  const { promoCode, ...input } = body ?? {};
+  const closing = [];
   const order = transaction(db, () => {
     const would = leaseWould(db, account, id, action, input);
     if (!(would.price > 0)) return null; // nothing to pay (a free outside change): done below, without a checkout
     const label = leaseLabel(action, id, would);
-    const r = db.prepare("INSERT INTO orders (account_id, product, target, request, label, cents, hold_until, created_at) VALUES (?, 'lease', ?, ?, ?, ?, ?, ?)").run(account.id, `plot:${id}`, JSON.stringify({ action, input, days: would.days }), label, Math.round(would.price * 100), now() + HOLD_MS, now());
-    return db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid));
+    const cents = Math.round(would.price * 100);
+    const code = applyPromo(db, account, promoCode, [{ group: promoGroupOf(action), cents }], { ip: opts.ip, env }, closing);
+    return insertOrder(db, account, code, { product: 'lease', target: `plot:${id}`, request: JSON.stringify({ action, input, days: would.days }), label, cents, hold_until: now() + HOLD_MS });
   });
+  closeSessions(env, closing, fetchImpl);
   if (!order) {
     return transaction(db, () => {
       const out = run(db, account, id, input);
@@ -187,24 +244,29 @@ export async function payLease(db, account, plotId, action, input = {}, env = pr
       return out;
     });
   }
+  if (order.cents === 0) return { checkout: { orderId: order.id, ...(await comp(db, account, order, '/', env, fetchImpl, opts.after)) } };
   const url = await openSession(db, account, order, { name: order.label, back: '/', metadata: { plot: id, action } }, env, fetchImpl);
-  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'lease', action, plot: id, cents: order.cents });
-  return { checkout: { orderId: order.id, url, cents: order.cents } };
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'lease', action, plot: id, cents: order.cents, ...promoDetail(order) });
+  return { checkout: { orderId: order.id, url, cents: order.cents, ...shownPromo(order) } };
 }
 
 // Book a market stall, paid for: a pending booking holds the stall while the player pays; it becomes a booking when the payment arrives.
-export async function payStall(db, seed, account, input = {}, env = process.env, fetchImpl = fetch) {
+export async function payStall(db, seed, account, body = {}, env = process.env, fetchImpl = fetch, opts = {}) {
   requireAccount(account);
   if (!billingOn(env)) fail(503, 'Payments are not set up yet.', 'billing_off');
+  const { promoCode, ...input } = body ?? {};
+  const closing = [];
   const { order, booked } = transaction(db, () => {
     const booked = market.book(db, seed, account, input, { holdUntil: now() + HOLD_MS });
     const label = `Market stall ${booked.stall.id} (${booked.siteCode}), ${booked.booking.hours} hours from ${new Date(booked.booking.start).toUTCString().slice(0, 22)}`;
-    const r = db.prepare("INSERT INTO orders (account_id, product, target, label, cents, hold_until, created_at) VALUES (?, 'market', ?, ?, ?, ?, ?)").run(account.id, `booking:${booked.booking.id}`, label, booked.paid, now() + HOLD_MS, now());
-    return { booked, order: db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(r.lastInsertRowid)) };
+    const code = applyPromo(db, account, promoCode, [{ group: 'market', cents: booked.paid }], { ip: opts.ip, env }, closing);
+    return { booked, order: insertOrder(db, account, code, { product: 'market', target: `booking:${booked.booking.id}`, label, cents: booked.paid, hold_until: now() + HOLD_MS }) };
   });
+  closeSessions(env, closing, fetchImpl);
+  if (order.cents === 0) return { checkout: { orderId: order.id, ...(await comp(db, account, order, '/', env, fetchImpl, opts.after)) }, booking: booked.booking, stall: booked.stall };
   const url = await openSession(db, account, order, { name: order.label, back: '/', metadata: { booking: booked.booking.id } }, env, fetchImpl);
-  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'market', booking: booked.booking.id, cents: order.cents });
-  return { checkout: { orderId: order.id, url, cents: order.cents }, booking: booked.booking, stall: booked.stall };
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'market', booking: booked.booking.id, cents: order.cents, ...promoDetail(order) });
+  return { checkout: { orderId: order.id, url, cents: order.cents, ...shownPromo(order) }, booking: booked.booking, stall: booked.stall };
 }
 
 // The paid order is carried out. { fulfilled } tells the server what changed (to tell the other players); { refund } when it can no longer
@@ -257,6 +319,7 @@ export function expire(db, order, status) {
   if (order?.status !== 'pending') return;
   db.prepare('UPDATE orders SET status = ?, hold_until = NULL WHERE id = ?').run(status, order.id);
   release(db, order);
+  promo.release(db, order.id); // a promo code's use held by this checkout is free again
   for (const child of childrenOf(db, order)) expire(db, child, status);
 }
 export const childrenOf = (db, order) => (order?.product === 'cart' ? db.prepare('SELECT * FROM orders WHERE parent_id = ? ORDER BY id').all(order.id) : []);
@@ -347,7 +410,8 @@ function markPaid(db, order, { paymentIntent = null, subscription = null, period
   if (order.product === 'cart') return markCartPaid(db, order, { paymentIntent, subscription, periodEnd });
   if (order.status !== 'paid') {
     db.prepare("UPDATE orders SET status = 'paid', paid_at = ?, hold_until = NULL, stripe_payment_intent = COALESCE(?, stripe_payment_intent), stripe_subscription = COALESCE(?, stripe_subscription) WHERE id = ?").run(at, paymentIntent, subscription, order.id);
-    audit(db, SYSTEM, 'billing.paid', { kind: 'order', id: order.id }, { product: order.product, placement: order.placement, cents: order.cents });
+    audit(db, SYSTEM, 'billing.paid', { kind: 'order', id: order.id }, { product: order.product, placement: order.placement, cents: order.cents, ...promoDetail(order) });
+    if (!order.parent_id) promo.redeem(db, order.id);
   } else if (paymentIntent || subscription) {
     db.prepare('UPDATE orders SET stripe_payment_intent = COALESCE(stripe_payment_intent, ?), stripe_subscription = COALESCE(stripe_subscription, ?) WHERE id = ?').run(paymentIntent, subscription, order.id);
   }
@@ -388,9 +452,11 @@ function markCartPaid(db, order, { paymentIntent, subscription, periodEnd }) {
   const first = order.status !== 'paid';
   if (first) {
     db.prepare("UPDATE orders SET status = 'paid', paid_at = ?, hold_until = NULL, stripe_payment_intent = COALESCE(?, stripe_payment_intent), stripe_subscription = COALESCE(?, stripe_subscription) WHERE id = ?").run(now(), paymentIntent, subscription, order.id);
-    audit(db, SYSTEM, 'billing.paid', { kind: 'order', id: order.id }, { product: 'cart', cents: order.cents, lines: childrenOf(db, order).length });
+    audit(db, SYSTEM, 'billing.paid', { kind: 'order', id: order.id }, { product: 'cart', cents: order.cents, lines: childrenOf(db, order).length, ...promoDetail(order) });
+    promo.redeem(db, order.id);
     const items = JSON.parse(order.request || '{}').items ?? [];
     if (items.length) db.prepare(`DELETE FROM cart_items WHERE account_id = ? AND id IN (${items.map(() => '?').join(',')})`).run(order.account_id, ...items);
+    if (order.promo_code) db.prepare('UPDATE carts SET promo_code = NULL WHERE account_id = ? AND promo_code = ?').run(order.account_id, order.promo_code); // the code was used
   } else if (paymentIntent) db.prepare('UPDATE orders SET stripe_payment_intent = COALESCE(stripe_payment_intent, ?) WHERE id = ?').run(paymentIntent, order.id);
   const out = { fulfilled: [], refund: [] };
   for (const child of childrenOf(db, order)) {
@@ -410,10 +476,17 @@ function revoke(db, order, actor, why) {
   db.prepare("UPDATE entitlements SET status = 'revoked', ends_at = MIN(ends_at, ?) WHERE order_id = ?").run(now(), order.id);
   if (order.product === 'market') market.releaseBooking(db, targetId(order));
   if (order.product === 'lease') endPaidLease(db, order);
-  audit(db, actor, 'billing.refunded', { kind: 'order', id: order.id }, { cents: order.cents, why, ...(order.parent_id ? { cart: order.parent_id } : {}) });
+  audit(db, actor, 'billing.refunded', { kind: 'order', id: order.id }, { cents: order.cents, why, ...(order.parent_id ? { cart: order.parent_id } : {}), ...promoDetail(order) });
+  // a promo code: a whole order refunded frees its use; a cart's line refunded takes that line's share off what the code is counted as having given
+  if (order.parent_id) {
+    if (order.promo_cents) promo.reduceUse(db, order.parent_id, order.promo_cents);
+  } else promo.voidUse(db, order.id);
   // the last line of a cart refunded: the cart's own order is refunded too
   const parent = order.parent_id ? orderById(db, order.parent_id) : null;
-  if (parent && parent.status === 'paid' && !childrenOf(db, parent).some((c) => c.status === 'paid')) db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, 'every line refunded') WHERE id = ?").run(now(), parent.id);
+  if (parent && parent.status === 'paid' && !childrenOf(db, parent).some((c) => c.status === 'paid')) {
+    db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, 'every line refunded') WHERE id = ?").run(now(), parent.id);
+    promo.voidUse(db, parent.id);
+  }
 }
 
 // A refunded lease is taken back, if the player still holds the plot: a claim or take-over ends at once (the plot opens to others), a
@@ -555,7 +628,7 @@ export async function reconcile(db, env = process.env, fetchImpl = fetch, after 
 export const paidOrderFor = (db, target) => db.prepare("SELECT * FROM orders WHERE target = ? AND status = 'paid' ORDER BY id DESC LIMIT 1").get(String(target)) ?? null;
 
 // ---- what owners and admins see -----------------------------------------------------------------------------------------------------
-const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, target: o.target ?? null, label: o.label ?? null, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, note: o.note, parentId: o.parent_id ?? null });
+const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, target: o.target ?? null, label: o.label ?? null, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, note: o.note, parentId: o.parent_id ?? null, promoCode: o.promo_code ?? null, promoCents: o.promo_cents ?? 0 });
 export function myOrders(db, account) {
   requireAccount(account);
   return { orders: db.prepare('SELECT o.*, b.slug, b.name FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.account_id = ? ORDER BY o.id DESC LIMIT 100').all(account.id).map((o) => ({ ...orderView(o), business: o.slug ? { slug: o.slug, name: o.name } : null })) };

@@ -108,6 +108,20 @@ Today every purchase is its own Stripe checkout. A cart lets a business take the
   - the cart is emptied when checkout completes.
 - **Where it shows:** a cart button in the game's header and on the business pages, and "Add to cart" next to today's buy buttons. "Buy now" stays for a single item.
 
+### Promo codes as a lever
+
+**Built** (billing/promo-codes, [billing.md](../monetization/billing.md#promo-codes)). The owner makes discount codes in `/admin/promos` and hands them out: one code, or a batch for a campaign. A code works at every step of the funnel above, so it can push the step where people stall:
+
+| Stage | A code that helps | For example |
+| :--- | :--- | :--- |
+| 2a. Market stall | 100% off a first stall, new customers only | A free first day at the market for a business that has only a profile |
+| 2b. Plot, 7 days | 50% off plots, new customers only, one use | The trial storefront at half price |
+| 2c. Plot, 30 days | 10% off renewals | A thank-you at the first renewal |
+| 3. Grow | 100% off Pro (its first month), or $5 off the Launch Pack | Try Pro free for a month; the card is saved and it renews at $19 |
+| Events, partners | A batch of single-use codes, one per attendee | A meetup or a partner's newsletter |
+
+Each code's usage (uses paid, in checkout, what was taken off and what those orders brought in) is on the admin page and in its CSV, so a campaign can be judged on revenue, not just on uses. The rules that keep it from leaking money: one code per checkout, uses per account and in all, an end date, a minimum total, new customers only, codes for chosen products only, Pro's first month only, and a limit on guessing.
+
 ## 5. A plot economy like the real estate market
 
 **The aim:** a plot's price follows real demand, not just where it is.

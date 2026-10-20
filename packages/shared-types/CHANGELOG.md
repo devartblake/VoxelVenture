@@ -1,5 +1,23 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.13.0 (2026-10-20)
+
+Promo codes: discount codes the owner makes for VoxelVenture's own services (`services/api/promo.mjs`, [billing.md](../../docs/monetization/billing.md#promo-codes)). Not the merchants' coupons (`coupon.*`, unchanged). New contracts, all version 1:
+
+- `promo.check` and `promo.check.result`: `POST /promo/check` `{ code, kind?, cents? }`, and what a code is to a player: `{ code, kind, value, label, appliesTo, groups, minSubtotalCents, expiresAt }` (never its limits).
+- `promo.apply`: the body of `POST /cart/promo` `{ code }` (a single checkout sends `promoCode` in its own body).
+- `promo.refused`: a refused code: `promo_invalid` (generic), `promo_used`, `promo_not_applicable`, `promo_minimum`, `promo_rate_limited` (with `retryAfterMs`); from the cart's routes with the cart.
+- `promo.create`, `promo.update`, `promo.view`, `promo.list`, `promo.detail`: the admin's `POST`, `PATCH` and `GET /admin/promos[/:id]`, each code with its usage and uses.
+- Enums exported with them: `PROMO_GROUP_IDS` (the same list as `@voxelventure/business-core` `PROMO_GROUPS`; a test checks), `PROMO_KINDS`, `PROMO_STATUSES`, `PROMO_USE_STATUSES`, `PROMO_ERRORS`.
+- `API_CONTRACTS` now holds 53.
+
+Changed:
+
+- `cart.view` **version 2**: `promo` (null, or `{ code, label, cents, error }`), and `promoCents` on each line. `totalCents` is after the code; `missingCents` and `ready` are on the total before it.
+- `cart.checkout.result` **version 2**: `checkout.promo` (`{ code, cents }`) when a code took something off, and a free checkout (`mode: 'free'`, `cents: 0`, `free: true`, `url` the cart's paid page; or `mode: 'subscription'` with `cents: 0` when Pro's first month is free).
+
+The order lists (`GET /me/orders`, `GET /admin/billing/orders`) carry `promoCode` and `promoCents` on each order. Not a contract.
+
 ## 0.12.0 (2026-10-20)
 
 The admin sign-in (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-sign-in)): admin accounts in the database, a session cookie, and the presence monitor's figures through the API. New contracts, all version 1:

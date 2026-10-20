@@ -11,6 +11,8 @@ import { useCart } from '@/lib/state/cartStore';
 import ProfileForm from './ProfileForm';
 import NotLive from './NotLive';
 import { signIn, useOwner } from './useOwner';
+import PromoField from '@/components/ui/PromoField';
+import { promoBody } from '@/lib/state/promoStore';
 
 const SOURCE_LABEL = { direct: 'Direct', search: 'Search engines', social: 'Social sites', referral: 'Referral links', city: 'The 3D city', x: 'VoxelVenture on X' };
 const POST_STATUS = { review: 'waiting for a quick check before it goes out', queued: 'about to be posted', posted: 'posted', failed: 'could not be posted', rejected: 'not posted', skipped: 'not posted' };
@@ -121,8 +123,9 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
   const buy = async (product, placement) => {
     setMsg('');
     try {
-      const r = await request('POST', `/businesses/${p.slug}/checkout`, { product, placement });
-      window.location.assign(r.url); // Stripe's own checkout page; it sends the owner back here
+      // with the promo code applied on this profile's plans, if any (services/api/promo.mjs; the server checks that it covers what is bought)
+      const r = await request('POST', `/businesses/${p.slug}/checkout`, { product, placement, ...promoBody(`business:${p.slug}`) });
+      window.location.assign(r.url); // Stripe's own checkout page (or, when a code made it free, the paid page); it sends the owner back here
     } catch (e) {
       setMsg(e.message);
     }
@@ -417,6 +420,7 @@ function PlanBox({ slug, profile, plan, checkoutOn, buy, toCart, onChange, spons
       ) : (
         <p className="mt-2 text-xs text-sx-muted">Paid plans are not open yet.</p>
       )}
+      {checkoutOn && <div className="mt-3"><PromoField scope={`business:${slug}`} size="page" /></div>}
       {checkoutOn && sponsorOpen && <SponsorPicker profile={profile} buy={buy} toCart={toCart} />}
       {plan.pro && <OfferEditor slug={slug} offer={profile.offer} onChange={onChange} setMsg={setMsg} />}
     </div>
@@ -506,7 +510,7 @@ function PaymentReturn({ onPaid }) {
       try {
         const o = await request('GET', `/me/orders/${paid}`);
         if (o.status === 'paid') {
-          setState({ tone: 'ok', text: `Thank you: your ${PRODUCTS[o.product]?.name ?? 'purchase'} is active. Stripe emails your receipt.` });
+          setState({ tone: 'ok', text: `Thank you: your ${PRODUCTS[o.product]?.name ?? 'purchase'} is active.${o.cents > 0 ? ' Stripe emails your receipt.' : ''}` });
           return onPaid();
         }
       } catch {

@@ -25,7 +25,7 @@ export const CART_ITEM = {
 
 const line = {
   type: 'object',
-  required: ['id', 'kind', 'label', 'cents', 'discountCents', 'previousCents', 'plotId', 'business', 'placement'],
+  required: ['id', 'kind', 'label', 'cents', 'discountCents', 'promoCents', 'previousCents', 'plotId', 'business', 'placement'],
   additionalProperties: false,
   properties: {
     id,
@@ -33,6 +33,7 @@ const line = {
     label: { type: 'string', minLength: 1 },
     cents, // what the line costs, the Pro discount already taken off
     discountCents: cents, // the Pro plot discount on this line
+    promoCents: cents, // this line's share of the cart's promo code (v2)
     previousCents: { type: ['integer', 'null'], minimum: 0 }, // the price before checkout found it changed
     plotId: { type: ['integer', 'null'], minimum: 1 },
     business: { anyOf: [{ type: 'null' }, { type: 'object', required: ['slug', 'name'], properties: { slug: { type: 'string' }, name: { type: 'string' } } }] },
@@ -40,14 +41,15 @@ const line = {
   },
 };
 
-// GET /cart (and the answer to DELETE /cart, DELETE /cart/items/:id, and inside the other answers as `cart`): the lines, the subtotal before the
-// Pro discount, the discount, the total, and what the minimum still needs (`missingCents`; `ready` when it can be checked out).
+// GET /cart (and the answer to DELETE /cart, DELETE /cart/items/:id, POST and DELETE /cart/promo, and inside the other answers as `cart`): the lines,
+// the subtotal before the Pro discount, the discount, the promo code (v2: `promo`, null without one; `error` when it cannot be used on the cart now),
+// the total (after the code), and what the minimum still needs (`missingCents`, on the total before the code; `ready` when it can be checked out).
 export const CART_VIEW = {
   id: 'cart.view',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
-    required: ['items', 'count', 'plots', 'maxPlots', 'maxLines', 'subtotalCents', 'discountCents', 'totalCents', 'minimumCents', 'missingCents', 'ready', 'feeSavedCents', 'payments', 'pending'],
+    required: ['items', 'count', 'plots', 'maxPlots', 'maxLines', 'subtotalCents', 'discountCents', 'promo', 'totalCents', 'minimumCents', 'missingCents', 'ready', 'feeSavedCents', 'payments', 'pending'],
     additionalProperties: false,
     properties: {
       items: { type: 'array', items: line },
@@ -57,6 +59,7 @@ export const CART_VIEW = {
       maxLines: id,
       subtotalCents: cents,
       discountCents: cents,
+      promo: { anyOf: [{ type: 'null' }, { type: 'object', required: ['code', 'label', 'cents', 'error'], additionalProperties: false, properties: { code: { type: 'string' }, label: { type: ['string', 'null'] }, cents, error: { type: ['string', 'null'] } } }] },
       totalCents: cents,
       minimumCents: cents,
       missingCents: cents,
@@ -67,19 +70,33 @@ export const CART_VIEW = {
     },
   },
 };
+const promo = { type: 'object', required: ['code', 'cents'], additionalProperties: false, properties: { code: { type: 'string' }, cents } };
 const withCart = (properties, required) => ({ type: 'object', required: [...required, 'cart'], properties: { ...properties, cart: { type: 'object' } } });
 
 // The answer to POST /cart/items: the new line's id and the cart.
 export const CART_ADD_RESULT = { id: 'cart.add.result', version: 1, schema: withCart({ added: id }, ['added']) };
 
 // The answer to POST /cart/checkout: Stripe's page for the whole cart (payments on; `mode` is 'subscription' with Pro in the cart, else 'payment'),
-// or, without payments, the lines done at once.
+// or, without payments, the lines done at once. v2: `promo` ({ code, cents }) when a promo code took something off; and `mode: 'free'` (cents 0,
+// `free: true`, `url` the cart's paid page) when the code took everything off a cart without Pro: no Stripe session, every line done at once.
 export const CART_CHECKOUT_RESULT = {
   id: 'cart.checkout.result',
-  version: 1,
+  version: 2,
   schema: {
     anyOf: [
-      { type: 'object', required: ['checkout'], additionalProperties: false, properties: { checkout: { type: 'object', required: ['orderId', 'url', 'cents', 'mode'], additionalProperties: false, properties: { orderId: id, url: { type: 'string' }, cents: { type: 'integer', minimum: 50 }, mode: { enum: ['payment', 'subscription'] } } } } },
+      {
+        type: 'object',
+        required: ['checkout'],
+        additionalProperties: false,
+        properties: {
+          checkout: {
+            anyOf: [
+              { type: 'object', required: ['orderId', 'url', 'cents', 'mode'], additionalProperties: false, properties: { orderId: id, url: { type: 'string' }, cents: { type: 'integer', minimum: 50 }, mode: { enum: ['payment', 'subscription'] }, promo } },
+              { type: 'object', required: ['orderId', 'url', 'cents', 'mode', 'free'], additionalProperties: false, properties: { orderId: id, url: { type: 'string' }, cents: { enum: [0] }, mode: { enum: ['free', 'subscription'] }, free: { enum: [true] }, promo } },
+            ],
+          },
+        },
+      },
       { type: 'object', required: ['done', 'cart'], additionalProperties: false, properties: { done: { type: 'array', items: { type: 'object', required: ['id', 'kind', 'label', 'cents'], properties: { id, kind: { enum: CART_KINDS }, label: { type: 'string' }, cents } } }, cart: { type: 'object' } } },
     ],
   },

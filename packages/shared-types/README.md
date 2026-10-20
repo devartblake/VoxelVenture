@@ -34,6 +34,9 @@ Each contract is `{ id, version, schema }`. The schema is plain JSON in a JSON-S
 | `plot.exterior-quote` | 1 | `{ before, after, diff, charge, lines }`: what changing a building's outside costs for 30 days before and after, and what to pay now for the rest of the lease (0 when free, else at least $0.50) | Inside the 402 `exterior_payment_required` answer to `PATCH /plots/<id>` (`quote`) | [`contracts/plots.js`](src/contracts/plots.js) |
 | `plot.exterior-upgrade` | 1 | `{ exterior }`: the owner pays for a more elaborate outside | Owner → `POST /plots/<id>/exterior` | same |
 | `plot.exterior-upgrade.result` | 1 | `{ plot, paid }`, or `{ checkout }` with payments on | API | same |
+| `promo.check`, `promo.check.result` | 1 | `{ code, kind?, cents? }`, and what a promo code takes off and covers (never its limits) | Browser → `POST /promo/check` | [`contracts/promo.js`](src/contracts/promo.js) |
+| `promo.apply`, `promo.refused` | 1 | `{ code }` for the cart; a refused code (`promo_invalid` for every reason a guesser could learn from, `promo_used`, `promo_not_applicable`, `promo_minimum`, `promo_rate_limited`) | `POST /cart/promo`, and any checkout's `promoCode` | same |
+| `promo.create`, `promo.update`, `promo.view`, `promo.list`, `promo.detail` | 1 | The admin's promo codes, with their usage and uses | Admin → `/admin/promos` | same |
 
 [`tests/contracts.test.mjs`](../../tests/contracts.test.mjs) starts the API and checks its real requests and answers against these contracts.
 

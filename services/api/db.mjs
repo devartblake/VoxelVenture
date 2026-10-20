@@ -55,6 +55,9 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'accounts', 'referred_by', 'INTEGER REFERENCES accounts(id)'); // the account whose referral link brought this one (business.mjs)
   addColumn(db, 'orders', 'parent_id', 'INTEGER REFERENCES orders(id)'); // a cart's line: the cart's own order (product 'cart') it was paid with (cart.mjs)
   db.exec('CREATE INDEX IF NOT EXISTS orders_parent ON orders(parent_id)');
+  addColumn(db, 'orders', 'promo_code', 'TEXT'); // the promo code this order was bought with (promo.mjs); a cart's lines carry it too
+  addColumn(db, 'orders', 'promo_cents', 'INTEGER NOT NULL DEFAULT 0'); // what the code took off this order (cents is what was charged)
+  addColumn(db, 'carts', 'promo_code', 'TEXT'); // the code applied to the cart (checked again at checkout)
   return db;
 }
 

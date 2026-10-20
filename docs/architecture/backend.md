@@ -108,6 +108,26 @@ Several purchases in one Stripe payment ([billing.md](../monetization/billing.md
 - **Tables:** `carts`, `cart_items`; `orders.parent_id`.
 - **Tests:** `tests/cart.test.mjs`.
 
+## Promo codes (`services/api/promo.mjs`)
+Discount codes the owner makes for VoxelVenture's own services, applied at any checkout ([billing.md](../monetization/billing.md#promo-codes)). Not the merchants' coupons. Contracts: `promo.*` in `@voxelventure/shared-types`; the pricing rule and the product groups are in `@voxelventure/business-core` (`promoDiscount`, `PROMO_GROUPS`).
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /promo/check` | Signed in | `{ code, kind?, cents? }`: does the code work for this purchase (`kind`: a cart kind; none: anything)? `{ code, kind, value, label, appliesTo, groups, minSubtotalCents, expiresAt }`, never its limits. Refused with `400 promo_invalid` (generic), `409 promo_used`, `400 promo_not_applicable`, `400 promo_minimum`, or `429 promo_rate_limited` |
+| `promoCode` on `POST /plots/<id>/claim`, `/takeover`, `/renew`, `/exterior`, `POST /market/book`, `POST /businesses/<slug>/checkout` | Signed in | The code for that checkout: priced and its use reserved with the order. The answer's `checkout` (or, for a business product, the answer itself) carries `promo: { code, cents }`; a checkout the code made free has `cents: 0`, `free: true` and `url` the paid page (no Stripe session) |
+| `POST /cart/promo`, `DELETE /cart/promo` | Signed in | `{ code }`: put one code on the cart (checked on its lines now; another replaces it), or take it off. Answers with the cart (`cart.view` v2: `promo`, and each line's `promoCents`). `POST /cart/checkout` checks it again and refuses with the code's reason and the cart; a free cart answers `mode: 'free'` |
+| `GET /admin/promos` | Admin | The codes with their usage; filters `status`, `q`, `group`, `campaign` |
+| `POST /admin/promos` | Admin | Make one code (`code`, or generated) or `count` generated ones (up to 500): `{ kind, value, appliesTo, minSubtotalCents, maxRedemptions, perAccountLimit, startsAt, expiresAt, newCustomersOnly, campaign, note, prefix }`. `409 promo_exists` |
+| `GET /admin/promos/<id>` | Admin | One code and every use of it |
+| `PATCH /admin/promos/<id>` | Admin | Its limits, dates, minimum, new-customers flag, note or `active`. `400 promo_fixed` for what it takes off or covers |
+| `POST /admin/promos/<id>/deactivate`, `/reactivate` | Admin | Switch it off or on |
+| `GET /admin/promos.csv` | Admin | The list (same filters) as a spreadsheet |
+
+- **Hooks elsewhere:** `billing.mjs` reserves a use with the order (`applyPromo`, `insertOrder`; a cart's parent order in `cart.mjs`), redeems it when the order is paid (`markPaid`, `markCartPaid`), releases it when the checkout expires or fails (`expire`), and voids it on a full refund or lowers it on a cart line's refund (`revoke`). A free checkout is carried out at once by `billing.comp`. Pro's first month is a one-off Stripe coupon (`openSession` `couponCents`).
+- **Settings:** `PROMO_TRIES` and `PROMO_TRY_MINUTES`: failed tries allowed per account and per network, and the window (10 in 15 minutes).
+- **Tables:** `promo_codes`, `promo_redemptions`; `orders.promo_code`, `orders.promo_cents`, `carts.promo_code`.
+- **Tests:** `tests/promo.test.mjs`.
+
 ## Chat and private messages (`services/api/messaging.mjs`)
 Built from [chat_messaging_plan.md](chat_messaging_plan.md) (phases 0 to 3). The API keeps everything that lasts or needs an account; the presence server only passes nearby lines on.
 - **Signed-in chat:** `POST /messaging/ticket` gives a signed-in game a one-use ticket (a minute); the presence server redeems it (`/internal/messaging/redeem`, with `MP_NOTIFY_SECRET`) and from then on that connection speaks as the account. Every half minute it asks which bindings are still good (`/internal/messaging/bindings`): signing out or a ban ends them.

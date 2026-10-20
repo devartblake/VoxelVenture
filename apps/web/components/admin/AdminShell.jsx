@@ -20,7 +20,7 @@ const AdminContext = createContext(null);
 export const useAdmin = () => useContext(AdminContext);
 export { Field };
 
-// The sidebar, in groups. /admin/promos is listed before the page exists (it is being built): until then it is a 404.
+// The sidebar, in groups.
 export const ADMIN_NAV = [
   { group: 'Live', items: [{ href: '/admin', label: 'Monitor', title: 'Client monitor', icon: Activity }] },
   {

@@ -9,6 +9,7 @@ What VoxelVenture sells, and what each plan gets. It is pure and may depend on `
 | `priceOf(product, placement)`, `dollars(cents)`, `priceLabel(product)` | The price a checkout uses, and how a page shows it |
 | `planOf(entitlements, at)`, `PRO_FIELDS`, `figuresFor(stats, plan)` | Which plan an owner is on, and which figures it shows (the breakdowns by source, campaign and day are Pro) |
 | `DAY_MS` | One day in milliseconds |
+| `PROMO_GROUPS`, `PROMO_GROUP_IDS`, `promoGroupOf`, `groupsOf`, `promoDiscount`, `STRIPE_MIN_CENTS`, `normalizeCode`, `PROMO_ALPHABET`, `promoLabel` | Promo codes (from `promo.js`): the product groups a code covers and which purchase is in each, and what a code takes off a checkout, as the server charges it and the pages show it |
 | `CATEGORIES`, `BUSINESS_DISTRICTS`, `CTA_KINDS`, `categoryOf`, `districtOf`, `ctaKindOf` | What a profile can be (from `profile.js`) |
 | `isSlug`, `slugify`, `uniqueSlug`, `RESERVED_SLUGS`, `cleanProfile`, `LIMITS`, `isHttpUrl` | A profile's address and fields, checked the same way by the form and the server |
 | `onboardingSteps`, `profileReady`, `PLANS`, `upgradePrompts` | The set-up checklist, and the paid offers it suggests from verified figures only |

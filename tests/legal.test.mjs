@@ -12,7 +12,7 @@ const { RETENTION, LIMITS, MONEY, BROWSER_STORAGE } = await imp('legal/facts.js'
 const { POLICY_STATUS, policies } = await imp('legal/policies.js');
 const { operator } = await imp('legal/operator.js');
 import { ATTRIBUTION_DAYS } from '@voxelventure/analytics';
-import { CART, PRODUCTS, PLACEMENTS } from '@voxelventure/business-core';
+import { CART, PRODUCTS, PLACEMENTS, STRIPE_MIN_CENTS } from '@voxelventure/business-core';
 
 // ---- the numbers the policies quote are the code's
 const has = (file, re) => re.test(read(file));
@@ -35,6 +35,7 @@ check('a staff sign-in lasts as stated (absolute and idle)', ADMIN_SESSION.absol
 check('the limits are the code\'s', has('services/api/business.mjs', new RegExp(`MAX_PROFILES = ${LIMITS.profilesPerAccount};`)) && has('services/api/market.mjs', new RegExp(`MAX_ACTIVE_PER_WEEK = ${MONEY.stallsPerWeek};`)) && has('services/api/billing.mjs', new RegExp(`HOLD_MS = ${MONEY.checkoutHoldMinutes} \\* 60000`)) && has('services/api/social.mjs', new RegExp(`default ${LIMITS.socialPostsPerDay}\\)`)));
 check('the prices are the catalogue\'s', MONEY.launch.price === `$${PRODUCTS.launch.cents / 100}` && MONEY.pro.price === `$${PRODUCTS.pro.cents / 100}` && MONEY.placements.length === Object.keys(PLACEMENTS).length);
 check('the cart rules are the code\'s', MONEY.cart.minimum === `$${CART.minimumCents / 100}` && MONEY.cart.maxPlots === CART.maxPlots);
+check('the promo code rules are the code\'s: one per checkout, the smallest charge', MONEY.promo.smallestCharge === `$${(STRIPE_MIN_CENTS / 100).toFixed(2)}` && MONEY.promo.perCheckout === 1 && has('services/api/cart.mjs', /SELECT promo_code FROM carts/) && has('services/api/billing.mjs', /duration: 'once'/));
 
 // ---- every browser-storage key the code uses is in the privacy policy
 const keysInCode = new Set();

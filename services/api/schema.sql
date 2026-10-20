@@ -495,6 +495,43 @@ CREATE TABLE IF NOT EXISTS cart_items (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS cart_items_account ON cart_items(account_id, id);
+-- Promo codes (services/api/promo.mjs, docs/monetization/billing.md#promo-codes): discount codes the owner makes in /admin/promos for VoxelVenture's own
+-- services. Not the merchants' coupons (coupon_claims). A code is stored upper case and is unique whatever the case.
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  kind TEXT NOT NULL,                            -- percent | amount
+  value INTEGER NOT NULL,                        -- percent: 1 to 100; amount: cents
+  applies_to TEXT NOT NULL,                      -- JSON: ["all"] or product groups (@voxelventure/business-core PROMO_GROUPS)
+  min_subtotal_cents INTEGER NOT NULL DEFAULT 0, -- the checkout's total before the code must be at least this
+  max_redemptions INTEGER,                       -- uses in all (reserved + redeemed); NULL: no limit
+  per_account_limit INTEGER NOT NULL DEFAULT 1,  -- uses per account
+  starts_at INTEGER,                             -- NULL: from now
+  expires_at INTEGER,                            -- NULL: no end
+  new_customers_only INTEGER NOT NULL DEFAULT 0, -- 1: only for an account with no paid order before
+  active INTEGER NOT NULL DEFAULT 1,
+  campaign TEXT,                                 -- a batch made together shares this
+  note TEXT,
+  created_by TEXT NOT NULL,                      -- who made it: admin, or account:<id>
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS promo_codes_campaign ON promo_codes(campaign);
+-- Each use of a code: reserved when a checkout starts (it counts toward the limits), redeemed when the payment arrives, released if the checkout expires or
+-- fails, voided if the order is refunded in full. order_id is the order the checkout made: a single purchase, or a cart's parent order.
+CREATE TABLE IF NOT EXISTS promo_redemptions (
+  id INTEGER PRIMARY KEY,
+  promo_id INTEGER NOT NULL REFERENCES promo_codes(id),
+  code TEXT NOT NULL,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  order_id INTEGER NOT NULL UNIQUE REFERENCES orders(id),
+  cents_off INTEGER NOT NULL,                    -- what the code took off (less after a cart line is refunded)
+  status TEXT NOT NULL DEFAULT 'reserved',       -- reserved | redeemed | released | voided
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS promo_redemptions_promo ON promo_redemptions(promo_id, status);
+CREATE INDEX IF NOT EXISTS promo_redemptions_account ON promo_redemptions(account_id, promo_id, status);
 -- Every Stripe event applied, by its id: a webhook delivered twice (Stripe retries) is applied once.
 CREATE TABLE IF NOT EXISTS stripe_events (
   id TEXT PRIMARY KEY,
