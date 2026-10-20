@@ -97,7 +97,7 @@ export function selectChecks(files, tests = testIndex()) {
     if (EVERYTHING.some((re) => re.test(f))) all(f);
     else if (/^tests\/[^/]+\.test\.mjs$/.test(f)) add([path.basename(f)], f);
     else if (/^tests\/journeys\/[^/]+\.test\.mjs$/.test(f)) add([`journeys/${path.basename(f)}`], f);
-    else if (/^tests\/agents\/|^tests\/fixtures\/deterministic-pilot-city\.mjs$/.test(f)) add([...tests.filter((t) => t.file.startsWith('journeys/')).map((t) => t.file), 'journey-runner.test.mjs'], `${f}: the journeys' agents and scenarios`);
+    else if (/^tests\/agents\/|^tests\/fixtures\/deterministic-pilot-city\.mjs$/.test(f)) add([...tests.filter((t) => t.file.startsWith('journeys/')).map((t) => t.file), 'journey-runner.test.mjs', ...(/presence-agent/.test(f) ? ['presence-load.test.mjs'] : [])], `${f}: the journeys' agents and scenarios${/presence-agent/.test(f) ? ' (and the load test, built on the presence agent)' : ''}`);
     else if (/^lib\/.+\.(js|jsx)$/.test(f)) {
       // the tests that load the changed module or anything built on it; the server's tests if the server loads any of them; and the
       // end-to-end browser test (the game and the pages are built on lib/)

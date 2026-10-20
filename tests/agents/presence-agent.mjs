@@ -8,26 +8,41 @@ import { EnvironmentFailure, ProductFailure } from './scenario.mjs';
 
 export const misfits = []; // every message any agent was sent that does not fit its contract
 
-// connect(j, name, hello): opens a connection and (unless hello is null) says hello; resolves once it is open.
-export function presenceAgent(j, name, hello) {
-  if (!j.stack.mpUrl) throw new EnvironmentFailure('this run has no presence server (JOURNEY_MP_URL)');
+// presenceAgent(j, name, hello, options): opens a connection and (unless hello is null) says hello; resolves once it is open.
+// The options are for the load test (scripts/load-test-presence.mjs), which runs hundreds of agents for minutes; a journey needs none:
+//   url        the server (default: the journey's j.stack.mpUrl; j may then be null)
+//   headers    sent with the upgrade (the load test gives each pretend player its own X-Forwarded-For address)
+//   keep(m)    which messages go into the inbox (default: all). The load test keeps the answers it waits for, not every snapshot
+//   onMessage(m, bytes)   called for every message, kept or not
+//   onClose(code)         called when the connection ends
+//   checkEvery one in this many snapshots and online counts is held to its contract (default 1: all; every other message always is)
+//   settleMs   how long to wait after the hello before resolving (default 200)
+export function presenceAgent(j, name, hello, { url = j?.stack?.mpUrl, headers, keep, onMessage, onClose, checkEvery = 1, settleMs = 200 } = {}) {
+  if (!url) throw new EnvironmentFailure('this run has no presence server (JOURNEY_MP_URL)');
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(j.stack.mpUrl);
-    const a = { name, ws, inbox: [], closed: null };
+    const ws = new WebSocket(url, headers ? { headers } : undefined);
+    const a = { name, ws, inbox: [], closed: null, received: 0 };
     ws.on('message', (raw) => {
+      const text = raw.toString();
       let m;
       try {
-        m = JSON.parse(raw.toString());
+        m = JSON.parse(text);
       } catch {
-        misfits.push({ agent: name, raw: raw.toString().slice(0, 200), errors: ['not JSON'] });
+        misfits.push({ agent: name, raw: text.slice(0, 200), errors: ['not JSON'] });
         return;
       }
-      a.inbox.push(m);
+      a.received++;
+      if (!keep || keep(m)) a.inbox.push(m);
+      onMessage?.(m, text.length);
+      if (checkEvery > 1 && (m.type === 'snapshot' || m.type === 'online') && a.received % checkEvery !== 0) return;
       const contract = presenceContract('server', m);
       const r = contract ? fits(contract, m) : { ok: false, errors: [`"${m.type}" is not in the protocol`] };
       if (!r.ok) misfits.push({ agent: name, type: m.type, errors: r.errors });
     });
-    ws.on('close', (code) => (a.closed = code));
+    ws.on('close', (code) => {
+      a.closed = code;
+      onClose?.(code);
+    });
     ws.on('error', (err) => reject(new EnvironmentFailure(`could not connect to the presence server: ${err.message}`)));
     a.send = (m) => ws.readyState === 1 && ws.send(typeof m === 'string' ? m : JSON.stringify(m));
     // the first message (after `since`) that matches; null after `ms`
@@ -59,11 +74,13 @@ export function presenceAgent(j, name, hello) {
     a.move = (x, z) => a.send({ type: 'state', x, z, yaw: 0, moving: true, emote: null, veh: null });
     a.drop = () => ws.terminate(); // the connection just goes (a phone losing its signal), with no close handshake
     a.close = () => ws.close();
-    a.pause = () => ws._socket?.pause(); // stops reading: the server's sends pile up on its side
-    a.resume = () => ws._socket?.resume();
+    // stops reading: the server's sends pile up on its side. ws.pause(), not the socket's own: ws resumes a paused socket by itself when its
+    // parser drains, so a socket paused directly can start reading again on its own (found by the load test: a "frozen" client kept answering pings)
+    a.pause = () => ws.pause();
+    a.resume = () => ws.resume();
     ws.on('open', async () => {
       if (hello) a.send(hello);
-      await sleep(200);
+      await sleep(settleMs);
       resolve(a);
     });
   });
