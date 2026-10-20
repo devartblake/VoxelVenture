@@ -68,7 +68,7 @@ try {
     }
     await sleep(500);
   }
-  const url = `http://localhost:${webPort}/?diag=1&view=iso&mp=${mpPort}`;
+  const url = `http://localhost:${webPort}/?diag=1&view=iso&spawn=fixed&mp=${mpPort}`;
   const waitFor = async (page, expression, seconds = 90) => {
     for (let i = 0; i < seconds * 2; i++) {
       try {
@@ -393,8 +393,11 @@ try {
     const spots = await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].map((b) => b.innerText)`);
     check(`the interior of ${st.title} has hotspots`, Array.isArray(spots) && ['Whole room', 'Entrance', 'Back wall'].every((t) => spots.includes(t)), JSON.stringify(spots));
     await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.innerText === 'Entrance').click()`);
-    await sleep(400);
-    check('choosing a hotspot marks it', await page.eval(`[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.innerText === 'Entrance').getAttribute('aria-pressed') === 'true'`));
+    // (the avatar walks there too, and lights each spot it walks up to on the way, such as the offer desk; since the city behind
+    // the interior is drawn only a few times a second the room runs fast enough for that within moments, so wait for it to arrive)
+    const pressedSpot = `[...document.querySelectorAll('[data-testid="hotspots"] button')].find((b) => b.getAttribute('aria-pressed') === 'true')?.innerText ?? null`;
+    const marked = await waitFor(page, `${pressedSpot} === 'Entrance'`, 15);
+    check('choosing a hotspot marks it', marked, marked ? '' : `pressed: ${await page.eval(pressedSpot)}`);
     if (st === pickStores[0]) {
       // the props come from the props bucket in a build with NEXT_PUBLIC_PROPS_BASE_URL, otherwise from the site's own /items
       // (lib/content/interiorProps.js), never from Pascal's CDN: read from the page's network log
@@ -495,6 +498,8 @@ try {
   check('a building link opens the city on that building', linkOpened, linkOpened ? '' : JSON.stringify({ store: await linked.eval('Boolean(window.__vvStore)').catch(() => 'n/a'), canvas: await linked.eval('document.querySelectorAll("canvas").length').catch(() => 'n/a'), text: (await linked.eval('document.body.innerText').catch(() => '')).slice(0, 300), problems: linked.problems().slice(0, 3) }));
   check('...and shows its card in the panel', await linked.eval(`window.__vvPanel.getState().view === 'plot'`));
   check('...and tidies the address', !/plot=/.test(await linked.eval(`location.search`)));
+  const linkedAt = JSON.parse(await linked.eval(`(() => { const p = window.__vvStore.getState().plots.find((q) => q.id === ${linkId}); const a = window.__vvAvatar; return JSON.stringify({ ready: a.ready, d: Math.hypot(a.x - p.x, a.z - p.z) }); })()`));
+  check('...and the avatar starts beside that building (not at the random or the fixed spawn)', linkedAt.ready && linkedAt.d < 15, JSON.stringify(linkedAt));
   await linked.close();
   const wrongCity = await openPage(`http://localhost:${webPort}/?plot=${linkId}&city=1&diag=1&view=iso&mp=${mpPort}`, { width: 1280, height: 800 });
   await waitFor(wrongCity, `Boolean(window.__vvStore)`, 90);
@@ -553,7 +558,7 @@ try {
   check('with the music off, high above the map is quiet of music', await waitFor(page, `(() => { const r = window.__vvSound?.last(); return Boolean(r) && r.far > 0.9 && r.mix.music === 0; })()`, 40));
   await page.eval(`document.querySelector('[data-testid="music-button"]').click(); window.__vvWorld.getState().focusOn(${arcadeAt.x}, ${arcadeAt.z}, 14)`);
   check('the speaker button shows what you hear when the sound is on', await (async () => { await page.eval(`document.querySelector('[data-testid="sound-button"]').click()`); const ok = await waitFor(page, `(document.querySelector('[data-testid="sound-now"]')?.textContent ?? '').length > 0`, 40); await page.eval(`document.querySelector('[data-testid="sound-button"]').click()`); return ok; })());
-  const nightPage = await openPage(`http://localhost:${webPort}/?time=night&diag=1&view=iso&mp=${mpPort}`, { width: 1000, height: 700 });
+  const nightPage = await openPage(`http://localhost:${webPort}/?time=night&diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1000, height: 700 });
   await waitFor(nightPage, `document.querySelector('[data-testid="time-label"]')?.textContent.includes(':') && !document.querySelector('[data-testid="time-label"]').textContent.includes('-')`, 90);
   check('?time=night opens the city at night', await nightPage.eval(`document.querySelector('[data-testid="time-label"]').textContent === '00:00'`));
   check('the night page has no console errors', nightPage.problems().length === 0, nightPage.problems().slice(0, 2).join(' | '));
@@ -647,6 +652,18 @@ try {
   check('and Discover opens without WebGL', await waitFor(noGl, `location.pathname === '/discover' && Boolean(document.querySelector('h1'))`, 30));
   check('no console errors or uncaught exceptions without WebGL', noGl.problems().length === 0, noGl.problems().slice(0, 3).join(' | '));
   await noGl.close();
+
+  // ---- the admin pages (components/admin/AdminShell.jsx): without a session (this build has no API at all) an admin page sends you to the
+  // sign-in, which keeps where you were going, needs no WebGL and fits a phone. Signing in for real is in live-browser.test.mjs.
+  const adminPage = await openPage(`http://localhost:${webPort}/admin/pilot?weeks=8`, { width: 390, height: 800, mobile: true, webgl: false });
+  check('an admin page without a session goes to the sign-in, keeping where it was going', await waitFor(adminPage, `location.pathname === '/admin/login' && new URLSearchParams(location.search).get('next') === '/admin/pilot?weeks=8'`, 30), await adminPage.eval('location.href'));
+  check('the sign-in form is there: username, password and a button', await waitFor(adminPage, `Boolean(document.querySelector('[data-testid="admin-login-form"] input#username') && document.querySelector('[data-testid="admin-login-form"] input#password[type=password]') && document.querySelector('[data-testid="admin-login-form"] button[type=submit]'))`, 20));
+  check('it fits a phone (nothing scrolls sideways) and draws no 3D', await adminPage.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1 && document.querySelectorAll('canvas').length === 0`));
+  check('without the API it says so, and the form cannot be used', await adminPage.eval(`/need the API/.test(document.body.innerText) && document.querySelector('[data-testid="admin-login-form"] fieldset').disabled`));
+  check('a form sent before the page is ready never puts the password in the address (method post)', await adminPage.eval(`document.querySelector('[data-testid="admin-login-form"]').method === 'post'`));
+  check('search engines are told to stay away', await adminPage.eval(`/noindex/.test(document.querySelector('meta[name="robots"]')?.content ?? '')`));
+  check('no console errors on the sign-in page', adminPage.problems().length === 0, adminPage.problems().slice(0, 3).join(' | '));
+  await adminPage.close();
 
   await page.close();
   await phone.close();

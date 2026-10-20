@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { hashString } from '@/lib/game/daily';
 import Label3D from './Label3D';
 
@@ -51,7 +52,7 @@ export default function Lake({ lake }) {
     return out;
   }, [id, rx, rz, rect]);
 
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (water.current) water.current.material.emissiveIntensity = 0.18 + Math.sin(clock.elapsedTime * 1.3 + x) * 0.07;
   });
 

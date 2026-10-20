@@ -7,7 +7,7 @@ import { text } from './core.mjs';
 const GENESIS = '0'.repeat(64);
 const digest = (r) => crypto.createHash('sha256').update(JSON.stringify([r.prev_hash, r.at, r.actor_kind, r.actor_id ?? null, r.action, r.target_kind, r.target_id ?? null, r.detail ?? null])).digest('hex');
 
-// Who did it: an account, the admin (ADMIN_TOKEN), another server of ours (a shared secret), or the server itself (timers).
+// Who did it: an account, an admin (ADMIN_TOKEN: id null; a signed-in admin: their admin_accounts id), another server of ours (a shared secret), or the server itself (timers).
 export const byAccount = (account) => ({ kind: 'account', id: account?.id ?? null });
 export const ADMIN = { kind: 'admin', id: null };
 export const SERVICE = { kind: 'service', id: null };
@@ -34,7 +34,7 @@ export function list(db, { targetKind, targetId, action, actorId, before, limit 
   if (actorId) (where.push("l.actor_kind = 'account' AND l.actor_id = ?"), args.push(Number(actorId)));
   if (before) (where.push('l.id < ?'), args.push(Number(before)));
   const n = Math.max(1, Math.min(500, Number(limit) || 100));
-  const rows = db.prepare(`SELECT l.*, a.username FROM audit_log l LEFT JOIN accounts a ON a.id = l.actor_id AND l.actor_kind = 'account' ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT ?`).all(...args, n);
+  const rows = db.prepare(`SELECT l.*, COALESCE(a.username, aa.username) AS username FROM audit_log l LEFT JOIN accounts a ON a.id = l.actor_id AND l.actor_kind = 'account' LEFT JOIN admin_accounts aa ON aa.id = l.actor_id AND l.actor_kind = 'admin' ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT ?`).all(...args, n);
   return { entries: rows.map(view), next: rows.length === n ? rows[rows.length - 1].id : null };
 }
 

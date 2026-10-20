@@ -60,8 +60,14 @@ export const PRESENCE_CLIENT = {
   }),
   // the old form of a nearby line, with no answer (a game talking to an older server)
   chat: message('chat', { required: ['text'], properties: { text: { type: 'string' } } }),
-  // the frame rate and what a frame costs, now and then
-  perf: message('perf', { properties: { fps: finite, calls: finite, triangles: finite, geometries: finite, textures: finite } }),
+  // the frame rate and what a frame costs, now and then; and (optional) the quality tier the game draws at, why, and the
+  // 95th-percentile frame time in ms (lib/performance/; docs/architecture/performance_policy.md)
+  perf: message('perf', {
+    properties: {
+      fps: finite, calls: finite, triangles: finite, geometries: finite, textures: finite,
+      quality: { type: 'string', enum: ['low', 'medium', 'high'] }, qualityReasons: { type: 'string', maxLength: 120 }, frameP95: finite,
+    },
+  }),
   // an error the page caught (for the /admin monitor and the error log)
   error: message('error', {
     required: ['message'],

@@ -78,7 +78,7 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
    bash /srv/voxelventure/deploy/production.sh migrate           # builds the first release and starts the three services
    ```
    The build runs `npm ci` (which also applies the fixes in `patches/`) and `deploy/build-web.sh`. That builds as the `voxel` user with `web.env` loaded (the `NEXT_PUBLIC_` addresses are fixed into the build), then checks the API address is really in the build. Don't build through `sudo -E`: newer Ubuntu's sudo ignores `-E`, and the site then builds as a demo without any error.
-5. **Caddy:** the domain is already in `deploy/Caddyfile`; make a password hash with `caddy hash-password` for the monitor page, copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`.
+5. **Caddy:** the domain is already in `deploy/Caddyfile`; copy it to `/etc/caddy/Caddyfile` and `systemctl reload caddy`. The admin pages have their own sign-in: once the services run, create the first admin account at `/admin/setup` ([Admin sign-in](#admin-sign-in)).
 6. **Started by step 4.** Restart them all with `systemctl restart voxelventure-api voxelventure-presence voxelventure-web`.
 7. **Check it:**
    - `curl https://api.voxelventure.app/health` returns `{"ok":true,...}`
@@ -92,6 +92,34 @@ In Stripe: Developers > Webhooks > Add endpoint, `https://api.voxelventure.app/b
        npm run verify:live -- --api https://api.voxelventure.app --site https://voxelventure.app
      ```
      Give the admin token in `VERIFY_ADMIN_TOKEN`, never as `--admin-token`: npm prints the command it runs, so a token on the command line ends up on screen and in the terminal's scrollback. It is read-only and checks: CORS allows only your site, building figures are verified and never simulated, history comes from the ledger, the admin routes are closed, the audit trail's hash chain is intact, and the site was built with the API address (no demo banner, owner pages live). See [docs/architecture/authoritative_data.md](../docs/architecture/authoritative_data.md).
+
+## Admin sign-in
+
+The admin pages (`/admin` the presence monitor, `/admin/pilot`, `/admin/economy`, `/admin/admins`, `/admin/password`, and any added later under `apps/web/app/admin/`) have their own sign-in at **`/admin/login`** ([services/api/admin.mjs](../services/api/admin.mjs), [backend.md](../docs/architecture/backend.md#admin-sign-in)):
+
+- **Admin accounts live in the API's database** (`admin_accounts`), not in any settings file and not in the Caddyfile. Several admins are allowed. Passwords are kept as salted scrypt hashes (`scrypt$N$r$p$salt$hash`, N = 2^15), at least 8 characters with 3 of a lowercase letter, a capital, a number and a symbol (or a phrase of 16 characters or more), not the username and not a common password (`lib/data/adminPassword.js`).
+- **The first account** is made at **`/admin/setup`** with the API's `ADMIN_TOKEN` (already in `api.env`): the page works only while there is no admin account, sends the token once as `Authorization: Bearer` and keeps it nowhere. After that, `POST /admin/setup` answers 409. The login page points to `/admin/setup` while it is needed. The API starts normally with no admin account.
+- **More admins, disabling one:** `/admin/admins` (signed in). **Your own password:** `/admin/password` (the current one first; your other sessions end). Every change, sign-in, failure, lockout and sign-out is in the audit trail.
+- **The session** is an `HttpOnly; Secure; SameSite=Strict` cookie on the API's own host (`__Host-vv_admin`, no `Domain`), holding 32 random bytes whose SHA-256 is all the database keeps. It ends after 2 hours without use, and 12 hours after signing in. The admin pages call the API with `credentials: 'include'`; the API answers them with `Access-Control-Allow-Credentials: true` and the exact `API_ORIGIN`, never `*`. A change made with the cookie must be JSON and carry that `Origin`. Staging works the same with its own `API_ORIGIN`, accounts and `ADMIN_TOKEN`.
+- **Too many tries:** 5 failed sign-ins within 15 minutes for a username, or from one network, lock that username or network for 15 minutes, with the same generic error as a wrong password, after a short fixed delay. (The counts are in memory: a restart of the API forgets them.)
+- **`ADMIN_TOKEN` stays** the machine credential: `npm run moderate`, `npm run newsletter`, `verify:live` and every admin route keep working with `Authorization: Bearer`.
+- **Forgot the password?** On the server, as the `voxel` user, against the live database (the API can keep running):
+  ```
+  cd /srv/voxelventure/current
+  sudo -u voxel env API_DB=/srv/voxelventure/shared/data/voxelventure.db npm run admin:reset-password -- <username>
+  ```
+  It asks for the new password twice without showing it and prints only `password changed`; that admin's sessions end and the account is enabled again. `npm run admin:create -- <username>` adds an admin the same way (prints `created`). Staging: `cd /srv/voxelventure-staging/current` and `API_DB=/srv/voxelventure-staging/data/voxelventure.db` (the path in `/etc/voxelventure/staging/api.env`).
+
+### Switching from Caddy's password to the sign-in (once, on production)
+
+Until this is done, production's Caddy still asks for its `basic_auth` password on `/admin*` and `/mp-status`. Do it in this order, so the pages are never unprotected:
+
+1. **Deploy** this release (`deploy/production.sh`). Caddy's password stays in place meanwhile; nothing in `api.env` changes.
+2. **Create the account:** open `https://voxelventure.app/admin/setup` (through Caddy's password, one last time) and create the owner's account with the `ADMIN_TOKEN`. The owner types the token from their own records; nobody prints it on the server for this.
+3. **Check the sign-in:** sign out, open `https://voxelventure.app/admin`, sign in at the login page, and see the monitor's players and the pilot page.
+4. **Remove Caddy's password:** in `/etc/caddy/Caddyfile`, delete the `@monitor` matcher and the `basic_auth @monitor { ... }` block, and replace the `handle /mp-status { rewrite ...; reverse_proxy 127.0.0.1:3001 }` block with `handle /mp-status { respond 404 }`, as in [deploy/Caddyfile](Caddyfile). Then `caddy validate --config /etc/caddy/Caddyfile` and `systemctl reload caddy`. The monitor reads the presence server through the API now (`GET /admin/presence`), so `/mp-status` is no longer needed; `NEXT_PUBLIC_MP_HTTP` can go from `web.env`.
+
+Staging had no admin pages (Caddy answered 404). With [Caddyfile.staging](Caddyfile.staging) they are there behind the same sign-in: deploy staging, create its first account at `https://staging.voxelventure.app/admin/setup` with **staging's** `ADMIN_TOKEN`, then copy the new file to `/etc/caddy/staging.caddy` and reload Caddy. (Before that reload `/admin` simply answers 404 there.)
 
 ## Updating
 
@@ -182,10 +210,10 @@ The app is in `apps/web/`, and the servers are in `services/api/` and `services/
 ## Things to know
 - **One API process, one machine.** The database is SQLite with a single writer (that is what makes a claim atomic). Do not run two copies of the API.
 - **Node version.** `setup.sh` installs Node 22 (it leaves a newer Node in place). The API uses Node's built-in SQLite (`node:sqlite`); the service file passes `--experimental-sqlite --no-warnings`, as `npm run api` does. Older Node 22 releases need the flag; Node 24, which the development machine runs, works without it, and the flag does no harm. I tried switching to `better-sqlite3` for production, but its native build crashed on the development machine, so it was not adopted: if you want it, install it on the Linode itself, run the API tests (`node tests/run.mjs api engage community stats`), and change only `services/api/db.mjs`.
-- **What is public.** Caddy serves the game, the API and the presence connection; `/status` and `/notify` on the presence server are hidden from outside, and the `/admin` monitor page (which reads `/status` through `/mp-status`) is behind a password. Without the monitor, set `ADMIN_TOKEN` and use the admin endpoints only from your machine. `/notify-accounts` on the presence server and everything under `/internal/` on the API are for the processes on this machine to call each other: they refuse anything without their secret (`MP_NOTIFY_SECRET`, or `INTERNAL_SECRET` for the messaging service), and the `Caddyfile` also answers 404 to them from outside.
+- **What is public.** Caddy serves the game, the API and the presence connection; `/status` and `/notify` on the presence server are hidden from outside (the `/admin` monitor reads `/status` through the API, `GET /admin/presence`, for signed-in admins only), and the admin pages have their own sign-in ([Admin sign-in](#admin-sign-in)). `ADMIN_TOKEN` is for scripts: keep it off the command line. `/notify-accounts` on the presence server and everything under `/internal/` on the API are for the processes on this machine to call each other: they refuse anything without their secret (`MP_NOTIFY_SECRET`, or `INTERNAL_SECRET` for the messaging service), and the `Caddyfile` also answers 404 to them from outside.
 - **Email.** Until `MAIL_WEBHOOK_URL` is set, notices are only written to files in `services/api/data/outbox`: nothing is delivered.
 - **Payments.** The Launch Pack, Pro and sponsored placements go through Stripe once `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are set. Point the Stripe webhook at `https://api.voxelventure.app/billing/webhook` with the events listed in [docs/monetization/billing.md](../docs/monetization/billing.md). With the keys set, claims, take-overs, lease renewals and market stalls also go through Stripe Checkout. Without them, everything works as before, for free.
-- **Watch bandwidth.** Presence sends nearby players about ten times a second. Check `/admin` (through the password) and the Linode transfer graph during the first busy days.
+- **Watch bandwidth.** Presence sends nearby players about ten times a second. Check `/admin` (signed in) and the Linode transfer graph during the first busy days.
 
 ## Moving messaging to the Python service (not done yet)
 Plan: [../docs/architecture/node_fastapi_architecture_plan.md](../docs/architecture/node_fastapi_architecture_plan.md). The service is in `services/messaging` and `setup.sh` installs it, but until these steps the Node API serves messaging itself. They have been rehearsed by `tests/messaging-migrate.test.mjs`, not on a real server.

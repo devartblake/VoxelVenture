@@ -1,6 +1,6 @@
 # Changelog: @voxelventure/shared-types
 
-## 0.11.0 (2026-10-19)
+## 0.13.0 (2026-10-20)
 
 Promo codes: discount codes the owner makes for VoxelVenture's own services (`services/api/promo.mjs`, [billing.md](../../docs/monetization/billing.md#promo-codes)). Not the merchants' coupons (`coupon.*`, unchanged). New contracts, all version 1:
 
@@ -9,7 +9,7 @@ Promo codes: discount codes the owner makes for VoxelVenture's own services (`se
 - `promo.refused`: a refused code: `promo_invalid` (generic), `promo_used`, `promo_not_applicable`, `promo_minimum`, `promo_rate_limited` (with `retryAfterMs`); from the cart's routes with the cart.
 - `promo.create`, `promo.update`, `promo.view`, `promo.list`, `promo.detail`: the admin's `POST`, `PATCH` and `GET /admin/promos[/:id]`, each code with its usage and uses.
 - Enums exported with them: `PROMO_GROUP_IDS` (the same list as `@voxelventure/business-core` `PROMO_GROUPS`; a test checks), `PROMO_KINDS`, `PROMO_STATUSES`, `PROMO_USE_STATUSES`, `PROMO_ERRORS`.
-- `API_CONTRACTS` now holds 44.
+- `API_CONTRACTS` now holds 53.
 
 Changed:
 
@@ -17,6 +17,26 @@ Changed:
 - `cart.checkout.result` **version 2**: `checkout.promo` (`{ code, cents }`) when a code took something off, and a free checkout (`mode: 'free'`, `cents: 0`, `free: true`, `url` the cart's paid page; or `mode: 'subscription'` with `cents: 0` when Pro's first month is free).
 
 The order lists (`GET /me/orders`, `GET /admin/billing/orders`) carry `promoCode` and `promoCents` on each order. Not a contract.
+
+## 0.12.0 (2026-10-20)
+
+The admin sign-in (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-sign-in)): admin accounts in the database, a session cookie, and the presence monitor's figures through the API. New contracts, all version 1:
+
+- `admin.login`: the body of `POST /admin/session` (and of `POST /admin/setup` and `POST /admin/admins`): `{ username, password }`.
+- `admin.session`: `POST /admin/session` (which sets the cookie) and `GET /admin/session`: `{ admin: { id, username }, expiresAt, idleExpiresAt }`.
+- `admin.setup.state`: `GET /admin/setup`: `{ needed }`, true while there is no admin account.
+- `admin.account`: the answer to `POST /admin/setup`, `POST /admin/admins` and `PATCH /admin/admins/:id`: `{ admin }` (never a password or hash).
+- `admin.accounts`: `GET /admin/admins`: `{ admins, me }`.
+- `admin.password-change` and `admin.password-change.result`: `POST /admin/password`, `{ currentPassword, newPassword }` and `{ ok, endedSessions }`.
+- `admin.update`: the body of `PATCH /admin/admins/:id`: `{ disabled }`.
+- `admin.presence`: `GET /admin/presence`, the presence server's `/status` passed on to admins.
+- `API_CONTRACTS` now holds 44.
+
+No existing contract changed. Every existing admin route takes a signed-in admin's session as well as `Authorization: Bearer ADMIN_TOKEN`.
+
+## 0.11.0 (2026-10-19)
+
+- `presence.client.perf` (still version 1, protocol 2): three optional fields, `quality` (`low`, `medium` or `high`: the tier the game draws at), `qualityReasons` (why, comma-separated, at most 120 characters) and `frameP95` (the 95th-percentile frame time in ms). The presence server keeps them as the player's `quality` for the `/admin` monitor. An older game sends none, and an older server ignores them ([performance policy](../../docs/architecture/performance_policy.md)).
 
 ## 0.10.0 (2026-10-19)
 

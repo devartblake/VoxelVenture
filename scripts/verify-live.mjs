@@ -66,6 +66,9 @@ const profiles = await get(`${api}/businesses?limit=5`);
 check('business profiles are served', profiles.status === 200 && Array.isArray(profiles.json?.profiles), `${profiles.json?.total ?? '?'} profiles`);
 check('the audit trail is closed to the public', (await get(`${api}/admin/audit`)).status === 403);
 check('the moderation queue is closed to the public', (await get(`${api}/admin/reports`)).status === 403);
+check('the presence monitor\'s figures are closed to the public', (await get(`${api}/admin/presence`)).status === 403);
+const adminCors = await get(`${api}/admin/session`, { Origin: 'https://not-the-site.example' });
+check('an admin session is offered to no other site', adminCors.status === 401 && adminCors.headers.get('access-control-allow-credentials') == null && adminCors.headers.get('access-control-allow-origin') !== 'https://not-the-site.example');
 if (adminToken) {
   const chain = await get(`${api}/admin/audit/verify`, { Authorization: `Bearer ${adminToken}` });
   check('the audit trail is intact (hash chain verified)', chain.json?.ok === true, chain.json ? `${chain.json.rows} records${chain.json.brokenAt ? `, broken at ${chain.json.brokenAt}` : ''}` : `status ${chain.status}`);

@@ -169,7 +169,7 @@ const groupsIn = (v) => {
   if (!ok.length || ok.length !== new Set(list).size) fail(400, `appliesTo must be "all" or some of ${PROMO_GROUP_IDS.join(', ')}.`, 'bad_promo');
   return ok;
 };
-const actorName = (actor) => (actor.kind === 'account' ? `account:${actor.id}` : actor.kind);
+const actorName = (actor) => (actor.id != null ? `${actor.kind}:${actor.username ?? actor.id}` : actor.kind); // admin (the token), admin:<name> (a signed-in admin)
 
 // POST /admin/promos: one code (`code` to choose it, or generated) or `count` generated codes at once, a campaign.
 export function createPromos(db, input = {}, actor) {

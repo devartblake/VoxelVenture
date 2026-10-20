@@ -1,6 +1,8 @@
 "use client";
 
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { avatarState } from '@/lib/sim/avatarState';
 import { listener } from '@/lib/sim/listener';
 import { viewFarness } from '@/lib/game/soundZones';
@@ -14,7 +16,7 @@ import { useCityStore } from '@/lib/state/store';
 export default function SoundListener() {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls);
-  useFrame(() => {
+  useGatedFrame(LOOPS.event, () => {
     const v = useView.getState();
     const center = useCityStore.getState().layout.center;
     listener.view = v.view;

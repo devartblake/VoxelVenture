@@ -58,6 +58,15 @@ UptimeRobot's free plan is, at the time of writing, for non-commercial use only;
 
 [`deploy/backup.sh`](backup.sh) pings the address when the copy and its upload both worked, and pings `/fail` when either did not, including a failed `rclone` upload, which before only printed a line. So you are emailed both when the backup fails and when it never ran (cron stopped, the machine was off).
 
+## The presence monitor (`/admin`)
+
+`https://voxelventure.app/admin` shows every connected device, its frame rate and the errors it reported. It is behind the admin sign-in (`/admin/login`), not Caddy's password any more:
+
+- **Signing in:** admin accounts are in the API's database. The first is made once at `/admin/setup` with the `ADMIN_TOKEN`; others at `/admin/admins`; your own password at `/admin/password`. Forgotten password: `npm run admin:reset-password -- <username>` on the server. Every step is in [README.md](README.md#admin-sign-in).
+- **Where its figures come from:** the page asks the API (`GET /admin/presence`), which reads the presence server's `/status` on the machine itself (`http://127.0.0.1:3001/status`, or `MP_STATUS_URL`). `/status` is not reachable from outside: `/mp-status` on the site and `/status` on `play.` answer 404. "The presence server cannot be reached" on the page means the presence service is down: `systemctl status voxelventure-presence`.
+- **The switch from Caddy's password** happens once, in the order in [README.md](README.md#switching-from-caddys-password-to-the-sign-in-once-on-production): deploy, create the account at `/admin/setup`, check the sign-in, then remove `basic_auth` from `/etc/caddy/Caddyfile` and reload Caddy.
+- **Sign-in trouble shows in the audit trail:** `npm run moderate -- audit admin` (with `ADMIN_TOKEN`) lists the sign-ins, `admin.login_failed` and `admin.lockout` entries. A lockout lasts 15 minutes, or until the API restarts.
+
 ## When an alert comes
 
 - **Sentry:** the issue shows the stack and the route. `journalctl -u voxelventure-<service> --since "10 min ago"` has the surrounding log lines. Mark it resolved once the fix is deployed: it emails again only if it comes back.

@@ -2,7 +2,8 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { PLOT_TILE, buildingSize } from '@/lib/city/cityGenerator';
 import { bannerSize, logoOf } from '@/lib/game/logos';
 import { buildBannerAtlas } from './bannerAtlas';
@@ -52,7 +53,7 @@ const PARTS = {
 // they stay as separate small meshes (there are only a few of them).
 function Pennant({ y }) {
   const flag = useRef(null);
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (flag.current) flag.current.rotation.y = Math.sin(clock.elapsedTime * 2.2) * 0.25;
   });
   return (
@@ -94,7 +95,7 @@ function PlazaFountain({ x, z }) {
 
 function Beacon({ y }) {
   const gem = useRef(null);
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (!gem.current) return;
     gem.current.rotation.y = clock.elapsedTime * 1.6;
     gem.current.position.y = y + Math.sin(clock.elapsedTime * 2) * 0.1;

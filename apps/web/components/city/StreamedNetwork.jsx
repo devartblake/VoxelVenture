@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { avatarState } from '@/lib/sim/avatarState';
 import { PRESETS, useView } from '@/lib/state/viewStore';
 import StaticBatch from './StaticBatch';
@@ -71,7 +73,7 @@ export default function StreamedNetwork({ layout, batchKey, size, radius }) {
   const controls = useThree((s) => s.controls);
   const [focus, setFocus] = useState(null);
 
-  useFrame(() => {
+  useGatedFrame(LOOPS.event, () => {
     // where the world is being looked at, in city coordinates: the avatar in the follow views, the map's centre in the isometric one
     let x = avatarState.x;
     let z = avatarState.z;

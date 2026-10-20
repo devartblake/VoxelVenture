@@ -17,7 +17,8 @@ const apiPort = await free();
 const webPort = await free();
 const mpPort = await free(); // a presence server of the test's own, joined to its API (not whatever runs on 3001)
 const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-live-mp-'));
-const env = { ...process.env, NEXT_PUBLIC_LIVE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_SECRET: 'live-test', INTERNAL_SECRET: 'live-inside' };
+const ADMIN_TOKEN = 'live-admin-token';
+const env = { ...process.env, NEXT_PUBLIC_LIVE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_SECRET: 'live-test', INTERNAL_SECRET: 'live-inside', ADMIN_TOKEN };
 // MESSAGING_IMPL=fastapi: the same run with messaging served by the Python service (docs/architecture/node_fastapi_architecture_plan.md, step 5)
 const FASTAPI = process.env.MESSAGING_IMPL === 'fastapi';
 const msgPort = await free();
@@ -44,7 +45,7 @@ try {
   children.push(spawn(process.execPath, [next, 'start', 'apps/web', '-p', String(webPort)], { cwd: root, env, stdio: 'ignore' }));
   for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://localhost:${webPort}/`)).ok && (await fetch(`http://localhost:${apiPort}/health`)).ok && (await fetch(`http://localhost:${mpPort}/health`)).ok) break; } catch { /* starting */ } await sleep(500); }
 
-  const page = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&mp=${mpPort}`, { width: 1400, height: 1000 });
+  const page = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1400, height: 1000 });
   for (let i = 0; i < 120 && !(await page.eval('Boolean(window.__vvStore && window.__vvPanel)').catch(() => false)); i++) await sleep(500);
   await sleep(2500);
   check('the page loads and nothing asks for a sign-in', !(await page.eval(`document.body.innerText.includes('Sign in to continue')`)));
@@ -80,7 +81,7 @@ try {
   check('the server has the claim', server.owner === 'BrowserBaker' && server.title === 'Browser Bakery');
 
   // another visitor (a second page, no account) sees it after a sync, and is not asked to sign in to look
-  const other = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&mp=${mpPort}`, { width: 1200, height: 800 });
+  const other = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1200, height: 800 });
   for (let i = 0; i < 120 && !(await other.eval(`Boolean(window.__vvStore && window.__vvStore.getState().plots.find((q) => q.id === ${lot.id})?.owner)`).catch(() => false)); i++) await sleep(500);
   check('a second visitor sees the new building without signing in', await other.eval(`(() => { const p = window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}); return p.owner === 'BrowserBaker' && !p.userClaimed; })()`));
   check('and no console errors on either page', page.problems().length === 0 && other.problems().length === 0, [...page.problems(), ...other.problems()].slice(0, 2).join(' | '));
@@ -183,7 +184,7 @@ try {
   check('pressing the button counts it, and its link carries the click id', /^https:\/\/bakery\.test\/shop\?vv_click=[A-Za-z0-9]{10,32}$/.test(href) && (await until((f) => f.ctaClicks >= 1)), href);
   check('no console errors on the business pages', visitor.problems().length === 0, visitor.problems().slice(0, 2).join(' | '));
   // the same visitor goes into the 3D city: walking into the building and pressing its website link count for the profile too
-  await visitor.eval(`location.href = '/?diag=1&view=iso&mp=${mpPort}'; 1`);
+  await visitor.eval(`location.href = '/?diag=1&view=iso&spawn=fixed&mp=${mpPort}'; 1`);
   check('the city knows the building is linked to the profile', await waitFor(visitor, `Boolean(window.__vvStore) && window.__vvStore.getState().plots.find((q) => q.id === ${lot.id})?.profileSlug === 'browser-bakery'`, 60));
   await visitor.eval(`window.__vvStore.getState().openInterior(window.__vvStore.getState().plots.find((q) => q.id === ${lot.id}))`);
   check('walking into the 3D storefront is a store entry for the profile', await until((f) => f.storeEntries >= 1));
@@ -194,6 +195,46 @@ try {
   await visitor.close();
   await page.close();
   await other.close();
+
+  // ---- the admin sign-in, for real (services/api/admin.mjs, apps/web/app/admin): the site and the API on two origins of the same site, the
+  // session in an HttpOnly cookie on the API's host, sent back with credentials: 'include'
+  const ADMIN_PW = 'browser admin password';
+  const adm = await openPage(`http://localhost:${webPort}/admin/economy`, { width: 390, height: 800, mobile: true });
+  check('admin: an admin page without a session goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && new URLSearchParams(location.search).get('next') === '/admin/economy'`, 30));
+  check('admin: with no admin account yet, the sign-in points to the setup', await waitFor(adm, `Boolean(document.querySelector('[data-testid="admin-setup-needed"] a[href="/admin/setup"]'))`, 20));
+  await adm.eval(`location.href = '/admin/setup'; 1`);
+  await waitFor(adm, `document.querySelector('[data-testid="admin-setup-form"]')?.dataset.ready === '1'`, 20);
+  await type2(adm, '#token', ADMIN_TOKEN);
+  await type2(adm, '#username', 'boss');
+  await type2(adm, '#password', ADMIN_PW);
+  await type2(adm, '#confirm', ADMIN_PW);
+  await adm.eval(`document.querySelector('[data-testid="admin-setup-form"] button[type=submit]').click()`);
+  check('admin: the setup makes the account and goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('created=1')`, 20), await adm.eval(`location.href + ' | ' + (document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? '') + ' | ' + [...document.querySelectorAll('input')].map((i) => i.id + '=' + i.value.length).join(',')`).catch((e) => e.message));
+  const stored = await adm.eval(`JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage), document.cookie])`);
+  check('admin: the token is kept nowhere in the browser, not even in the address', !stored.includes(ADMIN_TOKEN) && !(await adm.eval('location.href')).includes(ADMIN_TOKEN));
+  await adm.eval(`location.href = '/admin/login?next=' + encodeURIComponent('/admin/economy'); 1`);
+  await waitFor(adm, `document.querySelector('[data-testid="admin-login-form"]')?.dataset.ready === '1' && !document.querySelector('[data-testid="admin-login-form"] fieldset').disabled`, 20);
+  await type2(adm, '#username', 'boss');
+  await type2(adm, '#password', 'not the password');
+  await adm.eval(`document.querySelector('[data-testid="admin-login-form"] button[type=submit]').click()`);
+  check('admin: a wrong password shows an error on the form', await waitFor(adm, `/did not work/.test(document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? '')`, 20));
+  await type2(adm, '#password', ADMIN_PW);
+  await adm.eval(`document.querySelector('[data-testid="admin-login-form"] button[type=submit]').click()`);
+  check('admin: signing in goes back to the page asked for', await waitFor(adm, `location.pathname === '/admin/economy' && document.querySelector('[data-testid="admin-user"]')?.textContent === 'boss'`, 20));
+  check('admin: the page shows the API\'s figures with the session alone', await waitFor(adm, `/By tier/.test(document.body.innerText)`, 20));
+  check('admin: the session cookie cannot be read by the page', !(await adm.eval(`document.cookie`)).includes('vv_admin'));
+  // the dashboard's frame on a phone (components/admin/AdminShell.jsx): the pages behind a menu button, in a drawer that Escape closes
+  check('admin: on a phone the page fits (no sideways scroll) and the nav is behind a menu button', await adm.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1 && Boolean(document.querySelector('[data-testid="admin-menu"]')) && !document.querySelector('[data-testid="admin-drawer"]')`));
+  await adm.eval(`document.querySelector('[data-testid="admin-menu"]').click()`);
+  check('admin: the menu opens the drawer, the current page marked and focused', await waitFor(adm, `(() => { const cur = document.querySelector('[data-testid="admin-drawer"] a[aria-current="page"]'); return cur?.getAttribute('href') === '/admin/economy' && document.activeElement === cur && document.getElementById('admin-shell').hasAttribute('inert'); })()`, 10));
+  await adm.key('Escape');
+  check('admin: Escape closes the drawer and gives the focus back to the menu button', await waitFor(adm, `!document.querySelector('[data-testid="admin-drawer"]') && document.activeElement === document.querySelector('[data-testid="admin-menu"]') && !document.getElementById('admin-shell').hasAttribute('inert')`, 10));
+  await adm.eval(`document.querySelector('[data-testid="admin-sign-out"]').click()`);
+  check('admin: signing out goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('signedOut=1')`, 20));
+  await adm.eval(`location.href = '/admin/economy'; 1`);
+  check('admin: and the admin pages are closed again', await waitFor(adm, `location.pathname === '/admin/login'`, 20));
+  check('admin: no console errors on the admin pages', adm.problems().filter((p) => !/401|403|Failed to load resource/.test(p)).length === 0, adm.problems().slice(0, 3).join(' | '));
+  await adm.close();
 } catch (e) {
   fails++;
   console.log('FAIL the live browser test crashed:', e.stack);

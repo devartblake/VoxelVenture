@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { PLOT_TILE, buildingSize } from '@/lib/city/cityGenerator';
 
 const GOLD = '#fbbf24';
@@ -70,7 +71,7 @@ function BuildingDetails({ plot }) {
 // Prime plots fly a gold pennant from the roof.
 function Pennant({ y }) {
   const flag = useRef(null);
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (flag.current) flag.current.rotation.y = Math.sin(clock.elapsedTime * 2.2) * 0.25;
   });
   return (
@@ -92,7 +93,7 @@ function Pennant({ y }) {
 // A slowly spinning gold gem over today's featured business.
 function Beacon({ y }) {
   const gem = useRef(null);
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (!gem.current) return;
     gem.current.rotation.y = clock.elapsedTime * 1.6;
     gem.current.position.y = y + Math.sin(clock.elapsedTime * 2) * 0.1;

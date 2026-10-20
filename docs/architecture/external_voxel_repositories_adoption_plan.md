@@ -1,7 +1,7 @@
 # External Voxel Repository Adoption and Implementation Plan
 
 **Date:** 2026-10-17  
-**Status:** Proposed implementation plan. **Track A (headless journeys and deterministic scenarios) and Track B (realtime protocol contracts) are implemented** (see 6.6 and [ADR 0004](adr/0004-presence-protocol-contracts.md)); the other tracks are proposals.  
+**Status:** Proposed implementation plan. **Track A (headless journeys and deterministic scenarios) and Track B (realtime protocol contracts) are implemented** (see 6.6 and [ADR 0004](adr/0004-presence-protocol-contracts.md)). **Track C (mobile interaction and rendering efficiency) is implemented in code** ([performance policy](performance_policy.md), see 8.5); its budgets wait for real-device evidence. The other tracks are proposals.  
 **Repository baseline:** `main` at `699cdb3f2ca4016bb224c4c8e9348493acd2bdad`  
 **Related roadmap:** [Tasks](../roadmap/tasks.md), [alignment status](../roadmap/alignment_status.md), [world-expansion freeze](../roadmap/world_freeze.md)  
 **Related architecture:** [Modular monorepo migration plan](modular_monorepo_migration_plan.md), [ADR 0001](adr/0001-shared-package-boundaries.md)
@@ -478,6 +478,7 @@ The shared validator gained `prefixItems` (fixed-position arrays, for the compac
 
 ## 8. Implementation Track C — Mobile interaction and rendering efficiency
 
+**Status:** implemented in code, 2026-10-19 ([performance_policy.md](performance_policy.md)); see 8.5. The budgets are proposed and measured on a desktop; the real-phone and mid-range-laptop runs are still to do.  
 **Priority:** P0/P1  
 **Freeze status:** Allowed; performance and accessibility  
 **Recommended timing:** Before and during pilot
@@ -565,6 +566,24 @@ Do not use user-agent model lists as the primary decision mechanism.
 - Low-performance mode is deterministic and inspectable.
 - Pilot devices meet an agreed frame-time budget.
 - Decorative reductions never affect business selection, CTA access, attribution, or the non-WebGL funnel.
+
+### 8.5 What was implemented
+
+The three modules of 8.3 are in `lib/performance/`, with a runtime that wires them to the page (`runtime.js`) and the fixed measurement spots (`measureSpots.js`). [performance_policy.md](performance_policy.md) has the inventory, the tiers, the rules, the budgets, the measured numbers and how to measure on a device.
+
+| Step or criterion | How it is met |
+| --- | --- |
+| 8.2 step 1: inventory every `useFrame` callback | 29 callbacks, classified: 6 continuous-visible, 5 event-driven, 17 continuous-pausable, 1 diagnostics-only. Every callback in the city goes through `useGatedFrame(LOOPS.<class>)`; a test fails on a direct `useFrame` |
+| 8.2 step 2: pause nonessential animation | Tab hidden: every loop stops. Storefront interior open (the world covered): the pausable loops stop and the city is drawn on one frame in fifteen. World map or a phone's panel open: half rate. Reduced motion: ornaments still. Low tier: ornaments every 3rd frame, simulations every 2nd |
+| 8.2 step 3: distant and decorative systems less often | Traffic, animals, planes and the amusement rides are "distant": while the map is zoomed out they run every 2nd frame on medium and every 4th on low |
+| 8.2 step 4: measure | `scripts/perf-measure.mjs` runs the city at five fixed camera spots for each tier: frame-time p50 and p95, draw calls, triangles, geometries, textures, and the ground's depth against the camera planes. It writes JSON and Markdown. Desktop numbers are in the policy document |
+| 8.2 step 5: demand rendering on a bounded route | Tried on the model preview (`/models?frameloop=demand`) only; the main canvas stays on `always` (policy document, section 9) |
+| 8.3: central capability decision | `capabilityProfile.js`: coarse pointer, pixel ratio, viewport, WebGL renderer string, measured FPS, reduced motion, memory and core hints. `qualityPolicy.js`: tiers `high`, `medium`, `low`, with a ceiling from the device and frame-rate steps with hysteresis. The user agent is never read (tested). The canvas's touch, pixel-ratio and shadow checks now come from the policy |
+| No regression to keyboard or screen-reader behaviour | `tests/browser-touch.test.mjs` checks WASD, Escape and M. The DOM, labels and focus order are unchanged, and the badge appears only with `?diag=1` |
+| Touch interactions have automated pointer tests | `tests/browser-touch.test.mjs`, on an emulated phone with DevTools touch events: tap selects, one-finger drag pans, pinch zooms in and out, long press is harmless, the joystick walks and stops |
+| Low-performance mode is deterministic and inspectable | `?quality=low\|medium\|high\|auto`. With `?diag=1` the badge shows the tier with its reasons and measures on the device; `window.__vvQuality` holds the decision. The presence telemetry and the `/admin` monitor carry the tier, reasons and p95. Unit tests play the hysteresis |
+| Pilot devices meet an agreed frame-time budget | Budgets proposed per tier (16.7 / 25 / 33.3 ms p95). The phone and laptop runs are documented (policy document, section 7) and still to do |
+| Reductions never affect selection, CTA, attribution or the non-WebGL funnel | They change only decoration, animation rate, pixel ratio and shadows. The touch test selects a plot by tap on the low tier and with reduced motion; the browser test's no-WebGL checks pass unchanged |
 
 ## 9. Implementation Track D — Asset metadata and placement contracts
 
@@ -880,7 +899,7 @@ Any Voxelize adoption proposal must include:
 | 2 | ✅ Realtime protocol-v2 contracts and fixture validation (done, ADR 0004) | Low–medium | Before pilot |
 | 3 | ✅ Extract reusable browser/presence agents from existing tests (done, 6.6) | Medium | Before pilot |
 | 4 | ✅ Add deterministic pilot journeys and sanitized artifacts (done, 6.6) | Medium | Before pilot |
-| 5 | Central performance capability profile and measurements | Medium | During pilot preparation |
+| 5 | ✅ Central performance capability profile and measurements (done in code, 8.5; real-device budgets pending) | Medium | During pilot preparation |
 | 6 | Asset-contract schema and metadata overlay, no new assets | Low–medium | During pilot |
 | 7 | Merchant-customizer ADR and UX prototype | Low | After pilot signal |
 | 8 | Customizer draft/validation API | Medium | After freeze lift |
@@ -978,9 +997,9 @@ VoxelVenture/
 │   │   ├── propCatalog.js            # existing generated catalog
 │   │   └── assetPolicy.js            # proposed curated metadata overlay
 │   ├── performance/
-│   │   ├── capabilityProfile.js      # proposed device/runtime profile
-│   │   ├── qualityPolicy.js          # proposed rendering decisions
-│   │   └── visibilityPolicy.js       # proposed pause/throttle rules
+│   │   ├── capabilityProfile.js      # done (Track C): device/runtime profile
+│   │   ├── qualityPolicy.js          # done (Track C): rendering decisions, tiers, budgets
+│   │   └── visibilityPolicy.js       # done (Track C): pause/throttle rules (also runtime.js, measureSpots.js)
 │   └── net/
 │       └── multiplayer.js            # current client, speaking the shared protocol contracts
 ├── packages/
@@ -1073,8 +1092,8 @@ The following analysis compares the recommended target with the current project 
 
 | Capability | Recommended target | Current VoxelVenture state | Gap | Priority | Proposed closure |
 | --- | --- | --- | --- | --- | --- |
-| Mobile navigation | Explicit, tested gesture state model | Joystick, interaction button, safe-area support, map controls, touch DPR/shadow tuning | Editing/navigation gesture rules are not centralized or broadly pointer-tested | P1 | Add interaction-state specification and automated touch tests |
-| Idle rendering efficiency | Visibility-aware pausing and measured quality tiers | Static batching, touch limits, culling, diagnostics; many continuous `useFrame` systems | No central capability policy; demand rendering not assessed systematically | P0/P1 | Inventory frame loops, add capability/visibility policies, benchmark |
+| Mobile navigation | Explicit, tested gesture state model | **Track C:** the navigation gestures are specified ([performance policy](performance_policy.md), section 8). `tests/browser-touch.test.mjs` tests tap, drag, pinch, long press, the joystick and the keyboard | Long press is reserved and does nothing; customization gestures wait for the customizer; no real-device run yet | P1 | Run on pilot phones (task 25); decide what long press opens |
+| Idle rendering efficiency | Visibility-aware pausing and measured quality tiers | **Track C:** the frame loops are inventoried and classified; `lib/performance/` holds the capability, quality and visibility policies, with tiers, hysteresis, `?quality=` and diagnostics. The covered city is drawn at 4 fps. A fixed-spot benchmark exists; demand rendering was assessed on a bounded route | Budgets are not yet confirmed on real devices; the fully zoomed-out view is over its draw-call and triangle budgets | P0/P1 | Real-device runs; a distance level of detail for the models below zoom 9 |
 | Asset manifest | Technical, legal, placement, moderation, and fallback metadata | Generated catalog has geometry, dimensions, size, class, URL | Missing normalized license, slot, LOD/fallback, usage-policy, moderation fields | P1 | Add metadata overlay and shared asset contract |
 | Browser agents | Reusable visitor, merchant, resilience, and realtime actors | **Done (Track A):** shared agents in `tests/agents/` and four milestone journeys in `tests/journeys/` (visitor, merchant, reconnect and resilience, attribution), runnable against staging | Not yet run against staging (Phase D) | Done | Run the suite against staging before each pilot release |
 | Multiplayer load agents | Protocol-aware, reusable agents tied to acceptance budgets | Synthetic 500-client presence load test exists | Load test focuses on presence throughput, not full auth/reconnect/business journeys | P0/P1 | Reuse presence actor, add auth/reconnect/slow-client scenarios |
@@ -1089,7 +1108,7 @@ The following analysis compares the recommended target with the current project 
 | WASM meshing | Only if profiling proves geometry bottleneck | Three.js/React Three Fiber with static batches | No evidence of a meshing bottleneck | Deferred | Profile first; write ADR before any spike |
 | Rust authoritative server | Only if Node cannot meet certified requirements | Node server with interest management, limits, telemetry, and load testing | No demonstrated gap | Deferred | Keep Node until evidence justifies migration |
 | Third-party licensing | Automated provenance, credits, policy checks | Credits system and license tests already exist | External additions need source-specific review; Tiny is AGPL | P0 governance | Extend admission checklist and prohibit unreviewed copies |
-| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics` and `business-core` exist. The runtime moved to its target layout in separate PRs (`apps/web/`, `services/api/`, `services/multiplayer/`; ADR 0002, ADR 0003) | `world-core` and performance policy modules are not present (the agent and journey folders are, from Track A) | Incremental | Add only as each approved slice begins |
+| Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics` and `business-core` exist. The runtime moved to its target layout in separate PRs (`apps/web/`, `services/api/`, `services/multiplayer/`; ADR 0002, ADR 0003) | `world-core` is not present (the agent and journey folders are, from Track A; `lib/performance/` from Track C) | Incremental | Add only as each approved slice begins |
 | Commercial validation | Customization and scaling decisions supported by customer data | Phase 6 pilot tooling exists; external-feature demand unvalidated | No customer evidence that a builder increases payment or renewal | Highest product gap | Run pilot before customizer/engine expansion |
 
 ## 18. Gap conclusions
@@ -1099,7 +1118,7 @@ The following analysis compares the recommended target with the current project 
 1. ✅ Realtime message contracts (Track B).
 2. ✅ Reusable deterministic visitor and merchant journeys (Track A).
 3. Staging-capable browser and reconnect evidence. The journeys can now run against staging (6.6); the evidence comes with Phase D.
-4. A documented performance budget and centralized capability policy.
+4. ✅ A documented performance budget and centralized capability policy (Track C, [performance_policy.md](performance_policy.md)). The budgets are proposed and measured on a desktop; real-device confirmation is item 6 of section 19.
 5. Third-party admission and provenance controls for any borrowed material.
 
 ### Gaps that should be closed only after the pilot
@@ -1128,7 +1147,7 @@ These may be technically interesting, but the current product does not need them
 3. ✅ Implement protocol-v2 contracts under `packages/shared-types`.
 4. ✅ Extract reusable agent helpers from existing browser and presence tests (`tests/agents/`).
 5. ✅ Add deterministic pilot journey fixtures (`tests/fixtures/deterministic-pilot-city.mjs`, `tests/journeys/`).
-6. Establish mobile and desktop performance budgets from real-device evidence.
+6. 🟡 Establish mobile and desktop performance budgets from real-device evidence. The budgets are proposed and the measurement exists: `scripts/perf-measure.mjs` on a laptop, and the `?diag=1` badge's **Measure** on a phone ([performance_policy.md](performance_policy.md) sections 5 to 7). Desktop numbers are recorded; the pilot phone and mid-range laptop runs are left.
 7. Define the asset metadata overlay without adding new world content.
 8. Complete the Phase 6 pilot.
 9. Use pilot evidence to decide whether the customizer enters development.

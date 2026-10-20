@@ -48,12 +48,18 @@ import RouteFollower from './RouteFollower';
 import MarketStalls from './MarketStalls';
 import { plotOfTheDay } from '@/lib/game/daily';
 import { useCityStore } from '@/lib/state/store';
+import { initQuality, useQuality } from '@/lib/performance/runtime';
+import { thinOut } from '@/lib/performance/qualityPolicy';
+import QualityBadge from '@/components/ui/QualityBadge';
 
 export default function CityCanvas() {
   const day = useCityStore((state) => state.day);
-  // Touch devices render at a lower pixel ratio and shadow resolution (read after mount, so the server render matches).
-  const [touch, setTouch] = useState(false);
-  useEffect(() => setTouch(window.matchMedia('(pointer: coarse)').matches), []);
+  // How much is drawn comes from the capability policy (lib/performance/; docs/architecture/performance_policy.md): the pixel-ratio
+  // range follows the tier in force; the shadow map and the decoration density follow the settings the city was set up with.
+  // The device is read after mount (so the server render matches); until then this draws as a desktop always did.
+  useEffect(() => initQuality(), []);
+  const dpr = useQuality((s) => s.settings.dpr);
+  const load = useQuality((s) => s.load);
   const { plots, billboards, layout, selectedPlot, selectedPark, selectedBillboardId, setSelectedPlot, setSelectedPark, setSelectedBillboard, clearSelectedPlot } = useCityStore();
 
   // The merged road meshes are baked once, so they are rebuilt whenever the roads are not the ones that were baked:
@@ -70,11 +76,16 @@ export default function CityCanvas() {
     return q.has('stream') ? { size: Number(q.get('stream')) || 64, radius: Number(q.get('radius')) || 2 } : null;
   });
   const view = useView((s) => (PRESETS[s.view].iso ? 'iso' : 'follow'));
+  // the lower tiers draw a fixed share of the countryside's trees and shrubs (decoration only: nothing collides with them)
+  const density = load.decorationDensity;
+  const woods = useMemo(() => thinOut(layout.woods, density), [layout.woods, density]);
+  const landscapeTrees = useMemo(() => thinOut(layout.landscape.trees, density), [layout.landscape.trees, density]);
+  const bushes = useMemo(() => thinOut(layout.landscape.bushes, density), [layout.landscape.bushes, density]);
   const potdId = useMemo(() => (day ? plotOfTheDay(plots, layout.seed, day)?.id ?? null : null), [day, plots, layout.seed]);
 
   return (
     <div className="h-full w-full cursor-grab touch-none select-none active:cursor-grabbing">
-      <Canvas shadows={touch ? false : "percentage"} dpr={touch ? [1, 1.25] : [1, 1.5]} onPointerMissed={() => clearSelectedPlot()}>
+      <Canvas shadows={load.shadows ? "percentage" : false} dpr={dpr} onPointerMissed={() => clearSelectedPlot()}>
         <GpuGuard />
         <CameraHeading />
         <SoundListener />
@@ -101,19 +112,19 @@ export default function CityCanvas() {
         <CameraFocus />
 
         {/* Lights */}
-        <DayNight touch={touch} />
+        <DayNight shadowMapSize={load.shadowMapSize} />
 
         {/* City Layout (recentered so the generated city sits around the origin) */}
         <GroundGrid />
-        <group position={[-layout.center.x, 0, -layout.center.z]}>
+        <group name="city" position={[-layout.center.x, 0, -layout.center.z]}>
           <Land land={layout.land} urban={layout.urban} lawns={layout.lawns} />
           <GroundPatches patches={layout.landscape.patches} />
           <Hills hills={layout.hills} />
           <Animals layout={layout} />
           <Fields fields={layout.fields} />
-          <Woods trees={layout.woods} />
-          <Woods trees={layout.landscape.trees} />
-          <Shrubs bushes={layout.landscape.bushes} />
+          <Woods trees={woods} />
+          <Woods trees={landscapeTrees} />
+          <Shrubs bushes={bushes} />
           {layout.rivers.map((river) => (
             <River key={river.id} river={river} bridges={layout.bridges.filter((b) => b.riverId === river.id)} />
           ))}
@@ -191,6 +202,7 @@ export default function CityCanvas() {
         </group>
       </Canvas>
       <GpuNotice />
+      <QualityBadge />
     </div>
   );
 }

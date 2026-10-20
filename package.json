@@ -10,6 +10,8 @@
     "dev:lan": "next dev apps/web -H 0.0.0.0",
     "mp": "node services/multiplayer/server.mjs",
     "moderate": "node scripts/moderate.mjs",
+    "admin:create": "node --experimental-sqlite --no-warnings scripts/admin-accounts.mjs create",
+    "admin:reset-password": "node --experimental-sqlite --no-warnings scripts/admin-accounts.mjs reset-password",
     "newsletter": "node scripts/send-newsletter.mjs",
     "api": "node --experimental-sqlite --no-warnings services/api/server.mjs",
     "dev:all": "node scripts/dev-all.mjs",

@@ -393,3 +393,28 @@ body {
   color: #f3f4f6;
   user-select: none;
 }
+
+/* The admin dashboard (components/admin/AdminShell.jsx, docs/brand/admin_dashboard.md): the SynaptixPlay page under everything, text that
+   can be selected and copied (the city page turns that off), a cyan focus ring on every control, and no motion for those who ask for less. */
+html:has(.admin-root),
+body:has(.admin-root) {
+  background-color: var(--color-sx-page);
+}
+.admin-root {
+  user-select: text;
+  color-scheme: dark;
+}
+.admin-root :focus-visible {
+  outline: 2px solid var(--color-sx-cyan);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-root *,
+  .admin-root *::before,
+  .admin-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

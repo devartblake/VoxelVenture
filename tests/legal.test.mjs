@@ -30,6 +30,8 @@ check('the presence server keeps network addresses only scrambled, as the privac
 check('take-over emails call the payout game value, as the terms say (gap 3)', has('services/api/engage.mjs', /no real money is paid/) && !has('services/api/engage.mjs', /paid out \$/));
 check('the error log is cut at the stated size', has('services/multiplayer/server.mjs', /MP_LOG_MAX_BYTES \|\| 2_000_000/) && RETENTION.errorLogBytes === 2_000_000);
 check('the attribution window is the code\'s', RETENTION.attributionDays === ATTRIBUTION_DAYS);
+const { SESSION: ADMIN_SESSION } = await import('../services/api/admin.mjs');
+check('a staff sign-in lasts as stated (absolute and idle)', ADMIN_SESSION.absoluteMs === RETENTION.adminSessionHours * 3600000 && ADMIN_SESSION.idleMs === RETENTION.adminIdleHours * 3600000);
 check('the limits are the code\'s', has('services/api/business.mjs', new RegExp(`MAX_PROFILES = ${LIMITS.profilesPerAccount};`)) && has('services/api/market.mjs', new RegExp(`MAX_ACTIVE_PER_WEEK = ${MONEY.stallsPerWeek};`)) && has('services/api/billing.mjs', new RegExp(`HOLD_MS = ${MONEY.checkoutHoldMinutes} \\* 60000`)) && has('services/api/social.mjs', new RegExp(`default ${LIMITS.socialPostsPerDay}\\)`)));
 check('the prices are the catalogue\'s', MONEY.launch.price === `$${PRODUCTS.launch.cents / 100}` && MONEY.pro.price === `$${PRODUCTS.pro.cents / 100}` && MONEY.placements.length === Object.keys(PLACEMENTS).length);
 check('the cart rules are the code\'s', MONEY.cart.minimum === `$${CART.minimumCents / 100}` && MONEY.cart.maxPlots === CART.maxPlots);

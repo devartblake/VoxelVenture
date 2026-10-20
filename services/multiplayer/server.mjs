@@ -14,8 +14,8 @@
 // passed on (blocks are applied there). Guests may chat only where MP_CHAT_GUESTS allows it (a trusted LAN). The API also sends
 // "your inbox changed" notices here for one account (POST /notify-accounts), which go only to that account's connections.
 //
-// /status is open to anyone who can reach the port (a development tool): put the server behind the proxy in deploy/ before
-// exposing it to the internet.
+// /status is open to anyone who can reach the port: in production the server listens on 127.0.0.1 behind the proxy in deploy/, which hides it;
+// the /admin monitor reads it through the API (GET /admin/presence, admins only).
 //
 // Network addresses are never written down or shown: the log, the console, /status and /admin show a salted hash of the address
 // (`net`, the same form the API keeps as ip_hash, with the same IP_SALT), enough to tell that two reports came from one network.
@@ -179,6 +179,7 @@ function summary(p) {
     device: p.device,
     fps: p.fps,
     render: p.render,
+    quality: p.quality ?? null,
     errorCount: p.errorCount,
     errors: p.errors,
   };
@@ -545,6 +546,8 @@ wss.on('connection', (ws, req) => {
     } else if (m.type === 'perf') {
       p.fps = Math.round(num(m.fps, 0, 1000) * 10) / 10;
       p.render = { calls: Math.round(num(m.calls, 0, 1e7)), triangles: Math.round(num(m.triangles, 0, 1e9)), geometries: Math.round(num(m.geometries, 0, 1e7)), textures: Math.round(num(m.textures, 0, 1e7)) };
+      // the quality tier the game draws at, and why (lib/performance/qualityPolicy.js); an older game sends none
+      if (typeof m.quality === 'string') p.quality = { tier: ['low', 'medium', 'high'].includes(m.quality) ? m.quality : 'unknown', reasons: str(m.qualityReasons, 120), frameP95: Math.round(num(m.frameP95, 0, 1e4) * 10) / 10 };
     } else if (m.type === 'error') {
       const entry = {
         time: now,

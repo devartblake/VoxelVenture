@@ -10,7 +10,10 @@
 //   PUBLIC_API_URL  the address in email links          (default http://localhost:<port>)
 //   MAIL_WEBHOOK_URL / MAIL_WEBHOOK_TOKEN / MAIL_FROM   send email through a mail API; without it, messages are written to MAIL_DIR
 //   MP_NOTIFY_URL / MP_NOTIFY_SECRET   tell the presence server to push changes to every player instantly
-//   ADMIN_TOKEN   lets POST /admin/newsletter send the Plot of the Day newsletter
+//   ADMIN_TOKEN   the machine credential for every /admin route (scripts, verify:live, npm run moderate), and what creates the first admin
+//                 account (POST /admin/setup). People sign in at /admin/login instead (services/api/admin.mjs: accounts in the database)
+//   MP_STATUS_URL the presence server's /status, which GET /admin/presence passes on to signed-in admins (default: MP_NOTIFY_URL with
+//                 /status in place of /notify, else http://127.0.0.1:3001/status)
 //   HUMAN_MIN_AGE_MS / HUMAN_VISIT_CAP / HUMAN_CLICK_CAP / IP_SALT / TRUST_PROXY   the proof-of-human rules for visits and clicks (defaults: 3000 ms of presence first, 3 visits and 1 click per network per building per day)
 //   STATS_TZ_OFFSET_MIN   the time zone of "yesterday" in the statistics, in minutes from UTC (default 0)
 //   MESSAGING_*   chat and messages: switches and limits (see services/api/messaging.mjs). The presence server reaches the /internal/messaging
@@ -46,13 +49,15 @@ import * as conversions from './conversions.mjs';
 import * as pilot from './pilot.mjs';
 import * as interiors from './interiors.mjs';
 import * as economy from './economy.mjs';
+import * as admin from './admin.mjs';
+import crypto from 'node:crypto';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
 import { createReporter } from '../../lib/net/sentry.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env } = {}) {
+export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env, adminLogin = {} } = {}) {
   const db = openDb(dbFile);
   const seeded = core.seedWorld(db, seed);
   const adsSeeded = core.seedAds(db, seed);
@@ -71,7 +76,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   // With the messaging service set up, messages are its business alone: this API forwards the routes and runs none of the jobs,
   // so the two never both send the same notice or prune the same data.
   const messagingService = (env.MESSAGING_SERVICE_URL || '').replace(/\/+$/, '');
-  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
+  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); admin.pruneSessions(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
   pruneTimer?.unref();
   // "your inbox changed" notices go to the presence server as soon as they are written, and again every two seconds for any that failed
   const notices = () => (messagingService ? Promise.resolve() : messaging.deliverNotices(db, env)).catch(() => {});
@@ -163,9 +168,34 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   const payCtx = (req) => ({ ip: clientIp(req), after: afterPaid });
   const BUSINESS = { title: 0, description: 1, website: 1 };
   const PROFILE = { name: 0, tagline: 0, description: 1 };
-  const adminOnly = (token) => {
-    if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
+  // ---- admins (services/api/admin.mjs). Every /admin route takes either the machine credential (Authorization: Bearer ADMIN_TOKEN) or a
+  // signed-in admin's session cookie. The cookie is only accepted from the site itself: CORS with credentials answers only the allowed origin,
+  // the cookie is SameSite=Strict, and a request that changes something must also be JSON and carry an allowed Origin (no form can do that).
+  const sameSecret = (a, b) => Boolean(a && b) && crypto.timingSafeEqual(crypto.createHash('sha256').update(String(a)).digest(), crypto.createHash('sha256').update(String(b)).digest());
+  const isAdminToken = (token) => sameSecret(token, env.ADMIN_TOKEN);
+  // the origins whose pages may use an admin session: API_ORIGIN; in development (API_ORIGIN unset or "*") a page on this machine
+  const originAllowed = (o) => Boolean(o) && (origin === '*' ? !isProduction(env) && /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(o) : String(origin).split(',').map((x) => x.trim()).includes(o));
+  const forbidden = (message = 'Not allowed.', code = 'forbidden') => new core.ApiError(403, message, code);
+  const sameSiteWrite = (req) => {
+    if (!/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) throw forbidden('Send JSON (Content-Type: application/json).', 'csrf');
+    if (!originAllowed(req.headers.origin)) throw forbidden('This request did not come from the site.', 'csrf');
   };
+  // Who is asking, for an admin route: { kind: 'admin', id, username, via: 'token' | 'session' }, or a 403. The one check every admin
+  // route uses (inside route() it is adminOnly()).
+  const requireAdmin = (req, { session = false } = {}) => {
+    const bearer = String(req.headers.authorization ?? '').replace(/^Bearer /i, '');
+    if (!session && isAdminToken(bearer)) return { kind: 'admin', id: null, username: null, via: 'token' };
+    const value = admin.readCookie(req);
+    const who = value ? admin.sessionAdmin(db, value) : null;
+    if (!who) throw forbidden(session ? 'Sign in at /admin/login first.' : 'Not allowed.', session ? 'session_required' : 'forbidden');
+    if (!['GET', 'HEAD'].includes(req.method)) sameSiteWrite(req);
+    return { kind: 'admin', id: who.id, username: who.username, via: 'session', expiresAt: who.expiresAt, idleExpiresAt: who.idleExpiresAt };
+  };
+  const loginGuard = admin.createLoginGuard(adminLogin.limit);
+  const loginDelayMs = adminLogin.delayMs ?? 400;
+  const netOf = (req) => business.ipHashOf({ ip: clientIp(req), salt: env.IP_SALT });
+  // the presence server's /status (players, devices, recent errors), for the monitor page: only through here, only for admins
+  const presenceStatusUrl = env.MP_STATUS_URL || (env.MP_NOTIFY_URL ? env.MP_NOTIFY_URL.replace(/\/notify\/?$/, '/status') : 'http://127.0.0.1:3001/status');
   // the presence server's own calls (redeeming a ticket, a nearby line, checking sign-ins): only with the shared secret
   const internalOnly = (req) => {
     if (!env.MP_NOTIFY_SECRET || req.headers['x-internal-secret'] !== env.MP_NOTIFY_SECRET) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
@@ -210,12 +240,124 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     res.end(await out.text());
   }
 
-  async function route(req, url) {
+  // The admin sign-in and the admin accounts (services/api/admin.mjs; contracts in @voxelventure/shared-types admin.*). undefined: not one of these.
+  async function adminRoute(req, url, p, m, token, headers) {
+    let r;
+    const setCookie = (c) => (headers['Set-Cookie'] = c);
+    const target = (id) => ({ kind: 'admin', id: id ?? null });
+    const sessionView = (who) => ({ admin: { id: who.id, username: who.username }, expiresAt: who.expiresAt, idleExpiresAt: who.idleExpiresAt });
+    // the first admin account: only while there is none, only with ADMIN_TOKEN (typed into /admin/setup, sent once, never kept by the browser)
+    if (p === '/admin/setup') {
+      if (m === 'GET') return { needed: admin.count(db) === 0 };
+      if (m !== 'POST') return undefined;
+      if (!isAdminToken(token)) throw forbidden('That is not the admin token.', 'forbidden');
+      const taken = () => { if (admin.count(db) > 0) throw new core.ApiError(409, 'An admin account already exists. Sign in at /admin/login.', 'already_set_up'); };
+      taken();
+      const b = await body(req, 4000);
+      const created = await admin.createAdmin(db, b, { check: taken, audit: (a) => A.audit(db, A.ADMIN, 'admin.setup', target(a.id), { username: a.username, net: netOf(req) }) });
+      return { admin: created };
+    }
+    if (p === '/admin/session') {
+      if (m === 'POST') {
+        if (!/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) throw forbidden('Send JSON (Content-Type: application/json).', 'csrf');
+        if (req.headers.origin && !originAllowed(req.headers.origin)) throw forbidden('This request did not come from the site.', 'csrf');
+        const b = await body(req, 4000);
+        const net = netOf(req);
+        // the audit names the username only when it is an admin's (a password typed into the username box must not be written down)
+        // (tries while locked are not written one by one: the lockout itself is)
+        const record = (reason, a) =>
+          reason === 'locked'
+            ? null
+            : reason === 'lockout'
+            ? A.audit(db, A.SYSTEM, 'admin.lockout', target(a?.id), { username: a?.username ?? null, net, minutes: Math.round((adminLogin.limit?.lockMs ?? admin.LOGIN_LIMIT.lockMs) / 60000) })
+            : A.audit(db, A.SYSTEM, 'admin.login_failed', target(a?.id), { username: a?.username ?? null, reason, net });
+        const a = await admin.signIn(db, b, { guard: loginGuard, ip: clientIp(req), delayMs: loginDelayMs, record });
+        const s = admin.createSession(db, a.id);
+        A.audit(db, { kind: 'admin', id: a.id }, 'admin.login', target(a.id), { username: a.username, net });
+        setCookie(admin.sessionCookie(s.value, admin.SESSION.absoluteMs));
+        return { admin: { id: a.id, username: a.username }, expiresAt: s.expiresAt, idleExpiresAt: Math.min(s.expiresAt, Date.now() + admin.SESSION.idleMs) };
+      }
+      if (m === 'GET') {
+        const value = admin.readCookie(req);
+        const who = value ? admin.sessionAdmin(db, value) : null;
+        if (!who) {
+          if (value) setCookie(admin.clearCookie());
+          throw new core.ApiError(401, 'Not signed in.', 'not_signed_in');
+        }
+        return sessionView(who);
+      }
+      if (m === 'DELETE') {
+        const value = admin.readCookie(req);
+        if (value) {
+          sameSiteWrite(req);
+          const who = admin.sessionAdmin(db, value);
+          admin.endSession(db, value);
+          if (who) A.audit(db, { kind: 'admin', id: who.id }, 'admin.logout', target(who.id), { username: who.username });
+        }
+        setCookie(admin.clearCookie());
+        return { ok: true };
+      }
+      return undefined;
+    }
+    // a signed-in admin's own password: the current one first; every other session of theirs ends
+    if (p === '/admin/password' && m === 'POST') {
+      const who = requireAdmin(req, { session: true });
+      const b = await body(req, 4000);
+      const row = admin.byId(db, who.id);
+      const keys = [`ip:${clientIp(req) || '?'}`, `user:${row.username.toLowerCase()}`];
+      if (loginGuard.locked(keys) || !(await admin.verifyPassword(String(b.currentPassword ?? ''), row.password_hash))) {
+        if (loginGuard.fail(keys)) A.audit(db, A.SYSTEM, 'admin.lockout', target(who.id), { username: who.username, net: netOf(req) });
+        A.audit(db, { kind: 'admin', id: who.id }, 'admin.password_change_failed', target(who.id), { username: who.username });
+        await new Promise((res) => setTimeout(res, loginDelayMs));
+        throw new core.ApiError(401, 'The current password is not right (or there have been too many tries: wait a few minutes).', 'bad_password');
+      }
+      if (String(b.newPassword ?? '') === String(b.currentPassword ?? '')) throw new core.ApiError(400, 'The new password must be different from the current one.', 'weak_password');
+      const out = await admin.setPassword(db, who.id, b.newPassword, { keepSession: admin.readCookie(req), audit: ({ ended }) => A.audit(db, { kind: 'admin', id: who.id }, 'admin.password_change', target(who.id), { username: who.username, endedSessions: Number(ended) }) });
+      return { ok: true, endedSessions: out.endedSessions };
+    }
+    // the admin accounts: a signed-in admin (or ADMIN_TOKEN) lists, adds, disables and enables them
+    if (p === '/admin/admins') {
+      if (m === 'GET') return (requireAdmin(req), { admins: admin.list(db), me: requireAdmin(req).id });
+      if (m === 'POST') {
+        const who = requireAdmin(req);
+        const b = await body(req, 4000);
+        const created = await admin.createAdmin(db, b, { audit: (a) => A.audit(db, who, 'admin.create', target(a.id), { username: a.username }) });
+        return { admin: created };
+      }
+      return undefined;
+    }
+    if ((r = p.match(/^\/admin\/admins\/(\d+)$/)) && m === 'PATCH') {
+      const who = requireAdmin(req);
+      const b = await body(req, 4000);
+      if (typeof b.disabled !== 'boolean') throw new core.ApiError(400, 'Send { "disabled": true } or { "disabled": false }.', 'bad_request');
+      return { admin: admin.setDisabled(db, r[1], b.disabled, { actorId: who.id, audit: (a) => A.audit(db, who, b.disabled ? 'admin.disable' : 'admin.enable', target(a.id), { username: a.username }) }) };
+    }
+    // the presence monitor's figures (the presence server's /status, which is not public)
+    if (p === '/admin/presence' && m === 'GET') {
+      requireAdmin(req);
+      let res;
+      try {
+        res = await fetch(presenceStatusUrl, { headers: { 'X-Notify-Secret': env.MP_NOTIFY_SECRET || '' }, signal: AbortSignal.timeout(4000) });
+      } catch {
+        throw new core.ApiError(503, 'The presence server cannot be reached.', 'presence_unavailable');
+      }
+      if (!res.ok) throw new core.ApiError(503, `The presence server answered ${res.status}.`, 'presence_unavailable');
+      return await res.json();
+    }
+    return undefined;
+  }
+
+  async function route(req, url, headers = {}) {
     const m = req.method;
     const p = url.pathname.replace(/\/+$/, '') || '/';
     const token = (req.headers.authorization ?? '').replace(/^Bearer /i, '');
     const account = core.accountFromToken(db, token);
     let r;
+    // the admin asking (requireAdmin), worked out once per request; every admin route below calls it, and its answer is the audit trail's actor
+    let adminWho = null;
+    const adminOnly = () => (adminWho ??= requireAdmin(req));
+
+    if (p.startsWith('/admin/') && (r = await adminRoute(req, url, p, m, token, headers)) !== undefined) return r;
 
     if (m === 'GET' && p === '/health') return { ok: true, now: Date.now(), plots: db.prepare('SELECT COUNT(*) AS n FROM plots').get().n, adSlots: db.prepare('SELECT COUNT(*) AS n FROM ad_slots').get().n };
     if (m === 'POST' && p === '/auth/signup') {
@@ -347,12 +489,12 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       adminOnly(token);
       const action = (await body(req)).action;
       const rep = db.prepare('SELECT kind, target_id FROM reports WHERE id = ?').get(Number(r[1]));
-      return logged(A.ADMIN, 'report.resolve', { kind: rep?.kind ?? 'report', id: rep?.target_id ?? r[1] }, () => mod.resolve(db, r[1], action), (o) => ({ report: Number(r[1]), action: o.action, reports: o.resolved, banned: o.banned }));
+      return logged(adminOnly(), 'report.resolve', { kind: rep?.kind ?? 'report', id: rep?.target_id ?? r[1] }, () => mod.resolve(db, r[1], action), (o) => ({ report: Number(r[1]), action: o.action, reports: o.resolved, banned: o.banned }));
     }
     if ((r = p.match(/^\/admin\/accounts\/(\d+)\/(ban|unban)$/)) && m === 'POST') {
       adminOnly(token);
       const reason = r[2] === 'ban' ? (await body(req)).reason : null;
-      logged(A.ADMIN, `account.${r[2]}`, { kind: 'account', id: r[1] }, () => (r[2] === 'ban' ? mod.ban(db, Number(r[1]), reason) : mod.unban(db, Number(r[1]))), () => (reason ? { reason: String(reason).slice(0, 200) } : null));
+      logged(adminOnly(), `account.${r[2]}`, { kind: 'account', id: r[1] }, () => (r[2] === 'ban' ? mod.ban(db, Number(r[1]), reason) : mod.unban(db, Number(r[1]))), () => (reason ? { reason: String(reason).slice(0, 200) } : null));
       return { ok: true };
     }
     if (m === 'GET' && p === '/admin/audit') {
@@ -363,15 +505,15 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/admin/social') return (adminOnly(token), social.list(db, url.searchParams.get('status') ?? 'review', env));
     if ((r = p.match(/^\/admin\/social\/(\d+)\/(approve|reject)$/)) && m === 'POST') {
       adminOnly(token);
-      const out = logged(A.ADMIN, `social.${r[2]}`, { kind: 'social_post', id: r[1] }, () => social.decide(db, r[1], r[2]), (o) => ({ text: o.text }));
+      const out = logged(adminOnly(), `social.${r[2]}`, { kind: 'social_post', id: r[1] }, () => social.decide(db, r[1], r[2]), (o) => ({ text: o.text }));
       if (r[2] === 'approve') setImmediate(postSocial);
       return out;
     }
     if (m === 'GET' && p === '/admin/audit/verify') return (adminOnly(token), A.verifyChain(db));
     if (m === 'GET' && p === '/me/wallet') return engage.wallet(db, account);
     if (m === 'POST' && p === '/admin/newsletter') {
-      if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) throw new core.ApiError(403, 'Not allowed.', 'forbidden');
-      const out = logged(A.ADMIN, 'newsletter.send', { kind: 'newsletter', id: new Date().toISOString().slice(0, 10) }, () => engage.sendNewsletter(db, new Date()), (o) => ({ queued: o.queued, already: Boolean(o.already) }));
+      adminOnly();
+      const out = logged(adminOnly(), 'newsletter.send', { kind: 'newsletter', id: new Date().toISOString().slice(0, 10) }, () => engage.sendNewsletter(db, new Date()), (o) => ({ queued: o.queued, already: Boolean(o.already) }));
       deliver();
       return out;
     }
@@ -386,7 +528,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/admin\/plots\/(\d+)\/lease$/)) && m === 'POST') {
       adminOnly(token);
       const state = (await body(req)).state;
-      return logged(A.ADMIN, 'plot.lease_state', { kind: 'plot', id: r[1] }, () => community.setLeaseState(db, r[1], state), () => ({ state }));
+      return logged(adminOnly(), 'plot.lease_state', { kind: 'plot', id: r[1] }, () => community.setLeaseState(db, r[1], state), () => ({ state }));
     }
     if (m === 'POST' && p === '/admin/leases/notices') return (adminOnly(token), community.sendLeaseNotices(db, Number((await body(req)).now) || Date.now()));
     if (m === 'GET' && p === '/votes') return community.votesView(db, account);
@@ -426,7 +568,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/admin/market/layout') {
       adminOnly(token);
       const b = await body(req);
-      return logged(A.ADMIN, 'market.layout', { kind: 'market', id: `${b.siteCode ?? b.site ?? ''}/${b.week ?? b.weekStart ?? ''}` }, () => market.setLayout(db, seed, b), () => ({ published: b.published ?? null }));
+      return logged(adminOnly(), 'market.layout', { kind: 'market', id: `${b.siteCode ?? b.site ?? ''}/${b.week ?? b.weekStart ?? ''}` }, () => market.setLayout(db, seed, b), () => ({ published: b.published ?? null }));
     }
     if (m === 'GET' && p === '/admin/market') return (adminOnly(token), market.adminWeek(db, seed, url.searchParams.get('week') || undefined));
     // free business profiles and referral links (services/api/business.mjs)
@@ -479,9 +621,9 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/admin/pilot/members') {
       adminOnly(token);
       const b = await body(req);
-      return logged(A.ADMIN, 'pilot.add', { kind: 'business', id: String(b.slug ?? '') }, () => pilot.addMember(db, String(b.slug ?? ''), b));
+      return logged(adminOnly(), 'pilot.add', { kind: 'business', id: String(b.slug ?? '') }, () => pilot.addMember(db, String(b.slug ?? ''), b));
     }
-    if ((r = p.match(/^\/admin\/pilot\/members\/([a-z0-9-]{1,48})$/)) && m === 'DELETE') return (adminOnly(token), logged(A.ADMIN, 'pilot.remove', { kind: 'business', id: r[1] }, () => pilot.removeMember(db, r[1])));
+    if ((r = p.match(/^\/admin\/pilot\/members\/([a-z0-9-]{1,48})$/)) && m === 'DELETE') return (adminOnly(token), logged(adminOnly(), 'pilot.remove', { kind: 'business', id: r[1] }, () => pilot.removeMember(db, r[1])));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/pilot-feedback$/)) && m === 'POST') { const b = await screened(req, { result: 0, missing: 0 }); return pilot.sendFeedback(db, account, r[1], b); }
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/events$/)) && m === 'POST') return business.recordProfileEvent(db, account, r[1], await body(req), visitCtx(req));
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'business', r[1]);
@@ -509,17 +651,17 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'DELETE' && p === '/cart/promo') return cart.clearPromo(db, account, env);
     // promo codes (promo.mjs, docs/monetization/billing.md#promo-codes): a player checks one for a purchase; the admin makes and manages them
     if (m === 'POST' && p === '/promo/check') return promo.describe(db, account, await body(req), { ip: clientIp(req), env });
-    if (m === 'GET' && p === '/admin/promos') return (adminOnly(token), promo.listPromos(db, Object.fromEntries(['status', 'q', 'group', 'campaign'].map((k) => [k, url.searchParams.get(k)]))));
-    if (m === 'GET' && p === '/admin/promos.csv') return (adminOnly(token), promo.promosCsv(db, Object.fromEntries(['status', 'q', 'group', 'campaign'].map((k) => [k, url.searchParams.get(k)]))));
-    if (m === 'POST' && p === '/admin/promos') return (adminOnly(token), promo.createPromos(db, await body(req), A.ADMIN));
-    if ((r = p.match(/^\/admin\/promos\/(\d+)$/)) && m === 'GET') return (adminOnly(token), promo.promoDetail(db, r[1]));
-    if ((r = p.match(/^\/admin\/promos\/(\d+)$/)) && m === 'PATCH') return (adminOnly(token), promo.updatePromo(db, r[1], await body(req), A.ADMIN));
-    if ((r = p.match(/^\/admin\/promos\/(\d+)\/(deactivate|reactivate)$/)) && m === 'POST') return (adminOnly(token), promo.updatePromo(db, r[1], { active: r[2] === 'reactivate' }, A.ADMIN));
+    if (m === 'GET' && p === '/admin/promos') return (adminOnly(), promo.listPromos(db, Object.fromEntries(['status', 'q', 'group', 'campaign'].map((k) => [k, url.searchParams.get(k)]))));
+    if (m === 'GET' && p === '/admin/promos.csv') return (adminOnly(), promo.promosCsv(db, Object.fromEntries(['status', 'q', 'group', 'campaign'].map((k) => [k, url.searchParams.get(k)]))));
+    if (m === 'POST' && p === '/admin/promos') return (adminOnly(), promo.createPromos(db, await body(req), adminOnly()));
+    if ((r = p.match(/^\/admin\/promos\/(\d+)$/)) && m === 'GET') return (adminOnly(), promo.promoDetail(db, r[1]));
+    if ((r = p.match(/^\/admin\/promos\/(\d+)$/)) && m === 'PATCH') return (adminOnly(), promo.updatePromo(db, r[1], await body(req), adminOnly()));
+    if ((r = p.match(/^\/admin\/promos\/(\d+)\/(deactivate|reactivate)$/)) && m === 'POST') return (adminOnly(), promo.updatePromo(db, r[1], { active: r[2] === 'reactivate' }, adminOnly()));
     if (m === 'GET' && p === '/me/orders') return billing.myOrders(db, account);
     if ((r = p.match(/^\/me\/orders\/(\d+)$/)) && m === 'GET') return billing.orderStatus(db, account, r[1]);
     if (m === 'GET' && p === '/admin/billing/orders') return (adminOnly(token), billing.adminOrders(db, url.searchParams.get('status')));
-    if ((r = p.match(/^\/admin\/billing\/orders\/(\d+)\/refund$/)) && m === 'POST') return (adminOnly(token), billing.refundOrder(db, r[1], A.ADMIN, env));
-    if ((r = p.match(/^\/admin\/billing\/grant\/([a-z0-9-]{1,48})$/)) && m === 'POST') return (adminOnly(token), billing.grant(db, r[1], await body(req)));
+    if ((r = p.match(/^\/admin\/billing\/orders\/(\d+)\/refund$/)) && m === 'POST') return (adminOnly(token), billing.refundOrder(db, r[1], adminOnly(), env));
+    if ((r = p.match(/^\/admin\/billing\/grant\/([a-z0-9-]{1,48})$/)) && m === 'POST') return (adminOnly(token), billing.grant(db, r[1], await body(req), adminOnly()));
     if (m === 'POST' && p === '/admin/billing/reconcile') return (adminOnly(token), billing.reconcile(db, env, fetch, afterPaid));
     if (m === 'GET' && p === '/me/referrals') return business.myReferrals(db, account, env);
     if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db) };
@@ -603,6 +745,11 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
 
   const server = http.createServer(async (req, res) => {
     const headers = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+    // The admin routes may be called with the session cookie (credentials: 'include'): for those, and only from an allowed origin, the answer
+    // names that exact origin and allows credentials. Never "*" with credentials; any other origin gets the usual header, which does not match it.
+    const adminPath = /^\/admin(\/|$|\?)/.test(String(req.url ?? ''));
+    if (adminPath) headers.Vary = 'Origin';
+    if (adminPath && originAllowed(req.headers.origin)) Object.assign(headers, { 'Access-Control-Allow-Origin': req.headers.origin, 'Access-Control-Allow-Credentials': 'true' });
     const send = (status, data) => {
       res.writeHead(status, headers);
       res.end(JSON.stringify(data));
@@ -625,11 +772,11 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
         return send(200, await billing.receiveWebhook(db, Buffer.concat(chunks).toString('utf8'), req.headers['stripe-signature'], env, fetch, afterPaid));
       }
       const internal = url.pathname.startsWith('/internal/') && secret && (secret === env.MP_NOTIFY_SECRET || secret === env.INTERNAL_SECRET);
-      if (!internal && limited(clientIp(req) || '?', url.pathname.startsWith('/auth/'))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
+      if (!internal && limited(clientIp(req) || '?', url.pathname.startsWith('/auth/') || (req.method === 'POST' && /^\/admin\/(session|setup|password)\/?$/.test(url.pathname)))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
       // MESSAGING_READONLY=1: a pause for moving messages (deploy/README.md): everything can be read, nothing about messages is written
       if (env.MESSAGING_READONLY === '1' && req.method !== 'GET' && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) throw new core.ApiError(503, 'Messages are read-only for a few minutes while we do maintenance.', 'unavailable');
       if (messagingService && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) return await forward(req, res, url, headers);
-      const out = await route(req, url);
+      const out = await route(req, url, headers);
       if (out && out.__raw) {
         res.writeHead(200, { ...headers, 'Content-Type': out.__raw.type, ...(out.__raw.filename ? { 'Content-Disposition': `attachment; filename="${out.__raw.filename}"` } : {}), ...(out.__raw.cache ? { 'Cache-Control': out.__raw.cache } : {}) });
         return res.end(out.__raw.body);

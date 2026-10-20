@@ -25,14 +25,19 @@ let nextPort = 9300 + Math.floor(Math.random() * 400);
 // a browser you already have open.
 // `userAgent`: browse as an ordinary browser (headless Chrome names itself, and the server rightly does not count its visits as human).
 // webgl: false starts a browser with WebGL switched off (as on a locked-down or very old machine), for the city's fallback page
-export async function openPage(url, { width = 1200, height = 800, mobile = false, userAgent = null, webgl = true } = {}) {
+// gpu: true draws with the machine's graphics card instead of the SwiftShader software renderer the tests use (same on every
+// machine), for the performance measurement (scripts/perf-measure.mjs); uncapped: true also lifts the 60 Hz frame limit, so
+// a frame time is what the frame costs rather than the display's interval
+export async function openPage(url, { width = 1200, height = 800, mobile = false, userAgent = null, webgl = true, gpu = false, uncapped = false } = {}) {
   const exe = findBrowser();
   if (!exe) throw new Error('no browser found (set BROWSER_PATH)');
   const port = nextPort++;
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-browser-'));
+  const gl = gpu ? ['--ignore-gpu-blocklist', '--enable-gpu'] : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+  if (uncapped) gl.push('--disable-frame-rate-limit', '--disable-gpu-vsync');
   const proc = spawn(exe, [
     '--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-extensions',
-    ...(webgl ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : ['--disable-webgl', '--disable-3d-apis']),
+    ...(webgl ? gl : ['--disable-webgl', '--disable-3d-apis']),
     `--window-size=${width},${height}`, 'about:blank',
   ], { stdio: 'ignore' });
 
@@ -109,6 +114,44 @@ export async function openPage(url, { width = 1200, height = 800, mobile = false
       await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
       for (let i = 1; i <= 8; i++) await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + ((toX - x) * i) / 8, y: y + ((toY - y) * i) / 8, button: 'left', buttons: 1 });
       await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: toX, y: toY, button: 'left', buttons: 0, clickCount: 1 });
+    },
+    /** A raw DevTools Protocol call, for what the helpers here do not cover (emulated media, raw touch points). */
+    cdp: call,
+    // Touch (a page opened with mobile: true has touch emulation on): a tap, a one-finger drag, a two-finger pinch (`scale` > 1
+    // spreads the fingers apart, < 1 brings them together) and a long press. Each point is { x, y } in CSS pixels.
+    tap: async (x, y) => {
+      await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      await sleep(60);
+      await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    },
+    touchDrag: async (x, y, toX, toY, steps = 10) => {
+      await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      for (let i = 1; i <= steps; i++) {
+        await call('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + ((toX - x) * i) / steps, y: y + ((toY - y) * i) / steps, id: 1 }] });
+        await sleep(16);
+      }
+      await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    },
+    pinch: async (cx, cy, scale, { from = 60, steps = 10 } = {}) => {
+      const at = (d) => [{ x: cx - d, y: cy, id: 1 }, { x: cx + d, y: cy, id: 2 }];
+      await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(from) });
+      for (let i = 1; i <= steps; i++) {
+        await call('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(from * (1 + ((scale - 1) * i) / steps)) });
+        await sleep(16);
+      }
+      await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    },
+    longPress: async (x, y, ms = 800) => {
+      await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      await sleep(ms);
+      await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    },
+    /** A key press, as the keyboard sends it (keydown, then keyup after `hold` ms). */
+    key: async (key, { code = key, hold = 0 } = {}) => {
+      const text = key.length === 1 ? key : undefined;
+      await call('Input.dispatchKeyEvent', { type: 'keyDown', key, code, text, windowsVirtualKeyCode: key === 'Escape' ? 27 : key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0 });
+      if (hold) await sleep(hold);
+      await call('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: key === 'Escape' ? 27 : key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0 });
     },
     screenshot: async (file) => {
       const r = await call('Page.captureScreenshot', { format: 'png' });

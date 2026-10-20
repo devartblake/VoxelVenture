@@ -53,7 +53,7 @@ if (!cmd || cmd === 'list') {
   const q = !what ? '' : what === 'action' ? `?action=${encodeURIComponent(value)}` : what === 'account' ? `?actor=${encodeURIComponent(value)}` : `?target_kind=${encodeURIComponent(what)}${value ? `&target_id=${encodeURIComponent(value)}` : ''}`;
   const { entries } = await call('GET', `/admin/audit${q}${q ? '&' : '?'}limit=50`);
   if (!entries.length) console.log('No records.');
-  for (const e of entries) console.log(`${new Date(e.at).toISOString()}  ${e.action.padEnd(24)} ${e.target.kind} ${e.target.id ?? ''}  by ${e.actor.kind === 'account' ? `${e.actor.name ?? '?'} (#${e.actor.id})` : e.actor.kind}${e.detail ? `  ${JSON.stringify(e.detail)}` : ''}`);
+  for (const e of entries) console.log(`${new Date(e.at).toISOString()}  ${e.action.padEnd(24)} ${e.target.kind} ${e.target.id ?? ''}  by ${e.actor.kind === 'account' ? `${e.actor.name ?? '?'} (#${e.actor.id})` : e.actor.name ? `${e.actor.kind} ${e.actor.name}` : e.actor.kind}${e.detail ? `  ${JSON.stringify(e.detail)}` : ''}`);
 } else if (cmd === 'posts' && ['approve', 'reject'].includes(args[0])) {
   const p = await call('POST', `/admin/social/${args[1]}/${args[0]}`);
   console.log(`${args[0] === 'approve' ? 'Approved' : 'Rejected'}: ${p.text}`);

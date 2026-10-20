@@ -24,6 +24,7 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
 
 ### Gameplay
 - [x] Avatar, saves, daily chest, Plot of the Day, scavenger hunt, Gold, Wardrobe [5b, 5l]
+- [x] **Random spawn:** each new player starts at a random spot on a pavement near businesses, spread over the districts (about 1400 spots on the live city), instead of everyone at one spot on the avenue. A building link starts beside that building; `?spawn=fixed` gives the old spot (`lib/game/spawn.js`) [5b]
 - [x] Cars and walkers with signals, circles and contact tests; take-over (1.25x) and Hall of Fame [5c, 5l]
 - [x] **Drive any car; sail a boat and fish** (rare fish, 120 Gold a day cap) [5t]
 - [x] Billboards and **aerial banners you can buy** [5m]
@@ -112,6 +113,13 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Failures:** each names its milestone and its kind (product, rendering or environment). CI sets `JOURNEY_STRICT=1` and uploads the sanitized logs and screenshots of a failed run.
   - **Staging:** `JOURNEY_*_URL` and `JOURNEY_ALLOW_WRITES=1` point the suite at a running stack.
   - **Defect found:** a chat line retried after a reconnect was said twice. The presence server now remembers answers per account too.
+- [x] **Performance and capability policy** (Track C of the [adoption plan](../architecture/external_voxel_repositories_adoption_plan.md), section 8.5; [performance_policy.md](../architecture/performance_policy.md)):
+  - **Inventory:** the 29 `useFrame` callbacks, classified: 6 continuous-visible, 5 event-driven, 17 pausable, 1 diagnostics. Each callback in the city goes through `useGatedFrame` (`lib/performance/runtime.js`).
+  - **Tiers:** `high`, `medium` and `low`, decided in `lib/performance/` from the pointer, the screen, the GPU's renderer string, the memory and core hints and the measured frame rate, with hysteresis. `high` is the old desktop drawing and `medium` the old touch drawing. `?quality=low|medium|high|auto` forces a tier.
+  - **Pausing:** while the storefront interior covers the city, the decoration stops and the city is drawn 4 times a second. Under the world map, and the panel on a phone, the decoration runs at half rate. With reduced motion the ornaments hold still. In a hidden tab, everything stops. The low tier and zooming out slow the distant and decorative systems.
+  - **Diagnostics:** with `?diag=1`, a badge shows the tier and why, and measures on the device. The `/admin` monitor shows each device's tier, reasons and p95 (`presence.client.perf` gained three optional fields).
+  - **Budgets and measurement:** budgets per tier are proposed, and `scripts/perf-measure.mjs` measures five fixed camera spots per tier. Desktop numbers are recorded; the phone and laptop runs are task 25.
+  - **Tests:** `tests/performance-policy.test.mjs` (the rules), and `tests/browser-touch.test.mjs` (tap, drag, pinch, long press, the joystick, the keyboard and the policy, in a browser).
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
 - [x] **Walking inside a storefront** (a freeze exception, [world_freeze.md](world_freeze.md)):
   - **The avatar:** the visitor's own avatar, in its Wardrobe colours, comes in at the door of the interior viewer. A tap or click on the floor walks it there, round the furniture of the floor shown (a redesign too), and never through the walls or the stairwell.
@@ -126,6 +134,25 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **How it plays:** each track plays to its end, then a short quiet, then the next. Day and night change at the end of a track. Getting into a car switches to the radio at once with a crossfade, and so does staying at the arcade or a cafe for a few seconds; walking past changes nothing.
   - **Label:** it shows the track.
   - **Tests:** `tests/music-director.test.mjs` [`docs/world/day_night_sound.md`]
+- [x] **Admin dashboard redesign** ([docs/brand/admin_dashboard.md](../brand/admin_dashboard.md)):
+  - **The frame:** every `/admin` page is in the SynaptixPlay palette.
+    - On a desktop, a sidebar shows the Double-V mark and the pages in groups (Live, Business, Settings), with a placeholder for Promo codes at `/admin/promos`.
+    - On a phone, a menu button opens the pages in a drawer.
+    - A top bar shows the page's name, a live indicator, who is signed in and Sign out.
+  - **The pages:**
+    - **Monitor:** figure cards with trend lines.
+    - **Pilot:** criteria cards and a progress meter.
+    - **Economy:** tabs for tier and district, and bar meters.
+    - **Admins and Account:** cards with the form beside the table.
+    - **Sign-in and setup:** a centred card with the brand mark.
+  - **Unchanged:** behaviour, `data-testid`s and the security rules (`SafeForm`, the cookie only, the redirects).
+  - **Components:** shared in `apps/web/components/admin/ui.jsx`, ready for the promo-codes page.
+  - **Accessibility:**
+    - a cyan focus ring and a skip link;
+    - `aria-current` on the current page;
+    - a drawer that traps the focus, makes the page behind `inert` and closes on Escape;
+    - 44 px targets on phones, reduced motion, and AA contrast.
+  - **Tests:** the live-browser test checks the drawer on a phone.
 - [x] **District street names:** the Meadow Quarter's infill streets take garden-suburb names (Harrogate). The /editor suggests names from the list of the road's district. The avenues, cross streets and puns keep theirs [`docs/world/street_names.md`]
 
 ## To do
@@ -172,7 +199,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 ### 4. Verification (no code, needs devices)
 | # | Task |
 | :-: | :--- |
-| 25 | Frame rate on real phones and tablets (the monitor reports it); the Action camera and joystick on touch |
+| 25 | Frame rate on real phones and tablets (the monitor reports it, with the quality tier); the Action camera and joystick on touch. To measure: open the site with `?diag=1`, tap the Quality badge, then **Measure** and **Copy**; on a laptop, `node scripts/perf-measure.mjs` ([performance_policy.md](../architecture/performance_policy.md) section 7) |
 | 26 | Try the logo upload from a phone; storefront embeds (YouTube, Vimeo, itch.io) for real |
 | 27 | Playtest the third-person, Action and **First person** cameras (distance, turn speed, feel). Automated now: the browser test checks that no follow camera ends up inside a building beside tall plots |
 | 28 | Restart the dev server to pick up the `<Html>` patch (no warning when opening interiors in development) |

@@ -413,7 +413,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY,
   at INTEGER NOT NULL,
   actor_kind TEXT NOT NULL,                      -- account | admin | service | system
-  actor_id INTEGER,                              -- the account, for actor_kind account
+  actor_id INTEGER,                              -- the account, for actor_kind account; the admin_accounts id for a signed-in admin
   action TEXT NOT NULL,                          -- plot.claim, plot.takeover, ad.buy, report.resolve, account.ban, ...
   target_kind TEXT NOT NULL,                     -- plot | ad | business | booking | account | report | market | newsletter
   target_id TEXT,
@@ -638,3 +638,24 @@ CREATE TABLE IF NOT EXISTS plot_watches (
   PRIMARY KEY (plot_id, account_id)
 );
 CREATE INDEX IF NOT EXISTS plot_watches_account ON plot_watches(account_id);
+-- Admin accounts (services/api/admin.mjs): the people who sign in at /admin/login. Not players: a separate table, a separate session. The first
+-- one is made with the API's ADMIN_TOKEN (POST /admin/setup, while there is none), the others by a signed-in admin or npm run admin:create.
+CREATE TABLE IF NOT EXISTS admin_accounts (
+  id INTEGER PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE COLLATE NOCASE,  -- unique whatever the case
+  password_hash TEXT NOT NULL,                   -- scrypt$N$r$p$salt$hash (never the password)
+  created_at INTEGER NOT NULL,
+  password_changed_at INTEGER,
+  last_login_at INTEGER,
+  disabled INTEGER NOT NULL DEFAULT 0            -- 1: cannot sign in; their sessions were ended
+);
+-- Admin sessions: the cookie holds 32 random bytes, this table only their SHA-256. Ended after 12 hours, or 2 hours without a request; the
+-- ended ones are deleted every hour.
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  id_hash TEXT PRIMARY KEY,
+  admin_id INTEGER NOT NULL REFERENCES admin_accounts(id),
+  created_at INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS admin_sessions_admin ON admin_sessions(admin_id);
