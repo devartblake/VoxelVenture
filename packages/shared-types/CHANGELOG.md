@@ -1,5 +1,21 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.11.0 (2026-10-19)
+
+The admin sign-in (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-sign-in)): admin accounts in the database, a session cookie, and the presence monitor's figures through the API. New contracts, all version 1:
+
+- `admin.login`: the body of `POST /admin/session` (and of `POST /admin/setup` and `POST /admin/admins`): `{ username, password }`.
+- `admin.session`: `POST /admin/session` (which sets the cookie) and `GET /admin/session`: `{ admin: { id, username }, expiresAt, idleExpiresAt }`.
+- `admin.setup.state`: `GET /admin/setup`: `{ needed }`, true while there is no admin account.
+- `admin.account`: the answer to `POST /admin/setup`, `POST /admin/admins` and `PATCH /admin/admins/:id`: `{ admin }` (never a password or hash).
+- `admin.accounts`: `GET /admin/admins`: `{ admins, me }`.
+- `admin.password-change` and `admin.password-change.result`: `POST /admin/password`, `{ currentPassword, newPassword }` and `{ ok, endedSessions }`.
+- `admin.update`: the body of `PATCH /admin/admins/:id`: `{ disabled }`.
+- `admin.presence`: `GET /admin/presence`, the presence server's `/status` passed on to admins.
+- `API_CONTRACTS` now holds 44.
+
+No existing contract changed. Every existing admin route takes a signed-in admin's session as well as `Authorization: Bearer ADMIN_TOKEN`.
+
 ## 0.10.0 (2026-10-19)
 
 The cart: several purchases in one Stripe payment (`services/api/cart.mjs`, [billing.md](../../docs/monetization/billing.md#the-cart)). New contracts, all version 1:

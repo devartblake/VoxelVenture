@@ -51,7 +51,7 @@ Without the server the game works solo.
 
 The page side reads `NEXT_PUBLIC_MP_URL` (a full `ws://` address) to use another server, `NEXT_PUBLIC_MP_URLS` (several, comma separated: each city
 always goes to the same one) to spread cities over servers, and `?mp=PORT` in the page address to use another port on the same machine.
-The `/admin` page reads `/status` from port 3001 on the same machine, or from `NEXT_PUBLIC_MP_HTTP` (a full address; in production the password-protected `/mp-status`, see `deploy/Caddyfile`).
+The `/admin` monitor page reads `/status` through the API (`GET /admin/presence`, signed-in admins only), which finds this server at `MP_STATUS_URL` or beside `MP_NOTIFY_URL` (default `http://127.0.0.1:3001/status`). `/status` itself is never public: Caddy answers 404 to it (`deploy/Caddyfile`).
 
 ## Protocol (version 2)
 

@@ -648,6 +648,18 @@ try {
   check('no console errors or uncaught exceptions without WebGL', noGl.problems().length === 0, noGl.problems().slice(0, 3).join(' | '));
   await noGl.close();
 
+  // ---- the admin pages (components/admin/AdminShell.jsx): without a session (this build has no API at all) an admin page sends you to the
+  // sign-in, which keeps where you were going, needs no WebGL and fits a phone. Signing in for real is in live-browser.test.mjs.
+  const adminPage = await openPage(`http://localhost:${webPort}/admin/pilot?weeks=8`, { width: 390, height: 800, mobile: true, webgl: false });
+  check('an admin page without a session goes to the sign-in, keeping where it was going', await waitFor(adminPage, `location.pathname === '/admin/login' && new URLSearchParams(location.search).get('next') === '/admin/pilot?weeks=8'`, 30), await adminPage.eval('location.href'));
+  check('the sign-in form is there: username, password and a button', await waitFor(adminPage, `Boolean(document.querySelector('[data-testid="admin-login-form"] input#username') && document.querySelector('[data-testid="admin-login-form"] input#password[type=password]') && document.querySelector('[data-testid="admin-login-form"] button[type=submit]'))`, 20));
+  check('it fits a phone (nothing scrolls sideways) and draws no 3D', await adminPage.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1 && document.querySelectorAll('canvas').length === 0`));
+  check('without the API it says so, and the form cannot be used', await adminPage.eval(`/need the API/.test(document.body.innerText) && document.querySelector('[data-testid="admin-login-form"] fieldset').disabled`));
+  check('a form sent before the page is ready never puts the password in the address (method post)', await adminPage.eval(`document.querySelector('[data-testid="admin-login-form"]').method === 'post'`));
+  check('search engines are told to stay away', await adminPage.eval(`/noindex/.test(document.querySelector('meta[name="robots"]')?.content ?? '')`));
+  check('no console errors on the sign-in page', adminPage.problems().length === 0, adminPage.problems().slice(0, 3).join(' | '));
+  await adminPage.close();
+
   await page.close();
   await phone.close();
 } catch (error) {

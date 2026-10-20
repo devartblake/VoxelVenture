@@ -79,6 +79,6 @@ echo
 echo "Done. Next:"
 echo "  1. read /etc/voxelventure/api.env, presence.env and web.env (secrets are filled in; add mail and Stripe when ready),"
 echo "     then: cd $APP && sudo -u voxel npm ci && node scripts/check-env.mjs /etc/voxelventure/api.env /etc/voxelventure/web.env"
-echo "  2. put a caddy hash-password hash in deploy/Caddyfile, copy it to /etc/caddy/Caddyfile, then: systemctl reload caddy"
+echo "  2. copy deploy/Caddyfile to /etc/caddy/Caddyfile, then: systemctl reload caddy (the admin pages have their own sign-in: deploy/README.md)"
 echo "  3. bash $APP/deploy/production.sh migrate --check, then: bash $APP/deploy/production.sh migrate"
 echo "     (it builds the first release in $APP/releases/, links it as $APP/current, and starts the three services)"

@@ -14,8 +14,8 @@
 // passed on (blocks are applied there). Guests may chat only where MP_CHAT_GUESTS allows it (a trusted LAN). The API also sends
 // "your inbox changed" notices here for one account (POST /notify-accounts), which go only to that account's connections.
 //
-// /status is open to anyone who can reach the port (a development tool): put the server behind the proxy in deploy/ before
-// exposing it to the internet.
+// /status is open to anyone who can reach the port: in production the server listens on 127.0.0.1 behind the proxy in deploy/, which hides it;
+// the /admin monitor reads it through the API (GET /admin/presence, admins only).
 //
 // Network addresses are never written down or shown: the log, the console, /status and /admin show a salted hash of the address
 // (`net`, the same form the API keeps as ip_hash, with the same IP_SALT), enough to tell that two reports came from one network.
