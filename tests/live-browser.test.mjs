@@ -223,6 +223,12 @@ try {
   check('admin: signing in goes back to the page asked for', await waitFor(adm, `location.pathname === '/admin/economy' && document.querySelector('[data-testid="admin-user"]')?.textContent === 'boss'`, 20));
   check('admin: the page shows the API\'s figures with the session alone', await waitFor(adm, `/By tier/.test(document.body.innerText)`, 20));
   check('admin: the session cookie cannot be read by the page', !(await adm.eval(`document.cookie`)).includes('vv_admin'));
+  // the dashboard's frame on a phone (components/admin/AdminShell.jsx): the pages behind a menu button, in a drawer that Escape closes
+  check('admin: on a phone the page fits (no sideways scroll) and the nav is behind a menu button', await adm.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1 && Boolean(document.querySelector('[data-testid="admin-menu"]')) && !document.querySelector('[data-testid="admin-drawer"]')`));
+  await adm.eval(`document.querySelector('[data-testid="admin-menu"]').click()`);
+  check('admin: the menu opens the drawer, the current page marked and focused', await waitFor(adm, `(() => { const cur = document.querySelector('[data-testid="admin-drawer"] a[aria-current="page"]'); return cur?.getAttribute('href') === '/admin/economy' && document.activeElement === cur && document.getElementById('admin-shell').hasAttribute('inert'); })()`, 10));
+  await adm.key('Escape');
+  check('admin: Escape closes the drawer and gives the focus back to the menu button', await waitFor(adm, `!document.querySelector('[data-testid="admin-drawer"]') && document.activeElement === document.querySelector('[data-testid="admin-menu"]') && !document.getElementById('admin-shell').hasAttribute('inert')`, 10));
   await adm.eval(`document.querySelector('[data-testid="admin-sign-out"]').click()`);
   check('admin: signing out goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('signedOut=1')`, 20));
   await adm.eval(`location.href = '/admin/economy'; 1`);

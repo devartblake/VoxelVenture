@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { apiOn } from '@/lib/data/api';
 import { adminFetch, safeNext } from '@/lib/data/admin';
 import { AdminCard, Field, FormError, SafeForm, Submit } from '@/components/admin/AdminShell';
+import { Alert } from '@/components/admin/ui';
 
 // The admin sign-in (services/api/admin.mjs). On success the API sets an HttpOnly session cookie and this page goes on to the page the admin
 // wanted (?next=, a path on this site only). With no admin account yet, it points to /admin/setup.
@@ -47,12 +48,12 @@ export default function AdminLoginPage() {
 
   return (
     <AdminCard title="Sign in" intro="For VoxelVenture's staff. Your session ends after 2 hours without use, and after 12 hours in any case.">
-      {!api && <FormError>The admin pages need the API: build the site with NEXT_PUBLIC_LIVE_API_URL.</FormError>}
-      {notice && <p className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200" role="status">{notice}</p>}
+      {!api && <FormError className="mb-4">The admin pages need the API: build the site with NEXT_PUBLIC_LIVE_API_URL.</FormError>}
+      {notice && <Alert tone="success" className="mb-4">{notice}</Alert>}
       {setupNeeded && (
-        <p className="mb-4 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-100" data-testid="admin-setup-needed">
-          There is no admin account yet. <Link href="/admin/setup" className="font-semibold underline">Create the first one</Link> with the API&apos;s admin token.
-        </p>
+        <Alert tone="warn" className="mb-4" data-testid="admin-setup-needed">
+          There is no admin account yet. <Link href="/admin/setup" className="font-semibold underline underline-offset-2">Create the first one</Link> with the API&apos;s admin token.
+        </Alert>
       )}
       <SafeForm onSubmit={submit} disabled={!api} data-testid="admin-login-form">
         <Field id="username" label="Username" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} required />
@@ -60,7 +61,7 @@ export default function AdminLoginPage() {
         <FormError>{error}</FormError>
         <Submit busy={busy}>Sign in</Submit>
       </SafeForm>
-      <p className="mt-6 text-center text-xs text-sx-muted">Forgot your password? Another admin can add you again, or on the server: <code>npm run admin:reset-password</code>.</p>
+      <p className="mt-6 text-center text-xs text-sx-muted">Forgot your password? Another admin can add you again, or on the server: <code className="text-slate-200">npm run admin:reset-password</code>.</p>
     </AdminCard>
   );
 }

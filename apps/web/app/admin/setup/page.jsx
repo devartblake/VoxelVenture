@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { apiOn } from '@/lib/data/api';
 import { adminFetch, passwordProblem } from '@/lib/data/admin';
 import { AdminCard, Field, FormError, SafeForm, Submit } from '@/components/admin/AdminShell';
+import { buttonClass } from '@/components/admin/ui';
 
 // The first admin account (POST /admin/setup): only while there is none, and only with the API's ADMIN_TOKEN. The token is typed here, sent
 // once as Authorization: Bearer, and never kept: not in storage, not in the address. Afterwards, the login.
@@ -42,13 +43,13 @@ export default function AdminSetupPage() {
   if (needed === false) {
     return (
       <AdminCard title="Already set up" intro="An admin account exists, so this page is closed. Sign in instead; another admin can add you.">
-        <Link href="/admin/login" className="block w-full rounded-lg bg-sx-cyan px-4 py-2.5 text-center font-semibold text-slate-950 hover:bg-cyan-300">Go to the sign-in</Link>
+        <Link href="/admin/login" className={buttonClass({ variant: 'primary', block: true })}>Go to the sign-in</Link>
       </AdminCard>
     );
   }
   return (
     <AdminCard title="Create the first admin" intro="This works once, while there is no admin account. It needs the API's ADMIN_TOKEN (from api.env, or your own records): it is sent once and not kept in this browser.">
-      {!api && <FormError>The admin pages need the API: build the site with NEXT_PUBLIC_LIVE_API_URL.</FormError>}
+      {!api && <FormError className="mb-4">The admin pages need the API: build the site with NEXT_PUBLIC_LIVE_API_URL.</FormError>}
       <SafeForm onSubmit={submit} disabled={!api} data-testid="admin-setup-form">
         <Field id="token" label="Admin token" type="password" autoComplete="off" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} />
         <Field id="username" label="Your username" autoComplete="username" autoCapitalize="none" spellCheck={false} hint="3 to 32 letters, numbers, dots, dashes or underscores." value={username} onChange={(e) => setUsername(e.target.value)} />
@@ -57,7 +58,7 @@ export default function AdminSetupPage() {
         <FormError>{error}</FormError>
         <Submit busy={busy}>Create the account</Submit>
       </SafeForm>
-      <p className="mt-6 text-center text-xs text-sx-muted"><Link href="/admin/login" className="underline">Back to the sign-in</Link></p>
+      <p className="mt-6 text-center text-xs text-sx-muted"><Link href="/admin/login" className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-white">Back to the sign-in</Link></p>
     </AdminCard>
   );
 }
