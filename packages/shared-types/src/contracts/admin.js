@@ -2,7 +2,7 @@
 const id = { type: 'integer', minimum: 1 };
 const time = { type: 'integer', minimum: 0 };
 const username = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{2,31}$' };
-const password = { type: 'string', minLength: 12, maxLength: 200 };
+const password = { type: 'string', minLength: 8, maxLength: 200 }; // the full rule: lib/data/adminPassword.js
 const ADMIN = {
   type: 'object',
   required: ['id', 'username', 'createdAt', 'lastLoginAt', 'disabled'],

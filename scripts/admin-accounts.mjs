@@ -38,7 +38,7 @@ function askHidden(prompt) {
 }
 async function readPassword() {
   if (process.stdin.isTTY) {
-    const first = await askHidden('New password (at least 12 characters): ');
+    const first = await askHidden('New password (8+ characters, 3 of: lowercase, capital, number, symbol): ');
     const again = await askHidden('The same password again: ');
     if (first !== again) stop('The two passwords are not the same. Nothing was changed.');
     return first;

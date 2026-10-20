@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { KeyRound, LogOut, ShieldCheck } from 'lucide-react';
-import { passwordProblem } from '@/lib/data/admin';
+import { passwordProblem, PASSWORD_HINT } from '@/lib/data/admin';
 import { AdminCard, Field, FormError, SafeForm, Submit, useAdmin } from '@/components/admin/AdminShell';
 import { Alert, Card, PageHeader } from '@/components/admin/ui';
 
@@ -45,7 +45,7 @@ export default function AdminPasswordPage() {
           {done && <Alert tone="success" className="mb-4">{done}</Alert>}
           <SafeForm onSubmit={submit}>
             <Field id="current" label="Current password" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-            <Field id="password" label="New password" type="password" autoComplete="new-password" hint="At least 12 characters, and not your username." value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Field id="password" label="New password" type="password" autoComplete="new-password" hint={PASSWORD_HINT} value={password} onChange={(e) => setPassword(e.target.value)} />
             <Field id="confirm" label="The new password again" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             <FormError>{error}</FormError>
             <Submit busy={busy}>Change the password</Submit>

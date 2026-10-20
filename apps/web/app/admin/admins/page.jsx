@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Ban, CheckCircle2, ShieldCheck, UserPlus } from 'lucide-react';
-import { passwordProblem } from '@/lib/data/admin';
+import { passwordProblem, PASSWORD_HINT } from '@/lib/data/admin';
 import { Field, FormError, SafeForm, Submit, useAdmin } from '@/components/admin/AdminShell';
 import { Alert, Badge, Button, DataTable, PageHeader, Section, StatusPill } from '@/components/admin/ui';
 
@@ -103,7 +103,7 @@ export default function AdminAccountsPage() {
         <Section title="Add an admin" icon={UserPlus} description="They should change the password after signing in.">
           <SafeForm onSubmit={add} className="space-y-4">
             <Field id="new-username" label="Username" autoComplete="off" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} />
-            <Field id="new-password" label="A first password" type="password" autoComplete="new-password" hint="At least 12 characters, and not the username. They should change it after signing in." value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Field id="new-password" label="A first password" type="password" autoComplete="new-password" hint={`${PASSWORD_HINT} They should change it after signing in.`} value={password} onChange={(e) => setPassword(e.target.value)} />
             <FormError>{formError}</FormError>
             <Submit busy={busy}>Add the admin</Submit>
           </SafeForm>
