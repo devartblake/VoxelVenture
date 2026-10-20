@@ -84,6 +84,7 @@ How the system is built: the API, data, presence, messaging, the migration plans
 | [ADR 0002: Workspaces](architecture/adr/0002-workspaces.md) | Phase C step 1, the packages as npm workspaces imported by name, and the adapters retired. |
 | [ADR 0003: The web app in apps/web, the Node servers in services/](architecture/adr/0003-apps-and-services.md) | Phase C steps 2 to 5, the new layout, and what to move on a machine that ran the old one. |
 | [ADR 0004: Executable contracts for the presence protocol](architecture/adr/0004-presence-protocol-contracts.md) | Track B of the adoption plan, every protocol-2 message as a contract, the strict hello, version answers. |
+| [performance_policy.md](architecture/performance_policy.md) | Track C of the adoption plan: the frame-loop inventory, the quality tiers (`?quality=`), the pause and throttle rules, the budgets, the measured numbers, and how to measure on a phone or laptop |
 | [documentation_path_map.md](architecture/documentation_path_map.md) | Where each document was and is now: the 2026-10-16 topic folders and the 2026-10-18 moves |
 
 ### World

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { useWorld } from '@/lib/state/worldStore';
 import { useCityStore } from '@/lib/state/store';
 import { PRESETS, useView } from '@/lib/state/viewStore';
@@ -34,7 +36,7 @@ export default function CameraFocus() {
     zoomGoal.current = Math.min(90, Math.max(5, (zoomGoal.current ?? camera.zoom) * zoomRequest.by));
   }, [zoomRequest, camera]);
 
-  useFrame((_, delta) => {
+  useGatedFrame(LOOPS.event, (_, delta) => {
     if (!controls) return;
     const k = Math.min(1, delta * 6);
     const g = goal.current;

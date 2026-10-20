@@ -1,6 +1,8 @@
 "use client";
 
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import * as THREE from 'three';
 import { useView } from '@/lib/state/viewStore';
 
@@ -13,7 +15,7 @@ let last = -999;
 
 export default function CameraHeading() {
   const camera = useThree((s) => s.camera);
-  useFrame(() => {
+  useGatedFrame(LOOPS.event, () => {
     camera.getWorldDirection(dir);
     let x = dir.x;
     let z = dir.z;

@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { fleetRefs, useFleet } from '@/lib/state/fleetStore';
 import { usePanel } from '@/lib/state/panelStore';
 import { avatarState } from '@/lib/sim/avatarState';
@@ -224,7 +226,7 @@ export default function Avatar() {
     };
   }, []);
 
-  useFrame((_, rawDelta) => {
+  useGatedFrame(LOOPS.visible, (_, rawDelta) => {
     if (!avatarState.ready || !root.current) return;
     const dt = Math.min(rawDelta, MAX_STEP);
     const store = useCityStore.getState();

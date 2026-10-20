@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { avatarState } from '@/lib/sim/avatarState';
 import { HALL, insideHall, storeDoors } from '@/lib/city/mallHall';
 import { useCityStore } from '@/lib/state/store';
@@ -92,7 +93,7 @@ function Mall({ mall }) {
   const shell = useRef(null);
   const hall = useRef(null);
   const inside = useRef(false);
-  useFrame(() => {
+  useGatedFrame(LOOPS.event, () => {
     if (!shell.current || !hall.current) return;
     const near = insideHall(mall, avatarState.x, avatarState.z, inside.current ? -0.6 : 0.1); // a little hysteresis at the doorway
     if (near === inside.current) return;

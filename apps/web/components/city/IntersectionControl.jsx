@@ -2,7 +2,8 @@
 
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { MARKING_Y, ZebraCrossing } from './RoadMarkings';
 import { signalState } from '@/lib/sim/signals';
 
@@ -122,7 +123,7 @@ function TrafficLight({ onAvenue, phase }) {
   const lamps = useRef({});
   const current = useRef(null);
 
-  useFrame(({ clock }) => {
+  useGatedFrame(LOOPS.simulation, ({ clock }) => {
     const state = signalState(clock.elapsedTime + phase, onAvenue);
     if (state === current.current) return;
     current.current = state;
