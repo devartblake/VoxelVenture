@@ -89,8 +89,10 @@ How it was measured and how to scale it: [docs/architecture/presence_scale.md](.
   rest or grow the server's memory.
 - Per client: 60 messages a second and 16 KB a message; total and per-address connection caps; 5 s heartbeats drop
   silent connections after 20 s.
-- `/status` has a `load` block (time per tick, processor use, event-loop delay, bytes a second, memory), and `node scripts/load-test-presence.mjs --clients 600` runs a
-  load test with pretend players.
+- `/status` has a `load` block: time per tick, processor use, event-loop delay, bytes a second, memory, and how the limits are acting
+  (`backedUp`, `skipped`, `droppedSilent`, `refused`).
+- `npm run load:presence -- --full` runs the load test: 500 pretend players, 150 of them signed in, with chat, reconnects, slow clients
+  and abuse, against budgets ([presence_scale.md](../../docs/architecture/presence_scale.md)). `--quick` is the CI-sized run.
 
 ## Limits
 

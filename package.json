@@ -9,6 +9,7 @@
     "dev": "next dev apps/web",
     "dev:lan": "next dev apps/web -H 0.0.0.0",
     "mp": "node services/multiplayer/server.mjs",
+    "load:presence": "node scripts/load-test-presence.mjs",
     "moderate": "node scripts/moderate.mjs",
     "admin:create": "node --experimental-sqlite --no-warnings scripts/admin-accounts.mjs create",
     "admin:reset-password": "node --experimental-sqlite --no-warnings scripts/admin-accounts.mjs reset-password",

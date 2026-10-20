@@ -164,7 +164,8 @@ const loopDelay = monitorEventLoopDelay({ resolution: 20 });
 loopDelay.enable();
 let lastCpu = process.cpuUsage();
 let lastCpuAt = performance.now();
-const metrics = { cpuPct: 0, ticks: 0, tickMsTotal: 0, tickMsMax: 0, tickMsRecent: [], bytesOut: 0, messagesOut: 0, windowStart: Date.now(), bytesPerSec: 0, messagesPerSec: 0 };
+// backedUp / skipped / droppedSilent / refused: how the limits are acting (a slow client skipped, a silent one dropped, a connection refused)
+const metrics = { cpuPct: 0, ticks: 0, tickMsTotal: 0, tickMsMax: 0, tickMsRecent: [], bytesOut: 0, messagesOut: 0, windowStart: Date.now(), bytesPerSec: 0, messagesPerSec: 0, backedUp: 0, skipped: 0, droppedSilent: 0, refused: 0 };
 
 function summary(p) {
   return {
@@ -441,6 +442,7 @@ wss.on('connection', (ws, req) => {
   // refuse connections beyond the limits, so one misbehaving device cannot crowd out the rest
   if (clients.size >= MAX_CLIENTS || [...clients.values()].filter((c2) => c2.net === net).length >= MAX_PER_IP) {
     log(c.yellow, 'refuse', `${net} (too many connections)`);
+    metrics.refused++;
     ws.close(1013, 'too many connections');
     return;
   }
@@ -630,6 +632,7 @@ function tick() {
   const t0 = performance.now();
   tickNumber++;
   const rooms = new Map();
+  let backedUp = 0;
   for (const p of clients.values()) if (p.hello) (rooms.get(p.room) ?? rooms.set(p.room, []).get(p.room)).push(p);
   for (const players of rooms.values()) {
     // the grid of this city
@@ -641,7 +644,11 @@ function tick() {
       else grid.set(key, [o]);
     }
     for (const p of players) {
-      if (p.ws.readyState !== 1 || p.ws.bufferedAmount > MAX_BUFFERED) continue;
+      if (p.ws.readyState !== 1) continue;
+      if (p.ws.bufferedAmount > MAX_BUFFERED) {
+        backedUp++;
+        continue;
+      }
       if (!p.near || (tickNumber + p.id) % REFRESH_EVERY === 0 || p.nearRoom !== p.room) {
         p.near = findNear(p, grid);
         p.nearRoom = p.room;
@@ -680,6 +687,8 @@ function tick() {
     }
   }
   const ms = performance.now() - t0;
+  metrics.backedUp = backedUp;
+  metrics.skipped += backedUp;
   metrics.ticks++;
   metrics.tickMsTotal += ms;
   metrics.tickMsMax = Math.max(metrics.tickMsMax, ms);
@@ -752,6 +761,10 @@ function loadSummary() {
     cpuPct: metrics.cpuPct,
     loopDelayP99Ms: Math.round((loopDelay.percentile(99) / 1e6) * 10) / 10,
     rssMB: Math.round(process.memoryUsage().rss / 1048576),
+    backedUp: metrics.backedUp, // clients whose connection is backed up right now (their snapshots are skipped until it drains)
+    skipped: metrics.skipped, // snapshots skipped for a backed-up client, since the start
+    droppedSilent: metrics.droppedSilent, // connections dropped for going silent (20 s without a message or a pong), since the start
+    refused: metrics.refused, // connections refused for MP_MAX_CLIENTS or MP_MAX_PER_IP, since the start
   };
 }
 
@@ -759,7 +772,10 @@ function loadSummary() {
 setInterval(() => {
   const now = Date.now();
   for (const p of clients.values()) {
-    if (now - p.lastSeen > 20000) p.ws.terminate();
+    if (now - p.lastSeen > 20000) {
+      metrics.droppedSilent++;
+      p.ws.terminate();
+    }
     else if (p.ws.readyState === 1) p.ws.ping();
   }
 }, 5000);
