@@ -43,7 +43,7 @@ export default function AdminAccountsPage() {
     setFormError('');
     try {
       const out = await call('/admin/admins', { method: 'POST', body: { username: username.trim(), password } });
-      setNotice(`${out.admin.username} can sign in now. Give them the password in person or over a channel you trust; they can change it on the Password page.`);
+      setNotice(`${out.admin.username} can sign in now. Give them the password in person or over a channel you trust; they can change it, and add an email for password resets, on their Account page.`);
       setUsername('');
       setPassword('');
       load();
@@ -75,6 +75,17 @@ export default function AdminAccountsPage() {
         </span>
       ),
     },
+    // the address each admin's reset links go to: shown in full (every admin here is staff), with whether it is confirmed
+    {
+      key: 'email',
+      header: 'Reset email',
+      render: (a) => (
+        <span className="flex flex-wrap items-center gap-2">
+          {a.email ? <span className="max-w-[16rem] truncate text-slate-200" title={a.email}>{a.email}</span> : <span className="text-sx-muted">none</span>}
+          {a.email && (a.emailVerified ? <StatusPill tone="green">Confirmed</StatusPill> : <StatusPill tone="amber">Unconfirmed</StatusPill>)}
+        </span>
+      ),
+    },
     { key: 'created', header: 'Created', className: 'whitespace-nowrap text-sx-muted', render: (a) => when(a.createdAt) },
     { key: 'last', header: 'Last sign-in', className: 'whitespace-nowrap text-sx-muted', render: (a) => when(a.lastLoginAt) },
     { key: 'status', header: 'Status', render: (a) => (a.disabled ? <StatusPill tone="amber">Disabled</StatusPill> : <StatusPill tone="green">Active</StatusPill>) },
@@ -97,7 +108,7 @@ export default function AdminAccountsPage() {
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <Section title="Accounts" icon={ShieldCheck} description="Disabling an admin signs them out at once. Every change is in the audit trail." bodyClassName="p-3 sm:p-4">
-          <DataTable caption="Admin accounts" columns={columns} rows={list ?? []} rowKey={(a) => a.id} empty={list ? 'No admins.' : 'Loading…'} minWidth="36rem" />
+          <DataTable caption="Admin accounts" columns={columns} rows={list ?? []} rowKey={(a) => a.id} empty={list ? 'No admins.' : 'Loading…'} minWidth="48rem" />
         </Section>
 
         <Section title="Add an admin" icon={UserPlus} description="They should change the password after signing in.">

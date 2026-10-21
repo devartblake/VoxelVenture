@@ -715,6 +715,19 @@ try {
   check('a form sent before the page is ready never puts the password in the address (method post)', await adminPage.eval(`document.querySelector('[data-testid="admin-login-form"]').method === 'post'`));
   check('search engines are told to stay away', await adminPage.eval(`/noindex/.test(document.querySelector('meta[name="robots"]')?.content ?? '')`));
   check('no console errors on the sign-in page', adminPage.problems().length === 0, adminPage.problems().slice(0, 3).join(' | '));
+  // the forgotten password (apps/web/app/admin/forgot, reset, verify-email): open pages, no CLI hint on the sign-in any more
+  check('the sign-in links to "Forgot your password?" and no longer names the command line', await adminPage.eval(`document.querySelector('[data-testid="admin-forgot-link"]')?.getAttribute('href') === '/admin/forgot' && !document.body.innerText.includes('admin:reset-password')`));
+  await adminPage.eval(`document.querySelector('[data-testid="admin-forgot-link"]').click()`);
+  check('it opens /admin/forgot without a session, with the email form (method post)', await waitFor(adminPage, `location.pathname === '/admin/forgot' && document.querySelector('[data-testid="admin-forgot-form"]')?.method === 'post' && Boolean(document.querySelector('input#login'))`, 20), await adminPage.eval('location.href'));
+  check('two ways, as tabs: an email link and the admin token', await adminPage.eval(`[...document.querySelectorAll('[role=tab]')].map((t) => t.textContent).join('|') === 'Email me a link|Admin token'`));
+  await adminPage.eval(`[...document.querySelectorAll('[role=tab]')][1].click()`);
+  check('the token form: username, the token hidden as a password, the new password twice', await waitFor(adminPage, `(() => { const f = document.querySelector('[data-testid="admin-forgot-token-form"]'); return Boolean(f && f.method === 'post' && f.querySelector('input#reset-username') && f.querySelector('input#reset-token[type=password]') && f.querySelector('input#reset-password[type=password]') && f.querySelector('input#reset-confirm[type=password]')); })()`, 10));
+  check('the forgot page fits a phone', await adminPage.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1`));
+  await adminPage.eval(`location.href = '/admin/reset#token=' + 'x'.repeat(43); 1`);
+  check('/admin/reset opens without a session, takes the link out of the address, and (here, without the API) says the link does not work', await waitFor(adminPage, `location.pathname === '/admin/reset' && !location.hash && Boolean(document.querySelector('[data-testid="admin-reset-invalid"] a[href="/admin/forgot"]'))`, 20), await adminPage.eval('location.href'));
+  await adminPage.eval(`location.href = '/admin/verify-email'; 1`);
+  check('/admin/verify-email opens without a session', await waitFor(adminPage, `location.pathname === '/admin/verify-email' && document.querySelector('[data-testid="admin-verify-result"]')?.dataset.ok === '0'`, 20));
+  check('no console errors on the forgotten-password pages', adminPage.problems().length === 0, adminPage.problems().slice(0, 3).join(' | '));
   await adminPage.close();
 
   // ---- the pilot walk-through (docs/product/pilot_tour.md) in demo mode (this build has no API), on a phone: tapped through with Next, every
