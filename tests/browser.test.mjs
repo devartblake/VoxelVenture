@@ -116,6 +116,57 @@ try {
   await clickPlot(info.empty, 'an empty lot');
   await clickPlot(info.built, 'a built plot');
 
+  // ---- the zoomed-out level of detail (lib/performance/lodPolicy.js): this browser draws with SwiftShader, so the tier is low ----
+  // zoomed all the way out the buildings are stand-ins, all of them in two instanced draw calls, and the small props are hidden;
+  // ?lod=off (switched here in the page) draws the full models again, with many more draw calls
+  await waitFor(page, `window.__vvModels.getState().status === 'ready'`, 60);
+  const zoomTo = (zoom, x = 0, z = 0) => page.eval(`(() => { const { camera, controls } = window.__vvThree(); controls.target.set(${x}, 0, ${z}); camera.position.set(${x} + 30, 30, ${z} + 30); camera.zoom = ${zoom}; camera.updateProjectionMatrix(); controls.update(); return 1; })()`);
+  const lodState = async () => JSON.parse(await page.eval(`(() => { const s = window.__vvLod.getState(); let meshes = 0, instances = []; window.__vvScene.traverse((o) => { if (o.name === 'building-stand-ins') { meshes = o.children.filter((c) => c.isInstancedMesh).length; instances = o.children.map((c) => c.count); } }); return JSON.stringify({ level: s.level, hidden: s.hidden, standIns: s.counts.standIns ?? 0, standInCalls: s.counts.standInCalls ?? 0, meshes, instances, calls: window.__vvPerf.calls, badge: document.querySelector('[data-testid="quality-badge"]')?.dataset.lod }); })()`));
+  await zoomTo(5);
+  await sleep(2500);
+  // (the models load in batches: wait until the stand-ins stop growing, and no full model is left but a selected one)
+  const modelMeshes = `(() => { let n = 0; window.__vvScene.traverse((o) => { if (o.isInstancedMesh && o.parent?.name === 'model-buildings') n += o.count; }); return n; })()`;
+  await waitFor(page, `(() => { const n = window.__vvLod.getState().counts.standIns ?? 0; const ok = n > 100 && n === window.__lastStandIns && ${modelMeshes} === 0; window.__lastStandIns = n; return ok; })()`, 60);
+  const far = await lodState();
+  check('zoomed out on the low tier the level of detail is "far" (shown on the ?diag=1 badge)', far.level === 'far' && far.badge === 'far' && ['subpixel', 'smallProps', 'labels'].every((c) => far.hidden.includes(c)), JSON.stringify(far));
+  check('...and every building model is a stand-in, batched in two instanced meshes', far.standIns > 100 && far.standInCalls === 2 && far.meshes === 2 && far.instances.every((c) => c === far.standIns) && (await page.eval(modelMeshes)) === 0, JSON.stringify(far));
+  await page.eval(`window.__vvLod.setState({ override: 'off' }), 1`);
+  await sleep(2500);
+  const full = await lodState();
+  check('with ?lod=off the same view draws the full models, with far more draw calls', full.level === 'full' && full.standIns === 0 && full.calls > far.calls + 150, `far ${far.calls} calls, off ${full.calls} calls`);
+  await page.eval(`window.__vvLod.setState({ override: 'auto' }), 1`);
+  // a stand-in is selected like its model: click the middle of one that a ray from the camera hits first
+  await zoomTo(7);
+  await sleep(2500);
+  const standIn = JSON.parse(await page.eval(`(() => {
+    const { camera, raycaster, scene } = window.__vvThree(); camera.updateMatrixWorld();
+    let roofs = null; scene.traverse((o) => { if (o.name === 'stand-in-roofs') roofs = o; }); if (!roofs) return 'null';
+    const m = new camera.matrix.constructor(); const p = new camera.position.constructor();
+    for (let i = 0; i < roofs.count; i++) {
+      roofs.getMatrixAt(i, m); p.setFromMatrixPosition(m); const sy = m.elements[5]; p.y += sy / 2; roofs.parent.localToWorld(p);
+      const ndc = p.clone().project(camera); if (Math.abs(ndc.x) > 0.25 || Math.abs(ndc.y) > 0.5) continue; /* the middle of the screen: the side panel may cover an edge */
+      raycaster.setFromCamera({ x: ndc.x, y: ndc.y }, camera); const hit = raycaster.intersectObjects(scene.children, true).find((h) => h.object.visible);
+      if (!hit || !/^stand-in-/.test(hit.object.name) || hit.instanceId !== i) continue;
+      const local = roofs.parent.worldToLocal(p.clone()); /* the city's own coordinates, as the plots' */
+      return JSON.stringify({ x: (ndc.x + 1) / 2 * innerWidth, y: (1 - ndc.y) / 2 * innerHeight, wx: local.x, wz: local.z, i });
+    }
+    return 'null';
+  })()`));
+  check('a stand-in can be found under the pointer', Boolean(standIn), JSON.stringify(standIn));
+  if (standIn) {
+    const before = (await lodState()).standIns;
+    await page.click(standIn.x, standIn.y);
+    await sleep(1200);
+    const picked = JSON.parse(await page.eval(`JSON.stringify(window.__vvStore.getState().selectedPlot ?? null)`));
+    const after = await lodState();
+    check('clicking a stand-in selects its building', picked && picked.owner && Math.hypot(picked.x - standIn.wx, picked.z - standIn.wz) < 6, picked ? `#${picked.id} at ${picked.x},${picked.z}; stand-in at ${standIn.wx.toFixed(1)},${standIn.wz.toFixed(1)}` : 'nothing selected');
+    check('...and the selected building is drawn in full, not as a stand-in', after.level === 'far' && after.standIns === before - 1, `${before} -> ${after.standIns}`);
+    await page.eval('window.__vvStore.getState().clearSelectedPlot(), 1');
+  }
+  await zoomTo(13);
+  await sleep(1500);
+  check('back at the default zoom the level of detail is full again', (await lodState()).level === 'full');
+
   // regenerate the city (the plot count changes, so the instanced meshes are rebuilt) and claim a luxury estate
   for (const seed of [4242, 99]) {
     await page.eval(`window.__vvStore.getState().regenerateCity(${seed})`);

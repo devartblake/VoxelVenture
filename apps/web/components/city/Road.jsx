@@ -145,6 +145,7 @@ export default function Road({ road }) {
           background={kind === 'avenue' ? color : '#0f172a'}
           color={kind === 'avenue' ? '#0b1020' : '#e2e8f0'}
           border={kind === 'avenue' ? null : '#475569'}
+          lod="labels"
         />
       )}
     </group>

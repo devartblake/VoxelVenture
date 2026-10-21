@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { perfStats } from '@/lib/dev/perfStats';
 import { useQuality } from '@/lib/performance/runtime';
+import { lodLive, useLod } from '@/lib/performance/lodRuntime';
 
 // The capability policy's diagnostics, on screen (only with ?diag=1 in the address): the quality tier in force and why, the
 // measured frame rate, the renderer's counters, the GPU, and what is pausing the animation. "Measure" runs the fixed-spot
@@ -14,11 +15,12 @@ export default function QualityBadge() {
   const [counters, setCounters] = useState(null);
   const [measure, setMeasure] = useState({ running: false, spot: null, result: null, copied: false });
   const q = useQuality();
+  const lod = useLod();
 
   useEffect(() => setOn(new URLSearchParams(window.location.search).has('diag')), []);
   useEffect(() => {
     if (!on) return undefined;
-    const t = setInterval(() => setCounters({ ...perfStats }), 1000);
+    const t = setInterval(() => setCounters({ ...perfStats, zoom: lodLive.zoom, culled: lodLive.culled }), 1000);
     return () => clearInterval(t);
   }, [on]);
   if (!on) return null;
@@ -44,9 +46,9 @@ export default function QualityBadge() {
 
   const fps = q.fps;
   return (
-    <div data-testid="quality-badge" data-tier={q.tier} className="pointer-events-auto fixed left-2 top-24 z-[60] max-w-[min(92vw,360px)] rounded-lg border border-sx-stroke bg-sx-panel/90 px-2.5 py-1.5 font-mono text-[10px] leading-snug text-slate-200 shadow-lg backdrop-blur">
+    <div data-testid="quality-badge" data-tier={q.tier} data-lod={lod.level} className="pointer-events-auto fixed left-2 top-24 z-[60] max-w-[min(92vw,360px)] rounded-lg border border-sx-stroke bg-sx-panel/90 px-2.5 py-1.5 font-mono text-[10px] leading-snug text-slate-200 shadow-lg backdrop-blur">
       <button type="button" onClick={() => setOpen(!open)} className="font-bold text-cyan-300" aria-expanded={open}>
-        Quality: {q.tier} ({q.source}{q.source === 'auto' ? `, up to ${q.ceiling}` : ''})
+        Quality: {q.tier} ({q.source}{q.source === 'auto' ? `, up to ${q.ceiling}` : ''}) · LOD {lod.level}
       </button>
       {open && (
         <>
@@ -58,6 +60,13 @@ export default function QualityBadge() {
           <p>
             dpr {q.settings.dpr.join('–')} · shadows {q.load.shadows && q.settings.shadows ? 'on' : 'off'} · animation {q.animation}
             {q.visibility.length ? ` (${q.visibility.join(', ')})` : ''}
+          </p>
+          <p data-testid="lod-line">
+            lod: {lod.level} ({lod.override === 'auto' ? lod.reason : `lod=${lod.override}`}
+            {counters?.zoom != null ? `, zoom ${counters.zoom}` : ''})
+            {lod.counts.standIns ? ` · ${lod.counts.standIns} stand-ins in ${lod.counts.standInCalls} calls` : ''}
+            {lod.hidden.length ? ` · hiding ${lod.hidden.map((c) => `${c} ${lod.counts[`class:${c}`] ?? 0}`).join(', ')}` : ''}
+            {lod.cull ? ` · ${counters?.culled ?? 0} instances off screen not drawn` : ''}
           </p>
           <p className="truncate" title={q.profile?.webgl?.renderer ?? ''}>gpu: {q.profile?.webgl?.renderer || 'unknown'}</p>
           {q.changes.length > 0 && <p>changes: {q.changes.map((c) => `${c.from}→${c.to} (${c.reason})`).join(', ')}</p>}
@@ -80,7 +89,8 @@ export default function QualityBadge() {
                     <td className="pr-2">{s.id}</td>
                     <td className="pr-2">p50 {s.frameTime.p50}</td>
                     <td className="pr-2">p95 {s.frameTime.p95}</td>
-                    <td>{s.drawCalls.mean} calls</td>
+                    <td className="pr-2">{s.drawCalls.mean} calls</td>
+                    <td>LOD {s.lod?.level ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>

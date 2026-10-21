@@ -8,6 +8,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ALL_MODELS, modelFor } from '@/lib/content/models';
 import { parseVox, voxelMesh } from '@/lib/content/vox';
+import { instanceSpheres, useCulledInstances, useLod } from '@/lib/performance/lodRuntime';
+import BuildingStandIns from '@/components/lod/BuildingStandIns';
 
 // The buildings as real 3D models (Kenney City Kit, CC0) instead of boxes. Each model kind is loaded once, merged into one geometry, and
 // drawn for every plot that uses it with a single InstancedMesh, so 700 buildings cost a few dozen draw calls, not 700.
@@ -103,37 +105,49 @@ const base = new THREE.Color();
 const SELECTED = new THREE.Color('#fcd34d');
 const HOVER = new THREE.Color('#bae6fd');
 
+// Where a plot's model stands: the plot's own turn (a plot along a curved road), then the model's:
+// p' = T(plot) * R(plot.yaw) * (T(offset) * R(rotY) * S). Returns a shared matrix (copy it to keep it).
+export function modelMatrix(plot, m) {
+  const yaw = plot.yaw ?? 0;
+  const [ox, oy, oz] = m.offset;
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  tmp.position.set(plot.x + ox * cos + oz * sin, 0.1 + oy, plot.z - ox * sin + oz * cos);
+  tmp.rotation.set(0, yaw + m.rotY, 0);
+  tmp.scale.set(m.scale[0], m.scale[1], m.scale[2]);
+  tmp.updateMatrix();
+  return tmp.matrix;
+}
+
+// The owner's wall colour if they chose one; otherwise the model keeps its own colours, with a hint of the business's colour
+// so a street is not all one shade. (Selected and hovered ones glow instead.) Writes into `out`.
+export function modelTint(plot, out) {
+  return out.copy(WHITE).lerp(base.set(plot.wallColor ?? (/^#[0-9a-f]{6}$/i.test(plot.color ?? '') ? plot.color : '#ffffff')), plot.wallColor ? 0.9 : 0.4);
+}
+
 export function Kind({ id, rows, selectedId, hoveredId, onSelect, onHover }) {
   const ref = useRef(null);
   const { geometries, materials } = useModels.getState();
   const model = byId.get(id);
+  const culler = useCulledInstances(ref); // off screen, on the tiers without shadows (lib/performance/lodPolicy.js)
 
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
     rows.forEach(({ plot, m }, i) => {
-      tmp.position.set(plot.x, 0, plot.z);
-      // the plot's own turn (a plot along a curved road), then the model's: p' = T(plot) * R(plot.yaw) * (T(offset) * R(rotY) * S)
-      const yaw = plot.yaw ?? 0;
-      const [ox, oy, oz] = m.offset;
-      const cos = Math.cos(yaw);
-      const sin = Math.sin(yaw);
-      tmp.position.set(plot.x + ox * cos + oz * sin, 0.1 + oy, plot.z - ox * sin + oz * cos);
-      tmp.rotation.set(0, yaw + m.rotY, 0);
-      tmp.scale.set(m.scale[0], m.scale[1], m.scale[2]);
-      tmp.updateMatrix();
-      mesh.setMatrixAt(i, tmp.matrix);
-      // the owner's wall colour if they chose one; otherwise the model keeps its own colours, with a hint of the business's colour so a street is not all one shade; selected and hovered ones glow
-      mesh.setColorAt(i, plot.id === selectedId ? SELECTED : plot.id === hoveredId ? HOVER : tint.copy(WHITE).lerp(base.set(plot.wallColor ?? (/^#[0-9a-f]{6}$/i.test(plot.color ?? '') ? plot.color : '#ffffff')), plot.wallColor ? 0.9 : 0.4));
+      mesh.setMatrixAt(i, modelMatrix(plot, m));
+      mesh.setColorAt(i, plot.id === selectedId ? SELECTED : plot.id === hoveredId ? HOVER : modelTint(plot, tint));
     });
     mesh.count = rows.length;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.boundingSphere = null;
     mesh.boundingBox = null;
+    culler.capture(instanceSpheres(mesh));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, selectedId, hoveredId]);
 
-  const plotAt = (e) => rows[e.instanceId]?.plot;
+  const plotAt = (e) => rows[culler.instance(e.instanceId)]?.plot;
   return (
     <instancedMesh
       ref={(m) => {
@@ -173,17 +187,27 @@ export default function ModelBuildings({ plots, assignments, selectedId, hovered
     if (ids.length) loadMissing(ids);
   }, [ids]);
 
-  // the plots grouped by model, so each model is one instanced mesh
-  const groups = useMemo(() => {
+  // Zoomed out, the level of detail (lib/performance/lodPolicy.js) draws each model as a stand-in box instead, all of them in
+  // two draw calls (components/lod/BuildingStandIns.jsx); the selected building stays a full model.
+  const standIns = useLod((s) => s.buildings === 'standin');
+  const keepFull = standIns ? selectedId : null;
+
+  // the plots grouped by model, so each model is one instanced mesh (and, zoomed out, the ones drawn as stand-ins)
+  const { groups, standInRows } = useMemo(() => {
     const out = new Map();
+    const far = [];
     for (const p of plots) {
       const m = assignments.get(p.id);
       if (!m || !geometries[m.id]) continue; // a model still loading: the plot keeps its box for now
+      if (standIns && p.id !== keepFull) {
+        far.push({ plot: p, m });
+        continue;
+      }
       if (!out.has(m.id)) out.set(m.id, []);
       out.get(m.id).push({ plot: p, m });
     }
-    return out;
-  }, [plots, assignments, geometries]);
+    return { groups: out, standInRows: far };
+  }, [plots, assignments, geometries, standIns, keepFull]);
 
   if (status !== 'ready') return null;
   return (
@@ -191,6 +215,7 @@ export default function ModelBuildings({ plots, assignments, selectedId, hovered
       {[...groups.entries()].map(([id, rows]) => (
         <Kind key={`${id}-${rows.length}`} id={id} rows={rows} selectedId={selectedId} hoveredId={hoveredId} onSelect={onSelect} onHover={onHover} />
       ))}
+      <BuildingStandIns rows={standInRows} hoveredId={hoveredId} onSelect={onSelect} onHover={onHover} />
     </group>
   );
 }

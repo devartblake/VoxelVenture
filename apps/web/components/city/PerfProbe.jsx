@@ -6,6 +6,7 @@ import { useThree } from '@react-three/fiber';
 import { perfStats } from '@/lib/dev/perfStats';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { measureCity, qualityGate, useGatedFrame, useQuality, useQualityDirector, useWorldRenderGate } from '@/lib/performance/runtime';
+import { useLodDirector } from '@/lib/performance/lodRuntime';
 import { usePanel } from '@/lib/state/panelStore';
 import { useView } from '@/lib/state/viewStore';
 import { avatarState } from '@/lib/sim/avatarState';
@@ -27,12 +28,14 @@ const diagnosticsOn = () => process.env.NODE_ENV !== 'production' || new URLSear
 //   window.__vvScene  the scene (count meshes)
 //   window.__vvQuality  the quality policy's store: the tier in force, its reasons, settings, profile and measured frame rate
 //   window.__vvFrameGate  the policy's per-frame state (the frame counter, what covers the world)
+//   window.__vvLod  the level of detail's store: the level in force, what it hides, the stand-ins drawn (lib/performance/lodRuntime.js)
 //   window.__vvMeasure  measureCity(): frame times, draw calls and triangles at the fixed camera spots (scripts/perf-measure.mjs)
 // It also runs the capability policy (lib/performance/runtime.js): the quality director, which keeps the tier and the
 // visibility state current before any other frame callback, and the gate that draws the world.
 // Renders nothing.
 export default function PerfProbe() {
   useQualityDirector();
+  useLodDirector(); // the level of detail, from the camera and the tier (lib/performance/lodPolicy.js); window.__vvLod with ?diag=1
   useWorldRenderGate();
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);

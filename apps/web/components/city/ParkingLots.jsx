@@ -7,6 +7,7 @@ import { buildingSize } from '@/lib/city/cityGenerator';
 import { carModelFor } from '@/lib/content/props';
 import { PARKING_SHARE } from '@/lib/content/models';
 import PropInstances, { usePropsReady } from './PropModels';
+import { useLodHidden } from '@/lib/performance/lodRuntime';
 
 // The car park behind some of the buildings: dark asphalt, white bay lines, and a few parked cars (Kenney Car Kit). The building takes the
 // front of its plot (lib/content/models.js: hasParking), the lot the strip behind it. Drawn only where a building model stands, since the
@@ -89,6 +90,9 @@ export default function ParkingLots({ plots, assignments, ready }) {
     return out;
   }, [lots, carsReady]);
 
+  // zoomed out on the lower tiers, the parked cars are left out (a few pixels each, and most of the city's triangles)
+  const carsHidden = useLodHidden('smallProps', cars.length);
+
   if (!lots.length) return null;
   return (
     <group name="parking-lots">
@@ -100,7 +104,9 @@ export default function ParkingLots({ plots, assignments, ready }) {
         <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial color="#e2e8f0" />
       </instancedMesh>
-      <PropInstances items={cars} />
+      <group name="parked-cars" visible={!carsHidden}>
+        <PropInstances items={cars} />
+      </group>
     </group>
   );
 }

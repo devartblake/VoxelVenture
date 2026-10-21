@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { useLodHidden } from '@/lib/performance/lodRuntime';
 
 // In-scene text label drawn to a canvas texture. Unlike drei's <Html>, it creates no DOM
 // nodes, so remounting labels (Regenerate city, hot reload) can't trip React's removeChild.
@@ -12,7 +13,9 @@ export default function Label3D({
   color = '#ffffff',
   border = null,
   height = 0.8,
+  lod = null, // a level-of-detail class ('labels': a street name) that hides the label when zoomed out (lib/performance/lodPolicy.js)
 }) {
+  const hidden = useLodHidden(lod ?? 'none', lod ? 1 : 0);
   const { texture, aspect } = useMemo(() => {
     const label = text.toUpperCase();
     const font = 'bold 26px ui-sans-serif, system-ui, sans-serif';
@@ -53,7 +56,7 @@ export default function Label3D({
   useEffect(() => () => texture.dispose(), [texture]);
 
   return (
-    <sprite position={position} scale={[height * aspect, height, 1]} renderOrder={10}>
+    <sprite position={position} scale={[height * aspect, height, 1]} renderOrder={10} visible={!hidden}>
       <spriteMaterial map={texture} transparent depthTest={false} toneMapped={false} />
     </sprite>
   );

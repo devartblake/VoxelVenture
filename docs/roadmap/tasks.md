@@ -133,6 +133,14 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Diagnostics:** with `?diag=1`, a badge shows the tier and why, and measures on the device. The `/admin` monitor shows each device's tier, reasons and p95 (`presence.client.perf` gained three optional fields).
   - **Budgets and measurement:** budgets per tier are proposed, and `scripts/perf-measure.mjs` measures five fixed camera spots per tier. Desktop numbers are recorded; the phone and laptop runs are task 25.
   - **Tests:** `tests/performance-policy.test.mjs` (the rules), and `tests/browser-touch.test.mjs` (tap, drag, pinch, long press, the joystick, the keyboard and the policy, in a browser).
+- [x] **Level of detail for the zoomed-out city** ([performance_policy.md](../architecture/performance_policy.md) section 10):
+  - **Levels:** `full`, `thin` and `far`, decided in `lib/performance/lodPolicy.js` from the tier and the camera's zoom (a follow camera's distance counts too), with hysteresis.
+  - **Buildings:** at `far` (medium below zoom 7.5, low below 9) each building model is a stand-in box in its model's wall and roof colours. All of them are two instanced draw calls, they are clickable like the models, and the selected building stays a full model.
+  - **Small things:** traffic-light lamps, bridge posts and billboard spotlights; parked cars, pennants, roof lights and ride bulbs; street names. Each tier hides its classes when zoomed out. High keeps its look and drops only the sub-pixel lamps, at zoom 5 to 6.
+  - **Off screen:** on medium and low (no shadows), the models and instanced props outside the view are not drawn.
+  - **Compare and inspect:** `?lod=off|on` compares; the `?diag=1` badge shows the level and the counts.
+  - **Measured:** every tier is now within its draw-call and triangle budgets at every spot. Zoomed all the way out: high 1,382 → 1,087 calls; medium 1,003 → 563 calls and 1.55 M → 0.46 M triangles; low 1,003 → 563 calls and 1.47 M → 0.42 M triangles.
+  - **Tests:** `tests/lod-policy.test.mjs`, and the stand-ins' batching and selection in `tests/browser.test.mjs`.
 - [x] **Recorded music:** 16 CC0 OpenGameArt recordings, with the procedural tunes as fallback (task 39)
 - [x] **Walking inside a storefront** (a freeze exception, [world_freeze.md](world_freeze.md)):
   - **The avatar:** the visitor's own avatar, in its Wardrobe colours, comes in at the door of the interior viewer. A tap or click on the floor walks it there, round the furniture of the floor shown (a redesign too), and never through the walls or the stairwell.

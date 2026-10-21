@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PROP_CATALOG } from '@/lib/content/propCatalog';
+import { instanceSpheres, useCulledInstances } from '@/lib/performance/lodRuntime';
 
 // Kenney trees, bushes and cars (CC0) as instanced meshes. Each model is loaded once, merged into one geometry and drawn for every tree / car
 // that uses it. Until a model has loaded (or if it cannot, or with `?models=0`) the callers keep drawing their box versions.
@@ -89,6 +90,7 @@ function Group({ id, rows }) {
   const ref = useRef(null);
   const { geometries, materials } = useProps.getState();
   const entry = byId.get(id);
+  const culler = useCulledInstances(ref); // off screen, on the tiers without shadows (lib/performance/lodPolicy.js)
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -107,6 +109,8 @@ function Group({ id, rows }) {
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.boundingSphere = null;
+    culler.capture(instanceSpheres(mesh));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
   return (
     <instancedMesh

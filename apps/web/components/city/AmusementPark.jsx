@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
+import { useLodHidden } from '@/lib/performance/lodRuntime';
 import StaticBatch from './StaticBatch';
 import Label3D from './Label3D';
 import { registerGlow } from './nightLights';
@@ -213,6 +214,12 @@ export default function AmusementPark({ site }) {
   const d = useMemo(() => amusementDesign(site.width, site.depth), [site.width, site.depth]);
   const bulbs = useMemo(() => new THREE.MeshStandardMaterial({ color: '#fde68a', emissive: '#fde68a', emissiveIntensity: 0.4 }), []);
   useEffect(() => registerGlow(bulbs, { day: 0.4, night: 3.5 }), [bulbs]);
+  // the 34 light bulbs of the wheel and the carousel are a draw call each: zoomed out on the lower tiers, the level of detail
+  // leaves them out (lib/performance/lodPolicy.js); one material, so hiding it hides them all
+  const bulbsHidden = useLodHidden('smallProps', 34);
+  useEffect(() => {
+    bulbs.visible = !bulbsHidden;
+  }, [bulbs, bulbsHidden]);
   // the park's own coordinates (x along the county road, z outward) turned into the world; a mirror when it lies the other way round
   const matrix = useMemo(() => {
     const o = toWorld(site, 0, 0);
