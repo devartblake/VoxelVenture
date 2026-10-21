@@ -174,6 +174,11 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
     - a drawer that traps the focus, makes the page behind `inert` and closes on Escape;
     - 44 px targets on phones, reduced motion, and AA contrast.
   - **Tests:** the live-browser test checks the drawer on a phone.
+- [x] **The in-game market editor uses the admin sign-in** ([docs/product/market.md](../product/market.md#the-weekly-layout-admin)):
+  - **Before:** the market panel's **Set up weeks** asked for `ADMIN_TOKEN` and kept it in the tab's session storage (`voxelventure-admin`).
+  - **Now:** the panel asks the API once when it opens (`GET /admin/session`); only a signed-in admin sees the editor, and its calls go with the session cookie (`credentials: 'include'`, JSON, from the site's origin) through `lib/data/admin.js`. No token is typed into the game or kept in the browser.
+  - **Getting there:** **Edit the market** on the admin Overview opens `/?market=edit`; without a session that link shows **Sign in as an admin** (`/admin/login?next=/?market=edit`).
+  - **Tests:** `tests/market-api.test.mjs` (with a session it works, without it 403, CSRF refused) and `tests/live-browser.test.mjs` (a player never sees it, the admin edits a week, nothing stored).
 - [x] **Admin password reset in the pages** ([backend.md](../architecture/backend.md#admin-password-reset), [deploy/README.md](../../deploy/README.md#admin-sign-in)):
   - **Email:** an admin adds an email on the Account page (`/admin/password`), confirmed by a one-use link (30 minutes). The Admins page shows each admin's address and whether it is confirmed.
   - **Forgot your password?** The sign-in links to `/admin/forgot`. A username or confirmed email gets a one-use link to `/admin/reset` (30 minutes; the same answer whether the account exists or not; 3 an hour per admin, 10 an hour per network). The fallback is the server's `ADMIN_TOKEN`, typed once (5 wrong tries lock the network for 15 minutes).

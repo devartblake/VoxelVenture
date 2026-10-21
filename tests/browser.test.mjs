@@ -285,6 +285,7 @@ try {
   await sleep(1500);
   check('the market site opens the Sites & market panel with its ID code', /sites/i.test(String(await panelTitle())) && await page.eval(`/Pop-up market/.test(document.querySelector('[data-testid="side-panel"]').innerText) && /SD-0004/.test(document.querySelector('[data-testid="side-panel"]').innerText)`));
   check('every site has an ID code on its tab', await page.eval(`[...document.querySelectorAll('[data-testid="side-panel"] [role="tab"]')].filter((t) => /SD-000[0-9]/.test(t.innerText)).length >= 4`));
+  check('without a server the browser is its own market admin, and no admin key is stored', await page.eval(`Boolean(document.querySelector('[data-testid="market-admin-tabs"]')) && !Object.keys(sessionStorage).concat(Object.keys(localStorage)).includes('voxelventure-admin') && !/Admin token/.test(document.body.innerText)`));
   check('the market draws its stalls (three instanced meshes)', await page.eval(`(() => { let n = 0; window.__vvScene.traverse((o) => { if (o.name === 'market') n = o.children.filter((c) => c.isInstancedMesh && c.count > 0).length; }); return n >= 2; })()`));
   const market = JSON.parse(await page.eval(`(() => { const m = window.__vvMarket.getState(); const stall = m.data.stalls.find((s) => s.tier === 'prime'); return JSON.stringify({ total: m.data.stalls.length, id: stall.id, cents: stall.cents, week: m.data.week, end: m.data.window.end }); })()`));
   check('the market has plenty of stalls, priced $2 to $5', market.total >= 40 && market.cents >= 200 && market.cents <= 500, JSON.stringify(market));

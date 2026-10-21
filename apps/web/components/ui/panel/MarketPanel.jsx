@@ -7,13 +7,16 @@ import { useAccount } from '@/lib/state/accountStore';
 import { useMarket } from '@/lib/state/marketStore';
 import { useCart } from '@/lib/state/cartStore';
 import { apiOn } from '@/lib/data/api';
+import { MARKET_EDIT_PATH, loginHref } from '@/lib/data/admin';
 import { HOURS, MARKET_LIMITS, MARKET_STYLES, TIERS, TIER_COLOURS, cleanParams, dollars, planMarket } from '@/lib/market/layout';
 import { addWeeks, autoParams, bookingEnd, bookingProblem, earliestStart, weekLabel, weekStartOf, weekWindow } from '@/lib/market/weeks';
 import { cleanRates } from '@/lib/market/local';
 import PromoField from '../PromoField';
 
 // The pop-up market panel: the plan of the market with every stall coloured by how busy it is, the stall you picked (its price and a booking form for
-// 24, 48 or 72 hours), your own bookings, and, for an admin, the weekly layout editor.
+// 24, 48 or 72 hours), your own bookings, and, for an admin, the weekly layout editor. With a server the editor is shown only to a signed-in
+// admin (the session from /admin/login, asked about when the panel opens); a player never sees it. A link for the editor (/?market=edit, as the
+// admin Overview gives) shows "Sign in as an admin" instead when no admin is signed in.
 
 const HOUR = 3600000;
 const when = (ms) => new Date(ms).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -365,8 +368,7 @@ function OpenStrip({ data }) {
 function AdminEditor({ data, site }) {
   const save = useMarket((s) => s.saveLayout);
   const busy = useMarket((s) => s.busy);
-  const token = useMarket((s) => s.adminToken);
-  const setToken = useMarket((s) => s.setAdminToken);
+  const admin = useMarket((s) => s.admin);
   const demo = useMarket((s) => s.demo);
   const week = data.week;
   const locked = data.bookings.length > 0; // a booked week cannot be rearranged
@@ -390,17 +392,8 @@ function AdminEditor({ data, site }) {
   const byTier = Object.fromEntries(TIERS.map((t) => [t.id, plan.stalls.filter((s) => s.tier === t.id).length]));
   const bookedIds = new Set(data.bookings.map((b) => b.stallId));
 
-  if (apiOn() && !token) {
-    return (
-      <div className="rounded-xl border border-sx-stroke bg-sx-alt p-3 text-xs">
-        <h3 className="mb-1 text-sm font-bold text-white">Admin</h3>
-        <p className="mb-2 text-slate-400">Enter the admin token to set up the weekly layout.</p>
-        <input type="password" placeholder="Admin token" onKeyDown={(e) => e.key === 'Enter' && setToken(e.currentTarget.value)} onBlur={(e) => e.target.value && setToken(e.target.value)} className="w-full rounded-md border border-sx-stroke bg-sx-page px-2 py-1.5 text-slate-100" aria-label="Admin token" />
-      </div>
-    );
-  }
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
+    <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs" data-testid="market-editor">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-bold text-amber-200">Layout for {weekLabel(week)}</h3>
         <span className="text-[11px] text-slate-400">{data.source === 'admin' ? (data.open ? 'published' : 'draft') : 'automatic'}</span>
@@ -461,10 +454,13 @@ function AdminEditor({ data, site }) {
           Publish
         </button>
       </div>
-      {apiOn() && (
-        <button type="button" onClick={() => setToken('')} className="mt-2 text-[11px] text-slate-500 underline hover:text-slate-300">
-          Sign out of admin
-        </button>
+      {apiOn() && admin && (
+        <p className="mt-2 text-[11px] text-slate-500">
+          Signed in as admin <b className="text-slate-300">{admin.username}</b> ·{' '}
+          <a href="/admin" className="underline hover:text-slate-300">
+            admin dashboard
+          </a>
+        </p>
       )}
     </div>
   );
@@ -480,9 +476,26 @@ export default function MarketPanel({ site }) {
     market.setSite(full);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [full.code]);
-  const [tab, setTab] = useState('market');
+  // asked for by a link (/?market=edit): open on the editor, or on "Sign in as an admin"
+  const adminOpen = useMarket((s) => s.adminOpen);
+  const [wanted, setWanted] = useState(() => useMarket.getState().adminOpen);
+  const [tab, setTab] = useState(wanted ? 'admin' : 'market');
+  useEffect(() => {
+    useMarket.setState({ adminChecked: false });
+    market.checkAdmin(); // once per opening: GET /admin/session with the cookie (nothing is kept in the browser)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // the link can also come while the panel is already open
+  useEffect(() => {
+    if (!adminOpen) return;
+    useMarket.setState({ adminOpen: false });
+    setWanted(true);
+    setTab('admin');
+  }, [adminOpen]);
   const thisWeek = weekStartOf();
   const isAdmin = market.isAdmin();
+  const view = isAdmin ? tab : 'market'; // a player only ever sees the market
+  const askSignIn = wanted && apiOn() && market.adminChecked && !market.admin;
   const bookedIds = useMemo(() => new Set((data?.bookings ?? []).filter((b) => b.end > Date.now() || data?.week !== thisWeek).map((b) => b.stallId)), [data, thisWeek]);
   const stall = data?.stalls.find((s) => s.id === selected) ?? null;
   const siblings = reserved.filter((r) => r.market);
@@ -501,7 +514,7 @@ export default function MarketPanel({ site }) {
           </p>
         </div>
         {isAdmin && (
-          <div className="flex rounded-lg bg-sx-alt p-0.5 text-[11px]" role="tablist">
+          <div className="flex rounded-lg bg-sx-alt p-0.5 text-[11px]" role="tablist" data-testid="market-admin-tabs">
             {[['market', 'Market'], ['admin', 'Set up weeks']].map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`rounded-md px-2.5 py-1 font-medium ${tab === id ? 'bg-gradient-to-r from-sx-purple to-sx-blue text-white' : 'text-slate-300'}`}>
                 {label}
@@ -531,7 +544,7 @@ export default function MarketPanel({ site }) {
       {notice && <p className={`mb-3 rounded-lg p-2 text-xs ${notice.ok ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`} role="status">{notice.text}</p>}
       {!data && !error && <p className="text-xs text-slate-400">Loading the market…</p>}
 
-      {data && tab === 'market' && (
+      {data && view === 'market' && (
         <>
           {!data.open && <p className="mb-3 flex items-center gap-1.5 rounded-lg bg-amber-500/10 p-2 text-xs text-amber-200"><Lock className="h-3.5 w-3.5" /> This week is still being set up. Check back soon.</p>}
           <Plan data={data} plan={data} selected={selected} onSelect={market.select} bookedIds={bookedIds} />
@@ -549,7 +562,16 @@ export default function MarketPanel({ site }) {
           <MyStalls />
         </>
       )}
-      {data && tab === 'admin' && isAdmin && <AdminEditor data={data} site={full} />}
+      {askSignIn && (
+        <div className="mb-3 rounded-xl border border-sx-stroke bg-sx-alt p-3 text-xs" data-testid="market-admin-sign-in">
+          <h3 className="mb-1 text-sm font-bold text-white">Set up the market weeks</h3>
+          <p className="mb-2 text-slate-400">The weekly layout editor is for admins.</p>
+          <a href={loginHref(MARKET_EDIT_PATH)} className="inline-block rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-3 py-1.5 font-bold text-white hover:brightness-110">
+            Sign in as an admin
+          </a>
+        </div>
+      )}
+      {data && view === 'admin' && <AdminEditor data={data} site={full} />}
     </div>
   );
 }
