@@ -81,6 +81,7 @@ const MAX_VISIBLE = Number(process.env.MP_MAX_VISIBLE || 40);
 const NEAR_RADIUS = 40;
 const MID_RADIUS = 80;
 const OVERVIEW_MS = 2000; // how often the whole-city dots (for the world map) and the player count go out
+const OVERVIEW_MIN_MS = 1000; // and never more often than this to one city, however many join or leave (a burst is gathered into one)
 const OVERVIEW_DOTS = 250;
 const MAX_BUFFERED = 64 * 1024; // bytes waiting to go to one client before its snapshots are skipped
 const MAX_RATE = 60; // messages per second per client before the extras are dropped
@@ -698,8 +699,12 @@ function tick() {
 setInterval(tick, TICK_MS);
 
 // How many are in each city (the "online" count) and where everyone is, coarsely, for the world map (the same short list goes to all of them: the map
-// draws the ones it is not already showing as full players). Sent at once when someone joins or leaves, and every couple of seconds otherwise.
+// draws the ones it is not already showing as full players). Every OVERVIEW_MS, and sooner when someone joins or leaves, but never more than once
+// every OVERVIEW_MIN_MS to one city: a single join after a quiet second goes out at once (the leading edge), and a burst of joins and leaves is
+// gathered into one overview a second later (the trailing edge). Each is ~3 KB to everyone in the city, so one per join cost a busy city half its
+// bandwidth (docs/architecture/presence_scale.md). A newcomer's own count comes in its welcome; everyone else's is at most a second stale.
 const dirtyRooms = new Set();
+const overviewAt = new Map(); // room -> when its last overview was made
 function sendOverview(players) {
   const n = players.length;
   const step = Math.max(1, Math.ceil(n / OVERVIEW_DOTS));
@@ -719,14 +724,17 @@ const playersByRoom = () => {
   return rooms;
 };
 setInterval(() => {
-  dirtyRooms.clear();
-  for (const players of playersByRoom().values()) sendOverview(players);
-}, OVERVIEW_MS);
-setInterval(() => {
-  if (!dirtyRooms.size) return;
+  const now = Date.now();
   const rooms = playersByRoom();
-  for (const room of dirtyRooms) if (rooms.has(room)) sendOverview(rooms.get(room));
-  dirtyRooms.clear();
+  for (const room of overviewAt.keys()) if (!rooms.has(room)) overviewAt.delete(room); // an emptied city
+  for (const room of dirtyRooms) if (!rooms.has(room)) dirtyRooms.delete(room);
+  for (const [room, players] of rooms) {
+    const since = now - (overviewAt.get(room) ?? -Infinity);
+    if (since < (dirtyRooms.has(room) ? OVERVIEW_MIN_MS : OVERVIEW_MS)) continue;
+    overviewAt.set(room, now);
+    dirtyRooms.delete(room);
+    sendOverview(players);
+  }
 }, TICK_MS);
 
 // Once a second: the per-second figures for /status.

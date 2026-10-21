@@ -77,7 +77,7 @@ A client only hears about the players **near** it (the nearest `MP_MAX_VISIBLE` 
 - `snapshot` is `{ players, enter, exit }`: `enter` holds full records of players who came into view (name, outfit, position, parked cars), `exit` the ids who left it,
   and `players` the changed ones as short arrays `[id, x, z, yaw, moving, emote or 0, vehicle or 0]`. Nobody moving means nothing is sent. Players far away are updated
   less often (10, 5 or 2.5 times a second by distance).
-- `online` is `{ n, dots }`: how many are in the city, and up to 250 coarse `[id, x, z]` dots for the world map. Sent when someone joins or leaves, and every two seconds.
+- `online` is `{ n, dots }`: how many are in the city, and up to 250 coarse `[id, x, z]` dots for the world map. Sent every two seconds, and sooner when someone joins or leaves, but at most once a second to a city: a lone join after a quiet second goes out at once, and a burst is gathered into one a second later (`OVERVIEW_MIN_MS`; [presence_scale.md](../../docs/architecture/presence_scale.md)). The count is at most about a second stale; a newcomer gets its own in `welcome`.
 - `parked` and `profile` go only to the players who can see the one concerned.
 Everything from a client is validated: numbers are clamped, strings are cut and stripped of control characters, messages are size- and rate-limited.
 How it was measured and how to scale it: [docs/architecture/presence_scale.md](../../docs/architecture/presence_scale.md).

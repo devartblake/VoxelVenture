@@ -10,7 +10,7 @@ Protocol 2 is interest management:
 - **Smaller messages.** A changed player is a short array, `[id, x, z, yaw, moving, emote, vehicle]` (about 25 bytes, a fifth of the old object).
 - **Fewer updates for far players.** Within 40 units, ten a second; 40 to 80, five; beyond, two and a half. The client smooths between updates, so a distant walker still looks fluid.
 - **A grid, not a scan.** Players of a city sit in a grid of view-radius cells, so finding who is near costs a few cells. Each client's neighbour list is refreshed every third tick (a walker covers about a metre in that time); movement still goes out every tick.
-- **The count and the map.** `online` messages carry how many are in the city and up to 250 coarse dots (`[id, x, z]`) for everyone else, so the Online panel says "38 near you, 412 elsewhere" and the world map shows the distant players as dots. They go out at once when someone joins or leaves, and every two seconds otherwise.
+- **The count and the map.** `online` messages carry how many are in the city and up to 250 coarse dots (`[id, x, z]`) for everyone else, so the Online panel says "38 near you, 412 elsewhere" and the world map shows the distant players as dots. They go out every two seconds, and sooner when someone joins or leaves, but never more than once a second to one city: a single join after a quiet second is sent at once, and a burst of joins and leaves is gathered into one overview a second later ([below](#the-online-overview-gathered-2026-10-20)). A newcomer's own count comes in its `welcome`.
 - **Back-pressure** as before: a client whose connection is backed up is skipped until it catches up.
 - `/status` now has a `load` block: time per tick against the 100 ms budget (average, 95th, worst), processor use, event-loop delay, bytes and messages a second, memory. It also says how the limits are acting: `backedUp` (clients whose snapshots are being skipped right now), `skipped` (snapshots skipped since the start), `droppedSilent` (connections dropped after 20 s of silence) and `refused` (over `MP_MAX_CLIENTS` or `MP_MAX_PER_IP`). The monitor page can show it; the load test reads it.
 
@@ -94,7 +94,7 @@ Pass `--admin-token` (staging's `ADMIN_TOKEN`, or `LOAD_ADMIN_TOKEN` in the envi
 | Reconnect (lost to welcomed and signed in), p95 | 1.09 s (p50 1.03 s: the game waits 1 s first) | < 3 s |
 | Snapshots to a player in a busy place, median | 9.97 a second | ≥ 8 a second |
 | The same, while 15 slow readers are backed up | 9.96 a second | ≥ 8 a second |
-| Each client receives, busiest 5% | 27-29 KB/s | < 40 KB/s |
+| Each client receives, busiest 5% | 27-29 KB/s (19.4-21.6 KB/s once `online` was gathered) | < 28 KB/s (was 40) |
 | Slow readers kept and caught up; frozen clients dropped | yes; yes (after about 23 s) | yes |
 | Abuse answered as documented | 9 of 9 | all |
 | Tick p95, typical 10 s window | 21-28 ms | < 50 ms |
@@ -117,10 +117,29 @@ Pass `--admin-token` (staging's `ADMIN_TOKEN`, or `LOAD_ADMIN_TOKEN` in the envi
 The quick mode on the same machine: tick p95 1.6 ms, processor 5%, chat p95 5 ms, reconnect p95 1.08 s.
 
 **Found by it:**
-1. **`online` costs as much as movement when players come and go.** The overview (the count and up to 250 map dots, about 3.2 KB) goes to everyone in the city at once whenever someone joins or leaves, up to ten times a second, besides every 2 s. With about 3 joins or leaves a second (the churn above), it was 49% of all bytes sent: 1,600 messages and 5.2 MB a second, about as much as all the snapshots. Each client got about 3.2 of them a second instead of 0.5. That is about 10 KB/s more per client, and it grows with the crowd times the churn. A busy real city, with people arriving and leaving all the time, would see the same. The fix is small but changes what the clients see: send the immediate overview at most once a second per city, or send only the count at once and the dots on the 2 s timer. It is left for its own change; until then, the per-client budget (40 KB/s) catches it growing.
+1. **`online` costs as much as movement when players come and go.** The overview (the count and up to 250 map dots, about 3.2 KB) goes to everyone in the city at once whenever someone joins or leaves, up to ten times a second, besides every 2 s. With about 3 joins or leaves a second (the churn above), it was 49% of all bytes sent: 1,600 messages and 5.2 MB a second, about as much as all the snapshots. Each client got about 3.2 of them a second instead of 0.5. That is about 10 KB/s more per client, and it grows with the crowd times the churn. A busy real city, with people arriving and leaving all the time, would see the same. The fix is small but changes what the clients see: send the immediate overview at most once a second per city, or send only the count at once and the dots on the 2 s timer. **Fixed:** the overview is now gathered to at most one a second per city ([below](#the-online-overview-gathered-2026-10-20)).
 2. **Occasional tick spikes.** In one run of four, the worst 10 s window had a tick p95 of 90 ms and one tick took 121 ms; the typical window was 21 ms. The bots share the machine, so this may be the machine rather than the server: watch for it on a dedicated staging run.
 3. **The presence agent's "stop reading" could start reading again by itself.** It paused the socket directly, and the `ws` library resumes a paused socket when its parser drains. A "frozen" client then kept answering pings and was never dropped. It now uses `ws.pause()`. The journeys' slow-receiver step uses the same agent.
 4. **A line said just as a connection drops** (seen in the server's code while writing the retry check, not measured). If the presence server is still asking the API about it, the line is neither passed on nor remembered for the account. The retry on the new connection is then a new line, heard once, with a new message id; the API has kept both copies as evidence. Players see nothing wrong, and no budget catches it; it is noted here for the messaging plan.
+
+### The online overview, gathered (2026-10-20)
+The overview now goes to a city at most once a second (`OVERVIEW_MIN_MS` in the server), and still every 2 s otherwise. A join or leave after a quiet second is sent at once (the leading edge), so a lone arrival still shows promptly; any more in the next second are gathered into one overview at its end (the trailing edge). Everyone's count is at most about a second stale; the newcomer's own count comes in its `welcome`. Nothing in the protocol changed (no new message; the contracts and the clients are as they were), only how often `online` is sent. A count-only message sent at once was considered and not added: the protocol has none, and a second's delay on "N online" is not worth a new message type. `tests/multiplayer.test.mjs` checks that a burst of joins and leaves makes at most one overview a second, the first at once, and the count caught up a second later.
+
+The full run before and after, on the same machine (as above) with the same settings:
+
+| | Before | After |
+| :--- | :-: | :-: |
+| What the clients were sent, in all | 9.9 MB/s | 6.6 MB/s |
+| The server's own figure (its busiest second) | 16.2 MB/s (133 Mbit/s), 9,200 messages | 7.1 MB/s (58 Mbit/s), 7,200 messages |
+| Each client, median / busiest 5% | 20.7 / 26.3 KB/s | 14.0 / 19.4 KB/s |
+| Share of the bytes that are `online` | 50% (4.9 MB/s) | 22% (1.5 MB/s) |
+| `online` overviews per client | 3.1 a second | 0.93 a second |
+| Server tick p95, typical / worst window | 34 / 52 ms (worst tick 103 ms) | 21 / 22 ms (worst tick 28 ms) |
+| Processor; event-loop delay p99 | 55%; 60 ms | 34%; 41 ms |
+| Slow readers: snapshots the server had to skip | 577 | 2 |
+| Budgets | 18 of 18 | 18 of 18 |
+
+Under constant churn a city still gets about one overview a second (twice the quiet rate): the price of a count never more than a second late. A second run after the change (with a quick run beside it on the same machine, so its server figures are noisier) measured 21.6 KB/s for the busiest 5%, `online` 20% of the bytes and 0.92 overviews per client a second, within every budget. The per-client budget is now 28 KB/s (19.4-21.6 measured, with room for a busier run), so the overview growing back would fail it.
 
 ## Bandwidth
 Per client the stream is bounded (about 10 KB/s in a packed crowd) whatever the crowd size, because of the 40-player cap. What grows is the total: clients × about 10 KB/s. 100 players all walking in a crowd is 1 MB/s, about 2.6 TB a month if that were constant, against roughly 4 TB included with a 4 GB Linode. Real use is far lighter, but watch the transfer graph in the first busy weeks, and lower `MP_MAX_VISIBLE` (30 or 25) if you need to cut it: a screen rarely shows more than a couple of dozen avatars anyway.
