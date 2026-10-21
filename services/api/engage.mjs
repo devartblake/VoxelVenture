@@ -363,17 +363,25 @@ export function createTransport(env = process.env, dataDir = path.join(path.dirn
     },
   };
 }
+// Emails that carry a one-use admin link (services/api/admin.mjs): once sent, or failed for good, their text is replaced, so the outbox
+// keeps no working link.
+export const ONE_USE_KINDS = ['admin_reset', 'admin_verify'];
+export const SCRUBBED = '(removed once sent: it held a one-use link)';
 // Sends what is waiting; a failure is retried up to three times, then kept as failed.
 export async function deliverOutbox(db, transport, limit = 50) {
   const rows = db.prepare("SELECT * FROM outbox WHERE status = 'pending' ORDER BY id LIMIT ?").all(limit);
   let sent = 0;
+  const scrub = (r) => ONE_USE_KINDS.includes(r.kind) && db.prepare('UPDATE outbox SET body = ? WHERE id = ?').run(SCRUBBED, r.id);
   for (const r of rows) {
     try {
       await transport.send({ to: r.to_email, subject: r.subject, body: r.body });
       db.prepare("UPDATE outbox SET status = 'sent', sent_at = ?, attempts = attempts + 1 WHERE id = ?").run(now(), r.id);
+      scrub(r);
       sent++;
     } catch (e) {
-      db.prepare("UPDATE outbox SET status = ?, error = ?, attempts = attempts + 1 WHERE id = ?").run(r.attempts + 1 >= 3 ? 'failed' : 'pending', String(e.message).slice(0, 200), r.id);
+      const failed = r.attempts + 1 >= 3;
+      db.prepare("UPDATE outbox SET status = ?, error = ?, attempts = attempts + 1 WHERE id = ?").run(failed ? 'failed' : 'pending', String(e.message).slice(0, 200), r.id);
+      if (failed) scrub(r);
     }
   }
   return { sent, tried: rows.length };

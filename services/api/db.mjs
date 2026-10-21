@@ -58,6 +58,9 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'orders', 'promo_code', 'TEXT'); // the promo code this order was bought with (promo.mjs); a cart's lines carry it too
   addColumn(db, 'orders', 'promo_cents', 'INTEGER NOT NULL DEFAULT 0'); // what the code took off this order (cents is what was charged)
   addColumn(db, 'carts', 'promo_code', 'TEXT'); // the code applied to the cart (checked again at checkout)
+  addColumn(db, 'admin_accounts', 'email', 'TEXT'); // an admin's address for password resets (services/api/admin.mjs)
+  addColumn(db, 'admin_accounts', 'email_verified_at', 'INTEGER'); // when its one-use link was opened; NULL: not confirmed
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS admin_accounts_email ON admin_accounts(email) WHERE email IS NOT NULL');
   return db;
 }
 

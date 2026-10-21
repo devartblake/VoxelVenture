@@ -166,6 +166,13 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
     - a drawer that traps the focus, makes the page behind `inert` and closes on Escape;
     - 44 px targets on phones, reduced motion, and AA contrast.
   - **Tests:** the live-browser test checks the drawer on a phone.
+- [x] **Admin password reset in the pages** ([backend.md](../architecture/backend.md#admin-password-reset), [deploy/README.md](../../deploy/README.md#admin-sign-in)):
+  - **Email:** an admin adds an email on the Account page (`/admin/password`), confirmed by a one-use link (30 minutes). The Admins page shows each admin's address and whether it is confirmed.
+  - **Forgot your password?** The sign-in links to `/admin/forgot`. A username or confirmed email gets a one-use link to `/admin/reset` (30 minutes; the same answer whether the account exists or not; 3 an hour per admin, 10 an hour per network). The fallback is the server's `ADMIN_TOKEN`, typed once (5 wrong tries lock the network for 15 minutes).
+  - **A reset:** ends every session of that admin, clears the lockout, never enables a disabled admin, and is audited. Only hashes of the links are kept, and the outbox copy is removed once sent. `npm run admin:reset-password` stays as the last resort.
+  - **Contracts:** `shared-types` 0.15.0 (11 new, `admin.account` and `admin.accounts` version 2).
+  - **Tests:** `tests/admin-reset.test.mjs`, the pages in the browser test, and the whole flow in the live-browser test (the link read from the outbox).
+  - **Needs you:** sign in, add your email on Account and open the link. For real email, `MAIL_WEBHOOK_URL` must be set on production.
 - [x] **District street names:** the Meadow Quarter's infill streets take garden-suburb names (Harrogate). The /editor suggests names from the list of the road's district. The avenues, cross streets and puns keep theirs [`docs/world/street_names.md`]
 
 ## To do

@@ -25,6 +25,7 @@ export default function AdminLoginPage() {
     setNext(target);
     if (q.get('signedOut')) setNotice('You are signed out.');
     else if (q.get('created')) setNotice('The admin account is ready. Sign in with it.');
+    else if (q.get('reset')) setNotice('Your password is changed and every session of your account has ended. Sign in with the new password.');
     if (!api) return;
     // already signed in: straight on
     adminFetch('/admin/session').then(() => window.location.replace(target)).catch(() => {});
@@ -49,7 +50,7 @@ export default function AdminLoginPage() {
   return (
     <AdminCard title="Sign in" intro="For VoxelVenture's staff. Your session ends after 2 hours without use, and after 12 hours in any case.">
       {!api && <FormError className="mb-4">The admin pages need the API: build the site with NEXT_PUBLIC_LIVE_API_URL.</FormError>}
-      {notice && <Alert tone="success" className="mb-4">{notice}</Alert>}
+      {notice && <Alert tone="success" className="mb-4" data-testid="admin-login-notice">{notice}</Alert>}
       {setupNeeded && (
         <Alert tone="warn" className="mb-4" data-testid="admin-setup-needed">
           There is no admin account yet. <Link href="/admin/setup" className="font-semibold underline underline-offset-2">Create the first one</Link> with the API&apos;s admin token.
@@ -61,7 +62,7 @@ export default function AdminLoginPage() {
         <FormError>{error}</FormError>
         <Submit busy={busy}>Sign in</Submit>
       </SafeForm>
-      <p className="mt-6 text-center text-xs text-sx-muted">Forgot your password? Another admin can add you again, or on the server: <code className="text-slate-200">npm run admin:reset-password</code>.</p>
+      <p className="mt-6 text-center text-sm"><Link href="/admin/forgot" className="inline-flex min-h-11 items-center font-medium text-sx-muted underline underline-offset-2 hover:text-white" data-testid="admin-forgot-link">Forgot your password?</Link></p>
     </AdminCard>
   );
 }
