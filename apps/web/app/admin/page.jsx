@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, ChevronDown, Clock, Gauge, Map as MapIcon, MonitorSmartphone, Users } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Clock, Gauge, Map as MapIcon, MonitorSmartphone, Store, Users } from 'lucide-react';
 import { useAdmin } from '@/components/admin/AdminShell';
+import { MARKET_EDIT_PATH } from '@/lib/data/admin';
 import { Alert, Badge, Button, DataTable, PageHeader, Section, StatCard, cx } from '@/components/admin/ui';
 
 // Live view of every connected client and the errors they have reported (services/multiplayer/server.mjs, /status). The presence server's
@@ -82,7 +83,12 @@ export default function AdminPage() {
         eyebrow="Live"
         title="Client monitor"
         description={<>Every connected device, its frame rate, and the errors it has reported. Updates every 2 seconds. Errors are also written to <code className="rounded bg-sx-alt px-1 py-0.5 text-xs text-slate-200">server/logs/client-errors.jsonl</code>.</>}
-        actions={<Button href="/" external icon={MapIcon}>Back to the city</Button>}
+        actions={
+          <>
+            <Button href={MARKET_EDIT_PATH} external icon={Store} data-testid="admin-market-editor">Edit the market</Button>
+            <Button href="/" external icon={MapIcon}>Back to the city</Button>
+          </>
+        }
       />
 
       {error && <Alert tone="error">{error}</Alert>}

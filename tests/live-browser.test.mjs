@@ -192,6 +192,9 @@ try {
   const cityHref = (await waitFor(visitor, `Boolean([...document.querySelectorAll('a')].find((x) => /Visit Official Website/.test(x.textContent)))`)) && (await visitor.eval(`(() => { const a = [...document.querySelectorAll('a')].find((x) => /Visit Official Website/.test(x.textContent)); a.click(); return a.href; })()`));
   check('pressing the website link inside it is a press for the profile, from the city', /vv_click=/.test(String(cityHref)) && (await until((f) => f.ctaClicks >= 2)), String(cityHref));
   check('no console errors in the city during these steps', visitor.problems().length === 0, visitor.problems().slice(0, 2).join(' | '));
+  // a signed-in player opens the market: the panel asks the API about an admin session, and shows no editor
+  await page.eval(`(() => { const a = window.__vvStore.getState().layout.reserved.find((r) => r.market); window.__vvPanel.getState().editReserved(a.id); })()`);
+  check('market: a player never sees the weekly layout editor', (await waitFor(page, `window.__vvMarket.getState().adminChecked && Boolean(window.__vvMarket.getState().data)`, 30)) && (await page.eval(`!window.__vvMarket.getState().isAdmin() && !document.querySelector('[data-testid="market-admin-tabs"], [data-testid="market-editor"], [data-testid="market-admin-sign-in"]') && !/Set up weeks|Admin token/.test(document.body.innerText)`)));
   await visitor.close();
   await page.close();
   await other.close();
@@ -212,6 +215,10 @@ try {
   check('admin: the setup makes the account and goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('created=1')`, 20), await adm.eval(`location.href + ' | ' + (document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? '') + ' | ' + [...document.querySelectorAll('input')].map((i) => i.id + '=' + i.value.length).join(',')`).catch((e) => e.message));
   const stored = await adm.eval(`JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage), document.cookie])`);
   check('admin: the token is kept nowhere in the browser, not even in the address', !stored.includes(ADMIN_TOKEN) && !(await adm.eval('location.href')).includes(ADMIN_TOKEN));
+  // the market editor's link with no session (components/ui/panel/MarketPanel.jsx): "Sign in as an admin", back to the game, and no editor
+  await adm.eval(`location.href = '/?market=edit&diag=1&view=iso&spawn=fixed&mp=${mpPort}'; 1`);
+  check('market: the editor link without a session shows "Sign in as an admin", back to the game', await waitFor(adm, `document.querySelector('[data-testid="market-admin-sign-in"] a')?.getAttribute('href') === '/admin/login?next=' + encodeURIComponent('/?market=edit')`, 90), await adm.eval(`location.href + ' | ' + JSON.stringify({ checked: window.__vvMarket?.getState().adminChecked, view: window.__vvPanel?.getState().view })`).catch((e) => e.message));
+  check('market: and no editor, no tabs', await adm.eval(`!document.querySelector('[data-testid="market-editor"], [data-testid="market-admin-tabs"]') && !/Admin token/.test(document.body.innerText)`));
   await adm.eval(`location.href = '/admin/login?next=' + encodeURIComponent('/admin/economy'); 1`);
   await waitFor(adm, `document.querySelector('[data-testid="admin-login-form"]')?.dataset.ready === '1' && !document.querySelector('[data-testid="admin-login-form"] fieldset').disabled`, 20);
   await type2(adm, '#username', 'boss');
@@ -223,6 +230,19 @@ try {
   check('admin: signing in goes back to the page asked for', await waitFor(adm, `location.pathname === '/admin/economy' && document.querySelector('[data-testid="admin-user"]')?.textContent === 'boss'`, 20));
   check('admin: the page shows the API\'s figures with the session alone', await waitFor(adm, `/By tier/.test(document.body.innerText)`, 20));
   check('admin: the session cookie cannot be read by the page', !(await adm.eval(`document.cookie`)).includes('vv_admin'));
+  // the market editor in the game, with the session (lib/state/marketStore.js): from the Overview's link, the editor opens and a week is saved
+  await adm.eval(`location.href = '/admin'; 1`);
+  check('market: the Overview links to the market editor in the game', await waitFor(adm, `document.querySelector('[data-testid="admin-market-editor"]')?.getAttribute('href') === '/?market=edit'`, 20));
+  await adm.eval(`location.href = '/?market=edit&diag=1&view=iso&spawn=fixed&mp=${mpPort}'; 1`);
+  check('market: signed in, the link opens the weekly layout editor', await waitFor(adm, `Boolean(document.querySelector('[data-testid="market-editor"]')) && Boolean(document.querySelector('[data-testid="market-admin-tabs"]')) && window.__vvMarket.getState().admin?.username === 'boss'`, 90));
+  await adm.eval(`[...document.querySelectorAll('[data-testid="market-editor"] button')].find((b) => b.textContent.trim() === 'Save draft').click()`);
+  check('market: the editor saves the week with the session alone', await waitFor(adm, `/Saved as a draft/.test(window.__vvMarket.getState().notice?.text ?? '')`, 20), await adm.eval(`JSON.stringify(window.__vvMarket.getState().notice)`).catch((e) => e.message));
+  const saved = await (await fetch(`http://localhost:${apiPort}/admin/market?week=${await adm.eval('window.__vvMarket.getState().week')}`, { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } })).json();
+  check('market: and the server has the admin\'s layout', JSON.stringify(saved).includes('"source":"admin"'), JSON.stringify(saved).slice(0, 200));
+  const marketStored = await adm.eval(`JSON.stringify([Object.keys(localStorage), Object.keys(sessionStorage), Object.values(localStorage), Object.values(sessionStorage), document.cookie])`);
+  check('market: nothing about the admin is kept in the browser (no token, no admin key)', !marketStored.includes(ADMIN_TOKEN) && !marketStored.includes('voxelventure-admin') && !marketStored.includes('vv_admin') && !/"admin":\{/.test(marketStored), marketStored.slice(0, 200));
+  await adm.eval(`location.href = '/admin/economy'; 1`);
+  await waitFor(adm, `document.querySelector('[data-testid="admin-user"]')?.textContent === 'boss'`, 20);
   // the dashboard's frame on a phone (components/admin/AdminShell.jsx): the pages behind a menu button, in a drawer that Escape closes
   check('admin: on a phone the page fits (no sideways scroll) and the nav is behind a menu button', await adm.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1 && Boolean(document.querySelector('[data-testid="admin-menu"]')) && !document.querySelector('[data-testid="admin-drawer"]')`));
   await adm.eval(`document.querySelector('[data-testid="admin-menu"]').click()`);
