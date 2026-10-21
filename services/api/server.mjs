@@ -11,7 +11,8 @@
 //   MAIL_WEBHOOK_URL / MAIL_WEBHOOK_TOKEN / MAIL_FROM   send email through a mail API; without it, messages are written to MAIL_DIR
 //   MP_NOTIFY_URL / MP_NOTIFY_SECRET   tell the presence server to push changes to every player instantly
 //   ADMIN_TOKEN   the machine credential for every /admin route (scripts, verify:live, npm run moderate), and what creates the first admin
-//                 account (POST /admin/setup). People sign in at /admin/login instead (services/api/admin.mjs: accounts in the database)
+//                 account (POST /admin/setup). People sign in at /admin/login instead (services/api/admin.mjs: accounts in the database);
+//                 a forgotten password is reset at /admin/forgot by an email link (to PUBLIC_SITE_URL), or with this token
 //   MP_STATUS_URL the presence server's /status, which GET /admin/presence passes on to signed-in admins (default: MP_NOTIFY_URL with
 //                 /status in place of /notify, else http://127.0.0.1:3001/status)
 //   HUMAN_MIN_AGE_MS / HUMAN_VISIT_CAP / HUMAN_CLICK_CAP / IP_SALT / TRUST_PROXY   the proof-of-human rules for visits and clicks (defaults: 3000 ms of presence first, 3 visits and 1 click per network per building per day)
@@ -76,7 +77,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   // With the messaging service set up, messages are its business alone: this API forwards the routes and runs none of the jobs,
   // so the two never both send the same notice or prune the same data.
   const messagingService = (env.MESSAGING_SERVICE_URL || '').replace(/\/+$/, '');
-  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); admin.pruneSessions(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
+  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); admin.pruneSessions(db); admin.pruneTokens(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
   pruneTimer?.unref();
   // "your inbox changed" notices go to the presence server as soon as they are written, and again every two seconds for any that failed
   const notices = () => (messagingService ? Promise.resolve() : messaging.deliverNotices(db, env)).catch(() => {});
@@ -193,6 +194,21 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   };
   const loginGuard = admin.createLoginGuard(adminLogin.limit);
   const loginDelayMs = adminLogin.delayMs ?? 400;
+  // asking for password reset links (admin.RESET_LIMIT): per network, and per admin
+  const resetLimit = adminLogin.resetLimit ?? admin.RESET_LIMIT;
+  const resetPerNetwork = admin.createRateLimit({ max: resetLimit.perNetwork, windowMs: resetLimit.windowMs });
+  const resetPerAdmin = admin.createRateLimit({ max: resetLimit.perAdmin, windowMs: resetLimit.windowMs });
+  // where an admin email's link goes: the site (PUBLIC_SITE_URL, else API_ORIGIN's first entry), else, in development, the page that asked
+  const siteFor = (req) => {
+    const configured = String(env.PUBLIC_SITE_URL || (origin !== '*' ? String(origin).split(',')[0].trim() : '')).replace(/\/+$/, '');
+    return configured || (originAllowed(req.headers.origin) ? String(req.headers.origin) : '');
+  };
+  // a write that is not signed in (sign-in, reset links): JSON, and from the site when a browser says where it comes from
+  const jsonFromSite = (req) => {
+    if (!/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) throw forbidden('Send JSON (Content-Type: application/json).', 'csrf');
+    if (req.headers.origin && !originAllowed(req.headers.origin)) throw forbidden('This request did not come from the site.', 'csrf');
+  };
+  const pause = () => new Promise((res) => setTimeout(res, loginDelayMs));
   const netOf = (req) => business.ipHashOf({ ip: clientIp(req), salt: env.IP_SALT });
   // the presence server's /status (players, devices, recent errors), for the monitor page: only through here, only for admins
   const presenceStatusUrl = env.MP_STATUS_URL || (env.MP_NOTIFY_URL ? env.MP_NOTIFY_URL.replace(/\/notify\/?$/, '/status') : 'http://127.0.0.1:3001/status');
@@ -314,6 +330,105 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       if (String(b.newPassword ?? '') === String(b.currentPassword ?? '')) throw new core.ApiError(400, 'The new password must be different from the current one.', 'weak_password');
       const out = await admin.setPassword(db, who.id, b.newPassword, { keepSession: admin.readCookie(req), audit: ({ ended }) => A.audit(db, { kind: 'admin', id: who.id }, 'admin.password_change', target(who.id), { username: who.username, endedSessions: Number(ended) }) });
       return { ok: true, endedSessions: out.endedSessions };
+    }
+    // ---- a forgotten password (docs/architecture/backend.md#admin-password-reset). Two ways: a one-use link emailed to the admin's confirmed
+    // address, or the server's ADMIN_TOKEN typed on /admin/forgot. Either ends every session of that admin, clears the lockout of their
+    // username (and of the network that reset it), and never enables a disabled admin. Neither the link nor a password is written anywhere.
+    if (p === '/admin/password-reset/request' && m === 'POST') {
+      jsonFromSite(req);
+      const b = await body(req, 4000);
+      // the same answer, after the same pause, whether the account exists, has a confirmed email, or was asked for too often
+      if (!resetPerNetwork.take(`ip:${clientIp(req) || '?'}`)) throw new core.ApiError(429, 'Too many reset requests from this network. Try again in an hour.', 'rate_limited');
+      const a = admin.byLogin(db, b.login);
+      const site = siteFor(req);
+      const outcome = !a ? 'unknown' : a.disabled ? 'disabled' : !(a.email && a.email_verified_at) ? 'no_verified_email' : !site ? 'no_site' : !resetPerAdmin.take(`reset:${a.id}`) ? 'admin_limit' : 'sent';
+      if (outcome === 'sent') {
+        const at = Date.now();
+        const value = admin.issueToken(db, a.id, 'reset', { now: at });
+        // the link's value after "#": a browser never sends that part to a server (no access log, no Referer)
+        engage.enqueue(db, { to: a.email, kind: 'admin_reset', ...admin.resetMessage({ username: a.username, link: `${site}/admin/reset#token=${value}`, at }) });
+        setImmediate(deliver);
+      }
+      // the audit names the admin only when there is one (what was typed is never written down)
+      A.audit(db, A.SYSTEM, 'admin.password_reset_request', target(a?.id), { username: a?.username ?? null, outcome, net: netOf(req) });
+      await pause();
+      return { ok: true, message: 'If that account has a confirmed email, a link to reset its password is on its way. It works once, for 30 minutes.' };
+    }
+    if (p === '/admin/password-reset/check' && m === 'POST') {
+      jsonFromSite(req);
+      const b = await body(req, 4000);
+      const t = admin.findToken(db, String(b.token ?? ''), 'reset');
+      const a = t ? admin.byId(db, t.admin_id) : null;
+      return a && !a.disabled ? { valid: true, username: a.username, expiresAt: t.expires_at } : { valid: false, username: null, expiresAt: null };
+    }
+    if (p === '/admin/password-reset/confirm' && m === 'POST') {
+      jsonFromSite(req);
+      const b = await body(req, 4000);
+      const net = netOf(req);
+      let out;
+      try {
+        out = await admin.resetWithToken(db, String(b.token ?? ''), b.password, { audit: ({ ended, admin: a }) => A.audit(db, { kind: 'admin', id: a.id }, 'admin.password_reset', target(a.id), { username: a.username, via: 'email link', endedSessions: Number(ended), net }) });
+      } catch (e) {
+        if (e.code === 'reset_invalid' || e.code === 'disabled') A.audit(db, A.SYSTEM, 'admin.password_reset_failed', target(null), { via: 'email link', reason: e.code === 'disabled' ? 'disabled' : 'bad_link', net });
+        throw e;
+      }
+      loginGuard.succeed([`user:${out.row.username.toLowerCase()}`, `ip:${clientIp(req) || '?'}`]);
+      return { ok: true, username: out.row.username, endedSessions: out.endedSessions };
+    }
+    if (p === '/admin/password-reset/token' && m === 'POST') {
+      jsonFromSite(req);
+      const net = netOf(req);
+      const keys = [`ip:${clientIp(req) || '?'}`];
+      // a wrong token counts as a failed sign-in of this network: 5 within 15 minutes and the network is locked for 15 minutes
+      const locked = loginGuard.locked(keys);
+      if (locked || !isAdminToken(token)) {
+        if (!locked) {
+          const lockedNow = loginGuard.fail(keys);
+          A.audit(db, A.SYSTEM, 'admin.password_reset_failed', target(null), { via: 'admin token', reason: 'bad_token', net });
+          if (lockedNow) A.audit(db, A.SYSTEM, 'admin.lockout', target(null), { username: null, net, minutes: Math.round((adminLogin.limit?.lockMs ?? admin.LOGIN_LIMIT.lockMs) / 60000) });
+        }
+        await pause();
+        throw new core.ApiError(401, 'That admin token did not work, or there have been too many tries. Wait a few minutes and try again.', 'reset_failed');
+      }
+      const b = await body(req, 4000);
+      const a = admin.byUsername(db, b.username);
+      if (!a) throw new core.ApiError(404, 'There is no admin with that username.', 'not_found');
+      if (a.disabled) throw new core.ApiError(409, 'This admin account is disabled, so its password cannot be reset. Another admin can enable it.', 'disabled');
+      const out = await admin.setPassword(db, a.id, b.password, { audit: ({ ended }) => A.audit(db, A.ADMIN, 'admin.password_reset', target(a.id), { username: a.username, via: 'admin token', endedSessions: Number(ended), net }) });
+      loginGuard.succeed([`user:${a.username.toLowerCase()}`, ...keys]);
+      return { ok: true, username: a.username, endedSessions: out.endedSessions };
+    }
+    // ---- a signed-in admin's email, for password resets: confirmed by a one-use link sent to it (30 minutes)
+    if (p === '/admin/email') {
+      if (m === 'GET') {
+        const a = admin.byId(db, requireAdmin(req, { session: true }).id);
+        return { email: a.email ?? null, emailVerified: Boolean(a.email && a.email_verified_at) };
+      }
+      if (m !== 'POST') return undefined;
+      const who = requireAdmin(req, { session: true });
+      const b = await body(req, 4000);
+      if (b.email !== null && typeof b.email !== 'string') throw new core.ApiError(400, 'Send { "email": "you@example.com" }, or "" to remove it.', 'bad_request');
+      const site = siteFor(req);
+      if (b.email && !site) throw new core.ApiError(503, 'The API does not know the site\'s address for the link: set PUBLIC_SITE_URL.', 'no_site');
+      // 3 confirmation emails an hour per admin (a refused address or the same confirmed one again sends none, so counts none)
+      const cur = admin.byId(db, who.id);
+      const again = Boolean(b.email) && admin.checkEmail(b.email) === cur.email && Boolean(cur.email_verified_at);
+      if (b.email && !again && !resetPerAdmin.take(`verify:${who.id}`)) throw new core.ApiError(429, 'Too many confirmation emails this hour. Try again later.', 'rate_limited');
+      const out = admin.setEmail(db, who.id, b.email);
+      const at = Date.now();
+      if (out.token) engage.enqueue(db, { to: out.admin.email, kind: 'admin_verify', ...admin.verifyMessage({ username: who.username, link: `${site}/admin/verify-email#token=${out.token}`, at }) });
+      if (out.previous) engage.enqueue(db, { to: out.previous, kind: 'admin_notice', ...admin.emailChangedMessage({ username: who.username, at, removed: Boolean(out.removed) }) });
+      if (!out.unchanged && (out.token || out.removed)) A.audit(db, { kind: 'admin', id: who.id }, out.token ? 'admin.email_set' : 'admin.email_removed', target(who.id), { username: who.username });
+      if (out.token || out.previous) setImmediate(deliver);
+      return { email: out.admin.email, emailVerified: out.admin.emailVerified, sent: Boolean(out.token) };
+    }
+    if (p === '/admin/email/verify' && m === 'POST') {
+      jsonFromSite(req);
+      const b = await body(req, 4000);
+      const a = admin.verifyEmail(db, String(b.token ?? ''));
+      if (!a) throw new core.ApiError(400, 'This link has expired or was already used. Add the address again on your Account page for a new one.', 'verify_invalid');
+      A.audit(db, { kind: 'admin', id: a.id }, 'admin.email_verified', target(a.id), { username: a.username });
+      return { ok: true, username: a.username, email: a.email };
     }
     // the admin accounts: a signed-in admin (or ADMIN_TOKEN) lists, adds, disables and enables them
     if (p === '/admin/admins') {
@@ -772,7 +887,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
         return send(200, await billing.receiveWebhook(db, Buffer.concat(chunks).toString('utf8'), req.headers['stripe-signature'], env, fetch, afterPaid));
       }
       const internal = url.pathname.startsWith('/internal/') && secret && (secret === env.MP_NOTIFY_SECRET || secret === env.INTERNAL_SECRET);
-      if (!internal && limited(clientIp(req) || '?', url.pathname.startsWith('/auth/') || (req.method === 'POST' && /^\/admin\/(session|setup|password)\/?$/.test(url.pathname)))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
+      if (!internal && limited(clientIp(req) || '?', url.pathname.startsWith('/auth/') || (req.method === 'POST' && /^\/admin\/(session|setup|password|password-reset\/[a-z]+|email(\/verify)?)\/?$/.test(url.pathname)))) throw new core.ApiError(429, 'Slow down.', 'rate_limited');
       // MESSAGING_READONLY=1: a pause for moving messages (deploy/README.md): everything can be read, nothing about messages is written
       if (env.MESSAGING_READONLY === '1' && req.method !== 'GET' && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) throw new core.ApiError(503, 'Messages are read-only for a few minutes while we do maintenance.', 'unavailable');
       if (messagingService && MESSAGING_ROUTE.test(url.pathname.replace(/\/+$/, ''))) return await forward(req, res, url, headers);

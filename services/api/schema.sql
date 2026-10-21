@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   to_email TEXT NOT NULL,
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
-  kind TEXT NOT NULL,                            -- confirm | verify | takeover | ad_takeover | newsletter
+  kind TEXT NOT NULL,                            -- confirm | verify | takeover | ad_takeover | newsletter | admin_reset | admin_verify | admin_notice
   status TEXT NOT NULL DEFAULT 'pending',        -- pending | sent | failed
   attempts INTEGER NOT NULL DEFAULT 0,
   error TEXT,
@@ -647,7 +647,9 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
   created_at INTEGER NOT NULL,
   password_changed_at INTEGER,
   last_login_at INTEGER,
-  disabled INTEGER NOT NULL DEFAULT 0            -- 1: cannot sign in; their sessions were ended
+  disabled INTEGER NOT NULL DEFAULT 0,           -- 1: cannot sign in; their sessions were ended
+  email TEXT,                                    -- for password resets only (lowercase; unique among admins: db.mjs)
+  email_verified_at INTEGER                      -- when the address was confirmed by its one-use link; NULL: not (yet) confirmed
 );
 -- Admin sessions: the cookie holds 32 random bytes, this table only their SHA-256. Ended after 12 hours, or 2 hours without a request; the
 -- ended ones are deleted every hour.
@@ -659,3 +661,15 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
   expires_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS admin_sessions_admin ON admin_sessions(admin_id);
+-- One-use links for an admin (services/api/admin.mjs): 'reset' (a forgotten password) and 'verify' (confirming the email address). The
+-- link holds 32 random bytes; this table only their SHA-256. A link lasts 30 minutes, a new one voids the admin's older one of the same
+-- purpose, using it deletes it, and the expired ones are deleted every hour.
+CREATE TABLE IF NOT EXISTS admin_tokens (
+  token_hash TEXT PRIMARY KEY,
+  admin_id INTEGER NOT NULL REFERENCES admin_accounts(id),
+  purpose TEXT NOT NULL,                         -- reset | verify
+  email TEXT,                                    -- verify: the address it confirms
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS admin_tokens_admin ON admin_tokens(admin_id, purpose);

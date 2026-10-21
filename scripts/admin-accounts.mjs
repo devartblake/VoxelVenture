@@ -1,5 +1,6 @@
 // Admin accounts from the command line (services/api/admin.mjs), straight on the database: the way to add an admin without the web page, and
-// the recovery path when the owner has forgotten their password. On the server, as the voxel user, in the current release:
+// the last-resort recovery of a forgotten password (the pages' own is /admin/forgot: an email link, or the ADMIN_TOKEN). On the server, as
+// the voxel user, in the current release:
 //
 //   API_DB=/srv/voxelventure/shared/data/voxelventure.db npm run admin:create -- <username>
 //   API_DB=/srv/voxelventure/shared/data/voxelventure.db npm run admin:reset-password -- <username>

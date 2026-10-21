@@ -1,5 +1,22 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.15.0 (2026-10-20)
+
+A forgotten admin password, reset from the pages (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-password-reset)). New contracts, all version 1, in [`contracts/admin.js`](src/contracts/admin.js):
+
+- `admin.reset-request` and `admin.reset-request.result`: `POST /admin/password-reset/request` `{ login }` (a username or a confirmed email), answered `{ ok: true, message }`, the same whether the account exists or not.
+- `admin.reset-check` and `admin.reset-check.result`: `POST /admin/password-reset/check` `{ token }` → `{ valid, username, expiresAt }`.
+- `admin.reset-confirm`: `POST /admin/password-reset/confirm` `{ token, password }`.
+- `admin.reset-token`: `POST /admin/password-reset/token` `{ username, password }`, with `Authorization: Bearer ADMIN_TOKEN`.
+- `admin.reset.result`: the answer to both, `{ ok: true, username, endedSessions }`.
+- `admin.email-set` and `admin.email`: `POST /admin/email` `{ email }` (`""` or null removes it) and `GET /admin/email`, `{ email, emailVerified, sent? }`.
+- `admin.email-verify` and `admin.email-verify.result`: `POST /admin/email/verify` `{ token }` → `{ ok: true, username, email }`.
+- `API_CONTRACTS` now holds 64.
+
+Changed:
+
+- `admin.account` and `admin.accounts` **version 2**: each admin has `email` (string or null) and `emailVerified` (boolean), both required.
+
 ## 0.14.0 (2026-10-20)
 
 The guided demo tour ([pilot_tour.md](../../docs/product/pilot_tour.md)). New contract, version 1:

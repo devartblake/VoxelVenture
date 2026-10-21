@@ -27,6 +27,7 @@ const connect = (name, room, x) =>
     ws.on('message', (raw) => {
       const m = JSON.parse(raw.toString());
       c.inbox.push(m);
+      if (m.type === 'online') (c.overviewsAt ??= []).push(Date.now());
       if (m.type === 'welcome') c.id = m.id;
     });
     ws.on('open', () => {
@@ -111,7 +112,7 @@ await sleep(300);
 // a crowd: each client is told about the nearest few only (the limit is 5 here)
 const crowd = [];
 for (let i = 0; i < 9; i++) crowd.push(await connect(`Crowd${i}`, 'crowd', 10 + i * 2));
-await sleep(500);
+await sleep(1200); // the city's overview (the count) is gathered: at most a second after the last join
 const watcher = crowd[0];
 const sees = new Set(entered(watcher).map((p) => p.id));
 check('a client is told about at most MAX_VISIBLE players', sees.size === 5, `${sees.size} players in view of 8 others`);
@@ -120,6 +121,26 @@ check('...the nearest ones', nearest.every((id) => sees.has(id)), [...sees].join
 const countMsg = last(watcher, 'online');
 check('the city count still says everyone, not just who is in view', countMsg?.n === 9, JSON.stringify(countMsg));
 for (const q of crowd) q.ws.close();
+await sleep(300);
+
+// a burst of joins and leaves: the overview (~3 KB to everyone in the city) is gathered, never more than about one a second to a city,
+// the first at once (leading edge) and the rest's count no more than about a second late (trailing edge)
+const host = await connect('Host', 'burst', 0);
+await sleep(1200); // a quiet second: the next join is sent at once
+const joinedAt = Date.now();
+const firstJoin = await connect('Burst0', 'burst', 3);
+await sleep(150);
+const leading = (host.overviewsAt ?? []).filter((t) => t >= joinedAt);
+check('a single join after a quiet second is in the overview at once', leading.length === 1 && last(host, 'online')?.n === 2, `${leading.length} overviews, n=${last(host, 'online')?.n}`);
+const burst = await Promise.all(Array.from({ length: 6 }, (_, i) => connect(`Burst${i + 1}`, 'burst', 4 + i)));
+for (const q of burst.slice(0, 2)) q.ws.close();
+const burstEnd = Date.now();
+await sleep(1300);
+const times = (host.overviewsAt ?? []).filter((t) => t >= joinedAt);
+const gaps = times.slice(1).map((t, i) => t - times[i]);
+check('a burst of 6 joins and 2 leaves makes at most about one overview a second', gaps.every((g) => g >= 900) && times.length <= Math.ceil((Date.now() - joinedAt) / 1000) + 1, `${times.length} overviews in ${Date.now() - joinedAt} ms, gaps ${gaps.join()}`);
+check('...and the count catches up within about a second of the last change', last(host, 'online')?.n === 6 && times.at(-1) >= burstEnd - 50, JSON.stringify({ n: last(host, 'online')?.n, sinceEnd: times.at(-1) - burstEnd }));
+for (const q of [host, firstJoin, ...burst.slice(2)]) q.ws.close();
 await sleep(300);
 
 // hostile input

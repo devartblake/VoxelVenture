@@ -66,7 +66,8 @@ export function checkPassword(username, password) {
   return pw;
 }
 
-export const adminView = (a) => ({ id: a.id, username: a.username, createdAt: a.created_at, lastLoginAt: a.last_login_at ?? null, disabled: Boolean(a.disabled) });
+// `email`: the address an admin's password reset links go to (shown to admins only: the Admins and Account pages), and whether it is confirmed
+export const adminView = (a) => ({ id: a.id, username: a.username, createdAt: a.created_at, lastLoginAt: a.last_login_at ?? null, disabled: Boolean(a.disabled), email: a.email ?? null, emailVerified: Boolean(a.email && a.email_verified_at) });
 export const count = (db) => db.prepare('SELECT COUNT(*) AS n FROM admin_accounts').get().n;
 export const byUsername = (db, username) => db.prepare('SELECT * FROM admin_accounts WHERE username = ? COLLATE NOCASE').get(String(username ?? '').trim());
 export const byId = (db, id) => db.prepare('SELECT * FROM admin_accounts WHERE id = ?').get(Number(id));
@@ -88,13 +89,16 @@ export async function createAdmin(db, { username, password }, { now = Date.now()
 }
 
 // A new password for an admin. Every session of theirs ends, except `keepSession` (the one that asked for the change).
-export async function setPassword(db, adminId, password, { now = Date.now(), keepSession = null, enable = false, audit = null } = {}) {
+// `check` runs first inside the transaction (e.g. "the reset link is still good"): if it throws, nothing changes.
+export async function setPassword(db, adminId, password, { now = Date.now(), keepSession = null, enable = false, check = null, audit = null } = {}) {
   const a = byId(db, adminId);
   if (!a) throw new ApiError(404, 'There is no such admin.', 'not_found');
   const pw = checkPassword(a.username, password);
   const hash = await hashPassword(pw);
   return transaction(db, () => {
+    check?.();
     db.prepare(`UPDATE admin_accounts SET password_hash = ?, password_changed_at = ?${enable ? ', disabled = 0' : ''} WHERE id = ?`).run(hash, now, a.id);
+    db.prepare("DELETE FROM admin_tokens WHERE admin_id = ? AND purpose = 'reset'").run(a.id); // a new password voids any reset link
     const ended = keepSession
       ? db.prepare('DELETE FROM admin_sessions WHERE admin_id = ? AND id_hash != ?').run(a.id, sha256(keepSession)).changes
       : db.prepare('DELETE FROM admin_sessions WHERE admin_id = ?').run(a.id).changes;
@@ -206,3 +210,123 @@ export async function signIn(db, { username, password }, { guard, ip, delayMs = 
   db.prepare('UPDATE admin_accounts SET last_login_at = ? WHERE id = ?').run(now(), admin.id);
   return admin;
 }
+
+// ---- one-use links: confirming an email address, and a forgotten password (docs/architecture/backend.md#admin-password-reset)
+//
+// A link holds 32 random bytes (base64url); admin_tokens keeps only their SHA-256, so a copy of the database resets nobody's password. A link
+// lasts 30 minutes and works once; a new one voids the admin's older one of the same purpose; the expired ones are deleted every hour.
+
+export const LINK_MS = 30 * 60_000;
+// asking for a reset link: 3 an hour per admin (more get the same answer and send nothing), 10 an hour per network (then 429)
+export const RESET_LIMIT = { perAdmin: 3, perNetwork: 10, windowMs: 3600_000 };
+const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+
+export function checkEmail(email) {
+  const e = String(email ?? '').trim().toLowerCase();
+  if (e.length > 120 || !EMAIL.test(e)) throw new ApiError(400, 'That email address does not look right.', 'bad_email');
+  return e;
+}
+
+// A new link for an admin; any older unused one of the same purpose is voided. Returns the value to put in the link (never stored).
+export function issueToken(db, adminId, purpose, { email = null, now = Date.now() } = {}) {
+  const value = b64(crypto.randomBytes(32));
+  transaction(db, () => {
+    db.prepare('DELETE FROM admin_tokens WHERE admin_id = ? AND purpose = ?').run(adminId, purpose);
+    db.prepare('INSERT INTO admin_tokens (token_hash, admin_id, purpose, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)').run(sha256(value), adminId, purpose, email, now, now + LINK_MS);
+  });
+  return value;
+}
+// The link's row while it is good (unknown, used, voided or expired: null). Looking does not use it up.
+export function findToken(db, value, purpose, now = Date.now()) {
+  if (!value || typeof value !== 'string' || value.length > 100) return null;
+  const t = db.prepare('SELECT * FROM admin_tokens WHERE token_hash = ? AND purpose = ?').get(sha256(value), purpose);
+  return t && now < t.expires_at ? t : null;
+}
+export const pruneTokens = (db, now = Date.now()) => Number(db.prepare('DELETE FROM admin_tokens WHERE expires_at <= ?').run(now).changes);
+
+// The admin a reset is asked for: by username, or by a confirmed email address. null when unknown.
+export function byLogin(db, login) {
+  const s = String(login ?? '').trim().slice(0, 120);
+  if (!s) return null;
+  return (s.includes('@') ? db.prepare('SELECT * FROM admin_accounts WHERE email = ? AND email_verified_at IS NOT NULL').get(s.toLowerCase()) : byUsername(db, s)) ?? null;
+}
+
+// A signed-in admin sets (or, with '' or null, removes) their email. A new address is unconfirmed until its link is opened; `token` is the
+// link's value for the email. The same confirmed address again changes nothing (`unchanged`). `previous`: the confirmed address it replaced.
+export function setEmail(db, adminId, email, { now = Date.now() } = {}) {
+  return transaction(db, () => {
+    const a = byId(db, adminId);
+    if (!a) throw new ApiError(404, 'There is no such admin.', 'not_found');
+    const previous = a.email && a.email_verified_at ? a.email : null;
+    if (email === '' || email == null) {
+      db.prepare('UPDATE admin_accounts SET email = NULL, email_verified_at = NULL WHERE id = ?').run(a.id);
+      db.prepare("DELETE FROM admin_tokens WHERE admin_id = ? AND purpose = 'verify'").run(a.id);
+      return { admin: adminView(byId(db, a.id)), token: null, previous, removed: Boolean(a.email) };
+    }
+    const e = checkEmail(email);
+    if (e === a.email && a.email_verified_at) return { admin: adminView(a), token: null, previous: null, unchanged: true };
+    if (db.prepare('SELECT 1 FROM admin_accounts WHERE email = ? AND id != ?').get(e, a.id)) throw new ApiError(409, 'Another admin already uses that address.', 'email_taken');
+    db.prepare('UPDATE admin_accounts SET email = ?, email_verified_at = NULL WHERE id = ?').run(e, a.id);
+    const token = issueToken(db, a.id, 'verify', { email: e, now });
+    return { admin: adminView(byId(db, a.id)), token, previous: previous !== e ? previous : null };
+  });
+}
+
+// Opens an email link: the address is confirmed if it is still the admin's. The link is used up. null when it is not (or no longer) good.
+export function verifyEmail(db, value, now = Date.now()) {
+  return transaction(db, () => {
+    const t = findToken(db, value, 'verify', now);
+    if (!t) return null;
+    db.prepare('DELETE FROM admin_tokens WHERE token_hash = ?').run(t.token_hash);
+    const a = byId(db, t.admin_id);
+    if (!a || a.email !== t.email) return null;
+    db.prepare('UPDATE admin_accounts SET email_verified_at = ? WHERE id = ?').run(now, a.id);
+    return adminView(byId(db, a.id));
+  });
+}
+
+export const BAD_LINK = 'This link has expired or was already used. Ask for a new one.';
+// A new password with a reset link: the link must still be good and the admin enabled (a disabled admin cannot reset). Every session of
+// theirs ends and every reset link of theirs is used up. Resolves setPassword's answer and the admin's row.
+export async function resetWithToken(db, value, password, { now = Date.now(), audit = null } = {}) {
+  const t = findToken(db, value, 'reset', now);
+  const a = t ? byId(db, t.admin_id) : null;
+  if (!a) throw new ApiError(400, BAD_LINK, 'reset_invalid');
+  if (a.disabled) throw new ApiError(409, 'This admin account is disabled, so its password cannot be reset. Another admin can enable it.', 'disabled');
+  // checked again inside the transaction, so two tabs using one link cannot both succeed (setPassword then deletes it)
+  const still = () => {
+    if (!findToken(db, value, 'reset', now)) throw new ApiError(400, BAD_LINK, 'reset_invalid');
+  };
+  const out = await setPassword(db, a.id, password, { now, check: still, audit: audit && ((x) => audit({ ...x, admin: a })) });
+  return { ...out, row: a };
+}
+
+// At most `max` within `windowMs` per key (asking for reset links): take() is false once they are used (in memory, like the login guard).
+export function createRateLimit({ max, windowMs }) {
+  const keys = new Map();
+  setInterval(() => { const t = Date.now(); for (const [k, v] of keys) if (!v.some((x) => t - x < windowMs)) keys.delete(k); }, 60_000).unref();
+  return {
+    take(key, now = Date.now()) {
+      const v = (keys.get(key) ?? []).filter((x) => now - x < windowMs);
+      keys.set(key, v);
+      if (v.length >= max) return false;
+      v.push(now);
+      return true;
+    },
+  };
+}
+
+// The emails, in plain text. They say when (UTC), nothing about the network.
+const utc = (t) => `${new Date(t).toISOString().replace('T', ' ').slice(0, 16)} UTC`;
+export const resetMessage = ({ username, link, at }) => ({
+  subject: 'Reset your VoxelVenture admin password',
+  body: `Hi ${username},\n\nSomeone asked to reset the password of the VoxelVenture admin account "${username}" at ${utc(at)}.\n\nTo choose a new password, open this link within 30 minutes. It works once:\n${link}\n\nSetting a new password signs this account out everywhere.\n\nIf you did not ask for this, ignore this email: nothing changes unless the link is opened and a new password is set.`,
+});
+export const verifyMessage = ({ username, link, at }) => ({
+  subject: 'Confirm your email for VoxelVenture admin',
+  body: `Hi ${username},\n\nThis address was added to the VoxelVenture admin account "${username}" at ${utc(at)}, so that a forgotten password can be reset by email.\n\nTo confirm it, open this link within 30 minutes. It works once:\n${link}\n\nIf you did not ask for this, ignore this email: the address stays unconfirmed and no reset link is ever sent to it.`,
+});
+export const emailChangedMessage = ({ username, at, removed }) => ({
+  subject: 'Your VoxelVenture admin email changed',
+  body: `Hi ${username},\n\nAt ${utc(at)} the email of the VoxelVenture admin account "${username}" was ${removed ? 'removed' : 'changed to another address'}. Password reset links no longer come here.\n\nIf you did not do this, sign in and check your account, or ask another admin.`,
+});

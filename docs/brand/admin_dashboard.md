@@ -25,6 +25,8 @@ The staff pages under `/admin` (`apps/web/app/admin/`) are drawn in the **Synapt
   - Tab stays inside it, and Escape or the backdrop closes it;
   - the focus starts on the current page and goes back to the menu button afterwards.
 - **Sign-in and setup:** `/admin/login` and `/admin/setup` have no frame. They are one card in the middle of the dark gradient page (`AdminCard`), with the mark at 72 px and the endorsement "A Theoretical Minds Technologies Game" under the card.
+- **A forgotten password:** `/admin/forgot`, `/admin/reset` and `/admin/verify-email` are cards of the same kind, open without a session. The sign-in's "Forgot your password?" link (`data-testid="admin-forgot-link"`) opens `/admin/forgot`, which has two `Tabs`: "Email me a link" (`admin-forgot-form`; then the generic answer, `admin-forgot-sent`) and "Admin token" (`admin-forgot-token-form`). `/admin/reset` shows the new-password form (`admin-reset-form`), or, for a used or expired link, "Ask for a new link" (`admin-reset-invalid`). After a reset the sign-in shows a success `Alert` (`admin-login-notice`).
+- **Account:** `/admin/password` (the nav says "Account") has two cards: the password, and "Email for password resets" with its status pill (No email, Waiting for confirmation, Confirmed; `admin-email-status`) and its form (`admin-email-form`). The Admins table has a "Reset email" column: the address and Confirmed or Unconfirmed.
 - **Scrolling:** the page never scrolls sideways. Wide tables scroll inside their card, and keep their heading row in view.
 
 ## Components (`components/admin/ui.jsx`)

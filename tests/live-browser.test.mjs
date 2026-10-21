@@ -18,6 +18,7 @@ const webPort = await free();
 const mpPort = await free(); // a presence server of the test's own, joined to its API (not whatever runs on 3001)
 const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-live-mp-'));
 const ADMIN_TOKEN = 'live-admin-token';
+const mailDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vv-live-mail-')); // the API's outbox: each email as a file (the admin reset links)
 const env = { ...process.env, NEXT_PUBLIC_LIVE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_SECRET: 'live-test', INTERNAL_SECRET: 'live-inside', ADMIN_TOKEN };
 // MESSAGING_IMPL=fastapi: the same run with messaging served by the Python service (docs/architecture/node_fastapi_architecture_plan.md, step 5)
 const FASTAPI = process.env.MESSAGING_IMPL === 'fastapi';
@@ -38,7 +39,7 @@ try {
     console.log(`--- next build failed (status ${build.status}); the last ${Math.min(80, lines.length)} lines:\n${lines.slice(-80).join('\n')}\n---`);
     throw new Error('build failed');
   }
-  children.push(spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], { cwd: root, env: { ...env, API_PORT: String(apiPort), API_DB: ':memory:', PROFILE_CTA_CAP: '5', MP_NOTIFY_URL: `http://localhost:${mpPort}/notify`, ...(FASTAPI ? { MESSAGING_SERVICE_URL: `http://localhost:${msgPort}` } : {}) }, stdio: 'ignore' }));
+  children.push(spawn(process.execPath, ['--experimental-sqlite', '--no-warnings', path.join(root, 'services', 'api', 'server.mjs')], { cwd: root, env: { ...env, API_PORT: String(apiPort), API_DB: ':memory:', MAIL_DIR: mailDir, PROFILE_CTA_CAP: '5', MP_NOTIFY_URL: `http://localhost:${mpPort}/notify`, ...(FASTAPI ? { MESSAGING_SERVICE_URL: `http://localhost:${msgPort}` } : {}) }, stdio: 'ignore' }));
   if (FASTAPI) children.push(spawn(python, ['-m', 'app'], { cwd: msgDir, env: { ...env, MESSAGING_PORT: String(msgPort), MESSAGING_DB: ':memory:', NODE_API_URL: `http://localhost:${apiPort}`, MP_NOTIFY_URL: `http://localhost:${mpPort}/notify` }, stdio: 'ignore' }));
   console.log(`messaging served by ${FASTAPI ? 'the FastAPI service' : 'the Node API'}`);
   children.push(spawn(process.execPath, [path.join(root, 'services', 'multiplayer', 'server.mjs')], { cwd: root, env: { ...env, MP_PORT: String(mpPort), MP_LOG_DIR: logDir, MP_API_URL: `http://localhost:${apiPort}` }, stdio: 'ignore' }));
@@ -249,10 +250,56 @@ try {
   check('admin: the menu opens the drawer, the current page marked and focused', await waitFor(adm, `(() => { const cur = document.querySelector('[data-testid="admin-drawer"] a[aria-current="page"]'); return cur?.getAttribute('href') === '/admin/economy' && document.activeElement === cur && document.getElementById('admin-shell').hasAttribute('inert'); })()`, 10));
   await adm.key('Escape');
   check('admin: Escape closes the drawer and gives the focus back to the menu button', await waitFor(adm, `!document.querySelector('[data-testid="admin-drawer"]') && document.activeElement === document.querySelector('[data-testid="admin-menu"]') && !document.getElementById('admin-shell').hasAttribute('inert')`, 10));
+  // the email for password resets, on the Account page: confirmed by the link the API emails (here: a file in MAIL_DIR, the outbox)
+  const mailFiles = () => (fs.existsSync(mailDir) ? fs.readdirSync(mailDir).sort().map((f) => fs.readFileSync(path.join(mailDir, f), 'utf8')) : []);
+  const linkFrom = async (pagePath, after) => {
+    const re = new RegExp(`(http://localhost:${webPort}/admin/${pagePath}#token=[A-Za-z0-9_-]{43})`);
+    for (let i = 0; i < 60; i++) {
+      const found = mailFiles().slice(after).map((t) => re.exec(t)?.[1]).find(Boolean);
+      if (found) return found;
+      await sleep(250);
+    }
+    return null;
+  };
+  await adm.eval(`location.href = '/admin/password'; 1`);
+  check('admin: the Account page has no reset email yet', await waitFor(adm, `document.querySelector('[data-testid="admin-email-form"]')?.dataset.ready === '1' && /None yet/.test(document.querySelector('[data-testid="admin-email-status"]')?.textContent ?? '')`, 20));
+  let seenMail = mailFiles().length;
+  await type2(adm, '#email', 'boss@example.test');
+  await adm.eval(`document.querySelector('[data-testid="admin-email-form"] button[type=submit]').click()`);
+  check('admin: adding an email sends a confirmation link', await waitFor(adm, `/confirmation link is on its way/.test(document.body.innerText) && /Waiting for confirmation/.test(document.querySelector('[data-testid="admin-email-status"]')?.textContent ?? '')`, 20), await adm.eval(`document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? ''`));
+  const verifyLink = await linkFrom('verify-email', seenMail);
+  check('admin: the confirmation email is in the outbox, linking to the site', Boolean(verifyLink));
+  await adm.eval(`location.href = ${JSON.stringify(verifyLink)}; 1`);
+  check('admin: opening it confirms the address, and the link leaves the address bar', await waitFor(adm, `document.querySelector('[data-testid="admin-verify-result"]')?.dataset.ok === '1' && !location.hash`, 20), await adm.eval('location.href + " " + document.body.innerText.slice(0, 200)'));
+  await adm.eval(`location.href = '/admin/password'; 1`);
+  check('admin: the Account page shows it confirmed', await waitFor(adm, `document.querySelector('[data-testid="admin-email-status"]')?.dataset.verified === '1'`, 20));
   await adm.eval(`document.querySelector('[data-testid="admin-sign-out"]').click()`);
   check('admin: signing out goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('signedOut=1')`, 20));
   await adm.eval(`location.href = '/admin/economy'; 1`);
   check('admin: and the admin pages are closed again', await waitFor(adm, `location.pathname === '/admin/login'`, 20));
+  // a forgotten password, end to end: "Forgot your password?", a link by email (read from the outbox), a new password, signing in with it
+  await waitFor(adm, `Boolean(document.querySelector('[data-testid="admin-forgot-link"]'))`, 20);
+  await adm.eval(`document.querySelector('[data-testid="admin-forgot-link"]').click()`);
+  check('admin: the sign-in links to /admin/forgot', await waitFor(adm, `location.pathname === '/admin/forgot' && document.querySelector('[data-testid="admin-forgot-form"]')?.dataset.ready === '1'`, 20));
+  seenMail = mailFiles().length;
+  await type2(adm, '#login', 'boss');
+  await adm.eval(`document.querySelector('[data-testid="admin-forgot-form"] button[type=submit]').click()`);
+  check('admin: asking for a link shows the generic answer', await waitFor(adm, `/If that account has a confirmed email/.test(document.querySelector('[data-testid="admin-forgot-sent"]')?.textContent ?? '')`, 20));
+  const resetLink = await linkFrom('reset', seenMail);
+  check('admin: the reset email is in the outbox, linking to /admin/reset', Boolean(resetLink));
+  await adm.eval(`location.href = ${JSON.stringify(resetLink)}; 1`);
+  check('admin: the reset page knows whose link it is, and the link leaves the address bar', await waitFor(adm, `document.querySelector('[data-testid="admin-reset-form"]')?.dataset.ready === '1' && /boss/.test(document.body.innerText) && !location.hash`, 20), await adm.eval('location.href + " " + document.body.innerText.slice(0, 200)'));
+  const NEW_ADMIN_PW = 'reset in the browser 7';
+  await type2(adm, '#password', NEW_ADMIN_PW);
+  await type2(adm, '#confirm', NEW_ADMIN_PW);
+  await adm.eval(`document.querySelector('[data-testid="admin-reset-form"] button[type=submit]').click()`);
+  check('admin: a new password goes to the sign-in with a notice', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('reset=1') && /password is changed/.test(document.querySelector('[data-testid="admin-login-notice"]')?.textContent ?? '')`, 20), await adm.eval(`location.href + ' | ' + (document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? '')`));
+  await waitFor(adm, `document.querySelector('[data-testid="admin-login-form"]')?.dataset.ready === '1'`, 20);
+  await type2(adm, '#username', 'boss');
+  await type2(adm, '#password', NEW_ADMIN_PW);
+  await adm.eval(`document.querySelector('[data-testid="admin-login-form"] button[type=submit]').click()`);
+  check('admin: and the new password signs in', await waitFor(adm, `location.pathname === '/admin' && document.querySelector('[data-testid="admin-user"]')?.textContent === 'boss'`, 20));
+  check('admin: the link is used up', (await (await fetch(`http://localhost:${apiPort}/admin/password-reset/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resetLink.split('#token=')[1] }) })).json()).valid === false);
   check('admin: no console errors on the admin pages', adm.problems().filter((p) => !/401|403|Failed to load resource/.test(p)).length === 0, adm.problems().slice(0, 3).join(' | '));
   await adm.close();
 } catch (e) {
@@ -262,6 +309,7 @@ try {
   for (const c of children) c.kill();
   await sleep(300);
   fs.rmSync(logDir, { recursive: true, force: true });
+  fs.rmSync(mailDir, { recursive: true, force: true });
 }
 console.log(fails === 0 ? 'ALL OK' : `${fails} FAILED`);
 process.exit(fails ? 1 : 0);
