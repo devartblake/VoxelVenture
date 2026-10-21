@@ -79,7 +79,7 @@ const BUDGETS = {
   chatP95Ms: 500, // a nearby line, from said to heard
   reconnectP95Ms: 3000, // from losing the connection to welcomed (and signed in again)
   snapshotP50PerSec: 8, // what a player in a busy place is sent, the median (10 a second when every tick keeps up); also while slow clients are backed up
-  clientKBp95: 40, // what one client is sent a second, the busiest 5%
+  clientKBp95: 28, // what one client is sent a second, the busiest 5% (19-22 KB/s measured at 500 players once online overviews were gathered; 26-29 before)
   unexpectedDisconnects: 0,
   duplicates: 0, // players seen twice, ghosts, lines heard twice
   misfits: 0, // messages that do not fit their contract
