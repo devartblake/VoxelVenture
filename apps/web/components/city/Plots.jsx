@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import * as THREE from 'three';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
+import { useLodHidden } from '@/lib/performance/lodRuntime';
 import { PLOT_TILE, buildingSize } from '@/lib/city/cityGenerator';
 import { bannerSize, logoOf } from '@/lib/game/logos';
 import { buildBannerAtlas } from './bannerAtlas';
@@ -367,6 +368,11 @@ ${shader.vertexShader}`.replace(
     />
   );
   const hovered = hoveredId != null ? plots.find((p) => p.id === hoveredId) : null;
+  // the pennants, roof lights and fountains: a few pixels each when zoomed out, and a draw call or two each, so the level of
+  // detail leaves them out there on the lower tiers (lib/performance/lodPolicy.js). The Plot of the Day beacon always stays.
+  const pennantPlots = useMemo(() => plots.filter((p) => p.owner && (p.prime || p.skyline?.badges?.includes('pennant'))), [plots]);
+  const skylinePlots = useMemo(() => plots.filter((p) => p.owner && p.skyline?.badges?.some((b) => b === 'light' || b === 'fountain')), [plots]);
+  const roofPropsHidden = useLodHidden('smallProps', pennantPlots.length + skylinePlots.length);
 
   return (
     <group name="plots">
@@ -411,18 +417,20 @@ ${shader.vertexShader}`.replace(
         </mesh>
       )}
 
-      {plots.filter((p) => p.owner && (p.prime || p.skyline?.badges?.includes('pennant'))).map((p) => (
+      <group name="roof-props" visible={!roofPropsHidden}>
+      {pennantPlots.map((p) => (
         <group key={`pennant-${p.id}`} position={[p.x, 0, p.z]} rotation={[0, p.yaw ?? 0, 0]}>
           <Pennant y={(modelOf(p)?.height ?? p.height) + 0.1} />
         </group>
       ))}
       {/* what real traffic earns a building (lib/game/skyline.js): a roof light, and at level 3 a fountain in front */}
-      {plots.filter((p) => p.owner && p.skyline?.badges?.some((b) => b === 'light' || b === 'fountain')).map((p) => (
+      {skylinePlots.map((p) => (
         <group key={`sky-${p.id}`} position={[p.x, 0, p.z]} rotation={[0, p.yaw ?? 0, 0]}>
           {p.skyline.badges.includes('light') && <RoofLight y={(modelOf(p)?.height ?? p.height) + 0.1} />}
           {p.skyline.badges.includes('fountain') && <PlazaFountain x={(p.w ?? PLOT_TILE) / 2 - 0.4} z={(p.facing ?? 1) * ((p.d ?? PLOT_TILE) / 2 - 0.3)} />}
         </group>
       ))}
+      </group>
       {potdId != null && (() => {
         const p = plots.find((q) => q.id === potdId);
         return p ? (

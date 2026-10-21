@@ -4,6 +4,7 @@ import { useRotatingAd } from './useRotatingAd';
 import { textOn } from '@/lib/game/adRotation';
 import React, { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { useLodHidden } from '@/lib/performance/lodRuntime';
 
 const FRAME_DEPTH = 0.2;
 const BOTTOM = 2.0; // underside of the screen frame; the posts are this tall
@@ -108,6 +109,8 @@ function paintScreen(canvas, billboard) {
 export default function Billboard({ billboard, isSelected, onSelect }) {
   const [hovered, setHovered] = useState(false);
   const { x, z, yaw, width, height, value } = billboard;
+  // the spotlights on top are about a pixel wide when zoomed out, and six draw calls (lib/performance/lodPolicy.js)
+  const spotsHidden = useLodHidden('subpixel', 6);
   const ad = useRotatingAd(billboard);
 
   const texture = useMemo(() => {
@@ -180,7 +183,7 @@ export default function Billboard({ billboard, isSelected, onSelect }) {
 
       {/* Spotlights along the top edge */}
       {[-0.32, 0, 0.32].map((f) => (
-        <group key={f} position={[f * width, centerY + height / 2 + 0.12, 0]}>
+        <group key={f} position={[f * width, centerY + height / 2 + 0.12, 0]} visible={!spotsHidden}>
           <mesh position={[0, 0.05, 0.2]}>
             <boxGeometry args={[0.04, 0.04, 0.4]} />
             <meshStandardMaterial color="#64748b" />

@@ -4,6 +4,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
+import { useLodHidden } from '@/lib/performance/lodRuntime';
 import { MARKING_Y, ZebraCrossing } from './RoadMarkings';
 import { signalState } from '@/lib/sim/signals';
 
@@ -122,6 +123,8 @@ const LAMP_COLORS = { red: '#ef4444', yellow: '#facc15', green: '#22c55e' };
 function TrafficLight({ onAvenue, phase }) {
   const lamps = useRef({});
   const current = useRef(null);
+  // the lamps are under a pixel wide when zoomed out, and a draw call each: the level of detail hides them (lib/performance/lodPolicy.js)
+  const lampsHidden = useLodHidden('subpixel', 3);
 
   useGatedFrame(LOOPS.simulation, ({ clock }) => {
     const state = signalState(clock.elapsedTime + phase, onAvenue);
@@ -139,6 +142,7 @@ function TrafficLight({ onAvenue, phase }) {
         <boxGeometry args={[0.13, 0.34, 0.1]} />
         <meshStandardMaterial color="#0f172a" roughness={0.6} />
       </mesh>
+      <group visible={!lampsHidden}>
       {[['red', 0.1], ['yellow', 0], ['green', -0.1]].map(([name, dy]) => (
         <mesh key={name} ref={(m) => {
             lamps.current[name] = m; // (no return value: React 19 treats a returned value as the ref's cleanup)
@@ -147,6 +151,7 @@ function TrafficLight({ onAvenue, phase }) {
           <meshStandardMaterial color={LAMP_COLORS[name]} emissive={LAMP_COLORS[name]} emissiveIntensity={0.05} />
         </mesh>
       ))}
+      </group>
     </group>
   );
 }

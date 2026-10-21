@@ -3,6 +3,7 @@
 import React, { useRef } from 'react';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
+import { useLodHidden } from '@/lib/performance/lodRuntime';
 
 const BANK = 1.2; // sandy bank beyond the water on each side
 const WATER_Y = 0.026;
@@ -19,6 +20,9 @@ export default function River({ river, bridges }) {
   const length = alongZ ? z1 - z0 : x1 - x0;
   const cx = (x0 + x1) / 2;
   const cz = (z0 + z1) / 2;
+
+  // the bridges' end posts are about a pixel wide when zoomed out, and a draw call each (lib/performance/lodPolicy.js)
+  const postsHidden = useLodHidden('subpixel', bridges.length * 4);
 
   useGatedFrame(LOOPS.ornament, ({ clock }) => {
     if (water.current) water.current.material.emissiveIntensity = 0.16 + Math.sin(clock.elapsedTime * 1.1) * 0.06;
@@ -59,7 +63,7 @@ export default function River({ river, bridges }) {
                   <meshStandardMaterial color="#94a3b8" roughness={0.7} />
                 </mesh>
                 {[b.u0 - 0.5, b.u1 + 0.5].map((u) => (
-                  <mesh key={u} position={at(u, 0.22, side * (DECK_HALF_WIDTH - 0.05))} castShadow>
+                  <mesh key={u} position={at(u, 0.22, side * (DECK_HALF_WIDTH - 0.05))} castShadow visible={!postsHidden}>
                     <boxGeometry args={box(0.16, 0.28, 0.16)} />
                     <meshStandardMaterial color="#cbd5e1" roughness={0.7} />
                   </mesh>

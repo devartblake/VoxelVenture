@@ -5,7 +5,8 @@
 //   node scripts/perf-measure.mjs --tiers high,low --seconds 8
 //   node scripts/perf-measure.mjs --url https://staging.example.com   a running site instead (?diag=1 is added to the address)
 //   options: --mobile (a 412x915 phone viewport with touch, pixel ratio 2.625; still this machine's GPU), --width 1600 --height 900,
-//            --software (SwiftShader, as the tests draw), --uncapped (no 60 Hz frame limit), --out <dir> (default artifacts/perf/<time>)
+//            --software (SwiftShader, as the tests draw), --uncapped (no 60 Hz frame limit), --out <dir> (default artifacts/perf/<time>),
+//            --query '&lod=off' (more of the address: the level of detail off, to compare)
 //
 // For each tier it opens /?diag=1&view=iso&quality=<tier>, waits for the city and its models, then calls the page's
 // window.__vvMeasure() (lib/performance/runtime.js measureCity), which puts the map camera at each spot of
@@ -88,15 +89,26 @@ const waitFor = async (page, expression, secondsToWait = 120) => {
 };
 
 async function measureTier(tier) {
-  const url = `${base}/?diag=1&view=iso&quality=${tier}${mpQuery}`;
+  const url = `${base}/?diag=1&view=iso&quality=${tier}${mpQuery}${opt('query', '')}`;
   console.log(`\n--- ${tier}: ${url}`);
   const page = await openPage(url, { width, height, mobile, gpu: !flag('software'), uncapped: flag('uncapped') });
   try {
     const up = await waitFor(page, 'Boolean(window.__vvMeasure && window.__vvPerf && window.__vvPerf.calls > 0 && window.__vvQuality.getState().gpuKnown)');
     if (!up) return { tier, error: 'the city did not load', problems: page.problems().slice(0, 5) };
-    await sleep(8000); // the models and textures finish loading
+    // the models and textures finish loading: the building and prop models are counted until the count holds for 4 s (a slow
+    // load would otherwise measure the box buildings drawn until then)
+    const loaded = `(() => { const m = window.__vvModels?.getState(); const p = window.__vvProps?.getState(); return (m?.status ?? '-') + ':' + Object.keys(m?.geometries ?? {}).length + ':' + Object.keys(p?.geometries ?? {}).length; })()`;
+    let last = null;
+    let steady = 0;
+    for (let i = 0; i < 120 && steady < 8; i++) {
+      await sleep(500);
+      const now = await page.eval(loaded);
+      steady = now === last && !now.startsWith('loading') && !now.startsWith('idle') ? steady + 1 : 0;
+      last = now;
+    }
+    await sleep(2000);
     const r = JSON.parse(await page.eval(`window.__vvMeasure({ seconds: ${seconds} }).then((r) => JSON.stringify(r))`));
-    for (const s of r.spots) console.log(`${s.id.padEnd(12)} p50 ${String(s.frameTime.p50).padStart(6)} ms  p95 ${String(s.frameTime.p95).padStart(6)} ms  ${String(s.drawCalls.mean).padStart(5)} calls  ${String(Math.round(s.triangles.mean / 1000)).padStart(6)}k tris  ground depth on screen ${s.depth?.groundOnScreen?.join('..')}${s.depth?.clipsOnScreen ? ' CLIPPED' : ''} (near ${s.depth?.near}, far ${s.depth?.far})`);
+    for (const s of r.spots) console.log(`${s.id.padEnd(12)} lod ${(s.lod?.level ?? '-').padEnd(4)} p50 ${String(s.frameTime.p50).padStart(6)} ms  p95 ${String(s.frameTime.p95).padStart(6)} ms  ${String(s.drawCalls.mean).padStart(5)} calls  ${String(Math.round(s.triangles.mean / 1000)).padStart(6)}k tris  ground depth on screen ${s.depth?.groundOnScreen?.join('..')}${s.depth?.clipsOnScreen ? ' CLIPPED' : ''} (near ${s.depth?.near}, far ${s.depth?.far})`);
     return { requested: tier, ...r, problems: page.problems().slice(0, 5) };
   } finally {
     await page.close();
@@ -148,11 +160,12 @@ for (const r of runs) {
   const b = PERF_BUDGETS[r.tier] ?? {};
   lines.push(`## quality=${r.requested} → tier ${r.tier} (${r.source}; ${r.reasons.join(', ')})`, '');
   lines.push(`Pixel ratio ${r.pixelRatio} (device ${r.devicePixelRatio}), canvas ${r.canvas.join('x')}, shadow map ${r.shadowMap ? 'on' : 'off'}.`, '');
-  lines.push('| Spot | Zoom | Frame p50 (ms) | Frame p95 (ms) | Draw calls | Triangles | Geometries | Textures | Scene depth vs near/far |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+  lines.push('| Spot | Zoom | LOD | Frame p50 (ms) | Frame p95 (ms) | Draw calls | Triangles | Geometries | Textures | Scene depth vs near/far |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
   for (const s of r.spots) {
     const d = s.depth;
     const depth = d ? `on screen ${d.groundOnScreen.join(' to ')}${d.clipsOnScreen ? ' ⚠ clipped' : ''}; land ${d.sceneNearest} to ${d.sceneFarthest} (near ${d.near}, far ${d.far})` : '-';
-    lines.push(`| ${s.id} | ${s.zoom} | ${s.frameTime.p50} | ${s.frameTime.p95}${mark(s.frameTime.p95, b.frameP95)} | ${s.drawCalls.mean}${mark(s.drawCalls.mean, b.drawCalls)} | ${Math.round(s.triangles.mean / 1000)}k${mark(s.triangles.mean, b.triangles)} | ${s.geometries}${mark(s.geometries, b.geometries)} | ${s.textures}${mark(s.textures, b.textures)} | ${depth} |`);
+    const lod = s.lod ? `${s.lod.level}${s.lod.standIns ? `, ${s.lod.standIns} stand-ins` : ''}${s.lod.culled ? `, ${s.lod.culled} off screen` : ''}` : '-';
+    lines.push(`| ${s.id} | ${s.zoom} | ${lod} | ${s.frameTime.p50} | ${s.frameTime.p95}${mark(s.frameTime.p95, b.frameP95)} | ${s.drawCalls.mean}${mark(s.drawCalls.mean, b.drawCalls)} | ${Math.round(s.triangles.mean / 1000)}k${mark(s.triangles.mean, b.triangles)} | ${s.geometries}${mark(s.geometries, b.geometries)} | ${s.textures}${mark(s.textures, b.textures)} | ${depth} |`);
   }
   if (r.changes?.length) lines.push('', `Tier changes during the run: ${r.changes.map((c) => `${c.from} → ${c.to} (${c.reason})`).join(', ')}`);
   if (r.problems?.length) lines.push('', `Console problems: ${r.problems.join(' | ')}`);

@@ -74,7 +74,7 @@ export default function CurvedRoad({ spec, showLabel = true }) {
         );
       })}
 
-      {showLabel && curve.name && <Label3D text={curve.name} position={[start.x, 0.6, start.z]} background="#0f172a" color="#e2e8f0" border="#475569" />}
+      {showLabel && curve.name && <Label3D text={curve.name} position={[start.x, 0.6, start.z]} background="#0f172a" color="#e2e8f0" border="#475569" lod="labels" />}
     </group>
   );
 }

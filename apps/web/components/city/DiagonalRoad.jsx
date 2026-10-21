@@ -60,7 +60,7 @@ export default function DiagonalRoad({ road, from, to, showLabel }) {
       {showLabel && (
         // the label stays upright whatever way the road is turned
         <group position={[0, 0, length / 2]} rotation={[0, -yaw, 0]}>
-          <Label3D text={name} position={[0, 0.6, 0]} background="#f43f5e" color="#0b1020" border={null} />
+          <Label3D text={name} position={[0, 0.6, 0]} background="#f43f5e" color="#0b1020" border={null} lod="labels" />
         </group>
       )}
     </group>

@@ -1,6 +1,6 @@
 # Performance and capability policy
 
-**Date:** 2026-10-19  
+**Date:** 2026-10-19 (level of detail: 2026-10-21)  
 **Status:** Implemented (Track C of the [adoption plan](external_voxel_repositories_adoption_plan.md), section 8; PR 5 of section 13). The budgets below are proposed; they become the pilot's agreed budgets once they are checked on a real phone and a mid-range laptop ("Measuring on a real device").  
 **Freeze status:** allowed. This is performance and accessibility work ([world_freeze.md](../roadmap/world_freeze.md)): nothing new is added to the city, and no new file is added in a frozen folder.
 
@@ -12,8 +12,9 @@ The city decides how much to draw in one place, from what the device can do and 
 | Quality policy | [`lib/performance/qualityPolicy.js`](../../lib/performance/qualityPolicy.js) | Pure. Profile in, tier out: `high`, `medium` or `low`, each with declarative settings. Steps the tier down and back up from the measured frame rate, with hysteresis. Also holds the budgets |
 | Visibility policy | [`lib/performance/visibilityPolicy.js`](../../lib/performance/visibilityPolicy.js) | Pure. Says when each class of frame loop runs: every frame, every Nth frame, or not at all |
 | Runtime | [`lib/performance/runtime.js`](../../lib/performance/runtime.js) | Wires the policies to the page. The `useQuality` store; `useGatedFrame` (a `useFrame` for one class of loop); the quality director; the gate that draws the world; and the fixed-spot measurement |
+| Level of detail | [`lib/performance/lodPolicy.js`](../../lib/performance/lodPolicy.js), [`lodRuntime.js`](../../lib/performance/lodRuntime.js), [`components/lod/BuildingStandIns.jsx`](../../apps/web/components/lod/BuildingStandIns.jsx) | Pure decision: tier, zoom and `?lod=` in, level out (`full`, `thin`, `far`), with hysteresis. The runtime keeps it current from the camera. Zoomed out, the buildings become batched stand-ins and the small props are hidden. On medium and low, the off-screen instances are not drawn (§10) |
 | Measurement spots | [`lib/performance/measureSpots.js`](../../lib/performance/measureSpots.js) | Pure. The fixed camera spots, from the city's layout |
-| Tests | [`tests/performance-policy.test.mjs`](../../tests/performance-policy.test.mjs), [`tests/browser-touch.test.mjs`](../../tests/browser-touch.test.mjs) | The rules in Node; touch, keyboard and the policy in a real browser |
+| Tests | [`tests/performance-policy.test.mjs`](../../tests/performance-policy.test.mjs), [`tests/lod-policy.test.mjs`](../../tests/lod-policy.test.mjs), [`tests/browser-touch.test.mjs`](../../tests/browser-touch.test.mjs), [`tests/browser.test.mjs`](../../tests/browser.test.mjs) (the level of detail) | The rules in Node; touch, keyboard and the policy in a real browser |
 | Measurement | [`scripts/perf-measure.mjs`](../../scripts/perf-measure.mjs) | Frame times, draw calls and triangles at fixed spots, for each tier, written as JSON and Markdown |
 
 What it never touches: selecting a plot, its card and call to action, attribution, and the no-WebGL page (section 8.4 of the plan). Those do not read the tier. The lowest tier still draws every plot, billboard, banner and label. It only animates decoration less often, draws at a lower pixel ratio, without shadows, and with fewer countryside trees.
@@ -157,7 +158,7 @@ Proposed, for every measurement spot. The ceiling is the 95th-percentile frame t
 | medium | a mid-range laptop; a recent phone | ≤ 25 ms (40 fps) | ≤ 900 | ≤ 1.5 M | ≤ 2,500 | ≤ 120 |
 | low | an older or low-memory phone | ≤ 33.3 ms (30 fps) | ≤ 600 | ≤ 1.0 M | ≤ 2,500 | ≤ 120 |
 
-The draw-call limits continue the browser test's limits: fewer than 1,200 on a desktop and fewer than 400 on a phone, both at the default view. The triangle limits on medium and low are targets, not today's figures. Today's frame times are within budget on the desktop below. The zoomed-out spots are over the draw-call budget on every tier. Low is over its triangle budget everywhere, because the triangles come from the building and prop models, which no tier reduces yet (§6, §10 item 2).
+The draw-call limits continue the browser test's limits: fewer than 1,200 on a desktop and fewer than 400 on a phone, both at the default view. The triangle limits on medium and low are targets, not today's figures. Today's frame times are within budget on the desktop below. The zoomed-out spots are over the draw-call budget on every tier. Low was over its triangle budget everywhere, because the triangles come from the building and prop models (§6). **Since the level of detail (§10), every tier is within its draw-call and triangle budgets at every spot** (§10.5).
 
 ## 6. Measured on this machine
 
@@ -281,10 +282,92 @@ The screenshots after loading were identical: the models that load asynchronousl
 
 **Finding:** on a static preview, demand rendering removes every idle frame at no visible cost. It is the right default for any bounded, static 3D view: the model preview, a future customization preview (plan 10.6) or a single building's preview. The preview opts in with `?frameloop=demand` and is otherwise unchanged; making demand its default is a one-line change once a designer has used it. It does not carry over to the city: there the frame loop is never idle, so the measured saving comes from pausing and throttling (§3.4).
 
-## 10. What's next
+## 10. Level of detail (zoomed out)
+
+Zoomed out, the city drew every building model, parked car, traffic-light lamp and pennant, though most of them were a pixel or two wide, and each small mesh cost a draw call. The level of detail (LOD) draws less of what cannot be seen. The tier and the camera drive it. It never touches selection, the card, the call to action, attribution or the no-WebGL page. The roof banners (logos and names) are drawn at every level.
+
+### 10.1 The levels
+
+| Level | What changes |
+| --- | --- |
+| `full` | Nothing: the city as before |
+| `thin` | The classes of small things the tier lists are hidden (10.2) |
+| `far` | Also, every building model is drawn as a **stand-in**: its model's bounding box. The walls take the mean colour of the model's walls and the top the mean colour of its roof, tinted like the model. The colours are area-weighted, sampled once from the model's texture or vertex colours, and averaged in linear light. All stand-ins are two instanced meshes (walls and roofs), so about 400 buildings cost two draw calls instead of 26 calls and about 520 k triangles. **The selected building stays a full model.** A stand-in is clicked and hovered exactly like its model |
+
+The classes of small things:
+
+| Class | What | Why |
+| --- | --- | --- |
+| `subpixel` | Traffic-light lamps (77 lights x 3), the bridges' end posts, the billboards' spotlights | Under a pixel or two below zoom 9; 275 draw calls |
+| `smallProps` | Parked cars in the car parks; pennants, roof lights and plaza fountains; the 34 bulbs of the ferris wheel and carousel | A few pixels each. The parked cars alone are about 430 k triangles |
+| `labels` | Street-name signs (roads, diagonals, curved streets) | Unreadable when zoomed out. Park, lake, airport, market and player labels stay |
+
+### 10.2 The rules (`LOD_RULES` in `lodPolicy.js`)
+
+The zoom is the map camera's zoom, in pixels per world unit. A follow camera gets the same figure from its distance, field of view and the viewport's height (`viewZoom`). At 900 px, the Overview preset (distance 160) is about 7.7 and the default Action view about 46. First person is always `full`.
+
+| Tier | `thin` below zoom | `far` below zoom | `thin` hides | `far` hides | Off-screen culling |
+| --- | --- | --- | --- | --- | --- |
+| high | 6.5 | never | `subpixel` | (no `far`) | no (an off-screen building can cast a shadow into view) |
+| medium | 9 | 7.5 | `subpixel`, `smallProps` | + `labels`, stand-ins | yes |
+| low | 11 | 9 | `subpixel`, `smallProps`, `labels` | + stand-ins | yes |
+
+- **High keeps today's look.** Only zoomed all the way out does it drop the sub-pixel lamps, posts and spotlights. Its models, shadows, cars and labels are unchanged.
+- **Hysteresis:** a level is entered below its zoom and left only above 1.15 times it (`LOD_EXIT_FACTOR`). The damping of a zoom gesture, or a camera resting at a boundary, switches once. Stand-ins and models are the same size and colour family, so the switch is a change of detail, not a jump; no fade is used.
+- **Off-screen culling** (medium and low, never while shadows are on): the building models and the instanced props (trees, shrubs, parked cars, lot trees) draw only the instances whose bounding sphere is inside the view, widened by 3 units. `useCulledInstances` does it, and `visibleInstances` is the pure test. The instances are reordered on the frames the view changes, and a click maps the drawn instance back to its plot. With no shadows, nothing on screen changes. At the default view it removes about 0.6 M triangles on medium and low.
+- **`?lod=off`** turns all of it off (the city as before). **`?lod=on`** applies the low rule on any tier, so a desktop shows the stand-ins too, for comparison; culling still needs the shadows off. **`?lod=auto`** is the default.
+
+### 10.3 Diagnostics
+
+- **The `?diag=1` badge:** its first line ends in `LOD <level>`. Opened, it shows the level and why (tier or override), the live zoom, the stand-ins and their draw calls, each hidden class with how many things it holds, and how many instances are off screen.
+- **`window.__vvLod`** is the store: `getState().level`, `hidden`, `cull` and `counts`. `setState({ override: 'off' })` switches the LOD off in the page.
+- **Measurement:** `window.__vvMeasure()` and `scripts/perf-measure.mjs` record the level, the stand-ins and the culled instances at each spot. `--query '&lod=off'` measures without the LOD. `perf-measure.mjs` now also waits until the building and prop models have finished loading; a slow load used to measure the box buildings.
+
+### 10.4 Tests
+
+- **`tests/lod-policy.test.mjs`:** the level per tier and zoom; the hysteresis (a camera wobbling round a threshold switches once); `?lod=`; the follow-camera zoom; the stand-in box matrix; the wall and roof colours; the culling test; and the wiring (stand-ins clickable, the selected building never a stand-in, each class used).
+- **`tests/browser.test.mjs`** (SwiftShader, so the low tier):
+  - zoomed out, the badge shows `far`, and every model is a stand-in, in exactly two instanced meshes;
+  - switching to `?lod=off` in the page draws far more draw calls (about 1,000 against 560);
+  - clicking a stand-in that a ray from the camera hits first selects its building, which is then drawn in full;
+  - back at zoom 13 the level is `full`.
+
+### 10.5 Measured
+
+Same machine and setup as §6: the GTX 1080 Ti, headless Edge, 1600x900, 60 Hz. Run on 2026-10-21 with `node scripts/perf-measure.mjs`, on `origin/main` (before) and on this change (after). Draw calls and triangles are per frame. Both runs waited for the models to finish loading.
+
+| Tier | Spot (zoom) | Draw calls before → after | Triangles before → after | LOD after |
+| --- | --- | --- | --- | --- |
+| high | center (13) | 921 → 920 | 2.84 M → 2.83 M | full |
+| | downtown (30) | 657 → 664 | 2.83 M → 2.81 M | full |
+| | **whole-city (5)** | **1,382 ⚠ → 1,087** | 2.90 M → 2.84 M | thin |
+| | airport (13) | 668 → 668 | 2.82 M → 2.82 M | full |
+| | **airport-far (6)** | **1,121 → 864** | 2.89 M → 2.83 M | thin |
+| medium | center (13) | 542 → 536 | 1.49 M → 0.79 M | full, culled |
+| | downtown (30) | 285 → 251 | 1.47 M → 0.50 M | full, culled |
+| | **whole-city (5)** | **1,003 ⚠ → 563** | **1.55 M ⚠ → 0.46 M** | far, 401 stand-ins |
+| | airport (13) | 289 → 270 | 1.47 M → 0.37 M | full, culled |
+| | **airport-far (6)** | **751 → 393** | **1.53 M ⚠ → 0.41 M** | far, 401 stand-ins |
+| low | center (13) | 542 → 535 | **1.42 M ⚠ → 0.79 M** | full, culled |
+| | downtown (30) | 287 → 248 | **1.40 M ⚠ → 0.50 M** | full, culled |
+| | **whole-city (5)** | **1,003 ⚠ → 563** | **1.47 M ⚠ → 0.42 M** | far, 401 stand-ins |
+| | airport (13) | 289 → 260 | **1.39 M ⚠ → 0.37 M** | full, culled |
+| | **airport-far (6)** | **742 ⚠ → 393** | **1.46 M ⚠ → 0.38 M** | far, 401 stand-ins |
+
+⚠ marks a figure that was over the tier's budget. **After the change, every tier is within its draw-call and triangle budgets at every spot**, the zoomed-out ones included: high 1,087 calls (budget 1,200); medium 563 (900); low 563 (600) and 0.42 M triangles (1.0 M). `auto` chose high and measured the same as `high`.
+
+How to read the frame times:
+
+- **At 60 Hz** every spot on every tier is 16.7 ms at the median, before and after. The p95 is 16.7 to 16.8 ms; the 16.8 is the display interval's rounding, before and after alike.
+- **Uncapped** (`--uncapped`), the frame times on this desktop GPU are dominated by run-to-run noise. Two uncapped runs of the same build differed by up to 2x at the median and 6x at p95. In the steadier runs, the whole-city median went from 10.4 to 7.4 to 8.1 ms on low, and from 25.5 to 20.1 ms on high; medium's stayed at 9.6 to 9.8 ms.
+- **This GPU is not limited by the triangles removed here.** The gain matters on phones and integrated GPUs, which is what the budgets are for (§7, task 25).
+
+**Screenshots** (in `artifacts/lod/`, not committed): `before/` and `after/<tier>-<spot>.png` for whole-city, airport-far and center on each tier. High looks as before, since the lamps were sub-pixel. Medium and low show the stand-ins zoomed out, with the banners, billboards and place names unchanged. At center, the culled views are identical to before.
+
+## 11. What's next
 
 1. **Real devices.** Run §7 on the pilot phones and a mid-range laptop. Record the numbers here, then confirm or adjust the budgets and the ceiling rules (adoption plan section 19, item 6; task 25).
-2. **The zoomed-out view.** Zoomed all the way out (zoom 5), the city is over budget on every tier. The triangles come mostly from the building and prop models, not from the trees. A distance level of detail for the models below zoom 9 on medium and low would bring it within budget. It changes only how the models are drawn, so it is performance work and not frozen. Also see the depth finding in §6.
+2. **The zoomed-out view.** Done: the level of detail (§10) brings every spot within budget on every tier. Still open: confirm the thresholds on a phone, where a stand-in city between zoom 7.5 and 9 on medium may look too plain or the switch may be noticed. If a box reads too plain, consider a pre-simplified mesh per model. Also see the depth finding in §6.
 3. **The map camera's near plane.** See §6. The isometric camera's depth range (`near = -100`, `far = 300` round a camera 52 units from its target) clips the ground nearest the viewer on a large screen zoomed out. Widening it costs no depth precision worth speaking of, because an orthographic depth buffer is linear. The near plane is the airport investigation's to change, so it is not changed here.
 4. **Reduced motion for the camera.** Camera glides (search results, the compass's turns) could jump instead of gliding when reduced motion is on.
 5. **Long press.** If a long press should open a plot's details (plan 8.1), add it with a test in `browser-touch.test.mjs`.
