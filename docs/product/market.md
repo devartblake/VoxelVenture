@@ -29,8 +29,19 @@ aisle width, share of booths, a shuffle seed, the four prices and a note, then *
 shows an automatic layout (the style turns with the week) that can be booked. Once a stall in a week is booked its arrangement is locked (the stall IDs would move); prices
 and the note can still change.
 
-In the game: Places > Reserved land > the market, or click the market site. With a game server, the **Set up weeks** tab asks for the admin token (`ADMIN_TOKEN`);
-without a server the browser is its own admin and keeps its own market (`lib/market/local.js`).
+In the game: Places > Reserved land > the market, or click the market site. With a game server, the **Set up weeks** tab is there only for a signed-in admin:
+when the market panel opens it asks the API once (`GET /admin/session`, with the admin's cookie), and a player never sees it. To edit the market:
+
+1. Sign in at `/admin/login` (the same admin account as the dashboard, [deploy/README.md](../../deploy/README.md#admin-sign-in)).
+2. On the admin Overview (`/admin`), **Edit the market** opens the game at `/?market=edit`: the camera goes to the market and its panel opens on **Set up weeks**.
+   Opened without a session, the same link shows **Sign in as an admin**, which goes to `/admin/login?next=/?market=edit` and back.
+3. Set the week up and **Save draft** or **Publish**.
+
+The editor's calls (`POST /admin/market/layout`, `GET /admin/market`) go with `credentials: 'include'` through `lib/data/admin.js`: the API's HttpOnly
+`__Host-vv_admin` cookie, JSON, from the site's origin (`API_ORIGIN`; the API refuses a change from another origin or not as JSON). Without a session
+they answer 403. Nothing about the admin is kept in the browser: no token is typed into the game any more, and nothing is in session or local storage.
+`ADMIN_TOKEN` still works on these routes for scripts (`Authorization: Bearer`).
+Without a server the browser is its own admin and keeps its own market (`lib/market/local.js`).
 
 ## Booking
 Pick a spot on the plan (or click a stall in 3D), choose 24, 48 or 72 hours and a start (every 12 hours, inside the week), name the stall and book. Sign-in is asked for only
@@ -41,7 +52,8 @@ booked once the payment is confirmed. Cancelling a paid booking before it opens 
 - `lib/market/layout.js`: the plan (`planMarket`), tiers, prices. `lib/market/weeks.js`: weeks and booking rules. `lib/market/local.js`: the same rules in the browser.
 - `services/api/market.mjs` and the `/market`, `/admin/market` routes in `services/api/server.mjs`; tables `market_layouts`, `market_bookings`, `market_visits` (`services/api/schema.sql`).
 - `lib/state/marketStore.js`, `apps/web/components/ui/panel/{SitesView,MarketPanel}.jsx`, `apps/web/components/city/MarketStalls.jsx`.
-- Tests: `tests/market-layout.test.mjs`, `tests/market-api.test.mjs`, and the market checks in `tests/browser.test.mjs`.
+- Tests: `tests/market-layout.test.mjs`, `tests/market-api.test.mjs` (the editor's calls with an admin session, refused without one), the market checks in
+  `tests/browser.test.mjs`, and in `tests/live-browser.test.mjs` the editor for a signed-in admin, "Sign in as an admin" without one, and nothing stored.
 
 ## What happens after someone books (the whole life of a stall)
 

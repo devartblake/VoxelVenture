@@ -51,6 +51,23 @@ try {
   check('a draft week cannot be booked', (await call('POST', '/market/book', { token: amy.token, body: order })).status === 409);
   check('publishing opens it', (await call('POST', '/admin/market/layout', { token: ADMIN, body: { ...set, publish: true } })).data.open === true);
 
+  // ---- the in-game editor's way (lib/state/marketStore.js): a signed-in admin's session cookie, JSON, from the site's origin; no token
+  const SITE = 'http://localhost:3000'; // in development (API_ORIGIN unset) a page on this machine may use a session
+  const raw = (method, p, { cookie, origin = SITE, body, type = 'application/json' } = {}) =>
+    fetch(base + p, { method, headers: { ...(type ? { 'Content-Type': type } : {}), ...(origin ? { Origin: origin } : {}), ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  await call('POST', '/admin/setup', { token: ADMIN, body: { username: 'marketboss', password: 'market editor password 1' } });
+  const login = await raw('POST', '/admin/session', { body: { username: 'marketboss', password: 'market editor password 1' } });
+  const cookie = String(login.headers.get('set-cookie') ?? '').split(';')[0];
+  check('an admin signs in for a session cookie', login.ok && cookie.startsWith('__Host-vv_admin='));
+  const later = { ...set, week: addWeeks(week, 2), note: 'Craft week' };
+  const viaSession = await raw('POST', '/admin/market/layout', { cookie, body: later });
+  check('the editor\'s layout call works with the admin session alone', viaSession.ok && (await viaSession.json()).note === 'Craft week');
+  check('and the CORS answer lets the site send the cookie', viaSession.headers.get('access-control-allow-origin') === SITE && viaSession.headers.get('access-control-allow-credentials') === 'true');
+  check('the admin week view works with the session too', (await raw('GET', `/admin/market?week=${later.week}`, { cookie })).ok);
+  check('without a session (or a token) the editor\'s calls are refused (403)', (await raw('POST', '/admin/market/layout', { body: later })).status === 403 && (await raw('GET', `/admin/market?week=${later.week}`)).status === 403);
+  check('a player\'s sign-in is not an admin\'s', (await call('POST', '/admin/market/layout', { token: (await call('POST', '/auth/signup', { body: { username: 'Pip', password: 'longenough1' } })).data.token, body: later })).status === 403);
+  check('with the session, a change from another origin or not as JSON is refused (CSRF)', (await raw('POST', '/admin/market/layout', { cookie, origin: 'https://evil.test', body: later })).status === 403 && (await raw('POST', '/admin/market/layout', { cookie, type: 'text/plain', body: later })).status === 403 && (await raw('POST', '/admin/market/layout', { cookie, origin: null, body: later })).status === 403);
+
   // ---- booking
   check('booking needs an account', (await call('POST', '/market/book', { body: order })).status === 401);
   check('a booking must be 24, 48 or 72 hours', (await call('POST', '/market/book', { token: amy.token, body: { ...order, hours: 36 } })).status === 409);
