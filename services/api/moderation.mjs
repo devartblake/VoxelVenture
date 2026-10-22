@@ -147,7 +147,11 @@ export function resolve(db, reportId, action) {
       else if (r.kind === 'feedback') db.prepare('UPDATE feedback SET hidden = 2 WHERE id = ?').run(Number(r.target_id));
       else if (r.kind === 'business') db.prepare("UPDATE businesses SET status = 'removed', updated_at = ? WHERE slug = ?").run(now(), r.target_id);
       else if (r.kind === 'plot') db.prepare("UPDATE plots SET description = NULL, logo = NULL, title = ?, website = 'https://example.com', brand = NULL, updated_at = ? WHERE id = ?").run(`Building #${r.target_id}`, now(), Number(r.target_id));
-      else db.prepare('UPDATE ad_slots SET ad = NULL, owner_account = NULL, updated_at = ? WHERE id = ?').run(now(), r.target_id);
+      else {
+        // a paid booking of the space ends too (core.mjs ad_terms): the ad does not come back when its terms are looked at again
+        db.prepare('UPDATE ad_slots SET ad = NULL, owner_account = NULL, paid_until = NULL, updated_at = ? WHERE id = ?').run(now(), r.target_id);
+        db.prepare("UPDATE ad_terms SET status = 'removed' WHERE slot_id = ? AND status IN ('active', 'paused')").run(r.target_id);
+      }
     }
     if (action === 'ban' && who) ban(db, who, `reported ${r.kind} ${r.target_id}`);
     else if (action === 'dismiss' && r.kind === 'feedback') db.prepare('UPDATE feedback SET hidden = 0 WHERE id = ? AND hidden = 2').run(Number(r.target_id));

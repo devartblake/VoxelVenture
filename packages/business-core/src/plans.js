@@ -7,9 +7,12 @@
 
 export const DAY_MS = 86400000;
 
-// An account with Pro on any of its business profiles pays this share less for a plot lease in the 3D city: a claim, a take-over and a renewal (not
-// outside upgrades, not the other products). lib/game/leases.js applies it; the server decides who has Pro (services/api/core.mjs hasPro).
-export const PRO_PLOT_DISCOUNT = 0.15;
+// An account with Pro on any of its business profiles pays this share less in the 3D city: for a plot lease (a claim, a take-over and a renewal; not
+// outside upgrades) and for an ad space (a billboard or an aerial banner, AD_SPACES below). Not for the other products. One value for both:
+// lib/game/leases.js applies it to leases (as PRO_PLOT_DISCOUNT, the same constant), adPriceOf to ad spaces; the server decides who has Pro
+// (services/api/core.mjs hasPro).
+export const PRO_DISCOUNT = 0.15;
+export const PRO_PLOT_DISCOUNT = PRO_DISCOUNT;
 
 // The cart (services/api/cart.mjs, docs/monetization/billing.md#the-cart): several purchases in one payment, so Stripe's 30¢ a payment is paid once.
 // At most `maxPlots` plot lines (a claim, take-over, renewal or outside upgrade; each plot once), Pro at most once, at most `maxLines` lines in all,
@@ -31,7 +34,7 @@ export const PRODUCTS = {
     mode: 'subscription',
     cents: 1900,
     interval: 'month',
-    pitch: `Where visitors came from, campaign results, the 30-day chart, CSV export of your figures, an offer at the top of your page and ${Math.round(PRO_PLOT_DISCOUNT * 100)}% off plot leases in the 3D city.`,
+    pitch: `Where visitors came from, campaign results, the 30-day chart, CSV export of your figures, an offer at the top of your page and ${Math.round(PRO_DISCOUNT * 100)}% off plot leases and ad spaces in the 3D city.`,
   },
   sponsored: {
     id: 'sponsored',
@@ -56,6 +59,21 @@ export function placementOf(key) {
   if (!p) return null;
   if (kind === 'discover') return target ? null : { key: 'discover', kind, target: null, ...p };
   return /^[a-z0-9-]{1,40}$/.test(target ?? '') ? { key: `${kind}:${target}`, kind, target, ...p } : null;
+}
+
+// Ad spaces in the 3D city (services/api/core.mjs ad slots, docs/monetization/billing.md#ad-spaces): the billboards beside the arterial avenues and the
+// banners the two planes tow over the city. With payments on, a space is booked for `days` at a time at this price (one advertiser has the whole
+// screen; others can book it once the time ends, the holder can add weeks), less PRO_DISCOUNT for an account with Pro. Without payments they stay the
+// game's free take-over (1.25 times the game value). Why these levels: docs/monetization/billing.md#ad-spaces.
+export const AD_SPACES = {
+  billboard: { label: 'Billboard', cents: 1200, days: 7 },
+  banner: { label: 'Aerial banner', cents: 2900, days: 7 },
+};
+// What booking an ad space of this kind ('billboard' | 'banner') costs, in cents, with or without Pro. null for anything else.
+export function adPriceOf(kind, { pro = false } = {}) {
+  const a = AD_SPACES[kind];
+  if (!a) return null;
+  return pro ? Math.round(a.cents * (1 - PRO_DISCOUNT)) : a.cents;
 }
 
 // The price of an order, from the catalogue only. null for anything not for sale.

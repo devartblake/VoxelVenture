@@ -1,5 +1,13 @@
 # Changelog: @voxelventure/business-core
 
+## 0.6.0 (2026-10-21)
+
+Ad spaces are paid, with the Pro discount ([billing.md](../../docs/monetization/billing.md#ad-spaces)):
+
+- `AD_SPACES`: a billboard $12 and an aerial banner $29, each for 7 days; `adPriceOf(kind, { pro })`.
+- `PRO_DISCOUNT` (0.15): the one Pro discount, on plot leases and ad spaces. `PRO_PLOT_DISCOUNT` is the same constant, kept for the lease code.
+- The promo group `ads` (the cart kind `ad`). Pro's pitch names ad spaces.
+
 ## 0.5.0 (2026-10-19)
 
 Promo codes (`src/promo.js`, [billing.md](../../docs/monetization/billing.md#promo-codes)), shared by the server and the pages:

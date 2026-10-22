@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   to_email TEXT NOT NULL,
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
-  kind TEXT NOT NULL,                            -- confirm | verify | takeover | ad_takeover | newsletter | admin_reset | admin_verify | admin_notice
+  kind TEXT NOT NULL,                            -- confirm | verify | takeover | ad_takeover | newsletter | admin_reset | admin_verify | admin_notice | admin_dispute
   status TEXT NOT NULL DEFAULT 'pending',        -- pending | sent | failed
   attempts INTEGER NOT NULL DEFAULT 0,
   error TEXT,
@@ -453,14 +453,14 @@ CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY,
   account_id INTEGER NOT NULL REFERENCES accounts(id),
   business_id INTEGER REFERENCES businesses(id),  -- launch, pro and sponsored: the profile they are for
-  product TEXT NOT NULL,                         -- launch | pro | sponsored | lease (claim, take over or renew a plot) | market (a stall) | cart (a cart's one payment: its lines are child orders, parent_id)
-  target TEXT,                                   -- lease: plot:<id>; market: booking:<id>
+  product TEXT NOT NULL,                         -- launch | pro | sponsored | lease (claim, take over or renew a plot) | market (a stall) | ad (an ad space) | cart (a cart's one payment: its lines are child orders, parent_id)
+  target TEXT,                                   -- lease: plot:<id>; market: booking:<id>; ad: ad:<slot id>
   request TEXT,                                  -- lease: JSON { action, input }: what is done once it is paid
   label TEXT,                                    -- what was bought, in words (the order lists)
   placement TEXT,                                -- sponsored: discover | category:<id> | district:<id>
   cents INTEGER NOT NULL,
   currency TEXT NOT NULL DEFAULT 'usd',
-  status TEXT NOT NULL DEFAULT 'pending',        -- pending | paid | expired | refunded | failed
+  status TEXT NOT NULL DEFAULT 'pending',        -- pending | paid | expired | refunded | failed | charged_back (a dispute lost)
   stripe_session TEXT UNIQUE,
   stripe_payment_intent TEXT,
   stripe_subscription TEXT,
@@ -532,6 +532,49 @@ CREATE TABLE IF NOT EXISTS promo_redemptions (
 );
 CREATE INDEX IF NOT EXISTS promo_redemptions_promo ON promo_redemptions(promo_id, status);
 CREATE INDEX IF NOT EXISTS promo_redemptions_account ON promo_redemptions(account_id, promo_id, status);
+-- Disputed payments (chargebacks, billing.mjs disputeOpened / disputeClosed, docs/monetization/billing.md#disputes-and-partial-refunds): one row per
+-- Stripe dispute. While it is open what the charge paid for is paused (`paused`: per line, what was done, so a won dispute restores exactly that);
+-- a lost one ends it for good.
+CREATE TABLE IF NOT EXISTS disputes (
+  id INTEGER PRIMARY KEY,
+  stripe_dispute TEXT NOT NULL UNIQUE,          -- dp_...
+  order_id INTEGER REFERENCES orders(id),        -- the order the disputed charge paid (a cart: its own order); NULL when no order was found
+  charge TEXT,
+  payment_intent TEXT,
+  cents INTEGER NOT NULL,                        -- the disputed amount
+  reason TEXT,                                   -- Stripe's reason (fraudulent, product_not_received, ...)
+  status TEXT NOT NULL DEFAULT 'open',           -- open | won | lost
+  stripe_status TEXT,                            -- Stripe's own status at the last event (needs_response, under_review, won, lost, warning_closed, ...)
+  paused TEXT NOT NULL DEFAULT '[]',             -- JSON [{ order, product, what }]
+  created_at INTEGER NOT NULL,
+  closed_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS disputes_status ON disputes(status, id);
+-- Every refund of an order, in full or in part, as it was allocated (billing.mjs): by an admin, by the server (a line that could not be done), or in the
+-- Stripe dashboard (charge.refunded). orders.refunded_cents is their sum.
+CREATE TABLE IF NOT EXISTS order_refunds (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  cents INTEGER NOT NULL,
+  full INTEGER NOT NULL DEFAULT 0,               -- 1: this refund completed the order's amount (what it bought was ended)
+  source TEXT NOT NULL,                          -- admin | system | stripe
+  note TEXT,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS order_refunds_order ON order_refunds(order_id, id);
+-- Paid ad spaces (core.mjs, billing.mjs; with payments on): each paid booking of a billboard or banner, for its days. The slot shows the newest active
+-- term's ad until the last one ends (ad_slots.paid_until). A disputed term is paused (hidden, the space still booked); a refunded one is revoked.
+CREATE TABLE IF NOT EXISTS ad_terms (
+  id INTEGER PRIMARY KEY,
+  slot_id TEXT NOT NULL REFERENCES ad_slots(id),
+  order_id INTEGER NOT NULL UNIQUE REFERENCES orders(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  ad TEXT NOT NULL,                              -- JSON { advertiser, headline, tagline, url, color }
+  starts_at INTEGER NOT NULL,
+  ends_at INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active'          -- active | paused | revoked | removed
+);
+CREATE INDEX IF NOT EXISTS ad_terms_slot ON ad_terms(slot_id, status, ends_at);
 -- Every Stripe event applied, by its id: a webhook delivered twice (Stripe retries) is applied once.
 CREATE TABLE IF NOT EXISTS stripe_events (
   id TEXT PRIMARY KEY,
@@ -547,7 +590,7 @@ CREATE TABLE IF NOT EXISTS entitlements (
   placement TEXT,
   starts_at INTEGER NOT NULL,
   ends_at INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active',         -- active | revoked
+  status TEXT NOT NULL DEFAULT 'active',         -- active | paused (its payment is disputed) | revoked
   UNIQUE (order_id)
 );
 CREATE INDEX IF NOT EXISTS entitlements_business ON entitlements(business_id, kind, ends_at);

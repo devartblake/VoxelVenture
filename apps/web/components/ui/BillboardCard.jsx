@@ -8,6 +8,10 @@ import { apiOn } from '@/lib/data/api';
 import ReportButton from './ReportButton';
 import { buyAdRemote, subscribeRemote } from '@/lib/data/sync';
 import { useAccount } from '@/lib/state/accountStore';
+import { useCart } from '@/lib/state/cartStore';
+import { usePromo } from '@/lib/state/promoStore';
+import { PRO_DISCOUNT } from '@voxelventure/business-core';
+import PromoField from './PromoField';
 import { BILLBOARD_QUEST_GOLD, BILLBOARD_QUEST_SECONDS, useCityStore } from '@/lib/state/store';
 
 // A short, stable offer code per campaign (there is no backend to issue real ones yet).
@@ -126,17 +130,33 @@ function LookQuest({ billboardId }) {
   );
 }
 
-// Take the slot over: pay 1.25x, the previous advertiser is cashed out at a 25% profit (hot potato).
+const usd = (cents) => `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
+const shortDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+// Take the slot over: pay 1.25x, the previous advertiser is cashed out at a 25% profit (hot potato). With a server that takes payments the space is
+// booked instead, for a week at a time at its price (services/api/billing.mjs payAd; Pro pays less), through Stripe; nobody else can book it while a
+// booking runs, and its holder can add weeks.
 function TakeOver({ billboard }) {
   const buy = useCityStore((s) => s.buyBillboard);
+  const account = useAccount((s) => s.account);
+  const payments = usePromo((s) => s.payments);
+  const busy = useCart((s) => s.busy);
   const [form, setForm] = useState({ advertiser: '', headline: '', tagline: '', url: '', color: '#6366f1' });
+  useEffect(() => {
+    if (apiOn() && account) usePromo.getState().loadConfig();
+  }, [account]);
   const price = Math.round(billboard.value * BILLBOARD_BUYOUT_MULTIPLIER);
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const sale = apiOn() && payments === true ? billboard.sale : null;
+  const mine = Boolean(account && billboard.ownerAccount === account.id);
+  const bookedByOther = sale?.bookedUntil && sale.bookedUntil > Date.now() && (!account || sale.bookedBy !== account.id);
+  const cents = sale ? (account?.pro ? sale.proCents : sale.cents) : null;
+  const adOf = () => ({ ...form, tagline: form.tagline || 'Now on the big screen.', url: form.url || 'https://example.com' });
 
   const submit = (e) => {
     e.preventDefault();
     if (!form.advertiser || !form.headline) return;
-    const ad = { ...form, tagline: form.tagline || 'Now on the big screen.', url: form.url || 'https://example.com' };
+    const ad = adOf();
     const done = () => setForm({ advertiser: '', headline: '', tagline: '', url: '', color: form.color });
     if (!apiOn()) {
       buy(billboard.id, ad);
@@ -146,11 +166,24 @@ function TakeOver({ billboard }) {
     const go = () => buyAdRemote(billboard.id, ad, price).then(done, () => {});
     if (useAccount.getState().ask(go)) go();
   };
+  const addToCart = async () => {
+    if (!form.advertiser || !form.headline) return;
+    try {
+      const added = await useCart.getState().add({ kind: 'ad', slotId: billboard.id, input: adOf() });
+      useCityStore.getState().notify(`Added to your cart: ${added?.label ?? 'done'}. Open the cart from the top bar.`);
+    } catch (err) {
+      useCityStore.getState().notify(err.message);
+    }
+  };
+
+  if (bookedByOther) {
+    return <p className="rounded-lg border border-sx-alt bg-sx-page/40 p-3 text-xs text-slate-300" data-testid="ad-booked">This space is booked until {shortDate(sale.bookedUntil)}. You can book it after that.</p>;
+  }
 
   return (
     <form onSubmit={submit} className="space-y-2">
       <span className="block text-[10px] uppercase text-slate-400">
-        {billboard.ad ? `Take over this slot (previous advertiser is paid out +25%)` : 'Book this empty slot'}
+        {sale ? (mine && sale.paidUntil ? `Your ad runs until ${shortDate(sale.paidUntil)}: add ${sale.days} more days` : `Book this space for ${sale.days} days`) : billboard.ad ? `Take over this slot (previous advertiser is paid out +25%)` : 'Book this empty slot'}
       </span>
       <input type="text" required placeholder="Brand name" value={form.advertiser} onChange={set('advertiser')} className={INPUT} />
       <input type="text" required placeholder="Headline" maxLength={28} value={form.headline} onChange={set('headline')} className={INPUT} />
@@ -160,9 +193,16 @@ function TakeOver({ billboard }) {
         <input type="color" value={form.color} onChange={set('color')} className="h-8 w-10 shrink-0 cursor-pointer rounded border border-sx-stroke bg-sx-alt" title="Brand colour" />
       </div>
       <Preview form={form} />
-      <button type="submit" className="w-full rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-green-500">
-        {billboard.ad ? 'Take over' : 'Book'} for ${price.toLocaleString()}
+      {sale && <PromoField scope={`ad:${billboard.id}`} kind="ad" cents={cents} />}
+      <button type="submit" className="w-full rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-green-500" data-testid="ad-buy">
+        {sale ? `Book for ${usd(cents)} (${sale.days} days)` : `${billboard.ad ? 'Take over' : 'Book'} for $${price.toLocaleString()}`}
       </button>
+      {sale && account && (
+        <button type="button" disabled={busy} onClick={addToCart} className="min-h-11 w-full rounded-lg border border-sx-stroke bg-sx-alt/80 px-3 text-xs font-medium text-slate-100 hover:bg-sx-stroke disabled:opacity-40" data-testid="ad-add-to-cart">
+          Add to cart
+        </button>
+      )}
+      {sale && <p className="text-[11px] text-slate-400">{account?.pro ? `Pro price: ${Math.round(PRO_DISCOUNT * 100)}% off ${usd(sale.cents)}.` : `Pro members pay ${usd(sale.proCents)} (${Math.round(PRO_DISCOUNT * 100)}% off).`} Paid through Stripe; the ad goes up once the payment is confirmed.</p>}
     </form>
   );
 }

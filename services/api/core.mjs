@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
-import { planOf } from '@voxelventure/business-core';
+import { AD_SPACES, adPriceOf, planOf } from '@voxelventure/business-core';
 
 // The rules of the world, with no HTTP in them: seeding the plots, accounts, claiming and taking over (atomic), events and statistics.
 // The game's own modules (generator, logo rules) are loaded from lib/, so the server and the game cannot disagree.
@@ -254,6 +254,11 @@ export function plotHeldByOther(db, plotId, accountId, at = now()) {
   return Boolean(db.prepare("SELECT 1 FROM orders WHERE target = ? AND status = 'pending' AND hold_until > ? AND account_id != ?").get(`plot:${Number(plotId)}`, at, accountId ?? 0));
 }
 const HELD = 'Someone is paying for this plot right now. Try again in half an hour, or pick another.';
+// A payment for the lease is disputed (billing.mjs disputeOpened): the building stays open to visitors, but its owner cannot change it, upgrade its
+// outside, redesign its inside or renew it until the dispute is settled.
+export const assertNotDisputed = (row) => {
+  if (row?.disputed) fail(409, 'A payment for this building is disputed with the bank. It stays open to visitors, but it cannot be changed, upgraded or renewed until the dispute is settled.', 'disputed');
+};
 
 // Claim an empty lot. Atomic: if two players race for it, exactly one wins and the other gets 409.
 // opts.pro (the cart, billing.mjs; never from a browser): price as Pro or not, in place of asking hasPro, for a cart that buys Pro in the same payment.
@@ -326,6 +331,7 @@ export function updateBusiness(db, account, id, input) {
   return transaction(db, () => {
     const p = getPlot(db, id);
     if (p.owner_account !== account.id) fail(403, 'This is not your business.', 'forbidden');
+    assertNotDisputed(p);
     const logo = input.logo === undefined ? p.logo : (cleanLogo(input.logo) ? JSON.stringify(cleanLogo(input.logo)) : fail(400, 'That logo is not valid.', 'bad_logo'));
     const description = input.description === undefined ? p.description : text(input.description, 160) || null;
     const video = input.videoUrl ? toEmbedUrl('video', input.videoUrl) : { ok: true };
@@ -361,6 +367,7 @@ export function upgradeExterior(db, account, id, input = {}) {
     const p = getPlot(db, id);
     if (p.owner_account !== account.id) fail(403, 'This is not your business.', 'forbidden');
     if (['grace', 'open'].includes(leaseState(p.lease_end, now(), p.lease_days))) fail(403, 'The lease on this building has ended. Renew it to change the outside again.', 'lease_ended');
+    assertNotDisputed(p);
     if (input.exterior == null) fail(400, 'Send the outside to build.', 'bad_exterior');
     const exterior = exteriorOf(input, p, p.building_type);
     const quote = outsideQuote(p, exterior);
@@ -476,18 +483,25 @@ export function seedAds(db, seed = 20260101) {
   return { seeded: true, slots: city.billboards.length };
 }
 
+// With payments on an ad space is booked for AD_SPACES[kind].days at a time (billing.mjs payAd; the terms are in ad_terms): `sale` says what a booking
+// costs (and with Pro), and until when the space is booked (`bookedUntil`: a paid booking running or paused by a dispute; nobody else can book it
+// meanwhile). `price` stays the game's take-over price, used without payments.
 export function slotView(db, row) {
   const ev = db.prepare('SELECT kind, COUNT(*) AS n FROM ad_events WHERE slot_id = ? AND verified = 1 GROUP BY kind').all(row.id);
   const n = (k) => ev.find((e) => e.kind === k)?.n ?? 0;
-  return { id: row.id, kind: row.kind, label: row.label, ...JSON.parse(row.facts), ad: row.ad ? JSON.parse(row.ad) : null, ownerAccount: row.owner_account, value: row.value, views: n('view'), clicks: n('click'), takeovers: row.takeovers, price: Math.round(row.value * 1.25), open: !row.ad };
+  const space = AD_SPACES[row.kind] ?? AD_SPACES.billboard;
+  const booked = bookedUntil(db, row.id);
+  const sale = { cents: adPriceOf(row.kind) ?? space.cents, proCents: adPriceOf(row.kind, { pro: true }) ?? space.cents, days: space.days, paidUntil: row.paid_until ?? null, bookedUntil: booked?.until ?? null, bookedBy: booked?.account ?? null };
+  return { id: row.id, kind: row.kind, label: row.label, ...JSON.parse(row.facts), ad: row.ad ? JSON.parse(row.ad) : null, ownerAccount: row.owner_account, value: row.value, views: n('view'), clicks: n('click'), takeovers: row.takeovers, price: Math.round(row.value * 1.25), open: !row.ad, sale };
 }
 export function adSlots(db) {
+  endAdTerms(db);
   return db.prepare('SELECT * FROM ad_slots ORDER BY kind, id').all().map((r) => slotView(db, r));
 }
 const getSlot = (db, id) => db.prepare('SELECT * FROM ad_slots WHERE id = ?').get(String(id)) ?? fail(404, 'No such ad space.', 'no_slot');
-export const getAdSlot = (db, id) => slotView(db, getSlot(db, id));
+export const getAdSlot = (db, id) => (endAdTerms(db), slotView(db, getSlot(db, id)));
 
-function cleanAd(input) {
+export function cleanAd(input = {}) {
   const advertiser = text(input.advertiser, 40);
   const headline = text(input.headline, 60);
   const tagline = text(input.tagline, 100);
@@ -498,13 +512,16 @@ function cleanAd(input) {
   return { advertiser, headline, tagline, url, color };
 }
 
-// Buy an ad space: an open one at its price, or take one over at 1.25x (the old advertiser is paid out and logged). Atomic.
+// Buy an ad space without payments (the game's version): an open one at its price, or take one over at 1.25x (the old advertiser is credited in game
+// value and logged). Atomic. A space with a paid booking still running (from when payments were on) is not for take-over.
 export function buySlot(db, account, id, input) {
   requireAccount(account);
   const ad = cleanAd(input);
   return transaction(db, () => {
     const s = getSlot(db, id);
     if (s.owner_account === account.id) fail(409, 'This ad space is already yours.', 'own_slot');
+    const booked = bookedUntil(db, s.id, account.id);
+    if (booked) fail(409, bookedMessage(booked.until), 'ad_taken');
     const price = Math.round(s.value * 1.25);
     if (input.expectedPrice != null && Number(input.expectedPrice) !== price) fail(409, 'The price changed: reload the ad space.', 'price_changed');
     const previous = s.ad ? JSON.parse(s.ad).advertiser : null;
@@ -514,6 +531,84 @@ export function buySlot(db, account, id, input) {
     db.prepare('DELETE FROM ad_events WHERE slot_id = ?').run(s.id);
     return { slot: slotView(db, getSlot(db, s.id)), paidOut: previous ? price : 0, previousAdvertiser: previous, previousAccount: s.owner_account };
   });
+}
+
+// ---- paid ad spaces (with payments on: billing.mjs payAd, the cart's 'ad' line) -----------------------------------------------------------------------
+// A space is booked by one account at a time: its paid terms (ad_terms) run back to back. While one runs, or is paused by a dispute, or another
+// account's checkout holds the space (a pending order on `ad:<id>`, for billing.HOLD_MS), nobody else can book it. Its holder can add more weeks
+// (they start when the last one ends, and the newest ad is shown). When the last term ends the space is empty again (endAdTerms).
+const adTarget = (id) => `ad:${id}`;
+function bookedUntil(db, slotId, exceptAccount = null, at = now()) {
+  const r = db.prepare("SELECT account_id, MAX(ends_at) AS until FROM ad_terms WHERE slot_id = ? AND status IN ('active', 'paused') AND ends_at > ? AND account_id != ? GROUP BY account_id ORDER BY until DESC LIMIT 1").get(String(slotId), at, exceptAccount ?? 0);
+  return r ? { account: r.account_id, until: r.until } : null;
+}
+const bookedMessage = (until) => `This ad space is booked until ${new Date(until).toUTCString().slice(0, 22)} UTC. Try another, or come back then.`;
+export const adHeldByOther = (db, slotId, accountId, at = now()) => Boolean(db.prepare("SELECT 1 FROM orders WHERE target = ? AND status = 'pending' AND hold_until > ? AND account_id != ?").get(adTarget(slotId), at, accountId ?? 0));
+
+// What booking the space costs this account now, and everything a booking checks (409 ad_taken / held). `pro`: the Pro price (PRO_DISCOUNT off).
+export function adQuote(db, account, slotId, { pro = false } = {}) {
+  requireAccount(account);
+  const s = getSlot(db, slotId);
+  const booked = bookedUntil(db, s.id, account.id);
+  if (booked) fail(409, bookedMessage(booked.until), 'ad_taken');
+  if (adHeldByOther(db, s.id, account.id)) fail(409, 'Someone is paying for this ad space right now. Try again in half an hour, or pick another.', 'held');
+  const space = AD_SPACES[s.kind] ?? fail(400, 'This ad space is not for sale.', 'bad_slot');
+  const full = adPriceOf(s.kind);
+  const cents = adPriceOf(s.kind, { pro });
+  return { slotId: s.id, cents, fullCents: full, discountCents: full - cents, days: space.days, label: `Ad space: ${s.label} (${space.days} days)` };
+}
+
+// A paid booking is carried out (billing.mjs fulfil): its term starts now, or when the account's own booking of the space ends; the space shows its ad.
+// { refund: true } if another account booked the space meanwhile (the hold ran out during the payment).
+export function startAdTerm(db, order, req) {
+  const s = getSlot(db, req.slotId);
+  if (bookedUntil(db, s.id, order.account_id)) return { refund: true };
+  const own = db.prepare("SELECT MAX(ends_at) AS e FROM ad_terms WHERE slot_id = ? AND account_id = ? AND status IN ('active', 'paused') AND ends_at > ?").get(s.id, order.account_id, now()).e;
+  const start = Math.max(now(), own ?? 0);
+  const days = req.days ?? AD_SPACES[s.kind]?.days ?? 7;
+  const ad = cleanAd(req.ad);
+  db.prepare("INSERT INTO ad_terms (slot_id, order_id, account_id, ad, starts_at, ends_at, status) VALUES (?,?,?,?,?,?,'active')").run(s.id, order.id, order.account_id, JSON.stringify(ad), start, start + days * DAY);
+  const previous = s.ad ? JSON.parse(s.ad).advertiser : null;
+  const mine = s.owner_account === order.account_id;
+  db.prepare('INSERT INTO ad_ledger (slot_id, account_id, advertiser, headline, price, paid_to, at) VALUES (?,?,?,?,?,?,?)').run(s.id, order.account_id, ad.advertiser, ad.headline, (order.cents + (order.promo_cents ?? 0)) / 100, mine ? null : previous, now());
+  if (!mine) {
+    // a new advertiser starts from zero: the old advertiser's views are not theirs
+    db.prepare('DELETE FROM ad_events WHERE slot_id = ?').run(s.id);
+    if (previous) db.prepare('UPDATE ad_slots SET takeovers = takeovers + 1 WHERE id = ?').run(s.id);
+  }
+  syncSlot(db, s.id);
+  return { slot: slotView(db, getSlot(db, s.id)), until: start + days * DAY };
+}
+
+// A paid booking paused (its payment disputed), restored ('active': the dispute won), or ended ('revoked': refunded, or the dispute lost). A booking
+// ended early gives its unused days back: the holder's later bookings of the same space move forward.
+export function setAdTerm(db, orderId, status) {
+  const t = db.prepare('SELECT * FROM ad_terms WHERE order_id = ?').get(Number(orderId));
+  if (!t || t.status === status || ['revoked', 'removed'].includes(t.status)) return t ? t.status : null;
+  db.prepare('UPDATE ad_terms SET status = ? WHERE id = ?').run(status, t.id);
+  if (status === 'revoked' && t.ends_at > now()) {
+    const unused = t.ends_at - Math.max(now(), t.starts_at);
+    db.prepare("UPDATE ad_terms SET starts_at = MAX(?, starts_at - ?), ends_at = ends_at - ? WHERE slot_id = ? AND account_id = ? AND starts_at >= ? AND status IN ('active', 'paused') AND id != ?").run(now(), unused, unused, t.slot_id, t.account_id, t.ends_at, t.id);
+  }
+  syncSlot(db, t.slot_id);
+  return status;
+}
+
+// What the space shows, from its paid terms: the newest active term's ad until the last one ends. Without any (all ended, paused or revoked) a space
+// that showed a paid ad is empty. A space that never had a paid ad is left as it is (the game's free ads, without payments).
+export function syncSlot(db, slotId, at = now()) {
+  const s = getSlot(db, slotId);
+  const live = db.prepare("SELECT * FROM ad_terms WHERE slot_id = ? AND status = 'active' AND ends_at > ? ORDER BY id DESC").all(s.id, at);
+  if (live.length) {
+    const until = Math.max(...live.map((t) => t.ends_at));
+    db.prepare('UPDATE ad_slots SET ad = ?, owner_account = ?, paid_until = ?, updated_at = ? WHERE id = ?').run(live[0].ad, live[0].account_id, until, at, s.id);
+  } else if (s.paid_until != null || db.prepare("SELECT 1 FROM ad_terms WHERE slot_id = ? AND status = 'paused' AND ends_at > ?").get(s.id, at)) {
+    db.prepare('UPDATE ad_slots SET ad = NULL, owner_account = NULL, paid_until = NULL, updated_at = ? WHERE id = ?').run(at, s.id);
+  }
+}
+// Paid ads whose time is up leave their space (looked at whenever the spaces are read).
+export function endAdTerms(db, at = now()) {
+  for (const s of db.prepare('SELECT id FROM ad_slots WHERE paid_until IS NOT NULL AND paid_until <= ?').all(at)) syncSlot(db, s.id, at);
 }
 export function slotHistory(db, id) {
   getSlot(db, id);

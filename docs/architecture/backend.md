@@ -25,7 +25,7 @@ The database is Node's built-in `node:sqlite`. On Node 24 (the development machi
 - Limits: 150 KB bodies, 240 requests a minute per address, 20 auth calls a minute.
 
 ## Ad slots (billboards and aerial banners)
-Tables `ad_slots`, `ad_ledger`, `ad_events`, seeded from the game's billboards and banners (6 slots in the default city: four billboards and two banners). `GET /ads`, `GET /ads/{id}`, `GET /ads/{id}/history`, `POST /ads/{id}/buy` (an open slot at its price, or a take-over at 1.25x: atomic, validated, refuses a stale `expectedPrice`, pays out and logs the old advertiser, and the new advertiser's numbers start from zero) and `POST /ad-events { slotId, kind: view|click }`. Tested, including ten players racing for one slot.
+Tables `ad_slots`, `ad_ledger`, `ad_events`, seeded from the game's billboards and banners (6 slots in the default city: four billboards and two banners). `GET /ads`, `GET /ads/{id}`, `GET /ads/{id}/history`, `POST /ads/{id}/buy` (an open slot at its price, or a take-over at 1.25x: atomic, validated, refuses a stale `expectedPrice`, pays out and logs the old advertiser, and the new advertiser's numbers start from zero) and `POST /ad-events { slotId, kind: view|click }`. Tested, including ten players racing for one slot. **With payments on**, `POST /ads/{id}/buy` books the space for 7 days through Stripe instead ($12 a billboard, $29 a banner, 15% off with Pro; table `ad_terms`, each slot's `sale`): see [billing.md](../monetization/billing.md#ad-spaces).
 
 ## How the game uses it (task 5)
 Set `NEXT_PUBLIC_LIVE_API_URL=http://localhost:3002` and build. Then:

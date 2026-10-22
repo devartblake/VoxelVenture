@@ -61,6 +61,10 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'admin_accounts', 'email', 'TEXT'); // an admin's address for password resets (services/api/admin.mjs)
   addColumn(db, 'admin_accounts', 'email_verified_at', 'INTEGER'); // when its one-use link was opened; NULL: not confirmed
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS admin_accounts_email ON admin_accounts(email) WHERE email IS NOT NULL');
+  addColumn(db, 'orders', 'refunded_cents', 'INTEGER NOT NULL DEFAULT 0'); // what has been refunded of this order, in full or in part (order_refunds; billing.mjs)
+  addColumn(db, 'orders', 'dispute_id', 'INTEGER REFERENCES disputes(id)'); // the latest dispute of the payment this order was paid with
+  addColumn(db, 'plots', 'disputed', 'INTEGER NOT NULL DEFAULT 0'); // 1: a payment for this lease is disputed: the building stays, its owner cannot change, upgrade or renew it
+  addColumn(db, 'ad_slots', 'paid_until', 'INTEGER'); // with payments on: the end of the paid booking shown now (ad_terms); NULL: not a paid ad
   return db;
 }
 

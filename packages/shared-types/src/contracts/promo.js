@@ -8,7 +8,7 @@ const id = { type: 'integer', minimum: 1 };
 const when = { type: ['integer', 'null'], minimum: 0 };
 const codeText = { type: 'string', minLength: 1, maxLength: 64 };
 // The product groups a code can cover (@voxelventure/business-core PROMO_GROUPS), and 'all'.
-export const PROMO_GROUP_IDS = ['plots', 'outside', 'launch', 'pro', 'sponsored', 'market'];
+export const PROMO_GROUP_IDS = ['plots', 'outside', 'launch', 'pro', 'sponsored', 'market', 'ads']; // 'ads' (ad spaces) since 0.16.0: the contracts that list the groups or the kinds are v2
 export const PROMO_KINDS = ['percent', 'amount'];
 export const PROMO_STATUSES = ['active', 'inactive', 'expired', 'scheduled', 'used_up'];
 export const PROMO_USE_STATUSES = ['reserved', 'redeemed', 'released', 'voided'];
@@ -20,7 +20,7 @@ const appliesTo = { type: 'array', minItems: 1, items: { enum: ['all', ...PROMO_
 // shows, only to check the minimum.
 export const PROMO_CHECK = {
   id: 'promo.check',
-  version: 1,
+  version: 2,
   schema: { type: 'object', required: ['code'], additionalProperties: false, properties: { code: codeText, kind: { enum: CART_KINDS }, cents: id } },
 };
 
@@ -40,7 +40,7 @@ const publicView = {
     expiresAt: when,
   },
 };
-export const PROMO_CHECK_RESULT = { id: 'promo.check.result', version: 1, schema: publicView };
+export const PROMO_CHECK_RESULT = { id: 'promo.check.result', version: 2, schema: publicView };
 
 // POST /cart/promo: a code for the cart (the answer is the cart, cart.view). Also `promoCode` on a single checkout's body.
 export const PROMO_APPLY = { id: 'promo.apply', version: 1, schema: { type: 'object', required: ['code'], additionalProperties: false, properties: { code: codeText } } };
@@ -56,7 +56,7 @@ export const PROMO_REFUSED = {
 // account, no total limit, no end.
 export const PROMO_CREATE = {
   id: 'promo.create',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     required: ['value'],
@@ -121,13 +121,13 @@ const adminView = {
     usage: { type: 'object', required: ['redeemed', 'reserved', 'voided', 'discountedCents', 'revenueCents'], additionalProperties: false, properties: { redeemed: cents, reserved: cents, voided: cents, discountedCents: cents, revenueCents: cents } },
   },
 };
-export const PROMO_VIEW = { id: 'promo.view', version: 1, schema: adminView };
+export const PROMO_VIEW = { id: 'promo.view', version: 2, schema: adminView };
 // GET /admin/promos and the answer to POST /admin/promos (`promos`); PATCH answers { promo }.
-export const PROMO_LIST = { id: 'promo.list', version: 1, schema: { type: 'object', required: ['promos'], additionalProperties: false, properties: { promos: { type: 'array', items: adminView } } } };
+export const PROMO_LIST = { id: 'promo.list', version: 2, schema: { type: 'object', required: ['promos'], additionalProperties: false, properties: { promos: { type: 'array', items: adminView } } } };
 // GET /admin/promos/:id: the code and every use of it.
 export const PROMO_DETAIL = {
   id: 'promo.detail',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     required: ['promo', 'redemptions'],

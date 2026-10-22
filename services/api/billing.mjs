@@ -9,8 +9,10 @@ import * as promo from './promo.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 
 // Payments through Stripe Checkout (phase 4, docs/monetization/billing.md): the Launch Pack (once), Pro (monthly) and sponsored placements (a week),
-// each for one business profile; and, in the game, leases (claiming, taking over or renewing a plot) and market stalls. A lease or a stall
-// is held for the player while they pay and only happens once the payment is confirmed (step 2): what an order does is in fulfil().
+// each for one business profile; and, in the game, leases (claiming, taking over or renewing a plot), market stalls and ad spaces (a billboard or
+// banner for its days, payAd). A lease, a stall or an ad space is held for the player while they pay and only happens once the payment is confirmed
+// (step 2): what an order does is in fulfil(). A disputed payment pauses what it bought until the dispute closes, and a part refund made in the
+// Stripe dashboard is allocated to what the payment bought (refundedInStripe, disputeOpened, disputeClosed below).
 // The cart (cart.mjs) pays for several of these at once: one parent order (product 'cart', the Stripe session) and a child order per line
 // (orders.parent_id), each the order a single purchase makes; markCartPaid carries them out line by line and a line that cannot be done is refunded alone.
 //
@@ -79,9 +81,10 @@ const ownBusiness = (db, account, slug) => {
 const entitlementsOf = (db, businessId) => db.prepare('SELECT * FROM entitlements WHERE business_id = ?').all(businessId);
 export const planFor = (db, businessId, at = now()) => planOf(entitlementsOf(db, businessId), at);
 
-// How many of a placement's slots are taken now: paid weeks still running, and checkouts in progress still holding a spot.
+// How many of a placement's slots are taken now: paid weeks still running (or paused by a dispute, which may come back), and checkouts in progress
+// still holding a spot.
 export function taken(db, key, at = now()) {
-  const paid = db.prepare("SELECT COUNT(*) AS n FROM entitlements WHERE placement = ? AND status = 'active' AND ends_at > ?").get(key, at).n;
+  const paid = db.prepare("SELECT COUNT(*) AS n FROM entitlements WHERE placement = ? AND status IN ('active', 'paused') AND ends_at > ?").get(key, at).n;
   const held = db.prepare("SELECT COUNT(*) AS n FROM orders WHERE placement = ? AND status = 'pending' AND hold_until > ?").get(key, at).n;
   return paid + held;
 }
@@ -269,12 +272,41 @@ export async function payStall(db, seed, account, body = {}, env = process.env, 
   return { checkout: { orderId: order.id, url, cents: order.cents, ...shownPromo(order) }, booking: booked.booking, stall: booked.stall };
 }
 
+// Book an ad space in the 3D city (a billboard or an aerial banner), paid for: AD_SPACES in @voxelventure/business-core, for its days, less the Pro
+// discount for an account with Pro. The space is held for the player while they pay (the pending order on `ad:<slot>`); the ad goes up when the
+// payment arrives (fulfil). Everything a booking checks is checked first (core.adQuote: the space is not booked or held by someone else, the ad is valid).
+export async function payAd(db, account, slotId, body = {}, env = process.env, fetchImpl = fetch, opts = {}) {
+  requireAccount(account);
+  if (!billingOn(env)) fail(503, 'Payments are not set up yet.', 'billing_off');
+  const { promoCode, ...input } = body ?? {};
+  const ad = core.cleanAd(input); // (an expectedPrice the game sends is the free game's: with payments the server's price is the one charged)
+  const closing = [];
+  const order = transaction(db, () => {
+    const pro = core.hasPro(db, account.id);
+    const q = core.adQuote(db, account, slotId, { pro });
+    const code = applyPromo(db, account, promoCode, [{ group: promoGroupOf('ad'), cents: q.cents }], { ip: opts.ip, env }, closing);
+    return insertOrder(db, account, code, { product: 'ad', target: `ad:${q.slotId}`, request: JSON.stringify({ slotId: q.slotId, ad, days: q.days, pro }), label: q.label, cents: q.cents, hold_until: now() + HOLD_MS });
+  });
+  closeSessions(env, closing, fetchImpl);
+  if (order.cents === 0) return { checkout: { orderId: order.id, ...(await comp(db, account, order, '/', env, fetchImpl, opts.after)) } };
+  const url = await openSession(db, account, order, { name: order.label, back: '/', metadata: { ad: JSON.parse(order.request).slotId } }, env, fetchImpl);
+  audit(db, byAccount(account), 'billing.checkout', { kind: 'order', id: order.id }, { product: 'ad', slot: JSON.parse(order.request).slotId, cents: order.cents, ...promoDetail(order) });
+  return { checkout: { orderId: order.id, url, cents: order.cents, ...shownPromo(order) } };
+}
+
 // The paid order is carried out. { fulfilled } tells the server what changed (to tell the other players); { refund } when it can no longer
-// be done (somebody else claimed the plot or booked the stall after the hold ran out): the payment goes back.
+// be done (somebody else claimed the plot, booked the stall or the ad space after the hold ran out): the payment goes back.
 const targetId = (order) => Number(String(order.target ?? '').split(':')[1]);
 function fulfil(db, order) {
   const req = JSON.parse(order.request || '{}');
   if (req.done) return null;
+  if (order.product === 'ad') {
+    const r = core.startAdTerm(db, order, req);
+    if (r.refund) return (db.prepare("UPDATE orders SET note = 'the ad space was booked by someone else before the payment completed: refunded' WHERE id = ?").run(order.id), { refund: order.id });
+    db.prepare('UPDATE orders SET request = ? WHERE id = ?').run(JSON.stringify({ ...req, done: true }), order.id);
+    audit(db, SYSTEM, 'ad.buy', { kind: 'ad', id: req.slotId }, { advertiser: r.slot.ad?.advertiser ?? null, order: order.id, until: r.until });
+    return { fulfilled: { kind: 'ad', slotId: req.slotId } };
+  }
   if (order.product === 'market') {
     const r = market.confirmBooking(db, targetId(order));
     if (r.refund) return (db.prepare("UPDATE orders SET note = 'the stall was booked by someone else before the payment completed: refunded' WHERE id = ?").run(order.id), { refund: order.id });
@@ -387,17 +419,17 @@ function apply(db, event) {
       if (order) audit(db, SYSTEM, 'billing.pro_ended', { kind: 'order', id: order.id }, { subscription: o.id });
       return null;
     }
-    case 'charge.refunded': {
-      // a cart's lines share its payment: a full refund takes back every line (a partial one in the dashboard cannot say which line: refund
-      // a line with POST /admin/billing/orders/<line>/refund instead)
-      const order = o.payment_intent ? db.prepare('SELECT * FROM orders WHERE stripe_payment_intent = ? ORDER BY parent_id IS NOT NULL, id LIMIT 1').get(String(o.payment_intent)) : null;
-      const whole = order?.parent_id ? orderById(db, order.parent_id) : order;
-      if (whole && o.amount_refunded >= o.amount) {
-        for (const child of childrenOf(db, whole)) revoke(db, child, SYSTEM, 'refunded in Stripe');
-        revoke(db, whole, SYSTEM, 'refunded in Stripe');
-      }
+    case 'charge.refunded':
+      return refundedInStripe(db, o); // a refund made in the Stripe dashboard (or ours, already recorded), in full or in part
+    case 'charge.dispute.created':
+      return disputeOpened(db, o);
+    case 'charge.dispute.updated': {
+      const d = db.prepare('SELECT * FROM disputes WHERE stripe_dispute = ?').get(String(o.id ?? ''));
+      if (d) db.prepare('UPDATE disputes SET stripe_status = ? WHERE id = ?').run(String(o.status ?? d.stripe_status), d.id);
       return null;
     }
+    case 'charge.dispute.closed':
+      return disputeClosed(db, o);
     default:
       return null; // other events are recorded (so a retry is a no-op) and otherwise ignored
   }
@@ -415,7 +447,7 @@ function markPaid(db, order, { paymentIntent = null, subscription = null, period
   } else if (paymentIntent || subscription) {
     db.prepare('UPDATE orders SET stripe_payment_intent = COALESCE(stripe_payment_intent, ?), stripe_subscription = COALESCE(stripe_subscription, ?) WHERE id = ?').run(paymentIntent, subscription, order.id);
   }
-  if (order.product === 'lease' || order.product === 'market') return fulfil(db, orderById(db, order.id));
+  if (order.product === 'lease' || order.product === 'market' || order.product === 'ad') return fulfil(db, orderById(db, order.id));
   const existing = db.prepare('SELECT * FROM entitlements WHERE order_id = ?').get(order.id);
   if (order.product === 'pro') {
     const end = periodEnd ?? at + 31 * DAY_MS; // the first invoice sets the exact end; a month until then
@@ -470,23 +502,215 @@ function markCartPaid(db, order, { paymentIntent, subscription, periodEnd }) {
   return out;
 }
 
-function revoke(db, order, actor, why) {
-  if (order.status === 'refunded') return;
-  db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, ?) WHERE id = ?").run(now(), why, order.id);
+// What a paid order bought is taken back: it was refunded in full (status 'refunded'), or a dispute of its payment was lost (status 'charged_back':
+// the bank took the money back). `source`: who refunded (admin, system, or stripe: the dashboard), for the order's refund record.
+const sourceOf = (actor) => (actor?.kind === 'system' ? 'system' : 'admin');
+const usd = (cents) => `$${(cents / 100).toFixed(2)}`;
+// what a code is counted as having taken off an order, for the part of it `refunded` leaves paid
+const promoShare = (order, refunded) => (order.cents > 0 ? Math.round(((order.promo_cents ?? 0) * Math.min(refunded, order.cents)) / order.cents) : 0);
+const settled = (o) => o.status === 'refunded' || o.status === 'charged_back';
+const refundedOf = (o) => (o.status === 'refunded' ? o.cents : (o.refunded_cents ?? 0)); // an order refunded before partial refunds were recorded counts in full
+function revoke(db, order, actor, why, { status = 'refunded', source = sourceOf(actor) } = {}) {
+  if (settled(order)) return;
+  const refund = status === 'refunded';
+  const before = order.refunded_cents ?? 0;
+  db.prepare('UPDATE orders SET status = ?, refunded_at = ?, refunded_cents = ?, note = COALESCE(note, ?) WHERE id = ?').run(status, now(), refund ? order.cents : before, why, order.id);
+  if (refund && order.product !== 'cart' && order.cents > before) db.prepare('INSERT INTO order_refunds (order_id, cents, full, source, note, at) VALUES (?,?,1,?,?,?)').run(order.id, order.cents - before, source, why, now());
   db.prepare("UPDATE entitlements SET status = 'revoked', ends_at = MIN(ends_at, ?) WHERE order_id = ?").run(now(), order.id);
   if (order.product === 'market') market.releaseBooking(db, targetId(order));
-  if (order.product === 'lease') endPaidLease(db, order);
-  audit(db, actor, 'billing.refunded', { kind: 'order', id: order.id }, { cents: order.cents, why, ...(order.parent_id ? { cart: order.parent_id } : {}), ...promoDetail(order) });
-  // a promo code: a whole order refunded frees its use; a cart's line refunded takes that line's share off what the code is counted as having given
+  if (order.product === 'lease') {
+    endPaidLease(db, order);
+    db.prepare('UPDATE plots SET disputed = 0 WHERE id = ?').run(targetId(order)); // nothing left to keep frozen
+  }
+  if (order.product === 'ad') core.setAdTerm(db, order.id, 'revoked');
+  audit(db, actor, refund ? 'billing.refunded' : 'billing.charged_back', { kind: 'order', id: order.id }, { cents: order.cents, ...(before ? { refundedBefore: before } : {}), why, ...(order.parent_id ? { cart: order.parent_id } : {}), ...promoDetail(order) });
+  // a promo code: a whole order refunded frees its use; a cart's line refunded takes that line's share (what is left of it) off what the code gave
   if (order.parent_id) {
-    if (order.promo_cents) promo.reduceUse(db, order.parent_id, order.promo_cents);
+    const off = (order.promo_cents ?? 0) - promoShare(order, before);
+    if (off > 0) promo.reduceUse(db, order.parent_id, off);
   } else promo.voidUse(db, order.id);
-  // the last line of a cart refunded: the cart's own order is refunded too
   const parent = order.parent_id ? orderById(db, order.parent_id) : null;
-  if (parent && parent.status === 'paid' && !childrenOf(db, parent).some((c) => c.status === 'paid')) {
-    db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, 'every line refunded') WHERE id = ?").run(now(), parent.id);
+  if (!parent) return;
+  syncCartRefunded(db, parent.id);
+  // the last line of a cart refunded (or charged back): the cart's own order is too
+  const lines = childrenOf(db, parent);
+  if (parent.status === 'paid' && !lines.some((c) => c.status === 'paid')) {
+    const all = lines.every((c) => c.status === 'charged_back') ? 'charged_back' : 'refunded';
+    db.prepare('UPDATE orders SET status = ?, refunded_at = ?, note = COALESCE(note, ?) WHERE id = ?').run(all, now(), all === 'refunded' ? 'every line refunded' : 'every line charged back', parent.id);
     promo.voidUse(db, parent.id);
   }
+}
+// A cart's own order counts what its lines have had refunded.
+const syncCartRefunded = (db, parentId) => db.prepare('UPDATE orders SET refunded_cents = (SELECT COALESCE(SUM(CASE WHEN status = \'refunded\' THEN cents ELSE refunded_cents END), 0) FROM orders WHERE parent_id = ?) WHERE id = ?').run(parentId, parentId);
+
+// Part of a paid order refunded (in the Stripe dashboard): recorded, its share of a promo code taken off what the code is counted as giving, and what it
+// bought goes on (only what is refunded in full is ended).
+function refundPart(db, order, cents, why) {
+  const before = order.refunded_cents ?? 0;
+  const after = before + cents;
+  db.prepare('UPDATE orders SET refunded_cents = ?, note = ? WHERE id = ?').run(after, `${why}: ${usd(after)} of ${usd(order.cents)} refunded, the rest stays paid`, order.id);
+  db.prepare('INSERT INTO order_refunds (order_id, cents, full, source, note, at) VALUES (?,?,0,?,?,?)').run(order.id, cents, 'stripe', why, now());
+  const off = promoShare(order, after) - promoShare(order, before);
+  if (off > 0) promo.reduceUse(db, order.parent_id ?? order.id, off);
+  audit(db, SYSTEM, 'billing.partly_refunded', { kind: 'order', id: order.id }, { cents, refundedCents: after, of: order.cents, why, ...(order.parent_id ? { cart: order.parent_id } : {}) });
+  if (order.parent_id) syncCartRefunded(db, order.parent_id);
+}
+
+// The order a Stripe payment paid: a single purchase, or a cart's own order (its lines are its child orders).
+function orderOfPayment(db, paymentIntent) {
+  const pi = typeof paymentIntent === 'object' ? paymentIntent?.id : paymentIntent;
+  const o = pi ? db.prepare('SELECT * FROM orders WHERE stripe_payment_intent = ? ORDER BY parent_id IS NOT NULL, id LIMIT 1').get(String(pi)) : null;
+  return o?.parent_id ? orderById(db, o.parent_id) : (o ?? null);
+}
+const linesOf = (db, whole) => (whole.product === 'cart' ? childrenOf(db, whole) : [whole]);
+const subscriptionOf = (whole, line) => line.stripe_subscription ?? whole.stripe_subscription ?? null;
+const cancelSub = (sub) => ({ method: 'DELETE', path: `/subscriptions/${encodeURIComponent(sub)}` });
+
+// charge.refunded: `amount_refunded` is everything refunded of the charge so far. What is new (beyond what is recorded: our own refunds are recorded
+// before Stripe tells us) is allocated to the payment's lines (docs/monetization/billing.md#disputes-and-partial-refunds):
+//   all of it        every line still paid is refunded and ended
+//   one line's rest  a refund of exactly what one line still has paid goes to that line (the latest such), which is ended
+//   otherwise        latest line first (the one-time lines, then Pro last, since ending Pro cancels its plan): each line it covers in full is ended,
+//                    the line it covers in part is partly refunded and goes on
+// Anything left over (more than the lines had) is recorded on the order. Pro refunded in full: its subscription is cancelled (stripeCalls, after).
+function refundedInStripe(db, charge) {
+  const whole = orderOfPayment(db, charge.payment_intent);
+  if (!whole || !['paid', 'refunded', 'charged_back'].includes(whole.status)) return null;
+  const lines = linesOf(db, whole);
+  const total = Number(charge.amount_refunded) || 0;
+  let left = total - lines.reduce((a, l) => a + refundedOf(l), 0);
+  if (!(left > 0)) return null; // nothing new: a refund we made ourselves (already recorded), or a retried event
+  const calls = [];
+  const end = (l) => {
+    revoke(db, orderById(db, l.id), SYSTEM, 'refunded in Stripe', { source: 'stripe' });
+    if (l.product === 'pro' && subscriptionOf(whole, l)) calls.push(cancelSub(subscriptionOf(whole, l)));
+  };
+  if (total >= Number(charge.amount)) {
+    for (const l of lines) if (l.status === 'paid') end(l);
+    if (whole.product === 'cart') revoke(db, orderById(db, whole.id), SYSTEM, 'refunded in Stripe', { source: 'stripe' });
+    return { stripeCalls: calls };
+  }
+  const rest = (l) => l.cents - (l.refunded_cents ?? 0);
+  const open = lines.filter((l) => l.status === 'paid' && rest(l) > 0).sort((a, b) => (a.product === 'pro') - (b.product === 'pro') || b.id - a.id);
+  const exact = open.find((l) => rest(l) === left);
+  for (const l of exact ? [exact] : open) {
+    if (left <= 0) break;
+    const take = Math.min(rest(l), left);
+    left -= take;
+    if (take === rest(l)) end(l);
+    else refundPart(db, orderById(db, l.id), take, 'partly refunded in Stripe');
+  }
+  if (left > 0) {
+    db.prepare('UPDATE orders SET note = ? WHERE id = ?').run(`refunded in Stripe: ${usd(left)} more than its lines had paid (recorded, nothing else to end)`, whole.id);
+    audit(db, SYSTEM, 'billing.refund_unallocated', { kind: 'order', id: whole.id }, { cents: left, amountRefunded: total, charge: charge.id ?? null });
+  }
+  return { stripeCalls: calls };
+}
+
+// ---- disputes (chargebacks) ----------------------------------------------------------------------------------------------------------
+// charge.dispute.created: the bank is asked to take a payment back. Everything the charge paid for is paused while the dispute is open (each line
+// still paid; docs/monetization/billing.md#disputes-and-partial-refunds), the admins are told (an email to each admin with a confirmed address, and
+// Admin > Disputes), and it is audited:
+//   lease           frozen: the building stays in the city and open to visitors (a dispute is not yet a verdict), but its owner cannot change it,
+//                   upgrade it, redesign it or renew it (core.assertNotDisputed)
+//   launch, sponsored   stops showing (the entitlement is paused; a sponsored slot stays counted, so it can come back)
+//   pro             its features stop (paused) and its plan's billing is paused at Stripe (pause_collection, void)
+//   market          a stall that has not opened yet is cancelled (one open or over has nothing left to pause)
+//   ad              the ad is taken down; the space stays booked for the advertiser
+// charge.dispute.closed: won (or an inquiry closed without a chargeback, warning_closed) puts back exactly what was paused, where it can be (a
+// cancelled stall only if it is still free and still to come); lost ends it all as a refund would (status 'charged_back'), cancels a Pro plan, and is
+// recorded. Each is applied once (the event id, and the dispute's own status).
+const DISPUTE_WON = ['won', 'warning_closed'];
+function pauseLine(db, whole, l, calls) {
+  if (['launch', 'sponsored', 'pro'].includes(l.product)) {
+    const n = Number(db.prepare("UPDATE entitlements SET status = 'paused' WHERE order_id = ? AND status = 'active'").run(l.id).changes);
+    const sub = l.product === 'pro' && n ? subscriptionOf(whole, l) : null;
+    if (sub) calls.push({ method: 'POST', path: `/subscriptions/${encodeURIComponent(sub)}`, params: { pause_collection: { behavior: 'void' } } });
+    return n ? 'paused' : 'nothing running';
+  }
+  if (l.product === 'lease') {
+    const req = JSON.parse(l.request || '{}');
+    const p = db.prepare('SELECT * FROM plots WHERE id = ?').get(targetId(l));
+    if (!req.done || !p || p.owner_account !== l.account_id) return 'nothing (the plot is no longer theirs)';
+    db.prepare('UPDATE plots SET disputed = 1 WHERE id = ?').run(p.id);
+    return 'frozen';
+  }
+  if (l.product === 'market') {
+    const b = db.prepare('SELECT * FROM market_bookings WHERE id = ?').get(targetId(l));
+    if (b?.status !== 'booked' || b.start_at <= now()) return 'nothing (the stall has opened or is over)';
+    market.releaseBooking(db, b.id);
+    return 'cancelled';
+  }
+  if (l.product === 'ad') return core.setAdTerm(db, l.id, 'paused') === 'paused' ? 'hidden' : 'nothing running';
+  return 'nothing';
+}
+function restoreLine(db, whole, l, what, calls) {
+  if (l.status !== 'paid') return `not restored: the order is ${l.status}`;
+  if (what === 'paused') {
+    db.prepare("UPDATE entitlements SET status = 'active' WHERE order_id = ? AND status = 'paused'").run(l.id);
+    const sub = l.product === 'pro' ? subscriptionOf(whole, l) : null;
+    if (sub) calls.push({ method: 'POST', path: `/subscriptions/${encodeURIComponent(sub)}`, params: { pause_collection: '' } });
+    return 'restored';
+  }
+  if (what === 'frozen') return (db.prepare('UPDATE plots SET disputed = 0 WHERE id = ?').run(targetId(l)), 'unfrozen');
+  if (what === 'cancelled') return market.restoreBooking(db, targetId(l)) ? 'booked again' : 'not restored: the stall was booked by someone else or its time has passed';
+  if (what === 'hidden') return (core.setAdTerm(db, l.id, 'active'), 'shown again');
+  return 'nothing to restore';
+}
+function loseLine(db, whole, l, calls) {
+  if (l.status !== 'paid') return `nothing more: the order is ${l.status}`;
+  revoke(db, l, SYSTEM, 'the payment dispute was lost', { status: 'charged_back' });
+  if (l.product === 'pro' && subscriptionOf(whole, l)) calls.push(cancelSub(subscriptionOf(whole, l)));
+  return 'ended';
+}
+// An email to every admin with a confirmed address (services/api/admin.mjs), sent with the other mail (the outbox).
+function alertAdmins(db, subject, body) {
+  for (const a of db.prepare('SELECT email FROM admin_accounts WHERE email IS NOT NULL AND email_verified_at IS NOT NULL AND disabled = 0').all()) {
+    db.prepare('INSERT INTO outbox (to_email, subject, body, kind, created_at) VALUES (?,?,?,?,?)').run(a.email, subject, body, 'admin_dispute', now());
+  }
+}
+const pausedText = (paused) => (paused.length ? paused.map((p) => `- order ${p.order} (${p.product}): ${p.after ?? p.what}`).join('\n') : '- nothing: no order of ours was found for this payment. Look it up in the Stripe dashboard.');
+function disputeOpened(db, d) {
+  const sid = String(d.id ?? '');
+  if (!sid || db.prepare('SELECT 1 FROM disputes WHERE stripe_dispute = ?').get(sid)) return null;
+  const pi = typeof d.payment_intent === 'object' ? d.payment_intent?.id : d.payment_intent;
+  const charge = typeof d.charge === 'object' ? d.charge?.id : d.charge;
+  const whole = orderOfPayment(db, pi);
+  const calls = [];
+  const paused = whole ? linesOf(db, whole).filter((l) => l.status === 'paid').map((l) => ({ order: l.id, product: l.product, what: pauseLine(db, whole, l, calls) })) : [];
+  const cents = Number(d.amount) || 0;
+  const id = Number(db.prepare("INSERT INTO disputes (stripe_dispute, order_id, charge, payment_intent, cents, reason, status, stripe_status, paused, created_at) VALUES (?,?,?,?,?,?,'open',?,?,?)").run(sid, whole?.id ?? null, charge ?? null, pi ?? null, cents, d.reason ?? null, d.status ?? null, JSON.stringify(paused), now()).lastInsertRowid);
+  if (whole) db.prepare('UPDATE orders SET dispute_id = ? WHERE id = ? OR parent_id = ?').run(id, whole.id, whole.id);
+  audit(db, SYSTEM, 'billing.dispute_opened', { kind: 'order', id: whole?.id ?? sid }, { dispute: sid, cents, reason: d.reason ?? null, paused });
+  alertAdmins(db, `A payment is disputed: ${usd(cents)}${whole ? ` (order ${whole.id})` : ''}`, `Stripe reports a dispute (${sid}) of ${usd(cents)}${d.reason ? `, reason: ${d.reason}` : ''}${whole ? `, on order ${whole.id}: ${whole.label ?? whole.product}` : ''}.\n\nWhile it is open, what the payment bought is paused:\n${pausedText(paused)}\n\nAnswer it in the Stripe dashboard before its deadline. Admin > Disputes shows every dispute and what was paused.`);
+  return { stripeCalls: calls };
+}
+function disputeClosed(db, d) {
+  const sid = String(d.id ?? '');
+  let row = db.prepare('SELECT * FROM disputes WHERE stripe_dispute = ?').get(sid);
+  let calls = [];
+  if (!row) {
+    // the dispute's first event never came: open it now, then close it
+    calls = disputeOpened(db, d)?.stripeCalls ?? [];
+    row = db.prepare('SELECT * FROM disputes WHERE stripe_dispute = ?').get(sid);
+    if (!row) return null;
+  }
+  if (row.status !== 'open') return { stripeCalls: calls };
+  const won = DISPUTE_WON.includes(d.status);
+  const whole = orderById(db, row.order_id);
+  const paused = JSON.parse(row.paused || '[]');
+  // a dispute that opened before this server knew to pause anything (or a line not paused) still ends what it paid for when it is lost
+  const lines = whole ? linesOf(db, whole) : [];
+  for (const l of lines) if (!won && l.status === 'paid' && !paused.some((p) => p.order === l.id)) paused.push({ order: l.id, product: l.product, what: 'not paused' });
+  for (const p of paused) {
+    const l = orderById(db, p.order);
+    if (l) p.after = won ? restoreLine(db, whole, l, p.what, calls) : loseLine(db, whole, l, calls);
+  }
+  const status = won ? 'won' : 'lost';
+  db.prepare('UPDATE disputes SET status = ?, stripe_status = ?, paused = ?, closed_at = ? WHERE id = ?').run(status, d.status ?? null, JSON.stringify(paused), now(), row.id);
+  audit(db, SYSTEM, `billing.dispute_${status}`, { kind: 'order', id: whole?.id ?? sid }, { dispute: sid, cents: row.cents, stripeStatus: d.status ?? null, paused });
+  alertAdmins(db, `Dispute ${status}: ${usd(row.cents)}${whole ? ` (order ${whole.id})` : ''}`, `The dispute ${sid} of ${usd(row.cents)} is closed: ${status}${d.status && d.status !== status ? ` (${d.status})` : ''}.\n\n${won ? 'What was paused is back:' : 'What it paid for has ended (charged back):'}\n${pausedText(paused)}`);
+  return { stripeCalls: calls };
 }
 
 // A refunded lease is taken back, if the player still holds the plot: a claim or take-over ends at once (the plot opens to others), a
@@ -515,6 +739,10 @@ export async function receiveWebhook(db, raw, signature, env = process.env, fetc
   const out = handleEvent(db, event);
   for (const f of [].concat(out.fulfilled ?? [])) after?.(f);
   for (const id of [].concat(out.refund ?? [])) await refundOrder(db, id, SYSTEM, env, fetchImpl, refundWhy(db, id));
+  // what a dispute or a refund asks of Stripe (pause, resume or cancel a Pro plan): after the event is recorded, so a failure here is only noted
+  for (const c of out.stripeCalls ?? []) {
+    await stripe(env, c.method, c.path, c.params ?? null, { fetchImpl }).catch((e) => audit(db, SYSTEM, 'billing.stripe_call_failed', { kind: 'stripe', id: c.path }, { method: c.method, error: String(e.message).slice(0, 200) }));
+  }
   return { received: true, duplicate: Boolean(out.duplicate) };
 }
 
@@ -555,7 +783,9 @@ export async function refundOrder(db, orderId, actor = ADMIN, env = process.env,
     paymentIntent = invoices.data?.[0]?.payment_intent ?? (await lastInvoicePayment(env, order.stripe_subscription, fetchImpl)) ?? paymentIntent;
     await stripe(env, 'DELETE', `/subscriptions/${encodeURIComponent(order.stripe_subscription)}`, null, { fetchImpl });
   } else if (!paymentIntent && parent) paymentIntent = await cartPayment(db, parent, env, fetchImpl);
-  if (paymentIntent) await stripe(env, 'POST', '/refunds', { payment_intent: paymentIntent, amount: parent ? order.cents : undefined }, { idempotencyKey: `vv-refund-${order.id}`, fetchImpl });
+  // a cart's line: its own amount; an order already refunded in part (in the Stripe dashboard): what is left of it
+  const owed = order.cents - (order.refunded_cents ?? 0);
+  if (paymentIntent && owed > 0) await stripe(env, 'POST', '/refunds', { payment_intent: paymentIntent, amount: parent || order.refunded_cents ? owed : undefined }, { idempotencyKey: `vv-refund-${order.id}`, fetchImpl });
   transaction(db, () => revoke(db, orderById(db, order.id), actor, why));
   return { refunded: true };
 }
@@ -593,7 +823,7 @@ export async function cancelPro(db, account, slug, env = process.env, fetchImpl 
 
 // ---- 4. reconciliation ----------------------------------------------------------------------------------------------------------------
 // Asks Stripe about every order still pending after a couple of minutes, and every running Pro plan, and applies what it says.
-const refundWhy = (db, id) => (orderById(db, id)?.product === 'sponsored' ? 'the spot filled before payment completed' : 'it could not be done once paid');
+const refundWhy = (db, id) => ({ sponsored: 'the spot filled before payment completed', ad: 'the ad space was booked by someone else before payment completed' })[orderById(db, id)?.product] ?? 'it could not be done once paid';
 export async function reconcile(db, env = process.env, fetchImpl = fetch, after = null) {
   if (!billingOn(env)) return { checked: 0 };
   const out = { checked: 0, paid: 0, expired: 0, proExtended: 0, proEnded: 0, refunded: 0 };
@@ -628,7 +858,7 @@ export async function reconcile(db, env = process.env, fetchImpl = fetch, after 
 export const paidOrderFor = (db, target) => db.prepare("SELECT * FROM orders WHERE target = ? AND status = 'paid' ORDER BY id DESC LIMIT 1").get(String(target)) ?? null;
 
 // ---- what owners and admins see -----------------------------------------------------------------------------------------------------
-const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, target: o.target ?? null, label: o.label ?? null, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, note: o.note, parentId: o.parent_id ?? null, promoCode: o.promo_code ?? null, promoCents: o.promo_cents ?? 0 });
+const orderView = (o) => ({ id: o.id, product: o.product, placement: o.placement, target: o.target ?? null, label: o.label ?? null, cents: o.cents, status: o.status, createdAt: o.created_at, paidAt: o.paid_at, refundedAt: o.refunded_at, refundedCents: refundedOf(o), disputeId: o.dispute_id ?? null, note: o.note, parentId: o.parent_id ?? null, promoCode: o.promo_code ?? null, promoCents: o.promo_cents ?? 0 });
 export function myOrders(db, account) {
   requireAccount(account);
   return { orders: db.prepare('SELECT o.*, b.slug, b.name FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.account_id = ? ORDER BY o.id DESC LIMIT 100').all(account.id).map((o) => ({ ...orderView(o), business: o.slug ? { slug: o.slug, name: o.name } : null })) };
@@ -636,6 +866,29 @@ export function myOrders(db, account) {
 export function adminOrders(db, status) {
   const rows = status ? db.prepare('SELECT o.*, b.slug FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.status = ? ORDER BY o.id DESC LIMIT 200').all(String(status)) : db.prepare('SELECT o.*, b.slug FROM orders o LEFT JOIN businesses b ON b.id = o.business_id ORDER BY o.id DESC LIMIT 200').all();
   return { orders: rows.map((o) => ({ ...orderView(o), business: o.slug ?? null, accountId: o.account_id })) };
+}
+// GET /admin/billing/disputes: every dispute (open first, newest first) with what it paused and how it ended, the refunds recorded (newest first:
+// by an admin, by the server, or in the Stripe dashboard, in full or in part), and how many disputes are open.
+const disputeView = (d) => ({ id: d.id, stripeDispute: d.stripe_dispute, orderId: d.order_id ?? null, label: d.label ?? null, accountId: d.account_id ?? null, cents: d.cents, reason: d.reason ?? null, status: d.status, stripeStatus: d.stripe_status ?? null, paused: JSON.parse(d.paused || '[]'), createdAt: d.created_at, closedAt: d.closed_at ?? null });
+const refundView = (r) => ({ id: r.id, orderId: r.order_id, parentId: r.parent_id ?? null, label: r.label ?? null, product: r.product ?? null, cents: r.cents, full: Boolean(r.full), source: r.source, note: r.note ?? null, at: r.at });
+export function adminDisputes(db) {
+  const disputes = db.prepare("SELECT d.*, o.label, o.account_id FROM disputes d LEFT JOIN orders o ON o.id = d.order_id ORDER BY d.status = 'open' DESC, d.id DESC LIMIT 200").all().map(disputeView);
+  const refunds = db.prepare('SELECT r.*, o.label, o.product, o.parent_id FROM order_refunds r JOIN orders o ON o.id = r.order_id ORDER BY r.id DESC LIMIT 200').all().map(refundView);
+  return { open: db.prepare("SELECT COUNT(*) AS n FROM disputes WHERE status = 'open'").get().n, disputes, refunds };
+}
+// GET /admin/billing/orders/:id: one order, its lines (a cart), every refund of it or its lines, and the disputes of its payment.
+export function adminOrder(db, id) {
+  const o = orderById(db, id) ?? fail(404, 'No such order.', 'no_order');
+  const whole = o.parent_id ? orderById(db, o.parent_id) : o;
+  const ids = [whole.id, ...childrenOf(db, whole).map((c) => c.id)];
+  const marks = ids.map(() => '?').join(',');
+  return {
+    order: { ...orderView(o), accountId: o.account_id },
+    cart: o.parent_id ? orderView(whole) : null,
+    lines: childrenOf(db, o).map(orderView),
+    refunds: db.prepare(`SELECT r.*, o.label, o.product, o.parent_id FROM order_refunds r JOIN orders o ON o.id = r.order_id WHERE r.order_id IN (${marks}) ORDER BY r.id`).all(...ids).map(refundView),
+    disputes: db.prepare('SELECT d.*, o.label, o.account_id FROM disputes d LEFT JOIN orders o ON o.id = d.order_id WHERE d.order_id = ? ORDER BY d.id').all(whole.id).map(disputeView),
+  };
 }
 export const orderStatus = (db, account, id) => {
   requireAccount(account);

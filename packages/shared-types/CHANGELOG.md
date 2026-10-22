@@ -1,5 +1,19 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.16.0 (2026-10-21)
+
+Paid ad spaces, disputes and partial refunds (`services/api/billing.mjs`, [billing.md](../../docs/monetization/billing.md#ad-spaces)). New contracts, all version 1, in [`contracts/billing.js`](src/contracts/billing.js):
+
+- `ad.buy` and `ad.buy.result`: `POST /ads/:id/buy` `{ advertiser, headline, tagline?, url?, color, promoCode? }`. With payments on the answer is Stripe's page (`checkout`); without, the free game's take-over as before. Each ad slot now carries `sale` (`{ cents, proCents, days, paidUntil, bookedUntil, bookedBy }`).
+- `billing.disputes`: `GET /admin/billing/disputes`, `{ open, disputes, refunds }`.
+- `billing.order`: `GET /admin/billing/orders/:id`, `{ order, cart, lines, refunds, disputes }`. An order now has `refundedCents` and `disputeId`, and the status `charged_back` (a dispute lost).
+- `API_CONTRACTS` now holds 68.
+
+Changed (a new value in a list, so a new version):
+
+- `CART_KINDS` has `ad` (an ad space). `cart.item` **version 2** (also `slotId`), `cart.view` **version 3**, `cart.checkout.result` **version 3**.
+- `PROMO_GROUP_IDS` has `ads`. `promo.check`, `promo.check.result`, `promo.create`, `promo.view`, `promo.list` and `promo.detail` **version 2**.
+
 ## 0.15.0 (2026-10-20)
 
 A forgotten admin password, reset from the pages (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-password-reset)). New contracts, all version 1, in [`contracts/admin.js`](src/contracts/admin.js):

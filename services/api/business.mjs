@@ -238,7 +238,7 @@ export function profileStats(db, businessId, at = now()) {
     purchases: purchases.length, // verified: reported by the business's server and credited to a verified press of the button
   };
   // what the owner paid for this profile in the period (Launch Pack, Pro, placements: billing.mjs): each outcome family is costed on its own
-  const spendCents = db.prepare("SELECT COALESCE(SUM(cents), 0) AS n FROM orders WHERE business_id = ? AND status = 'paid' AND paid_at >= ?").get(businessId, since).n;
+  const spendCents = db.prepare("SELECT COALESCE(SUM(cents - refunded_cents), 0) AS n FROM orders WHERE business_id = ? AND status = 'paid' AND paid_at >= ?").get(businessId, since).n;
   // revenue by how much it can be trusted: verified (server report, credited to a press), unattributed (server report, no press), and
   // browser-reported (the pixel: no key, so never verified). Reports from before the split (no `report`) were keyed: they count as server.
   const revenue = db.prepare("SELECT COALESCE(SUM(CASE WHEN COALESCE(report, 'server') = 'server' AND verified = 1 THEN value_cents END), 0) AS verified, COALESCE(SUM(CASE WHEN COALESCE(report, 'server') = 'server' AND verified = 0 THEN value_cents END), 0) AS unattributed, COALESCE(SUM(CASE WHEN report = 'browser' THEN value_cents END), 0) AS browser, SUM(report = 'browser') AS browserReports FROM business_events WHERE business_id = ? AND kind = 'purchase' AND at >= ?").get(businessId, since);

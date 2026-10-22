@@ -1,4 +1,4 @@
-import { ApiError, fail, getPlot, requireAccount } from './core.mjs';
+import { ApiError, assertNotDisputed, fail, getPlot, requireAccount } from './core.mjs';
 import { transaction } from './db.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 
@@ -30,6 +30,7 @@ function ownPlot(db, account, plotId) {
   const plot = getPlot(db, plotId);
   if (!plot.owner_account || plot.owner_account !== account.id) fail(403, 'Only the owner can change the inside of this building.', 'forbidden');
   if (['grace', 'open'].includes(leaseState(plot.lease_end, now(), plot.lease_days))) fail(403, 'The lease on this building has ended. Renew it to change the inside again.', 'lease_ended');
+  assertNotDisputed(plot);
   return plot;
 }
 // the revision a change was based on must still be the current one
