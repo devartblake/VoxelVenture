@@ -32,6 +32,16 @@
 /services/api/messaging.mjs        @devartblake
 /services/messaging/             @devartblake
 
+# Third-party assets and their licences: the shipped files, the admission register and check, the credits and the licence evidence
+# (docs/operations/asset_admission.md)
+/apps/web/public/                @devartblake
+/lib/content/assetSources.js     @devartblake
+/lib/content/credits.js          @devartblake
+/scripts/assets/                 @devartblake
+/docs/licences/                  @devartblake
+/CREDITS.md                      @devartblake
+/vendor/                         @devartblake
+
 # Deployment, secrets templates, CI and repository settings
 /deploy/                         @devartblake
 /.github/                        @devartblake

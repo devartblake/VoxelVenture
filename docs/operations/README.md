@@ -9,6 +9,7 @@ Documents are stored in their primary topic directories. Related service and dep
 | Document |
 | --- |
 | [hosting_stack_payments.md](hosting_stack_payments.md) |
+| [asset_admission.md](asset_admission.md) |
 | [social_posts.md](social_posts.md) |
 
 Related runbooks:
@@ -19,4 +20,4 @@ Related runbooks:
 - [Multiplayer server](../../services/multiplayer/README.md)
 - [Python messaging service](../../services/messaging/README.md)
 - [Measurement scripts](../../scripts/study/README.md)
-- [Asset credits and licensing](../../CREDITS.md)
+- [Asset credits and licensing](../../CREDITS.md) and the [licence evidence](../licences/README.md)

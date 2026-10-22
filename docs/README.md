@@ -108,6 +108,7 @@ Running the live service. The deploy runbooks are in `deploy/`, listed below.
 
 | Document | Read it for |
 | :--- | :--- |
+| [asset_admission.md](operations/asset_admission.md) | **Before adding anything VoxelVenture did not make** (models, textures, sounds, music, fonts, icons, map data, code): the licence allow-list (never GPL/AGPL, NC, ND or unknown), provenance and stored licences, credits, file and budget checks, reviews, approval and retirement. `npm run check:assets` enforces the register in `lib/content/assetSources.js` |
 | [social_posts.md](operations/social_posts.md) | Welcome posts on VoxelVenture's X account for owners who opt in: the text, the review queue, the settings and how visits from a post are counted |
 | [hosting_stack_payments.md](operations/hosting_stack_payments.md) | Going live: why the server stays on Node, the Linode setup, why Stripe was chosen (now built: [billing.md](monetization/billing.md)), and the owner dashboard |
 

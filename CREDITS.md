@@ -30,7 +30,7 @@ The recordings are served locally from `apps/web/public/audio/music/`. See the [
 
 **Kenney**, https://www.kenney.nl: City Kit (Commercial), City Kit (Suburban), Nature Kit, Car Kit, Watercraft Kit, Pirate Kit and Coaster Kit. Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. Credit is not required but is given gladly. Which kit each model comes from: `apps/web/public/models/CREDITS.md`.
 
-**Pascal Editor (Pascal Group Inc.)**, https://github.com/pascalorg/editor: the interior items (doors, windows, furniture) and materials in `apps/web/public/items/` and `apps/web/public/material/`, and the `@pascal-app/*` packages behind them: the building interiors, the furniture editor (*Redesign inside*) and the `/viewer` page. **MIT** licence, https://opensource.org/license/mit.
+**Pascal Editor (Pascal Group Inc.)**, https://github.com/pascalorg/editor: the interior items (doors, windows, furniture) and materials in `apps/web/public/items/` and `apps/web/public/material/`, the editor’s icons, sounds, environment light map and cursor (`apps/web/public/icons/`, `audios/`, `hdri/`, `cursor.svg`), the shared TypeScript configuration (`vendor/typescript-config/`) and elevation styles (`styles/elevation.css`), and the `@pascal-app/*` packages behind them: the building interiors, the furniture editor (*Redesign inside*) and the `/viewer` page. **MIT** licence, https://opensource.org/license/mit; the licence file and what was copied: [docs/licences/pascal-editor/](docs/licences/pascal-editor/README.md).
 
 **Voxel landmarks** in `apps/web/public/models/vox/`: made for this game.
 
@@ -44,8 +44,8 @@ Next.js, React, three.js, React Three Fiber and drei, Tailwind CSS, zustand and 
 
 ## Adding something from outside
 
-Before any outside music, sound, model or image ships:
+Nothing from outside ships until it has passed the [asset admission process](docs/operations/asset_admission.md). In short:
 
-1. Use only licences that allow commercial use: CC0, CC BY, CC BY-SA, MIT, or a paid licence you hold. Never NC (NonCommercial) or ND (NoDerivatives).
-2. Save the page you downloaded it from and the licence as it read that day (for example in `docs/licences/`). Sites close and terms change: FreePD.com, once a source of public-domain music, shut down in 2025.
-3. Add it to `lib/content/credits.js` (the in-game panel) and to this file.
+1. Only licences on the allow-list: CC0, CC BY (with attribution), and MIT, BSD or Apache 2.0 for code (and for assets shipped inside such a repository). Never GPL, AGPL, NC (NonCommercial), ND (NoDerivatives), ShareAlike without a decision, or an unknown licence. Tiny World Builder is AGPL: reference only.
+2. Save the page you downloaded it from and the licence as it read that day under `docs/licences/<source>/`. Sites close and terms change: FreePD.com, once a source of public-domain music, shut down in 2025.
+3. Register it in `lib/content/assetSources.js`, add it to `lib/content/credits.js` (the in-game panel) and to this file, and run `npm run check:assets`.

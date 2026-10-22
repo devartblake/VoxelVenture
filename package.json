@@ -23,6 +23,7 @@
     "lint": "eslint .",
     "check:freeze": "node scripts/check-world-freeze.mjs",
     "check:env": "node scripts/check-env.mjs",
+    "check:assets": "node scripts/assets/admission.mjs",
     "props:manifest": "node scripts/props/build-manifest.mjs",
     "props:upload": "node scripts/props/upload.mjs",
     "verify:live": "node scripts/verify-live.mjs",
