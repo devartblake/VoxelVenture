@@ -302,6 +302,25 @@ try {
   check('admin: the link is used up', (await (await fetch(`http://localhost:${apiPort}/admin/password-reset/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resetLink.split('#token=')[1] }) })).json()).valid === false);
   check('admin: no console errors on the admin pages', adm.problems().filter((p) => !/401|403|Failed to load resource/.test(p)).length === 0, adm.problems().slice(0, 3).join(' | '));
   await adm.close();
+
+  // ---- the Plot of the Day's unsubscribe link, in a browser and signed out: the page asks, its button does it (policy_review.md gap 2)
+  const callApi = (method, p, body, token) => fetch(`http://localhost:${apiPort}${p}`, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json());
+  const reader = await callApi('POST', '/auth/signup', { username: 'NewsReader', password: 'longenough1', email: 'newsreader@example.com' });
+  const verifyMail = await (async () => { for (let i = 0; i < 40; i++) { const m = mailFiles().find((t) => /To: newsreader@example\.com/.test(t) && /me\/verify\?token=/.test(t)); if (m) return m; await sleep(250); } return null; })();
+  await fetch(`http://localhost:${apiPort}/me/verify?token=${verifyMail.match(/token=([a-f0-9]+)/)[1]}`);
+  await callApi('PATCH', '/me', { newsletter: true }, reader.token);
+  await callApi('POST', '/admin/newsletter', null, ADMIN_TOKEN);
+  const issue = await (async () => { for (let i = 0; i < 40; i++) { const m = mailFiles().find((t) => /To: newsreader@example\.com/.test(t) && /Plot of the Day/.test(t)); if (m) return m; await sleep(250); } return null; })();
+  const unsubLink = issue?.match(/Unsubscribe \(no sign-in needed\): (\S+)/)?.[1];
+  check('newsletter: the issue has the unsubscribe link and the one-click headers for the same address', Boolean(unsubLink) && issue.includes(`List-Unsubscribe: <${unsubLink}>`) && /List-Unsubscribe-Post: List-Unsubscribe=One-Click/.test(issue));
+  const unsub = await openPage(unsubLink, { width: 390, height: 800, mobile: true });
+  check('newsletter: the link opens a page that asks first, showing the address masked', await waitFor(unsub, `/Unsubscribe n\\*+@example\\.com from the Plot of the Day\\?/.test(document.body.innerText) && Boolean(document.querySelector('[data-testid="confirm-unsubscribe"]'))`, 20));
+  check('newsletter: opening it changed nothing', (await callApi('GET', '/me', null, reader.token)).account.newsletter === true);
+  check('newsletter: the page fits the phone and its button is big enough for a finger', await unsub.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1 && document.querySelector('[data-testid="confirm-unsubscribe"]').getBoundingClientRect().height >= 44`));
+  await unsub.eval(`document.querySelector('[data-testid="confirm-unsubscribe"]').click(); 1`);
+  check('newsletter: pressing Confirm unsubscribe says so', await waitFor(unsub, `/You are unsubscribed/.test(document.body?.innerText ?? '')`, 20));
+  check('newsletter: and the account is unsubscribed', (await callApi('GET', '/me', null, reader.token)).account.newsletter === false);
+  await unsub.close();
 } catch (e) {
   fails++;
   console.log('FAIL the live browser test crashed:', e.stack);

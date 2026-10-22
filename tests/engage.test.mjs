@@ -118,7 +118,9 @@ try {
   check('the link in the email confirms the sign-up', page.status === 200 && /You are signed up/.test(page.data) && (await call('GET', '/leads/confirm?token=wrong')).data.includes('not valid'));
   const mine = (await call('GET', `/plots/${lot.id}/leads`, { token: amy.token })).data;
   check('now the owner sees the confirmed address, and nobody else can', mine.confirmed[0].email === 'fan@example.com' && (await call('GET', `/plots/${lot.id}/leads`, { token: bob.token })).status === 403);
-  await call('GET', `/leads/unsubscribe?token=${tokenIn(confirmMail)}`);
+  const leadPage = await call('GET', `/leads/unsubscribe?token=${tokenIn(confirmMail)}`);
+  check('opening a sign-up\'s unsubscribe link only asks to confirm (a scanner changes nothing)', /Confirm unsubscribe/.test(leadPage.data) && (await call('GET', `/plots/${lot.id}/leads`, { token: amy.token })).data.confirmed.length === 1);
+  await call('POST', `/leads/unsubscribe?token=${tokenIn(confirmMail)}`);
   check('unsubscribing removes them from the list', (await call('GET', `/plots/${lot.id}/leads`, { token: amy.token })).data.confirmed.length === 0);
   const slot = (await call('GET', '/ads')).data.slots.find((s) => !s.open);
   check('an ad space takes sign-ups too', (await call('POST', '/leads', { body: { targetKind: 'ad', targetId: slot.id, email: 'reader@example.com' } })).data.status === 'pending');
@@ -172,28 +174,41 @@ try {
   const news = await call('POST', '/admin/newsletter', { token: 'admin-secret' });
   const got = await waitMail((m) => m.to === 'reader@example.com' && /Plot of the Day/.test(m.subject));
   const amyNews = await waitMail((m) => m.to === 'amy@example.com' && /Plot of the Day/.test(m.subject));
-  check('the Plot of the Day goes to confirmed readers, with a one-click unsubscribe link', sub.status === 200 && news.data.queued === 2 && got && /Unsubscribe \(one click, no sign-in needed\): .*leads\/unsubscribe\?token=/.test(got.text) && /Walk in for a bonus/.test(got.text), JSON.stringify(news.data));
+  check('the Plot of the Day goes to confirmed readers, with an unsubscribe link', sub.status === 200 && news.data.queued === 2 && got && /Unsubscribe \(no sign-in needed\): .*leads\/unsubscribe\?token=/.test(got.text) && /Walk in for a bonus/.test(got.text), JSON.stringify(news.data));
   check('...and to the account that opted in, with its signed link', amyNews && /newsletter\/unsubscribe\?token=[0-9a-z]+\.[0-9a-f]{32}/.test(amyNews.text) && /you ticked/.test(amyNews.text), amyNews?.text);
-  const linkOf = (m) => m.text.match(/Unsubscribe \(one click, no sign-in needed\): (\S+)/)[1];
+  const linkOf = (m) => m.text.match(/Unsubscribe \(no sign-in needed\): (\S+)/)[1];
   check('every issue carries the List-Unsubscribe and List-Unsubscribe-Post headers', [got, amyNews].every((m) => m.headers?.['List-Unsubscribe'] === `<${linkOf(m)}>` && m.headers?.['List-Unsubscribe-Post'] === 'List-Unsubscribe=One-Click'), JSON.stringify(amyNews?.headers));
   check('an account that never opted in gets none', !mails.some((m) => /Plot of the Day/.test(m.subject) && m.to === 'eve@example.com'));
   check('other emails carry no unsubscribe headers', !mails.some((m) => !/Plot of the Day/.test(m.subject) && m.headers));
   check('with no verified visits this week it lists no "busiest" businesses (never the generated figures)', got && !/busiest/.test(got.text));
   check('and a second send the same day does nothing', (await call('POST', '/admin/newsletter', { token: 'admin-secret' })).data.already === true);
   check('nobody who unsubscribed or never confirmed gets it', !mails.some((m) => /Plot of the Day/.test(m.subject) && m.to === 'fan@example.com'));
-  // the link works without signing in, and again when opened twice; a forged one does not
+  // opening the link (GET) only asks; a mail scanner that opens it and does nothing else leaves the subscription as it was
   const amyLink = linkOf(amyNews).replace(/^https?:\/\/[^/]+/, '');
-  const open1 = await call('GET', amyLink);
-  check('the unsubscribe link works without signing in', open1.status === 200 && /unsubscribed/i.test(open1.data) && (await call('GET', '/me', { token: amy.token })).data.account.newsletter === false);
-  check('...and says so again when opened twice', /unsubscribed/i.test((await call('GET', amyLink)).data));
+  const scanned = await fetch(base + amyLink);
+  const scannedHtml = await scanned.text();
+  check('opening the link shows "Unsubscribe <masked address> from the Plot of the Day?" with a Confirm button, and changes nothing', scanned.status === 200 && /Unsubscribe a\*+@example\.com from the Plot of the Day\?/.test(scannedHtml) && /<form method="post" action="\/newsletter\/unsubscribe\?token=[^"]+">/.test(scannedHtml) && /Confirm unsubscribe/.test(scannedHtml) && !/amy@example\.com/.test(scannedHtml) && (await call('GET', '/me', { token: amy.token })).data.account.newsletter === true, scannedHtml.slice(0, 300));
+  check('...a plain page: no script, never indexed', !/<script/i.test(scannedHtml) && /<meta name="robots" content="noindex/.test(scannedHtml) && /noindex/.test(scanned.headers.get('x-robots-tag') ?? ''));
+  await fetch(base + amyLink);
+  check('a scanner opening it again, then nothing, still leaves Amy subscribed', (await call('GET', '/me', { token: amy.token })).data.account.newsletter === true);
+  // the page's button: a form POST from a browser, no sign-in, answered with a page
+  const pressed = await fetch(base + amyLink, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'text/html' }, body: '' });
+  check('the Confirm button (POST, no sign-in) unsubscribes, and says so', pressed.status === 200 && /You are unsubscribed/.test(await pressed.text()) && (await call('GET', '/me', { token: amy.token })).data.account.newsletter === false);
+  const again = await fetch(base + amyLink, { method: 'POST', headers: { Accept: 'text/html' } });
+  check('pressing it a second time is harmless and says she already is', again.status === 200 && /already unsubscribed/.test(await again.text()));
+  check('...and the link then says so too, with no button', /already unsubscribed/.test((await call('GET', amyLink)).data) && !/Confirm unsubscribe/.test((await call('GET', amyLink)).data));
   check('a forged link does nothing', /not valid/.test((await call('GET', amyLink.replace(/.{4}$/, '0000'))).data) && (await call('POST', '/newsletter/unsubscribe?token=1.abc')).status === 400);
-  // signed in, from the mail app's one-click button (RFC 8058: a form POST to the same address)
+  // the mail app's one-click button (RFC 8058: List-Unsubscribe=One-Click POSTed to the header's address), signed in or not
   await call('PATCH', '/me', { token: amy.token, body: { newsletter: true } });
-  const oneClick = await fetch(base + amyLink, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Bearer ${amy.token}` }, body: 'List-Unsubscribe=One-Click' });
-  check('the List-Unsubscribe-Post one-click works too, signed in or not', oneClick.status === 200 && (await oneClick.json()).unsubscribed === true && (await call('GET', '/me', { token: amy.token })).data.account.newsletter === false);
+  const header = amyNews.headers['List-Unsubscribe'].slice(1, -1).replace(/^https?:\/\/[^/]+/, '');
+  const oneClick = await fetch(base + header, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' });
+  const oneClickBody = await oneClick.json();
+  check('the List-Unsubscribe-Post one-click unsubscribes at once', oneClick.status === 200 && oneClickBody.unsubscribed === true && oneClickBody.already === false && (await call('GET', '/me', { token: amy.token })).data.account.newsletter === false, JSON.stringify(oneClickBody));
+  check('...and a second one says already', (await (await fetch(base + header, { method: 'POST', body: 'List-Unsubscribe=One-Click' })).json()).already === true);
   const readerLink = linkOf(got).replace(/^https?:\/\/[^/]+/, '');
+  check('a public reader\'s link asks first too', /Unsubscribe r\*+@example\.com from the Plot of the Day\?/.test((await call('GET', readerLink)).data));
   const leadClick = await fetch(base + readerLink, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' });
-  check('and for a confirmed reader of the public sign-up', leadClick.status === 200 && (await leadClick.json()).unsubscribed === true);
+  check('...and its one-click works', leadClick.status === 200 && (await leadClick.json()).unsubscribed === true);
 
   // ---- instant push and spatial chat on the presence server
   const ws = (name, x) => new Promise((resolve) => { const s = new WebSocket(`ws://localhost:${mpPort}`); const inbox = []; s.on('message', (r) => inbox.push(JSON.parse(r.toString()))); s.on('open', () => { s.send(JSON.stringify({ type: 'hello', name, room: '20260101', x, z: 0, appearance: {} })); setTimeout(() => resolve({ s, inbox }), 200); }); });

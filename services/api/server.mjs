@@ -148,7 +148,16 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       req.on('error', reject);
     });
 
-  const page = (ok, good, bad) => ({ __html: `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>VoxelVenture</title><body style="font-family:system-ui;background:#050816;color:#f8fafc;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h1>${ok ? good : 'Something is wrong'}</h1>${ok ? '' : `<p>${bad}</p>`}<p style="color:#94a3b8">You can close this tab.</p></div>` });
+  // The few pages the API serves itself (an email link's answer): the site's dark style, no script, never indexed.
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const htmlPage = (title, inner) => ({ __html: `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>${esc(title)} · VoxelVenture</title><body style="font-family:system-ui,sans-serif;background:#050816;color:#f8fafc;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box"><main style="text-align:center;max-width:32rem">${inner}</main></body></html>` });
+  const page = (ok, good, bad) => htmlPage(ok ? good : 'Something is wrong', `<h1>${ok ? good : 'Something is wrong'}</h1>${ok ? '' : `<p>${bad}</p>`}<p style="color:#94a3b8">You can close this tab.</p>`);
+  // The unsubscribe link's page (GET: it changes nothing): what it would stop, and a plain form that POSTs the same address to do it.
+  const unsubscribePage = (view, action) => {
+    if (!view) return page(false, '', 'That unsubscribe link is not valid.');
+    if (!view.subscribed) return htmlPage('Unsubscribed', `<h1>You are already unsubscribed</h1><p style="color:#94a3b8">${esc(view.email)} gets no more emails from ${esc(view.what)}. You can close this tab.</p>`);
+    return htmlPage('Unsubscribe', `<h1 style="font-size:1.5rem">Unsubscribe ${esc(view.email)} from ${esc(view.what)}?</h1><p style="color:#94a3b8">No sign-in needed. Nothing changes until you press the button.</p><form method="post" action="${esc(action)}"><button type="submit" data-testid="confirm-unsubscribe" style="font:inherit;font-weight:600;color:#fff;background:#8b5cf6;border:0;border-radius:12px;padding:12px 20px;min-height:44px;cursor:pointer">Confirm unsubscribe</button></form>`);
+  };
 
   // Everything a player writes is checked before it is saved: the word filter, then (if one is set up) the outside moderation service.
   async function screened(req, spec) {
@@ -593,15 +602,19 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/ads\/([\w-]+)\/leads$/)) && m === 'GET') return engage.leadsFor(db, account, 'ad', r[1]);
     if (m === 'POST' && p === '/leads') return engage.subscribe(db, await body(req));
     if (m === 'GET' && p === '/leads/confirm') return page(engage.confirmLead(db, url.searchParams.get('token')), 'You are signed up', 'That link is not valid or has expired.');
-    if (m === 'GET' && p === '/leads/unsubscribe') return page(engage.unsubscribeLead(db, url.searchParams.get('token')), 'You are unsubscribed', 'That link is not valid.');
-    // the Plot of the Day's one-click unsubscribe (policy_review.md gap 2): the link in each issue (GET, from a browser, no sign-in) and the
-    // List-Unsubscribe-Post a mail app sends (POST, RFC 8058; its form body is not needed: the token in the address says who)
-    if (p === '/newsletter/unsubscribe' && (m === 'GET' || m === 'POST')) {
-      const ok = engage.unsubscribeNewsletter(db, url.searchParams.get('token'), env);
-      if (m === 'POST') return ok ? { ok: true, unsubscribed: true } : core.fail(400, 'That unsubscribe link is not valid.', 'bad_token');
-      return page(ok, 'You are unsubscribed from the Plot of the Day', 'That link is not valid.');
+    // Unsubscribing (policy_review.md gap 2), for the Plot of the Day's accounts and for every sign-up, in two steps so a mail scanner that opens
+    // links changes nothing: GET (the link in each email) only shows "Unsubscribe <masked address> from <what>?" with a Confirm button, and
+    // changes nothing; POST to the same address (that button, a plain form, or a mail app's List-Unsubscribe-Post one-click, RFC 8058; the body
+    // is not needed, the token in the address says who) unsubscribes at once. No sign-in either way.
+    if ((p === '/newsletter/unsubscribe' || p === '/leads/unsubscribe') && (m === 'GET' || m === 'POST')) {
+      const tok = url.searchParams.get('token');
+      const isNews = p === '/newsletter/unsubscribe';
+      if (m === 'GET') return unsubscribePage(isNews ? engage.newsletterUnsubscribeView(db, tok, env) : engage.leadUnsubscribeView(db, tok), `${p}?token=${encodeURIComponent(tok ?? '')}`);
+      const done = isNews ? engage.unsubscribeNewsletter(db, tok, env) : engage.unsubscribeLead(db, tok);
+      // the page's button (a browser asks for HTML) gets a page back; a mail app's one-click and scripts get JSON
+      if (/text\/html/.test(req.headers.accept ?? '')) return done ? htmlPage('Unsubscribed', `<h1>${done === 'already' ? 'You were already unsubscribed' : 'You are unsubscribed'}</h1><p style="color:#94a3b8">No more of these emails will be sent to you. You can close this tab.</p>`) : { ...htmlPage('Unsubscribe', '<h1>Something is wrong</h1><p>That link is not valid.</p>'), __status: 400 };
+      return done ? { ok: true, unsubscribed: true, already: done === 'already' } : core.fail(400, 'That unsubscribe link is not valid.', 'bad_token');
     }
-    if (m === 'POST' && p === '/leads/unsubscribe') return engage.unsubscribeLead(db, url.searchParams.get('token')) ? { ok: true, unsubscribed: true } : core.fail(400, 'That unsubscribe link is not valid.', 'bad_token');
     if (m === 'GET' && p === '/me/verify') return page(engage.verifyEmail(db, url.searchParams.get('token')), 'Email confirmed', 'That link is not valid or was already used.');
     if (m === 'PATCH' && p === '/me') return engage.setEmail(db, account, await body(req));
     if (m === 'GET' && p === '/me/leads') return engage.myLeads(db, account);
@@ -908,7 +921,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
         return res.end(out.__raw.body);
       }
       if (out && out.__html) {
-        res.writeHead(200, { ...headers, 'Content-Type': 'text/html; charset=utf-8' });
+        res.writeHead(out.__status ?? 200, { ...headers, 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, nofollow' });
         return res.end(out.__html);
       }
       send(200, out);

@@ -50,9 +50,10 @@ export const ACCOUNT_SETTINGS = {
 };
 
 // POST /newsletter/unsubscribe?token=<signed token> (the List-Unsubscribe-Post one-click, RFC 8058; no sign-in) and POST /leads/unsubscribe?token=
-// (a public sign-up's): the answer. A token that is not valid is a 400 `bad_token`. (GET on the same addresses shows a page saying the same.)
+// (a public sign-up's): the answer; `already`: it was unsubscribed before (a second press is harmless). A token that is not valid is a 400 `bad_token`.
+// GET on the same addresses changes nothing: it shows a page asking to confirm, whose button POSTs (with Accept: text/html it is answered with a page).
 export const NEWSLETTER_UNSUBSCRIBE_RESULT = {
   id: 'newsletter.unsubscribe.result',
   version: 1,
-  schema: { type: 'object', required: ['ok', 'unsubscribed'], additionalProperties: false, properties: { ok: { enum: [true] }, unsubscribed: { enum: [true] } } },
+  schema: { type: 'object', required: ['ok', 'unsubscribed', 'already'], additionalProperties: false, properties: { ok: { enum: [true] }, unsubscribed: { enum: [true] }, already: { type: 'boolean' } } },
 };

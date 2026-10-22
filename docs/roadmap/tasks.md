@@ -83,7 +83,7 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - take-over emails call the payout game value, with no `$`.
 - [x] **Policy gaps 2, 7, 8 and 9** (2026-10-21, [policy_review.md](../monetization/policy_review.md)):
   - **retention limits and clean-up jobs** (`services/api/retention.mjs`, every hour, in batches): sent emails' text after 30 days and their send record after 13 months; visits, clicks, ad views, profile events and stall visits after 13 months, keeping their daily totals (`daily_counts`) so no figure changes; arrivals after 30 days; expired sign-ins a day after; unconfirmed and unsubscribed sign-ups after 30 days; coupon claims' visitor numbers after 13 months; never-posted X welcomes' text after 90 days. The periods are `lib/legal/retention.js`, the same numbers the retention policy quotes (`tests/retention.test.mjs`, `tests/legal.test.mjs`);
-  - **the Plot of the Day is opt-in**, its own box in the account settings, off for every account (old ones too), with a signed one-click unsubscribe link and the `List-Unsubscribe` / `List-Unsubscribe-Post` headers;
+  - **the Plot of the Day is opt-in**, its own box in the account settings, off for every account (old ones too), with a signed unsubscribe link (a confirm page, so link scanners change nothing) and the `List-Unsubscribe` / `List-Unsubscribe-Post` headers;
   - **no owner account numbers** in `/plots/state`, `/plots/:id`, `/ads`: `playerOwned` and the caller's own `mine` instead (`@voxelventure/shared-types` 0.16.0);
   - **the X welcome-post consent** is refused without a handle on the server too, and removing the handle withdraws it.
 - [x] **Pilot dashboard** and the merchants' weekly check-in (task 47) [`docs/monetization/pilot.md`]

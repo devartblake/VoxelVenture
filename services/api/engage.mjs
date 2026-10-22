@@ -239,13 +239,34 @@ export function confirmLead(db, tok) {
   return Number(r.changes) > 0 || Boolean(db.prepare("SELECT 1 FROM leads WHERE token = ? AND status = 'confirmed'").get(String(tok)));
 }
 // (An unsubscribed sign-up is deleted RETENTION.leadUnsubscribedDays after: services/api/retention.mjs.)
+// The unsubscribe links (a sign-up's here, the Plot of the Day's for accounts below) are two steps: opening one (GET) only shows what it
+// would stop, with a Confirm button, so a mail scanner that opens links changes nothing; the button, or a mail app's one-click
+// List-Unsubscribe-Post (RFC 8058), POSTs the same address and unsubscribes at once.
+// An address shown on that page: enough to recognise, not enough to read off a forwarded link ("a****@example.com").
+export const maskEmail = (e) => {
+  const [user, domain] = String(e ?? '').split('@');
+  return domain ? `${user.slice(0, 1)}${'*'.repeat(Math.max(3, user.length - 1))}@${domain}` : '';
+};
+// What a sign-up's token would unsubscribe: { email (masked), what, subscribed } or null for a token that is not valid.
+export function leadUnsubscribeView(db, tok) {
+  const lead = db.prepare('SELECT * FROM leads WHERE token = ?').get(String(tok ?? ''));
+  if (!lead) return null;
+  let what = 'this newsletter';
+  if (lead.target_kind === 'world') what = 'the Plot of the Day';
+  else if (lead.target_kind === 'plot') what = db.prepare('SELECT title FROM plots WHERE id = ?').get(Number(lead.target_id))?.title ?? what;
+  else if (lead.target_kind === 'business') what = db.prepare('SELECT name FROM businesses WHERE id = ?').get(Number(lead.target_id))?.name ?? what;
+  else if (lead.target_kind === 'ad') { const ad = db.prepare('SELECT ad FROM ad_slots WHERE id = ?').get(lead.target_id)?.ad; if (ad) what = JSON.parse(ad).headline; }
+  return { email: maskEmail(lead.email), what, subscribed: lead.status !== 'unsubscribed' };
+}
+// Unsubscribes a sign-up: 'unsubscribed', 'already' (it was: a second press is harmless), or null for a token that is not valid.
 export function unsubscribeLead(db, tok) {
-  const lead = db.prepare('SELECT id, target_kind, email FROM leads WHERE token = ?').get(String(tok ?? ''));
-  if (!lead) return false;
+  const lead = db.prepare('SELECT id, target_kind, email, status FROM leads WHERE token = ?').get(String(tok ?? ''));
+  if (!lead) return null;
+  const was = lead.status === 'unsubscribed';
   db.prepare("UPDATE leads SET status = 'unsubscribed', unsubscribed_at = COALESCE(unsubscribed_at, ?) WHERE id = ?").run(now(), lead.id);
   // the Plot of the Day: an account with this address that opted in stops too, so one click always ends the newsletter
   if (lead.target_kind === 'world') db.prepare('UPDATE accounts SET newsletter = 0, newsletter_at = ? WHERE email = ? AND newsletter = 1').run(now(), lead.email);
-  return true;
+  return was ? 'already' : 'unsubscribed';
 }
 // The owner of a business or an ad space sees how many people signed up, and the confirmed addresses (never the pending ones).
 export function leadsFor(db, account, kind, id) {
@@ -340,15 +361,23 @@ export function accountOfNewsletterToken(token, env = process.env) {
   const want = Buffer.from(newsletterSig(id, newsletterSecret(env)));
   return crypto.timingSafeEqual(want, Buffer.from(m[2])) ? id : null;
 }
-// Unsubscribes the account the token names. True for a valid token (also when it was already unsubscribed: the link can be opened again).
-export function unsubscribeNewsletter(db, token, env = process.env) {
+const accountOfToken = (db, token, env) => {
   const id = accountOfNewsletterToken(token, env);
-  const a = id == null ? null : db.prepare('SELECT id, email FROM accounts WHERE id = ?').get(id);
-  if (!a) return false;
-  db.prepare('UPDATE accounts SET newsletter = 0, newsletter_at = ? WHERE id = ? AND newsletter = 1').run(now(), id);
+  return id == null ? null : db.prepare('SELECT id, email, newsletter FROM accounts WHERE id = ?').get(id) ?? null;
+};
+// What the token would unsubscribe (the page a GET shows; it changes nothing): { email (masked), what, subscribed } or null.
+export function newsletterUnsubscribeView(db, token, env = process.env) {
+  const a = accountOfToken(db, token, env);
+  return a ? { email: maskEmail(a.email), what: 'the Plot of the Day', subscribed: Boolean(a.newsletter) } : null;
+}
+// Unsubscribes the account the token names (a POST): 'unsubscribed', 'already' (a second press is harmless), or null for a token that is not valid.
+export function unsubscribeNewsletter(db, token, env = process.env) {
+  const a = accountOfToken(db, token, env);
+  if (!a) return null;
+  db.prepare('UPDATE accounts SET newsletter = 0, newsletter_at = ? WHERE id = ? AND newsletter = 1').run(now(), a.id);
   // the same address signed up on the public form too: that stops as well, so one click always ends the newsletter
   if (a.email) db.prepare("UPDATE leads SET status = 'unsubscribed', unsubscribed_at = COALESCE(unsubscribed_at, ?) WHERE target_kind = 'world' AND email = ? AND status != 'unsubscribed'").run(now(), a.email);
-  return true;
+  return a.newsletter ? 'unsubscribed' : 'already';
 }
 const unsubscribeHeaders = (url) => ({ 'List-Unsubscribe': `<${url}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' });
 
@@ -379,7 +408,7 @@ export function sendNewsletter(db, date = new Date(), env = process.env) {
     const key = r.email.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    enqueue(db, { to: r.email, kind: 'newsletter', subject: n.subject, body: `${n.body}\n\nYou get this because ${r.why}.\nUnsubscribe (one click, no sign-in needed): ${r.url}`, headers: unsubscribeHeaders(r.url) });
+    enqueue(db, { to: r.email, kind: 'newsletter', subject: n.subject, body: `${n.body}\n\nYou get this because ${r.why}.\nUnsubscribe (no sign-in needed): ${r.url}`, headers: unsubscribeHeaders(r.url) });
     queued++;
   }
   return { queued, subject: n.subject };
