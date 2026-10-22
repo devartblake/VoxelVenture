@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', types.API_CONTRACTS.length === 64 && Object.keys(CONTRACTS).length === 64 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 2); // + test.scenario and demo.tour
+check('contract ids are unique', types.API_CONTRACTS.length === 70 && Object.keys(CONTRACTS).length === 70 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 2); // + test.scenario and demo.tour
 
 // ---- the shared values are the ones the server and the funnel use
 import { OUTCOMES } from '@voxelventure/analytics';
@@ -157,6 +157,20 @@ try {
   holds('watching', types.PLOT_WATCH, (await call('POST', `/plots/${built[0].id}/watch`, { token: cat.token })).data);
   holds('who watches, for the admin', types.PLOT_WATCHERS, (await call('GET', `/admin/plots/${built[0].id}/watchers`, { token: 'admin' })).data);
   holds('the economy report', types.ECONOMY_REPORT, (await call('GET', '/admin/economy', { token: 'admin' })).data);
+
+  // privacy (privacy.mjs): the export, finding an account, deleting a page and an account
+  holds('an account\'s data export', types.PRIVACY_EXPORT, (await call('GET', '/me/export', { token: bob.token })).data);
+  holds('the admin\'s export', types.PRIVACY_EXPORT, (await call('GET', `/admin/accounts/${cat.account.id}/export`, { token: 'admin' })).data);
+  holds('finding an account', types.PRIVACY_ACCOUNTS, (await call('GET', '/admin/privacy/accounts?q=Cat', { token: 'admin' })).data);
+  holds('deleting a business page', types.BUSINESS_DELETE_RESULT, (await call('DELETE', '/businesses/cat-quotes', { token: cat.token })).data);
+  const goodbye = { password: 'longenough1', confirm: 'Cat' };
+  holds('a deletion\'s body', types.PRIVACY_DELETE, goodbye);
+  check('a deletion the contract refuses (no password), the server refuses too', !fits(types.PRIVACY_DELETE, { confirm: 'Cat' }).ok && (await call('POST', '/me/delete', { token: cat.token, body: { confirm: 'Cat' } })).status === 401);
+  holds('the answer to a deletion', types.PRIVACY_DELETE_RESULT, (await call('POST', '/me/delete', { token: cat.token, body: goodbye })).data);
+  const dan = (await call('POST', '/auth/signup', { body: { username: 'Dan', password: 'longenough1' } })).data;
+  const byAdmin = { confirm: 'Dan', reason: 'asked by email' };
+  holds('an admin deletion\'s body', types.PRIVACY_ADMIN_DELETE, byAdmin);
+  holds('the answer to an admin deletion', types.PRIVACY_DELETE_RESULT, (await call('POST', `/admin/accounts/${dan.account.id}/delete`, { token: 'admin', body: byAdmin })).data);
 } catch (err) {
   fails++;
   console.log('FAIL', err.stack);

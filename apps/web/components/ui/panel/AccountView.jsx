@@ -6,6 +6,7 @@ import { apiOn } from '@/lib/data/api';
 import { leadsCsv } from '@/lib/data/csv';
 import { myLeadsRemote, setEmailRemote, walletRemote } from '@/lib/data/sync';
 import { useAccount } from '@/lib/state/accountStore';
+import PrivacyControls, { DeletedNotice } from '@/components/legal/PrivacyControls';
 
 const INPUT = 'w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-1.5 text-xs text-white focus:border-sx-cyan focus:outline-none';
 const REASON = { starter: 'Welcome Credits', quest: 'Visit quest reward', quest_budget: 'Added to a quest budget', budget_refund: 'Quest budget returned' };
@@ -29,6 +30,7 @@ export default function AccountView() {
   if (!account) {
     return (
       <div className="space-y-2 text-xs text-slate-300">
+        <DeletedNotice compact />
         <p>You are not signed in. You only need an account to own a plot or an ad space, claim a coupon, earn quest Credits or post on a feedback board.</p>
         <button onClick={() => useAccount.getState().ask()} className="rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-4 py-2 text-xs font-bold text-white hover:brightness-110">Sign in or create an account</button>
       </div>
@@ -110,6 +112,8 @@ export default function AccountView() {
           ))}
         </ul>
       </section>
+
+      <PrivacyControls account={account} compact />
     </div>
   );
 }

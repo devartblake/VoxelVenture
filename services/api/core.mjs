@@ -102,6 +102,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 export function signup(db, { username, password }) {
   const name = text(username, 20);
   if (!/^[A-Za-z0-9_-]{3,20}$/.test(name)) fail(400, 'Choose a name of 3 to 20 letters, numbers, dashes or underscores.', 'bad_username');
+  if (/^deleted-/i.test(name)) fail(409, 'That name is taken.', 'username_taken'); // the names deleted accounts are given (privacy.mjs)
   if (typeof password !== 'string' || password.length < 8 || password.length > 100) fail(400, 'The password needs at least 8 characters.', 'bad_password');
   const salt = crypto.randomBytes(16).toString('hex');
   try {
@@ -116,7 +117,7 @@ export function signup(db, { username, password }) {
 }
 export function login(db, { username, password }) {
   const a = db.prepare('SELECT * FROM accounts WHERE username = ?').get(text(username, 20));
-  const ok = a && typeof password === 'string' && crypto.timingSafeEqual(Buffer.from(hash(password, a.pass_salt), 'hex'), Buffer.from(a.pass_hash, 'hex'));
+  const ok = a && !a.deleted_at && typeof password === 'string' && crypto.timingSafeEqual(Buffer.from(hash(password, a.pass_salt), 'hex'), Buffer.from(a.pass_hash, 'hex'));
   if (!ok) fail(401, 'Wrong name or password.', 'bad_login');
   if (a.banned) fail(403, 'This account has been suspended.', 'banned');
   return startSession(db, a.id);
@@ -149,6 +150,14 @@ export function logout(db, token) {
   db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha(token ?? ''));
 }
 export const requireAccount = (account) => account ?? fail(401, 'Sign in first.', 'unauthorized');
+// The password check alone, for a step that asks for it again (deleting the account: privacy.mjs). True when it is the account's password.
+export function passwordMatches(db, accountId, password) {
+  const a = db.prepare('SELECT pass_salt, pass_hash, deleted_at FROM accounts WHERE id = ?').get(accountId);
+  if (!a || a.deleted_at || typeof password !== 'string' || !password || password.length > 100) return false;
+  const want = Buffer.from(a.pass_hash, 'hex');
+  const got = Buffer.from(hash(password, a.pass_salt), 'hex');
+  return want.length === got.length && crypto.timingSafeEqual(got, want);
+}
 
 // ---- plots -----------------------------------------------------------------------------------------------------------
 // Every count the API serves is verified events only (docs/architecture/authoritative_data.md). The generator's starting figures (base_visits,
@@ -227,6 +236,25 @@ export function worldState(db) {
 export function getPlot(db, id) {
   const row = db.prepare('SELECT * FROM plots WHERE id = ?').get(Number(id));
   return row ?? fail(404, 'No such plot.', 'no_plot');
+}
+
+// The plot goes back to what the world started with (an account was deleted, privacy.mjs): an empty lot for sale, or the city's own business it was
+// before a player took it over, at the generator's value, with an 'open' line in its history. Its interior, holds and links to profiles go too.
+let generated = null; // { seed, plots: Map } of the last seed asked for (the generator is slow; deleting an account is rare)
+export function releasePlot(db, id, seed) {
+  if (generated?.seed !== seed) generated = { seed, plots: new Map(generateCity(seed).plots.map((p) => [p.id, p])) };
+  const g = generated.plots.get(Number(id)) ?? fail(404, 'No such plot.', 'no_plot');
+  return transaction(db, () => {
+    const p = getPlot(db, id);
+    const owner = g.owner ?? null;
+    db.prepare('UPDATE plots SET owner_account=NULL, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=NULL, description=NULL, exterior=NULL, value=?, lease_days=NULL, lease_start=NULL, lease_end=NULL, lease_notified=0, brand=NULL, quest_budget=0, updated_at=? WHERE id=?')
+      .run(owner, g.title, g.website ?? null, g.buildingType ?? null, g.interiorData?.variant ?? null, Math.round(g.value), now(), p.id);
+    db.prepare("INSERT INTO ledger (plot_id, kind, owner_name, title, price, at) VALUES (?, 'open', ?, ?, ?, ?)").run(p.id, owner ?? `Building #${p.id}`, g.title, Math.max(1, Math.round(g.value * 0.8)), now());
+    db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id);
+    db.prepare('DELETE FROM plot_holds WHERE plot_id = ?').run(p.id);
+    db.prepare('UPDATE businesses SET plot_id = NULL WHERE plot_id = ?').run(p.id);
+    return getPlot(db, p.id);
+  });
 }
 
 // What an owner sets up: title, website, type, interior layout, logo, description. Anything invalid is refused.

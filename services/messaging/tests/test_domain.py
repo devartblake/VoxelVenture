@@ -107,5 +107,45 @@ class InquiryRace(Case):
         self.assertEqual(json.loads(m.db.execute('SELECT event FROM messaging_outbox LIMIT 1').fetchone()['event'])['type'], 'inbox.changed')
 
 
+class Privacy(Case):
+    """The export and the erasure the Node API asks for (services/api/privacy.mjs), as messaging.mjs exportFor / eraseFor."""
+
+    def seed(self, m):
+        m.remember([{'id': 1, 'username': 'amy'}, {'id': 2, 'username': 'bob'}])
+        m.db.execute("INSERT INTO conversations (id, kind, pair_key, created_by, created_at, last_at) VALUES ('conv-ab', 'direct', '1:2', 1, 1, 3)")
+        m.db.execute("INSERT INTO conversation_members (conversation_id, account_id, status) VALUES ('conv-ab', 1, 'accepted'), ('conv-ab', 2, 'accepted')")
+        m.db.execute("INSERT INTO messages (conversation_id, sender, client_id, body, at) VALUES ('conv-ab', 1, 'amy-00001', 'hello bob', 1), ('conv-ab', 2, 'bob-00001', 'hi amy', 2)")
+        reported = m.db.execute("INSERT INTO messages (conversation_id, sender, client_id, body, at) VALUES ('conv-ab', 1, 'amy-00002', 'rude words', 3)").lastrowid
+        m.db.execute("INSERT INTO messaging_reports (kind, target_id, reporter, reason, evidence, created_at) VALUES ('message', ?, 2, 'offensive', ?, 4)", (str(reported), json.dumps({'sender': 1, 'senderName': 'amy', 'text': 'rude words'})))
+        m.db.execute("INSERT INTO nearby_messages (sender, room, body, recipients, at) VALUES (1, 'r', 'nearby hi', '[2]', 5), (2, 'r', 'bob nearby', '[1]', 6)")
+        m.db.execute('INSERT INTO account_blocks (blocker, blocked, at) VALUES (1, 2, 7)')
+        m.db.execute("INSERT INTO messaging_settings (account_id, requests) VALUES (1, 0)")
+        m.enqueue([1], {'type': 'inbox.changed', 'conversationId': 'conv-ab'})
+
+    def test_the_export_has_both_sides_of_a_conversation_but_no_other_account_number(self):
+        m, _ = self.make()
+        self.seed(m)
+        out = m.export_for(1)
+        self.assertEqual(out['requests'], False)
+        self.assertEqual(out['blocks'][0]['username'], 'bob')
+        conv = out['conversations'][0]
+        self.assertEqual(conv['with'], ['bob'])
+        self.assertEqual([(x['mine'], x['from'], x['text']) for x in conv['messages']], [(True, 'amy', 'hello bob'), (False, 'bob', 'hi amy'), (True, 'amy', 'rude words')])
+        self.assertEqual([n['text'] for n in out['nearby']], ['nearby hi'])
+        self.assertNotIn('"id": 2', json.dumps(out))
+
+    def test_erasing_wipes_its_words_but_keeps_reported_evidence_and_the_other_side(self):
+        m, _ = self.make()
+        self.seed(m)
+        out = m.erase_for(1, 'deleted-1')
+        self.assertEqual((out['messages'], out['nearby'], out['blocks'], out['notices']), (1, 1, 1, 1))
+        bodies = {r['client_id']: r['body'] for r in m.db.execute('SELECT client_id, body FROM messages').fetchall()}
+        self.assertEqual(bodies, {'amy-00001': None, 'bob-00001': 'hi amy', 'amy-00002': 'rude words'})  # the reported one waits for the decision
+        self.assertEqual(m.username(1), 'deleted-1')
+        self.assertEqual(json.loads(m.db.execute('SELECT evidence FROM messaging_reports').fetchone()['evidence'])['senderName'], 'deleted-1')
+        self.assertEqual(m.db.execute("SELECT status FROM conversation_members WHERE account_id = 1").fetchone()['status'], 'declined')
+        self.assertIsNone(m.db.execute('SELECT 1 FROM messaging_settings WHERE account_id = 1').fetchone())
+
+
 if __name__ == '__main__':
     unittest.main()

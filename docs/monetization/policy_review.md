@@ -85,12 +85,13 @@ These are true today and the drafts say so honestly. Each one is better fixed in
 3. ✅ **Fixed (2026-10-16): take-over emails no longer say "you were paid out $X".** They now say "the game credited you N in game value (play money: no real money is paid)", with no currency sign (`services/api/engage.mjs`, `notifyTakeover`, `notifyAdTakeover`; checked by `tests/engage.test.mjs` and `tests/legal.test.mjs`). The terms say the same.
 4. **Ad spaces are never charged.** `POST /ads/:id/buy` has no payment even when billing is on. The advertising policy calls them a free game feature; decision 9.
 5. **Disputes and partial refunds.** Chargebacks are recorded but nothing else happens. A partial refund made in the Stripe dashboard is ignored (`services/api/billing.mjs`). **Fix:** handle `charge.dispute.created` (pause what it paid for, alert an admin) and partial refunds. *A day.*
-6. **People cannot delete their account or download their data.** The policies say to email. **Fix:**
-   - an account deletion that wipes personal fields and keeps anonymised records;
-   - a data export;
-   - a way for an owner to delete their own business page.
-
-   *Two or three days.* The action log cannot be deleted by design; the privacy policy says so.
+6. ✅ **Fixed (2026-10-21): people can download their data and delete their account themselves** (`services/api/privacy.mjs`, [backend.md](../architecture/backend.md#privacy)).
+   - **Data export:** Download my data, in the game's Account panel and on My profiles (`GET /me/export`, 3 a day): every table about the account, as JSON and a plain-language summary. A table left out is named in the file with the reason. In a conversation the other person's messages are included as the Inbox shows them, never their account number; requests and sign-ups an owner received only as the dashboard shows them.
+   - **Account deletion:** Delete my account (`POST /me/delete`), with the password again and the name typed, after a screen that says what goes, what stays and why, and that no refund is made automatically (linking the refund policy). Done at once, no grace period. The name becomes `deleted-<n>`; email, password, sessions, chat, notices, sign-ups, watches, the cart and holds go; messages, chat and feedback text are wiped; plots and ad spaces are released at once; Pro is cancelled in Stripe at once. Kept, without personal data: orders and payments (accounting and tax), the action log (cannot be changed by design), plot and Credits history under the new name, figures with a random number in place of the account.
+   - **An owner deletes a business page** (`DELETE /businesses/:slug`, on My profiles): gone from its address, Discover and the sitemap, its plot unlinked, its requests and sign-ups deleted, its figures kept in total only, Pro cancelled.
+   - **For email requests:** the admin's Privacy requests page (`/admin/privacy`) finds the account and exports or deletes it, audited.
+   - **Tests:** `tests/privacy.test.mjs` (every table must be classified: a new table with an `account_id` column fails it), `tests/contracts.test.mjs`, `tests/legal.test.mjs`, `tests/live-browser.test.mjs`.
+   - **Still for the review:** the [30]-day answer for requests by email, and how long payment records are kept by law (the retention policy's placeholder).
 7. **Kept with no end date:**
    - sent emails (`outbox`);
    - visits and presses with scrambled addresses (`events`, `business_events`, `ad_events`);

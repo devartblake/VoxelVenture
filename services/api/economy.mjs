@@ -28,7 +28,7 @@ export const TRAFFIC_SEEN_DAYS = 2; // who was already counted in an area: only 
 const CAPS = { card_open: 3, open: 3, hold: 5, quote: 10 };
 const TRAFFIC_CAP = 3; // players a day from one network in one area (a household, an office)
 const goodVisitor = (id) => /^[A-Za-z0-9_-]{4,40}$/.test(String(id ?? ''));
-const hashOf = (salt, s) => crypto.createHash('sha256').update(`${salt ?? 'voxelventure'}|${s}`).digest('hex').slice(0, 16);
+export const hashOf = (salt, s) => crypto.createHash('sha256').update(`${salt ?? 'voxelventure'}|${s}`).digest('hex').slice(0, 16);
 const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10);
 const cents = (dollars) => (Number.isFinite(Number(dollars)) ? Math.round(Number(dollars) * 100) : null);
 const factsOf = (row) => JSON.parse(row.facts);
@@ -121,7 +121,7 @@ const heldError = (until) => new ApiError(409, HELD_MESSAGE, 'held').withData({ 
 
 // A hold given up, run out or replaced: deleted, and its `abandoned` step written (unless it ended in a claim or a checkout, which tell their own
 // story: the checkout's outcome is in `orders`).
-function endHold(db, hold, at = now()) {
+export function endHold(db, hold, at = now()) {
   db.prepare('DELETE FROM plot_holds WHERE plot_id = ?').run(hold.plot_id);
   const after = db.prepare("SELECT 1 FROM plot_intents WHERE plot_id = ? AND account_id = ? AND step IN ('checkout', 'claimed') AND at >= ?").get(hold.plot_id, hold.account_id, hold.started_at);
   if (after) return false;

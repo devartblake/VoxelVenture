@@ -61,6 +61,11 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'admin_accounts', 'email', 'TEXT'); // an admin's address for password resets (services/api/admin.mjs)
   addColumn(db, 'admin_accounts', 'email_verified_at', 'INTEGER'); // when its one-use link was opened; NULL: not confirmed
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS admin_accounts_email ON admin_accounts(email) WHERE email IS NOT NULL');
+  // privacy (privacy.mjs): a deleted account stays as a row with no personal data (its id is referenced by orders and the audit log), and so does a
+  // deleted business page, with its figures in total only
+  addColumn(db, 'accounts', 'deleted_at', 'INTEGER'); // when the account was deleted (its name is then deleted-<id>)
+  addColumn(db, 'businesses', 'deleted_at', 'INTEGER'); // when the owner (or the account's deletion) deleted the page; status is then 'deleted'
+  addColumn(db, 'businesses', 'final_stats', 'TEXT'); // JSON: the page's figures in total when it was deleted (its events and requests are gone)
   return db;
 }
 

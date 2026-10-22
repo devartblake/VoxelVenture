@@ -13,6 +13,8 @@ import NotLive from './NotLive';
 import { signIn, useOwner } from './useOwner';
 import PromoField from '@/components/ui/PromoField';
 import { promoBody } from '@/lib/state/promoStore';
+import PrivacyControls, { DeletedNotice } from '@/components/legal/PrivacyControls';
+import { PAGE_DELETE } from '@/lib/legal/privacy';
 
 const SOURCE_LABEL = { direct: 'Direct', search: 'Search engines', social: 'Social sites', referral: 'Referral links', city: 'The 3D city', x: 'VoxelVenture on X' };
 const POST_STATUS = { review: 'waiting for a quick check before it goes out', queued: 'about to be posted', posted: 'posted', failed: 'could not be posted', rejected: 'not posted', skipped: 'not posted' };
@@ -44,6 +46,7 @@ export default function ManageProfiles() {
   if (!account)
     return (
       <div className="mx-auto max-w-md text-center">
+        <DeletedNotice />
         <h1 className="text-3xl font-bold text-white">My profiles</h1>
         <p className="mt-2 text-slate-300">Sign in to see your business profiles and how they are doing.</p>
         <button type="button" onClick={() => signIn().catch(() => {})} className="mt-5 rounded-xl bg-sx-purple px-5 py-3 font-semibold text-white hover:bg-violet-400">Sign in</button>
@@ -74,6 +77,7 @@ export default function ManageProfiles() {
       </div>
       {data && <Referrals referral={data.referral} origin={origin} />}
       {data?.checkout && <Orders />}
+      <PrivacyControls account={account} />
       <p className="mt-8 text-xs text-sx-muted">All figures are the last 30 days and count verified visitors only: no bots, no visits of your own, and a daily limit per network.</p>
     </>
   );
@@ -83,6 +87,7 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
   const { profile: p, stats, steps, prompts, welcomePost, plan, launchSummary } = row;
   const [sponsorOpen, setSponsorOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState('');
   const [added, setAdded] = useState('');
@@ -150,7 +155,9 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
           <p className="text-sm text-sx-muted">{[categoryOf(p.category)?.label, districtOf(p.district)?.name, CTA_KINDS.find((k) => k.id === p.cta.kind)?.label].filter(Boolean).join(' · ')}</p>
         </div>
         <button type="button" onClick={() => setEditing((e) => !e)} className="rounded-lg border border-sx-stroke px-3 py-1.5 text-sm text-slate-200 hover:bg-sx-alt">{editing ? 'Close' : 'Edit'}</button>
+        <button type="button" onClick={() => setDeleting((d) => !d)} className="rounded-lg border border-rose-500/50 px-3 py-1.5 text-sm text-rose-200 hover:bg-rose-500/10" data-testid="delete-page">Delete page…</button>
       </header>
+      {deleting && <DeletePage profile={p} pro={plan.pro} onCancel={() => setDeleting(false)} onDeleted={onChange} />}
 
       {editing ? (
         <div className="mt-4"><ProfileForm initial={p} submitLabel="Save changes" onSubmit={save} onCancel={() => setEditing(false)} /></div>
@@ -271,6 +278,40 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
         </>
       )}
     </section>
+  );
+}
+
+// Deleting a business page (DELETE /businesses/:slug, services/api/privacy.mjs): what happens, said first; the page's name typed to confirm.
+function DeletePage({ profile, pro, onCancel, onDeleted }) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const go = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await request('DELETE', `/businesses/${profile.slug}`);
+      onDeleted();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={go} className="mt-4 rounded-xl border border-rose-500/50 bg-rose-500/10 p-4" data-testid="delete-page-confirm">
+      <p className="font-semibold text-rose-100">Delete the page {profile.name}? It goes at once and cannot be brought back.</p>
+      <ul className="mt-2 ml-5 list-disc space-y-1 text-sm text-slate-200">{PAGE_DELETE.map((x) => <li key={x}>{x}</li>)}</ul>
+      {pro && <p className="mt-2 text-sm text-amber-200">This page has Pro: it is cancelled now. <a href="/legal/refunds" className="underline">The refund policy</a></p>}
+      <label className="mt-3 block text-sm text-slate-200">Type the page's name ({profile.name}) to confirm
+        <input autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-sm text-white" aria-label="Type the page's name" />
+      </label>
+      {error && <p className="mt-2 text-sm text-rose-300" role="alert">{error}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="submit" disabled={busy || name.trim().toLowerCase() !== profile.name.trim().toLowerCase()} className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50" data-testid="delete-page-go">{busy ? 'Deleting…' : 'Delete this page'}</button>
+        <button type="button" onClick={onCancel} className="rounded-lg border border-sx-stroke px-3 py-2 text-sm text-slate-200 hover:bg-sx-alt">Keep it</button>
+      </div>
+    </form>
   );
 }
 

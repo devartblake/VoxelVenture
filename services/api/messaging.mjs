@@ -482,3 +482,42 @@ export function prune(db, cfg, at = now()) {
   db.prepare('DELETE FROM messaging_tickets WHERE expires_at < ?').run(at);
   return { nearby, inbox, evidence };
 }
+
+// ---- privacy (privacy.mjs, docs/architecture/backend.md#privacy) -------------------------------------------------------------------
+// What an account's data export holds of messaging: its settings, who it blocked, every conversation it is in, and its own nearby lines.
+// In a conversation, its own messages are there in full; the other person's are there as the Inbox already shows them to it (their name and
+// the text it could read), never their account number. Nearby lines others said near it are not: nobody can list those (they are evidence only).
+// The Python messaging service answers the same (services/messaging/app/domain.py export_for).
+export function exportFor(db, accountId) {
+  const a = db.prepare('SELECT dm_requests FROM accounts WHERE id = ?').get(accountId);
+  const blocks = db.prepare('SELECT a.username, b.at FROM account_blocks b JOIN accounts a ON a.id = b.blocked WHERE b.blocker = ? ORDER BY b.at').all(accountId).map((b) => ({ username: b.username, at: b.at }));
+  const rows = db.prepare('SELECT c.*, m.status, m.muted FROM conversation_members m JOIN conversations c ON c.id = m.conversation_id WHERE m.account_id = ? ORDER BY c.created_at').all(accountId);
+  const conversations = rows.map((c) => ({
+    id: c.id,
+    kind: c.kind,
+    plotTitle: c.plot_title ?? null,
+    startedByMe: c.created_by === accountId,
+    myStatus: c.status,
+    muted: Boolean(c.muted),
+    with: db.prepare('SELECT a.username FROM conversation_members m JOIN accounts a ON a.id = m.account_id WHERE m.conversation_id = ? AND m.account_id != ?').all(c.id, accountId).map((x) => x.username),
+    createdAt: c.created_at,
+    messages: db.prepare('SELECT m.*, a.username FROM messages m JOIN accounts a ON a.id = m.sender WHERE m.conversation_id = ? ORDER BY m.id').all(c.id).map((m) => ({ mine: m.sender === accountId, from: m.username, text: m.state === 'ok' ? m.body : null, state: m.state, at: m.at })),
+  }));
+  const nearby = db.prepare('SELECT room, body, state, at FROM nearby_messages WHERE sender = ? ORDER BY id').all(accountId).map((n) => ({ room: n.room, text: n.state === 'ok' ? n.body : null, state: n.state, at: n.at }));
+  return { requests: Boolean(a?.dm_requests ?? 1), blocks, conversations, nearby };
+}
+
+// Deleting an account (privacy.mjs): the text of everything it wrote is wiped (a message under an open report is kept until the report is
+// decided, then wiped by prune like any other), its blocks both ways go, it leaves its conversations (the other person keeps theirs, with the
+// account shown by its new name), and its notices and tickets are deleted. Returns how many of each changed.
+export function eraseFor(db, accountId) {
+  const held = (kind) => `SELECT target_id FROM reports WHERE kind = '${kind}' AND status = 'open'`;
+  return transaction(db, () => ({
+    messages: Number(db.prepare(`UPDATE messages SET body = NULL, state = 'removed' WHERE sender = ? AND state = 'ok' AND CAST(id AS TEXT) NOT IN (${held('message')})`).run(accountId).changes),
+    nearby: Number(db.prepare(`UPDATE nearby_messages SET body = NULL, state = 'removed' WHERE sender = ? AND state = 'ok' AND CAST(id AS TEXT) NOT IN (${held('nearby')})`).run(accountId).changes),
+    left: Number(db.prepare("UPDATE conversation_members SET status = 'declined', muted = 1 WHERE account_id = ?").run(accountId).changes),
+    blocks: Number(db.prepare('DELETE FROM account_blocks WHERE blocker = ? OR blocked = ?').run(accountId, accountId).changes),
+    notices: Number(db.prepare('DELETE FROM messaging_outbox WHERE account_id = ?').run(accountId).changes),
+    tickets: Number(db.prepare('DELETE FROM messaging_tickets WHERE account_id = ?').run(accountId).changes),
+  }));
+}

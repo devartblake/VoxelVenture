@@ -51,6 +51,7 @@ import * as pilot from './pilot.mjs';
 import * as interiors from './interiors.mjs';
 import * as economy from './economy.mjs';
 import * as admin from './admin.mjs';
+import * as privacy from './privacy.mjs';
 import crypto from 'node:crypto';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
@@ -230,6 +231,32 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       return out;
     });
   const identityView = (a) => ({ id: a.id, username: a.username, banned: Boolean(a.banned), emailVerified: Boolean(a.email_verified) });
+
+  // ---- privacy (privacy.mjs): with the messaging service set up, its part of an export and of a deletion is asked of it
+  const exportLimit = admin.createRateLimit({ max: privacy.EXPORT_PER_DAY, windowMs: 86400000 });
+  const deleteTries = admin.createRateLimit({ max: privacy.PRIVACY.deleteTries, windowMs: 15 * 60000 }); // wrong passwords when deleting, per account
+  const messagingPrivacy = async (what, payload) => {
+    let res;
+    try {
+      res = await fetch(`${messagingService}/internal/privacy/${what}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': env.INTERNAL_SECRET || '' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(8000) });
+    } catch {
+      res = null;
+    }
+    if (!res?.ok) throw new core.ApiError(503, 'Messages are not available right now, so this cannot be done yet. Try again in a moment.', 'unavailable');
+    return res.json();
+  };
+  const exportOf = async (accountId, actor) => {
+    const messaging = messagingService ? await messagingPrivacy('export', { accountId }) : null;
+    const out = privacy.exportAccount(db, accountId, { env, messaging });
+    A.audit(db, actor, 'account.export', { kind: 'account', id: accountId }, { by: actor.kind === 'admin' ? 'admin' : 'self' });
+    return out;
+  };
+  const removeAccount = async (accountId, actor, reason = null) => {
+    const out = await privacy.deleteAccount(db, accountId, { seed, env, fetchImpl: fetch, actor, reason, eraseRemote: messagingService ? (id, username) => messagingPrivacy('erase', { accountId: id, username }) : null });
+    if (out.plotsReleased.length) push('plot', out.plotsReleased);
+    push('ad', []);
+    return out;
+  };
 
   // Routes that belong to the messaging service when there is one. /messaging/ticket stays here: tickets are part of signing in.
   const MESSAGING_ROUTE = /^\/(conversations(\/.*)?|messaging\/(?!ticket$).+|plots\/\d+\/inquiries|internal\/messaging\/nearby)$/;
@@ -594,6 +621,40 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/me/verify') return page(engage.verifyEmail(db, url.searchParams.get('token')), 'Email confirmed', 'That link is not valid or was already used.');
     if (m === 'PATCH' && p === '/me') return engage.setEmail(db, account, await body(req));
     if (m === 'GET' && p === '/me/leads') return engage.myLeads(db, account);
+    // privacy (privacy.mjs): a copy of everything about the account, deleting it, and (the owner) deleting a business page
+    if (m === 'GET' && p === '/me/export') {
+      core.requireAccount(account);
+      if (!exportLimit.take(`account:${account.id}`)) throw new core.ApiError(429, `You can download your data ${privacy.EXPORT_PER_DAY} times a day. Try again tomorrow.`, 'rate_limited');
+      return exportOf(account.id, A.byAccount(account));
+    }
+    if (m === 'POST' && p === '/me/delete') {
+      core.requireAccount(account);
+      jsonFromSite(req);
+      const b = await body(req, 4000);
+      const key = `account:${account.id}`;
+      if (!deleteTries.take(key)) throw new core.ApiError(429, 'Too many tries. Wait a quarter of an hour and try again.', 'rate_limited');
+      if (!core.passwordMatches(db, account.id, b.password)) {
+        A.audit(db, A.byAccount(account), 'account.delete_refused', { kind: 'account', id: account.id }, { reason: 'bad_password' });
+        await pause();
+        throw new core.ApiError(401, 'That is not your password.', 'bad_password');
+      }
+      if (String(b.confirm ?? '').trim().toLowerCase() !== account.username.toLowerCase()) throw new core.ApiError(400, 'Type your account name to confirm.', 'confirm_name');
+      return removeAccount(account.id, A.byAccount(account));
+    }
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'DELETE') {
+      const out = await privacy.deleteBusiness(db, account, r[1], { env, fetchImpl: fetch });
+      if (out.plotUnlinked) push('plot', [out.plotUnlinked]);
+      return out;
+    }
+    if (m === 'GET' && p === '/admin/privacy/accounts') return (adminOnly(), privacy.findAccounts(db, url.searchParams.get('q')));
+    if ((r = p.match(/^\/admin\/accounts\/(\d+)\/export$/)) && m === 'GET') return exportOf(Number(r[1]), adminOnly());
+    if ((r = p.match(/^\/admin\/accounts\/(\d+)\/delete$/)) && m === 'POST') {
+      const who = adminOnly();
+      const b = await body(req, 4000);
+      const row = db.prepare('SELECT username FROM accounts WHERE id = ?').get(Number(r[1])) ?? core.fail(404, 'No such account.', 'no_account');
+      if (String(b.confirm ?? '').trim().toLowerCase() !== row.username.toLowerCase()) throw new core.ApiError(400, 'Type the account\'s name to confirm.', 'confirm_name');
+      return removeAccount(Number(r[1]), who, b.reason);
+    }
     if (m === 'POST' && p === '/reports') {
       const b = await body(req);
       return logged(A.byAccount(account), 'report.create', { kind: String(b.kind ?? ''), id: b.id }, () => mod.report(db, account, b), (o) => ({ reason: b.reason ?? 'other', already: o.already, hidden: o.hidden ?? false }));

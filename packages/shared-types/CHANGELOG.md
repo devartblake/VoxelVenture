@@ -1,5 +1,19 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.16.0 (2026-10-21)
+
+Self-service privacy rights (`services/api/privacy.mjs`, [backend.md](../../docs/architecture/backend.md#privacy)). New contracts, all version 1, in [`contracts/privacy.js`](src/contracts/privacy.js):
+
+- `privacy.export`: `GET /me/export` (3 a day per account) and `GET /admin/accounts/:id/export`: everything held about an account, in fixed sections (`account`, `sessions`, `businesses`, `plots`, `orders`, `messaging`, `activity`, `actionLog`, ...), with `notIncluded` (each table left out, and why) and `summary` (plain-language lines).
+- `privacy.delete`: the body of `POST /me/delete`, `{ password, confirm }` (the account's name typed).
+- `privacy.admin-delete`: the body of `POST /admin/accounts/:id/delete`, `{ confirm, reason? }`.
+- `privacy.delete.result`: the answer to both, `{ deleted: true, username: 'deleted-<id>', plotsReleased, businessesDeleted, proCancelled, kept: [{ what, why }], removed }`.
+- `business.delete.result`: `DELETE /businesses/:slug` (the owner), `{ deleted: true, slug, proCancelled, plotUnlinked }`.
+- `privacy.accounts`: `GET /admin/privacy/accounts?q=` (by number, name or email), each account with its counts.
+- `API_CONTRACTS` now holds 70.
+
+No existing contract changed.
+
 ## 0.15.0 (2026-10-20)
 
 A forgotten admin password, reset from the pages (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-password-reset)). New contracts, all version 1, in [`contracts/admin.js`](src/contracts/admin.js):

@@ -546,6 +546,47 @@ class Messaging:
         rows = self.db.execute('SELECT status, COUNT(*) AS n FROM messaging_outbox GROUP BY status').fetchall()
         return {r['status']: r['n'] for r in rows}
 
+    # ---- privacy (the Node API's privacy.mjs asks for these: POST /internal/privacy/export and /erase) ------------------------------
+    def export_for(self, account_id: int):
+        """What an account's data export holds of messaging, as services/api/messaging.mjs exportFor: its settings, who it blocked, every
+        conversation it is in (its own messages in full, the other person's as its Inbox shows them, never their account number) and
+        its own nearby lines."""
+        name = lambda i: self.username(i)  # noqa: E731
+        blocks = [{'username': name(r['blocked']), 'at': r['at']} for r in self.db.execute('SELECT blocked, at FROM account_blocks WHERE blocker = ? ORDER BY at', (account_id,)).fetchall()]
+        rows = self.db.execute('SELECT c.*, m.status, m.muted FROM conversation_members m JOIN conversations c ON c.id = m.conversation_id WHERE m.account_id = ? ORDER BY c.created_at', (account_id,)).fetchall()
+        conversations = []
+        for c in rows:
+            others = [name(r['account_id']) for r in self.db.execute('SELECT account_id FROM conversation_members WHERE conversation_id = ? AND account_id != ?', (c['id'], account_id)).fetchall()]
+            msgs = self.db.execute('SELECT * FROM messages WHERE conversation_id = ? ORDER BY id', (c['id'],)).fetchall()
+            conversations.append({
+                'id': c['id'], 'kind': c['kind'], 'plotTitle': c['plot_title'], 'startedByMe': c['created_by'] == account_id, 'myStatus': c['status'], 'muted': bool(c['muted']),
+                'with': others, 'createdAt': c['created_at'],
+                'messages': [{'mine': m['sender'] == account_id, 'from': name(m['sender']), 'text': m['body'] if m['state'] == 'ok' else None, 'state': m['state'], 'at': m['at']} for m in msgs],
+            })
+        nearby = [{'room': n['room'], 'text': n['body'] if n['state'] == 'ok' else None, 'state': n['state'], 'at': n['at']} for n in self.db.execute('SELECT room, body, state, at FROM nearby_messages WHERE sender = ? ORDER BY id', (account_id,)).fetchall()]
+        return {'requests': self.requests_allowed(account_id), 'blocks': blocks, 'conversations': conversations, 'nearby': nearby}
+
+    def erase_for(self, account_id: int, username: str):
+        """Deleting an account, as messaging.mjs eraseFor: the text of what it wrote is wiped (except under an open report, until it is
+        decided), it leaves its conversations, its blocks both ways, settings and notices go, and its name becomes the new one."""
+        held = "SELECT target_id FROM messaging_reports WHERE kind = '{}' AND status = 'open'"
+        with transaction(self.db):
+            out = {
+                'messages': self.db.execute(f"UPDATE messages SET body = NULL, state = 'removed' WHERE sender = ? AND state = 'ok' AND CAST(id AS TEXT) NOT IN ({held.format('message')})", (account_id,)).rowcount,
+                'nearby': self.db.execute(f"UPDATE nearby_messages SET body = NULL, state = 'removed' WHERE sender = ? AND state = 'ok' AND CAST(id AS TEXT) NOT IN ({held.format('nearby')})", (account_id,)).rowcount,
+                'left': self.db.execute("UPDATE conversation_members SET status = 'declined', muted = 1 WHERE account_id = ?", (account_id,)).rowcount,
+                'blocks': self.db.execute('DELETE FROM account_blocks WHERE blocker = ? OR blocked = ?', (account_id, account_id)).rowcount,
+                'notices': self.db.execute('DELETE FROM messaging_outbox WHERE account_id = ?', (account_id,)).rowcount,
+            }
+            self.db.execute('DELETE FROM messaging_settings WHERE account_id = ?', (account_id,))
+            self.db.execute('UPDATE messaging_reports SET note = NULL WHERE reporter = ?', (account_id,))
+            for r in self.db.execute('SELECT id, evidence FROM messaging_reports WHERE evidence IS NOT NULL').fetchall():
+                e = json.loads(r['evidence'])
+                if isinstance(e, dict) and e.get('sender') == account_id:
+                    self.db.execute('UPDATE messaging_reports SET evidence = ? WHERE id = ?', (json.dumps({**e, 'senderName': username}), r['id']))
+            self.db.execute('INSERT INTO known_accounts (id, username, updated_at) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET username = excluded.username, updated_at = excluded.updated_at', (account_id, username, now()))
+        return out
+
     # ---- retention ----------------------------------------------------------------------------------------------------------------
     def prune(self, at: int | None = None):
         at = now() if at is None else at

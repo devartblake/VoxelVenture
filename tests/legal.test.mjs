@@ -38,6 +38,15 @@ check('the prices are the catalogue\'s', MONEY.launch.price === `$${PRODUCTS.lau
 check('the cart rules are the code\'s', MONEY.cart.minimum === `$${CART.minimumCents / 100}` && MONEY.cart.maxPlots === CART.maxPlots);
 check('the promo code rules are the code\'s: one per checkout, the smallest charge', MONEY.promo.smallestCharge === `$${(STRIPE_MIN_CENTS / 100).toFixed(2)}` && MONEY.promo.perCheckout === 1 && has('services/api/cart.mjs', /SELECT promo_code FROM carts/) && has('services/api/billing.mjs', /duration: 'once'/));
 
+// ---- what the privacy policy says about downloading and deleting is what the API does (services/api/privacy.mjs, lib/legal/privacy.js)
+const legalPrivacy = await imp('legal/privacy.js');
+const apiPrivacy = await import('../services/api/privacy.mjs');
+check('the API answers a deletion with the lists the policy quotes', apiPrivacy.KEPT === legalPrivacy.KEPT && apiPrivacy.REMOVED === legalPrivacy.REMOVED && apiPrivacy.EXPORT_PER_DAY === legalPrivacy.PRIVACY.exportsPerDay);
+check('the export and deletion limits are the server\'s', has('services/api/server.mjs', /max: privacy\.EXPORT_PER_DAY/) && has('services/api/server.mjs', /max: privacy\.PRIVACY\.deleteTries/));
+check('there is no grace period, as the policy says', legalPrivacy.PRIVACY.gracePeriodDays === 0 && !has('services/api/privacy.mjs', /grace_until|deletion_requested/));
+const rights = JSON.stringify(policies(operator({})).find((p) => p.slug === 'privacy').sections.find((s) => s.id === 'rights'));
+check('the privacy policy says how to download and delete, what is kept and why', /Download my data/.test(rights) && /Delete my account/.test(rights) && legalPrivacy.KEPT.every((k) => rights.includes(k.why)) && /no waiting period/.test(rights));
+
 // ---- every browser-storage key the code uses is in the privacy policy
 const keysInCode = new Set();
 const walk = (dir) => {

@@ -48,7 +48,7 @@ and start the Node API with `MESSAGING_SERVICE_URL=http://localhost:3003` and th
 ## Routes
 
 The same as the Node API's messaging routes (see `docs/architecture/backend.md`): `/conversations...`, `/messaging/summary|settings|blocks|reports`,
-`/plots/{id}/inquiries`, `/internal/messaging/nearby`. Also `/health` (with the outbox counts) and, with `ADMIN_TOKEN`:
+`/plots/{id}/inquiries`, `/internal/messaging/nearby`. For the Node API's privacy routes (`services/api/privacy.mjs`), with `INTERNAL_SECRET`: `POST /internal/privacy/export` `{ accountId }` (the messaging part of an account's data export) and `POST /internal/privacy/erase` `{ accountId, username }` (deleting an account: its text wiped, its blocks, settings and notices gone, its name replaced). Also `/health` (with the outbox counts) and, with `ADMIN_TOKEN`:
 `/admin/reports`, `/admin/reports/ids`, `/admin/reports/{id}/resolve` (the same shapes as the Node API's, so `npm run moderate` with
 `MESSAGING_URL` set lists and decides chat reports), `/admin/messaging/prune` and `/admin/messaging/deliver`.
 

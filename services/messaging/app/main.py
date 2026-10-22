@@ -25,6 +25,12 @@ from .node import Node
 CONVERSATION_ID = re.compile(r'[\w-]{6,40}', re.ASCII)
 
 
+def _account_id(v) -> int:
+    if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+        return v
+    raise Fail(400, 'Send the account number.', 'bad_request')
+
+
 def create_app(cfg: Settings | None = None, node: Node | None = None) -> FastAPI:
     cfg = cfg or Settings()
     db = open_db(cfg.db)
@@ -139,6 +145,22 @@ def create_app(cfg: Settings | None = None, node: Node | None = None) -> FastAPI
     async def nearby(request: Request):
         internal_only(request)
         return await m.accept_nearby(await body(request))
+
+    # the Node API's privacy routes (services/api/privacy.mjs): an account's export and its deletion, only with INTERNAL_SECRET
+    @app.post('/internal/privacy/export')
+    async def privacy_export(request: Request):
+        internal_only(request)
+        account_id = _account_id((await body(request)).get('accountId'))
+        return m.export_for(account_id)
+
+    @app.post('/internal/privacy/erase')
+    async def privacy_erase(request: Request):
+        internal_only(request)
+        b = await body(request)
+        username = b.get('username') if isinstance(b.get('username'), str) and b.get('username') else None
+        if not username:
+            raise Fail(400, 'Send the new name.', 'bad_request')
+        return m.erase_for(_account_id(b.get('accountId')), username[:40])
 
     @app.get('/messaging/summary')
     async def summary(request: Request):

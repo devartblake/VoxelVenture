@@ -117,6 +117,11 @@ try {
   check('the Account view shows the name, email notices and the quest wallet (100 starter Credits)', /FeedbackFan/.test(acct) && /Email notices/.test(acct) && /Quest wallet/.test(acct) && /Welcome Credits/.test(acct) && /100/.test(acct), JSON.stringify(acct.slice(0, 400)));
   check('the Account view has the sign-ups screen and calls the server money Credits', /Your sign-ups/.test(acct) && /Quest wallet/.test(acct) && /Credits/.test(acct) && /separate from the Gold/.test(acct));
   check('...and the owner of a plot sees it listed there', await other.eval(`document.querySelector('[data-testid="my-leads"]') !== null`));
+  // privacy (services/api/privacy.mjs): the Account view has "Your data"; downloading asks the server for everything about the account
+  check('privacy: the Account view has Download my data and Delete my account', await other.eval(`Boolean(document.querySelector('[data-testid="side-panel"] [data-testid="download-my-data"]')) && Boolean(document.querySelector('[data-testid="side-panel"] [data-testid="delete-account"]'))`));
+  await other.eval(`document.querySelector('[data-testid="download-my-data"]').click()`);
+  for (let i = 0; i < 30 && !(await other.eval(`/Downloaded: voxelventure-FeedbackFan-/.test(document.querySelector('[data-testid="privacy-controls"]').innerText)`)); i++) await sleep(250);
+  check('privacy: downloading saves the data and a summary', await other.eval(`/Downloaded: voxelventure-FeedbackFan-.*\\.json and a summary/.test(document.querySelector('[data-testid="privacy-controls"]').innerText)`), await other.eval(`document.querySelector('[data-testid="privacy-controls"]').innerText.slice(0, 300)`));
   await type2(other, 'input[aria-label="Email address"]', 'fan@example.com');
   await other.eval(`[...document.querySelectorAll('[data-testid="side-panel"] button')].find((b) => b.textContent.trim() === 'Save').click()`);
   for (let i = 0; i < 30 && !(await other.eval(`document.body.innerText.includes('open it to confirm')`)); i++) await sleep(500); // (a slow machine)
@@ -198,6 +203,39 @@ try {
   check('market: a player never sees the weekly layout editor', (await waitFor(page, `window.__vvMarket.getState().adminChecked && Boolean(window.__vvMarket.getState().data)`, 30)) && (await page.eval(`!window.__vvMarket.getState().isAdmin() && !document.querySelector('[data-testid="market-admin-tabs"], [data-testid="market-editor"], [data-testid="market-admin-sign-in"]') && !/Set up weeks|Admin token/.test(document.body.innerText)`)));
   await visitor.close();
   await page.close();
+
+  // ---- privacy: the owner of Browser Bakery deletes its page on My profiles, then deletes the account from the game's Account view
+  const mgr = await openPage(`http://localhost:${webPort}/business/manage`, { width: 1200, height: 1400 });
+  await waitFor(mgr, `document.readyState === 'complete'`, 30);
+  await mgr.eval(`localStorage.setItem('voxelventure-token', ${JSON.stringify(bakerToken)}); location.reload(); 1`);
+  check('privacy: My profiles has Delete page on the profile and the Your data box', await waitFor(mgr, `Boolean(document.querySelector('[data-testid="delete-page"]')) && Boolean(document.querySelector('[data-testid="privacy-controls"]'))`, 30));
+  await mgr.eval(`document.querySelector('[data-testid="delete-page"]').click()`);
+  check('privacy: the page\'s confirmation says what happens and waits for its name', await waitFor(mgr, `(() => { const f = document.querySelector('[data-testid="delete-page-confirm"]'); return f && /Discover/.test(f.innerText) && /requests and newsletter sign-ups are deleted/.test(f.innerText) && f.querySelector('[data-testid="delete-page-go"]').disabled; })()`, 10));
+  await type2(mgr, 'input[aria-label="Type the page\'s name"]', 'Browser Bakery');
+  await waitFor(mgr, `!document.querySelector('[data-testid="delete-page-go"]').disabled`, 5);
+  await mgr.eval(`document.querySelector('[data-testid="delete-page-go"]').click()`);
+  check('privacy: deleting it takes it off My profiles', await waitFor(mgr, `/You have no profiles yet/.test(document.body.innerText)`, 20));
+  check('privacy: ...and off its address, and its building is unlinked', (await fetch(`http://localhost:${apiPort}/businesses/browser-bakery`)).status === 404 && (await (await fetch(`http://localhost:${apiPort}/plots/${lot.id}`)).json()).profileSlug === null);
+  check('privacy: no console errors on My profiles', mgr.problems().filter((p) => !/404|Failed to load resource/.test(p)).length === 0, mgr.problems().slice(0, 2).join(' | '));
+  await mgr.close();
+  const game = await openPage(`http://localhost:${webPort}/?diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1200, height: 900 });
+  await waitFor(game, `Boolean(window.__vvStore && window.__vvPanel)`, 60);
+  await game.eval(`localStorage.setItem('voxelventure-token', ${JSON.stringify(bakerToken)}); location.reload(); 1`);
+  await waitFor(game, `Boolean(window.__vvStore && window.__vvPanel)`, 60);
+  await game.eval(`window.__vvPanel.getState().open('account')`);
+  check('privacy: the game\'s Account view offers Delete my account', await waitFor(game, `Boolean(document.querySelector('[data-testid="side-panel"] [data-testid="delete-account"]')) && /BrowserBaker/.test(document.querySelector('[data-testid="side-panel"]').innerText)`, 30));
+  await game.eval(`document.querySelector('[data-testid="delete-account"]').click()`);
+  check('privacy: the confirmation lists what goes, what stays and why, money and the refund policy', await waitFor(game, `(() => { const f = document.querySelector('[data-testid="delete-confirm"]'); return f && /What is removed/.test(f.innerText) && /What is kept, and why/.test(f.innerText) && /accounting and tax/.test(f.innerText) && /No refund is made automatically/.test(f.innerText) && Boolean(f.querySelector('a[href="/legal/refunds"]')) && f.querySelector('[data-testid="delete-account-confirm"]').disabled; })()`, 10));
+  await type2(game, 'input[aria-label="Your password"]', 'not the password');
+  await type2(game, 'input[aria-label="Type your account name"]', 'BrowserBaker');
+  await game.eval(`document.querySelector('[data-testid="delete-account-confirm"]').click()`);
+  check('privacy: a wrong password is refused on the screen', await waitFor(game, `/not your password/.test(document.querySelector('[data-testid="delete-confirm"]')?.innerText ?? '')`, 15));
+  await type2(game, 'input[aria-label="Your password"]', 'longenough1');
+  await game.eval(`document.querySelector('[data-testid="delete-account-confirm"]').click()`);
+  check('privacy: the right one deletes the account and signs out, saying so', await waitFor(game, `/Your account is deleted/.test(document.querySelector('[data-testid="account-deleted"]')?.innerText ?? '') && !localStorage.getItem('voxelventure-token')`, 20));
+  check('privacy: the server agrees: the sign-in is gone and the plot is open again', (await fetch(`http://localhost:${apiPort}/me`, { headers: { Authorization: `Bearer ${bakerToken}` } })).status === 401 && (await (await fetch(`http://localhost:${apiPort}/plots/${lot.id}`)).json()).owner === null);
+  check('privacy: no console errors in the game while deleting', game.problems().filter((p) => !/401|Failed to load resource/.test(p)).length === 0, game.problems().slice(0, 2).join(' | '));
+  await game.close();
   await other.close();
 
   // ---- the admin sign-in, for real (services/api/admin.mjs, apps/web/app/admin): the site and the API on two origins of the same site, the
@@ -231,6 +269,13 @@ try {
   check('admin: signing in goes back to the page asked for', await waitFor(adm, `location.pathname === '/admin/economy' && document.querySelector('[data-testid="admin-user"]')?.textContent === 'boss'`, 20));
   check('admin: the page shows the API\'s figures with the session alone', await waitFor(adm, `/By tier/.test(document.body.innerText)`, 20));
   check('admin: the session cookie cannot be read by the page', !(await adm.eval(`document.cookie`)).includes('vv_admin'));
+  // a privacy request by email: the Privacy requests page finds the account by its email and offers export and delete
+  await adm.eval(`location.href = '/admin/privacy'; 1`);
+  await waitFor(adm, `document.querySelector('#privacy-q') && document.querySelector('form[data-ready="1"]')`, 20);
+  await type2(adm, '#privacy-q', 'fan@example.com');
+  await adm.eval(`document.querySelector('#privacy-q').closest('form').querySelector('button[type=submit]').click()`);
+  check('admin: Privacy requests finds an account by its email, with Export and Delete', await waitFor(adm, `(() => { const t = document.body.innerText; return /FeedbackFan/.test(t) && [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Export') && Boolean(document.querySelector('[data-testid^="admin-delete-"]')); })()`, 20), await adm.eval(`document.body.innerText.slice(0, 400)`));
+  check('admin: it lists the recent exports and deletions from the audit trail', await waitFor(adm, `/Deleted\\s*account #/.test(document.body.innerText)`, 10));
   // the market editor in the game, with the session (lib/state/marketStore.js): from the Overview's link, the editor opens and a week is saved
   await adm.eval(`location.href = '/admin'; 1`);
   check('market: the Overview links to the market editor in the game', await waitFor(adm, `document.querySelector('[data-testid="admin-market-editor"]')?.getAttribute('href') === '/?market=edit'`, 20));
