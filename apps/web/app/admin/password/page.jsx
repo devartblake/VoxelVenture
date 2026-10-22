@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { KeyRound, LogOut, Mail, ShieldCheck } from 'lucide-react';
-import { passwordProblem, PASSWORD_HINT } from '@/lib/data/admin';
+import { passwordProblem, PASSWORD_HINT, onEmailConfirmed } from '@/lib/data/admin';
 import { AdminCard, Field, FormError, SafeForm, Submit, useAdmin } from '@/components/admin/AdminShell';
 import { Alert, Button, Card, PageHeader, StatusPill } from '@/components/admin/ui';
 
@@ -87,6 +87,25 @@ function EmailCard() {
   useEffect(() => {
     load();
   }, [load]);
+  // Confirmed in another tab (the link in the email): show it here without a reload. The confirmation page tells this one at once; the page
+  // also checks again when its tab is shown, and every 5 seconds while it waits (for the link's 30 minutes), in case the message was missed.
+  const waiting = Boolean(state?.email && !state.emailVerified);
+  useEffect(() => onEmailConfirmed(load), [load]);
+  useEffect(() => {
+    const again = () => document.visibilityState === 'visible' && load();
+    document.addEventListener('visibilitychange', again);
+    window.addEventListener('focus', again);
+    return () => {
+      document.removeEventListener('visibilitychange', again);
+      window.removeEventListener('focus', again);
+    };
+  }, [load]);
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const until = Date.now() + 30 * 60000;
+    const timer = setInterval(() => (Date.now() > until ? clearInterval(timer) : document.visibilityState === 'visible' && load()), 5000);
+    return () => clearInterval(timer);
+  }, [waiting, load]);
 
   const save = async (value) => {
     setBusy(true);
