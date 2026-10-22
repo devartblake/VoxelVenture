@@ -2,6 +2,7 @@ import { transaction } from './db.mjs';
 import { ApiError, fail, text, requireAccount } from './core.mjs';
 import { enqueue, noticeAddress } from './engage.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
+import { countKept } from './retention.mjs';
 
 // The pop-up market: weekly layouts set by an admin, and stalls rented by players for 24 to 72 hours at one flat price per spot.
 // The plan (where the stalls are, how busy each is, what it costs) comes from the game's own lib/market, so the server and the game agree.
@@ -75,7 +76,7 @@ export function cleanShop(input = {}) {
   return { goods, offer: text(input.offer, 120) || null, website: site || null };
 }
 const statusOf = (b, now = Date.now()) => (b.status === 'cancelled' ? 'cancelled' : now < b.start_at ? 'upcoming' : now < b.end_at ? 'live' : 'ended');
-const visitsOf = (db, id) => db.prepare('SELECT COUNT(*) AS n FROM market_visits WHERE booking_id = ?').get(id).n;
+const visitsOf = (db, id) => db.prepare('SELECT COUNT(*) AS n FROM market_visits WHERE booking_id = ?').get(id).n + countKept(db, 'market_visits', { target: id }); // with the totals kept after 13 months (retention.mjs)
 const bookingView = (b) => ({ id: b.id, stallId: b.stall_id, start: b.start_at, end: b.end_at, hours: b.hours, brand: b.brand, product: b.product, by: b.account_name, cents: b.cents, goods: parse(b.goods, []), offer: b.offer ?? null, website: b.website ?? null, state: statusOf(b) });
 const activeBookings = (db, code, week) => db.prepare("SELECT * FROM market_bookings WHERE site_code = ? AND week_start = ? AND status = 'booked' ORDER BY start_at").all(code, week);
 

@@ -61,6 +61,18 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'admin_accounts', 'email', 'TEXT'); // an admin's address for password resets (services/api/admin.mjs)
   addColumn(db, 'admin_accounts', 'email_verified_at', 'INTEGER'); // when its one-use link was opened; NULL: not confirmed
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS admin_accounts_email ON admin_accounts(email) WHERE email IS NOT NULL');
+  // The Plot of the Day newsletter is opt-in, its own consent apart from the service notices (`notify`: take-overs, leases, watched plots).
+  // Added as 0 for every account: before this nobody had opted in (the newsletter went to everyone with notices on), so all start unsubscribed.
+  addColumn(db, 'accounts', 'newsletter', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn(db, 'accounts', 'newsletter_at', 'INTEGER'); // when they last said yes or no (the consent record)
+  addColumn(db, 'outbox', 'headers', 'TEXT'); // JSON: extra mail headers (a newsletter's List-Unsubscribe and List-Unsubscribe-Post)
+  addColumn(db, 'outbox', 'wiped_at', 'INTEGER'); // when its text was wiped (services/api/retention.mjs): only the send record is left
+  db.exec('CREATE INDEX IF NOT EXISTS outbox_unwiped ON outbox(created_at) WHERE wiped_at IS NULL');
+  db.exec('CREATE INDEX IF NOT EXISTS outbox_created ON outbox(created_at)');
+  addColumn(db, 'leads', 'unsubscribed_at', 'INTEGER'); // when the sign-up unsubscribed (it is deleted after RETENTION.leadUnsubscribedDays)
+  addColumn(db, 'coupon_claims', 'anonymised', 'INTEGER NOT NULL DEFAULT 0'); // 1: the visitor number was removed (RETENTION.couponClaimDays)
+  // A welcome post on X needs a handle to tag (policy_review.md gap 9): a consent saved without one, before the server checked, is withdrawn.
+  db.exec("UPDATE businesses SET announce = 0 WHERE announce = 1 AND (x_handle IS NULL OR x_handle = '')");
   return db;
 }
 

@@ -30,7 +30,7 @@ export function renewLease(db, account, plotId, input = {}, opts = {}) {
     const end = extendedEnd(state === 'open' ? null : p.lease_end, days);
     db.prepare('UPDATE plots SET lease_days = ?, lease_end = ?, lease_notified = 0, updated_at = ? WHERE id = ?').run(days, end, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'renew', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, p.title, price, now());
-    return { plot: plotView(db, getPlot(db, p.id)), paid: price };
+    return { plot: plotView(db, getPlot(db, p.id), account), paid: price };
   });
 }
 

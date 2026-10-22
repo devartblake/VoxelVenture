@@ -229,7 +229,7 @@ export function subscribe(db, input) {
   if (had?.status === 'confirmed') return { status: 'confirmed', sent: false };
   if (had && had.status === 'pending' && now() - had.created_at < 5 * 60000) return { status: 'pending', sent: false }; // do not mail the same address over and over
   const t = token();
-  if (had) db.prepare("UPDATE leads SET status = 'pending', token = ?, created_at = ? WHERE id = ?").run(t, now(), had.id);
+  if (had) db.prepare("UPDATE leads SET status = 'pending', token = ?, created_at = ?, unsubscribed_at = NULL WHERE id = ?").run(t, now(), had.id);
   else db.prepare('INSERT INTO leads (target_kind, target_id, email, token, source, created_at) VALUES (?,?,?,?,?,?)').run(kind, id, email, t, text(input.source, 30) || null, now());
   enqueue(db, { to: email, kind: 'confirm', subject: `Confirm your sign-up: ${label}`, body: `Someone (hopefully you) asked to hear from ${label} on VoxelVenture.\n\nConfirm: ${base()}/leads/confirm?token=${t}\n\nIf it was not you, ignore this email and nothing will be sent.` });
   return { status: 'pending', sent: true };
@@ -238,8 +238,14 @@ export function confirmLead(db, tok) {
   const r = db.prepare("UPDATE leads SET status = 'confirmed', confirmed_at = ? WHERE token = ? AND status = 'pending'").run(now(), String(tok));
   return Number(r.changes) > 0 || Boolean(db.prepare("SELECT 1 FROM leads WHERE token = ? AND status = 'confirmed'").get(String(tok)));
 }
+// (An unsubscribed sign-up is deleted RETENTION.leadUnsubscribedDays after: services/api/retention.mjs.)
 export function unsubscribeLead(db, tok) {
-  return Number(db.prepare("UPDATE leads SET status = 'unsubscribed' WHERE token = ?").run(String(tok)).changes) > 0;
+  const lead = db.prepare('SELECT id, target_kind, email FROM leads WHERE token = ?').get(String(tok ?? ''));
+  if (!lead) return false;
+  db.prepare("UPDATE leads SET status = 'unsubscribed', unsubscribed_at = COALESCE(unsubscribed_at, ?) WHERE id = ?").run(now(), lead.id);
+  // the Plot of the Day: an account with this address that opted in stops too, so one click always ends the newsletter
+  if (lead.target_kind === 'world') db.prepare('UPDATE accounts SET newsletter = 0, newsletter_at = ? WHERE email = ? AND newsletter = 1').run(now(), lead.email);
+  return true;
 }
 // The owner of a business or an ad space sees how many people signed up, and the confirmed addresses (never the pending ones).
 export function leadsFor(db, account, kind, id) {
@@ -272,7 +278,12 @@ export function myLeads(db, account) {
 // ---- account email -------------------------------------------------------------------------------------------------------
 export function setEmail(db, account, input) {
   requireAccount(account);
+  // notices (take-overs, leases, watched plots, stalls) and the newsletter are two separate choices (policy_review.md gap 2)
   if (input.notify !== undefined) db.prepare('UPDATE accounts SET notify = ? WHERE id = ?').run(input.notify ? 1 : 0, account.id);
+  if (input.newsletter !== undefined) {
+    if (typeof input.newsletter !== 'boolean') fail(400, 'newsletter must be true or false.', 'bad_newsletter');
+    db.prepare('UPDATE accounts SET newsletter = ?, newsletter_at = ? WHERE id = ?').run(input.newsletter ? 1 : 0, now(), account.id);
+  }
   if (input.email !== undefined) {
     if (input.email === '' || input.email === null) db.prepare('UPDATE accounts SET email = NULL, email_verified = 0, email_token = NULL WHERE id = ?').run(account.id);
     else {
@@ -289,8 +300,9 @@ export function verifyEmail(db, tok) {
 }
 
 // ---- email ----------------------------------------------------------------------------------------------------------------
-export function enqueue(db, { to, subject, body, kind }) {
-  db.prepare('INSERT INTO outbox (to_email, subject, body, kind, created_at) VALUES (?,?,?,?,?)').run(to, subject, body, kind, now());
+// `headers`: extra mail headers ({ name: value }), sent as they are (the newsletter's List-Unsubscribe).
+export function enqueue(db, { to, subject, body, kind, headers = null }) {
+  db.prepare('INSERT INTO outbox (to_email, subject, body, kind, created_at, headers) VALUES (?,?,?,?,?,?)').run(to, subject, body, kind, now(), headers ? JSON.stringify(headers) : null);
 }
 // Notices go only to a verified address whose owner has not turned notices off.
 export const noticeAddress = (db, accountId) => {
@@ -312,7 +324,35 @@ export function notifyAdTakeover(db, previousAccount, { slot, newAdvertiser, pai
   return Boolean(to);
 }
 
-// The Plot of the Day newsletter: the day's pick and the three busiest businesses, to confirmed world sign-ups and to accounts with notices on.
+// ---- the newsletter's consent and its one-click unsubscribe ---------------------------------------------------------------------
+// The Plot of the Day is opt-in (policy_review.md gap 2): an account gets it only after ticking the box in its settings (accounts.newsletter,
+// off for every account, old and new, until then), and to a confirmed address. Service notices (`notify`) are a separate choice. Every issue
+// carries a one-click unsubscribe link, signed with the server's secret, that works without signing in, and the List-Unsubscribe headers
+// (RFC 2369 and RFC 8058) so a mail app can show its own Unsubscribe button.
+export const newsletterSecret = (env = process.env) => env.NEWSLETTER_SECRET || env.REFERRAL_SECRET || env.IP_SALT || 'voxelventure-newsletter';
+const newsletterSig = (id, secret) => crypto.createHmac('sha256', secret).update(`newsletter-unsubscribe:${id}`).digest('hex').slice(0, 32);
+export const newsletterToken = (accountId, env = process.env) => `${Number(accountId).toString(36)}.${newsletterSig(accountId, newsletterSecret(env))}`;
+// The account a token names, or null for a malformed or forged one.
+export function accountOfNewsletterToken(token, env = process.env) {
+  const m = /^([0-9a-z]{1,12})\.([0-9a-f]{32})$/.exec(String(token ?? ''));
+  if (!m) return null;
+  const id = parseInt(m[1], 36);
+  const want = Buffer.from(newsletterSig(id, newsletterSecret(env)));
+  return crypto.timingSafeEqual(want, Buffer.from(m[2])) ? id : null;
+}
+// Unsubscribes the account the token names. True for a valid token (also when it was already unsubscribed: the link can be opened again).
+export function unsubscribeNewsletter(db, token, env = process.env) {
+  const id = accountOfNewsletterToken(token, env);
+  const a = id == null ? null : db.prepare('SELECT id, email FROM accounts WHERE id = ?').get(id);
+  if (!a) return false;
+  db.prepare('UPDATE accounts SET newsletter = 0, newsletter_at = ? WHERE id = ? AND newsletter = 1').run(now(), id);
+  // the same address signed up on the public form too: that stops as well, so one click always ends the newsletter
+  if (a.email) db.prepare("UPDATE leads SET status = 'unsubscribed', unsubscribed_at = COALESCE(unsubscribed_at, ?) WHERE target_kind = 'world' AND email = ? AND status != 'unsubscribed'").run(now(), a.email);
+  return true;
+}
+const unsubscribeHeaders = (url) => ({ 'List-Unsubscribe': `<${url}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' });
+
+// The Plot of the Day newsletter: the day's pick and the three busiest businesses, to confirmed world sign-ups and to accounts that opted in.
 export function buildNewsletter(db, date = new Date()) {
   // "busiest" is verified visits in the last seven days, never the generator's starting figures
   const built = db.prepare("SELECT p.id, p.title, p.owner_name, p.website, (SELECT COUNT(*) FROM events e WHERE e.plot_id = p.id AND e.kind = 'visit' AND e.verified = 1 AND e.at >= ?) AS recent FROM plots p WHERE p.owner_name IS NOT NULL AND p.building_type IS NOT NULL AND p.building_type != 'house' ORDER BY p.id").all(date.getTime() - 7 * 86400000);
@@ -324,32 +364,37 @@ export function buildNewsletter(db, date = new Date()) {
   const line = (p) => `  #${p.id} ${p.title} (${p.owner_name})${p.website ? ` - ${p.website}` : ''}`;
   return { key, subject: `Plot of the Day: ${pick.title}`, body: `Today's Plot of the Day: ${pick.title}\n${line(pick)}\n\nWalk in for a bonus.${top.length ? ` The busiest businesses this week:\n${top.map(line).join('\n')}` : ''}\n\nSee you in the city.` };
 }
-export function sendNewsletter(db, date = new Date()) {
+export function sendNewsletter(db, date = new Date(), env = process.env) {
   const n = buildNewsletter(db, date);
   if (!n) return { queued: 0 };
   if (db.prepare("SELECT 1 FROM outbox WHERE kind = 'newsletter' AND subject = ? LIMIT 1").get(n.subject) && db.prepare("SELECT 1 FROM outbox WHERE kind = 'newsletter' AND created_at > ? LIMIT 1").get(now() - 20 * 3600000)) return { queued: 0, already: true };
-  const list = db.prepare("SELECT email, token FROM leads WHERE target_kind = 'world' AND status = 'confirmed'").all();
-  const accounts = db.prepare('SELECT email FROM accounts WHERE email IS NOT NULL AND email_verified = 1 AND notify = 1').all().map((a) => ({ email: a.email, token: null }));
+  // the accounts that opted in (never just "notices on"), then the confirmed world sign-ups; an address on both gets one copy
+  const accounts = db.prepare('SELECT id, email FROM accounts WHERE email IS NOT NULL AND email_verified = 1 AND newsletter = 1 AND banned = 0').all()
+    .map((a) => ({ email: a.email, why: 'you ticked "Email me the Plot of the Day" in your VoxelVenture account', url: `${base()}/newsletter/unsubscribe?token=${newsletterToken(a.id, env)}` }));
+  const list = db.prepare("SELECT email, token FROM leads WHERE target_kind = 'world' AND status = 'confirmed'").all()
+    .map((l) => ({ email: l.email, why: 'you signed up for it and confirmed your address', url: `${base()}/leads/unsubscribe?token=${l.token}` }));
   const seen = new Set();
   let queued = 0;
-  for (const r of [...list, ...accounts]) {
-    if (seen.has(r.email)) continue;
-    seen.add(r.email);
-    enqueue(db, { to: r.email, kind: 'newsletter', subject: n.subject, body: `${n.body}${r.token ? `\n\nUnsubscribe: ${base()}/leads/unsubscribe?token=${r.token}` : '\n\nTurn these off in your account.'}` });
+  for (const r of [...accounts, ...list]) {
+    const key = r.email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    enqueue(db, { to: r.email, kind: 'newsletter', subject: n.subject, body: `${n.body}\n\nYou get this because ${r.why}.\nUnsubscribe (one click, no sign-in needed): ${r.url}`, headers: unsubscribeHeaders(r.url) });
     queued++;
   }
   return { queued, subject: n.subject };
 }
 
-// Sending. A transport is { name, send({ to, subject, body }) }.
+// Sending. A transport is { name, send({ to, subject, body, headers }) } (headers: { name: value } or undefined).
 //   file     writes each message to MAIL_DIR (default services/api/data/outbox): for development
-//   webhook  POSTs JSON { from, to, subject, text } to MAIL_WEBHOOK_URL (any mail API or relay), with MAIL_WEBHOOK_TOKEN as a bearer token
+//   webhook  POSTs JSON { from, to, subject, text, headers? } to MAIL_WEBHOOK_URL (Resend's /emails takes it as it is; any mail API or relay),
+//            with MAIL_WEBHOOK_TOKEN as a bearer token
 export function createTransport(env = process.env, dataDir = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), 'data')) {
   if (env.MAIL_WEBHOOK_URL) {
     return {
       name: 'webhook',
       send: async (m) => {
-        const res = await fetch(env.MAIL_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(env.MAIL_WEBHOOK_TOKEN ? { Authorization: `Bearer ${env.MAIL_WEBHOOK_TOKEN}` } : {}) }, body: JSON.stringify({ from: env.MAIL_FROM || 'VoxelVenture <no-reply@localhost>', to: m.to, subject: m.subject, text: m.body }) });
+        const res = await fetch(env.MAIL_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(env.MAIL_WEBHOOK_TOKEN ? { Authorization: `Bearer ${env.MAIL_WEBHOOK_TOKEN}` } : {}) }, body: JSON.stringify({ from: env.MAIL_FROM || 'VoxelVenture <no-reply@localhost>', to: m.to, subject: m.subject, text: m.body, ...(m.headers ? { headers: m.headers } : {}) }) });
         if (!res.ok) throw new Error(`mail webhook answered ${res.status}`);
       },
     };
@@ -359,7 +404,7 @@ export function createTransport(env = process.env, dataDir = path.join(path.dirn
     name: 'file',
     send: async (m) => {
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, `${Date.now()}-${crypto.randomBytes(3).toString('hex')}.txt`), `To: ${m.to}\nSubject: ${m.subject}\n\n${m.body}\n`);
+      fs.writeFileSync(path.join(dir, `${Date.now()}-${crypto.randomBytes(3).toString('hex')}.txt`), `To: ${m.to}\nSubject: ${m.subject}\n${Object.entries(m.headers ?? {}).map(([k, v]) => `${k}: ${v}\n`).join('')}\n${m.body}\n`);
     },
   };
 }
@@ -374,7 +419,7 @@ export async function deliverOutbox(db, transport, limit = 50) {
   const scrub = (r) => ONE_USE_KINDS.includes(r.kind) && db.prepare('UPDATE outbox SET body = ? WHERE id = ?').run(SCRUBBED, r.id);
   for (const r of rows) {
     try {
-      await transport.send({ to: r.to_email, subject: r.subject, body: r.body });
+      await transport.send({ to: r.to_email, subject: r.subject, body: r.body, ...(r.headers ? { headers: JSON.parse(r.headers) } : {}) });
       db.prepare("UPDATE outbox SET status = 'sent', sent_at = ?, attempts = attempts + 1 WHERE id = ?").run(now(), r.id);
       scrub(r);
       sent++;

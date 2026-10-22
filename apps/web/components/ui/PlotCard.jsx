@@ -738,7 +738,7 @@ export default function PlotCard() {
       <StatGrid height={floors} visits={hqOffline ? null : info.visits} price={price} priceLabel={isClaimed ? (canTakeOver ? 'Take over for' : 'Value') : 'Buy from'} owners={isClaimed ? info.owners : 0} />
 
       {p.admin && <HqLive company={p.owner} />}
-      {apiOn() && isClaimed && p.ownerAccount && !p.userClaimed && <MessageOwner plot={p} />}
+      {apiOn() && isClaimed && p.playerOwned && !p.userClaimed && <MessageOwner plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
       {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && typeof p.id === 'number' && <WatchButton plot={p} />}
       {apiOn() && p.userClaimed && account && typeof p.id === 'number' && <WatchCount plot={p} />}

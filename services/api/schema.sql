@@ -673,3 +673,23 @@ CREATE TABLE IF NOT EXISTS admin_tokens (
   expires_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS admin_tokens_admin ON admin_tokens(admin_id, purpose);
+
+-- The daily totals kept when raw rows reach the end of their retention period (services/api/retention.mjs, lib/legal/retention.js): numbers only,
+-- never who. source: the table the rows came from (events | ad_events | business_events | market_visits | arrivals); target: the building, ad
+-- space, business or stall booking ('' for arrivals); kind: the row's kind. Only rows that counted (verified) are added. Every all-time count adds
+-- these to what is still in the raw table, so a figure does not change when old rows are deleted.
+CREATE TABLE IF NOT EXISTS daily_counts (
+  source TEXT NOT NULL,
+  target TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  day TEXT NOT NULL,                             -- YYYY-MM-DD (UTC)
+  n INTEGER NOT NULL DEFAULT 0,
+  value_cents INTEGER NOT NULL DEFAULT 0,        -- business_events purchases: their value
+  PRIMARY KEY (source, target, kind, day)
+);
+CREATE INDEX IF NOT EXISTS events_at ON events(at);
+CREATE INDEX IF NOT EXISTS ad_events_at ON ad_events(at);
+CREATE INDEX IF NOT EXISTS business_events_at ON business_events(at);
+CREATE INDEX IF NOT EXISTS market_visits_at ON market_visits(at);
+CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS leads_status ON leads(status, created_at);

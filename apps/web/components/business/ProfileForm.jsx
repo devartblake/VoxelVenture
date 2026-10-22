@@ -116,6 +116,7 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCan
           <input type="checkbox" checked={v.announce} disabled={!v.xHandle.replace(/^@/, '').trim()} onChange={(e) => setV((s) => ({ ...s, announce: e.target.checked }))} className="mt-1" />
           <span>Welcome my business on VoxelVenture&apos;s X account and tag my handle. <span className="block text-xs text-sx-muted">One post with a link to your page; visits from it show up in your figures as “VoxelVenture on X”.</span></span>
         </label>
+        {err('announce')}
       </fieldset>
       {errors.form && <p className="text-sm text-rose-300" role="alert">{errors.form}</p>}
       <div className="flex gap-3">

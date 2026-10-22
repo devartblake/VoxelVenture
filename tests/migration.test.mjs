@@ -41,10 +41,15 @@ check('the account keeps its email and has no referrer', db.prepare('SELECT emai
 check('old building visits stay verified (they were checked when recorded)', db.prepare('SELECT verified FROM events').get().verified === 1);
 check('old ad events, recorded before ad verification, are kept but not counted', db.prepare('SELECT COUNT(*) AS n FROM ad_events').get().n === 1 && db.prepare('SELECT verified FROM ad_events').get().verified === 0);
 check('the audit triggers are in place', db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'audit_log_no_%'").get().n === 2);
+// policy_review.md gaps 2, 7 and 9
+check('accounts gain the newsletter consent, and an existing account is not subscribed (even with notices on)', db.prepare('SELECT newsletter, newsletter_at, notify FROM accounts WHERE id = 1').get().newsletter === 0 && db.prepare('SELECT notify FROM accounts WHERE id = 1').get().notify === 1 && db.prepare('SELECT newsletter_at FROM accounts WHERE id = 1').get().newsletter_at === null);
+check('the retention columns and the daily totals table are added', tables.includes('daily_counts') && cols(db, 'outbox').includes('wiped_at') && cols(db, 'outbox').includes('headers') && cols(db, 'leads').includes('unsubscribed_at'));
+db.prepare("INSERT INTO businesses (slug, account_id, name, category, cta, announce, x_handle, created_at, updated_at) VALUES ('no-handle', 1, 'No Handle', 'retail', '{}', 1, NULL, 0, 0), ('with-handle', 1, 'With Handle', 'retail', '{}', 1, 'withhandle', 0, 0)").run();
 db.close();
 
 // ---- opening it again changes nothing, and the API runs on it
 const again = openDb(file);
+check('a welcome-post consent saved without a handle is withdrawn; one with a handle stays', again.prepare("SELECT announce FROM businesses WHERE slug = 'no-handle'").get().announce === 0 && again.prepare("SELECT announce FROM businesses WHERE slug = 'with-handle'").get().announce === 1);
 const schema1 = again.prepare('SELECT sql FROM sqlite_master ORDER BY name').all().map((r) => r.sql).join('\n');
 again.close();
 const third = openDb(file);

@@ -80,6 +80,9 @@ try {
     const { api, call, signup } = await start({ SOCIAL_POSTS: 'review' });
     const maya = await signup('maya');
     check('a handle must look like one', (await call('POST', '/businesses', { token: maya.token, body: { name: 'Bad', category: 'food', website: 'https://m.test', xHandle: 'not a handle!' } })).data?.errors?.xHandle);
+    // the consent needs a handle on the server too, as on the form (policy_review.md gap 9)
+    const noHandle = await call('POST', '/businesses', { token: maya.token, body: { name: 'No Handle', category: 'food', website: 'https://m.test', announce: true } });
+    check('the welcome-post consent is refused without a handle', noHandle.status === 400 && Boolean(noHandle.data?.errors?.announce) && (await call('GET', '/me/businesses', { token: maya.token })).data.profiles.length === 0, JSON.stringify(noHandle.data));
     const made = (await call('POST', '/businesses', { token: maya.token, body: { name: 'Maya Bakery', category: 'food', district: 'creator', website: 'https://m.test', xHandle: '@mayabakes', announce: true } })).data;
     check('the handle is stored without the @ and shown on the public profile', made.xHandle === 'mayabakes' && made.announce === true && (await call('GET', `/businesses/${made.slug}`)).data.xHandle === 'mayabakes' && (await call('GET', `/businesses/${made.slug}`)).data.announce === undefined);
     const noConsent = await signup('noconsent');
@@ -98,6 +101,9 @@ try {
     await call('PATCH', '/businesses/shy-studio', { token: noConsent.token, body: { announce: true } });
     await call('PATCH', '/businesses/shy-studio', { token: noConsent.token, body: { tagline: 'Still shy' } });
     check('opting in later queues the welcome then, and only once', (await call('GET', '/admin/social', { token: 'admin' })).data.posts.filter((p) => p.text.includes('@shystudio')).length === 1);
+    check('an edit that clears the handle but keeps the box ticked is refused', (await call('PATCH', '/businesses/shy-studio', { token: noConsent.token, body: { xHandle: '', announce: true } })).data?.errors?.announce);
+    const cleared = await call('PATCH', '/businesses/shy-studio', { token: noConsent.token, body: { xHandle: '' } });
+    check('removing the handle withdraws the consent with it', cleared.status === 200 && cleared.data.xHandle === null && cleared.data.announce === false, JSON.stringify(cleared.data));
     check('a decision cannot be made twice', (await call('POST', `/admin/social/${queue.posts[0].id}/reject`, { token: 'admin' })).status === 409);
     check('the approval is in the audit trail', (await call('GET', '/admin/audit?action=social.approve', { token: 'admin' })).data.entries.length === 1);
     // a claimed building is welcomed too, for an owner who opted in, tagging the same handle

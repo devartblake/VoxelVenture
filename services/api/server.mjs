@@ -28,6 +28,7 @@
 //   PROMO_TRIES / PROMO_TRY_MINUTES   failed promo code tries allowed per account and per network, and the window (defaults 10 in 15 minutes: promo.mjs)
 //   SOCIAL_POSTS / X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_SECRET / PUBLIC_SITE_URL   welcome posts on X (services/api/social.mjs)
 //   REFERRAL_SECRET  signs referral codes (?ref= links, services/api/business.mjs). Set it in production; changing it voids every shared link
+//   NEWSLETTER_SECRET  signs the Plot of the Day's one-click unsubscribe links (default REFERRAL_SECRET, else IP_SALT; engage.mjs)
 //   PROFILE_VIEW_CAP / PROFILE_CTA_CAP   verified profile views and call-to-action presses per network per profile per day (defaults 3 and 1)
 import http from 'node:http';
 import path from 'node:path';
@@ -51,6 +52,7 @@ import * as pilot from './pilot.mjs';
 import * as interiors from './interiors.mjs';
 import * as economy from './economy.mjs';
 import * as admin from './admin.mjs';
+import * as retention from './retention.mjs';
 import crypto from 'node:crypto';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
@@ -77,7 +79,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   // With the messaging service set up, messages are its business alone: this API forwards the routes and runs none of the jobs,
   // so the two never both send the same notice or prune the same data.
   const messagingService = (env.MESSAGING_SERVICE_URL || '').replace(/\/+$/, '');
-  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); admin.pruneSessions(db); admin.pruneTokens(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
+  // every hour: the housekeeping, then the retention clean-up (retention.mjs: old emails, events, arrivals, expired sign-ins, sign-ups, posts)
+  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); admin.pruneSessions(db); admin.pruneTokens(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } retention.pruneAll(db, Date.now(), { onError: (job, e) => console.error(`retention ${job}:`, e.message) }); }, 3600000) : null;
   pruneTimer?.unref();
   // "your inbox changed" notices go to the presence server as soon as they are written, and again every two seconds for any that failed
   const notices = () => (messagingService ? Promise.resolve() : messaging.deliverNotices(db, env)).catch(() => {});
@@ -495,8 +498,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const q = url.searchParams;
       return core.directory(db, { sort: q.get('sort') ?? 'value', q: q.get('q') ?? '', limit: Math.min(1000, Number(q.get('limit')) || 1000), offset: Math.max(0, Number(q.get('offset')) || 0) });
     }
-    if (m === 'GET' && p === '/plots/state') return { ...core.worldState(db), botw: community.buildingOfTheWeek(db) };
-    if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'GET') return core.plotView(db, core.getPlot(db, r[1]));
+    if (m === 'GET' && p === '/plots/state') return { ...core.worldState(db, account), botw: community.buildingOfTheWeek(db) };
+    if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'GET') return core.plotView(db, core.getPlot(db, r[1]), account);
     if ((r = p.match(/^\/plots\/(\d+)\/stats$/)) && m === 'GET') return core.plotStats(db, r[1]) ?? { empty: true };
     if ((r = p.match(/^\/plots\/(\d+)\/history$/)) && m === 'GET') return core.history(db, r[1]);
     // a claim and a take-over are refused while another player holds the plot, and their outcome is a step of the plot economy's data (economy.tracked)
@@ -591,6 +594,14 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/leads') return engage.subscribe(db, await body(req));
     if (m === 'GET' && p === '/leads/confirm') return page(engage.confirmLead(db, url.searchParams.get('token')), 'You are signed up', 'That link is not valid or has expired.');
     if (m === 'GET' && p === '/leads/unsubscribe') return page(engage.unsubscribeLead(db, url.searchParams.get('token')), 'You are unsubscribed', 'That link is not valid.');
+    // the Plot of the Day's one-click unsubscribe (policy_review.md gap 2): the link in each issue (GET, from a browser, no sign-in) and the
+    // List-Unsubscribe-Post a mail app sends (POST, RFC 8058; its form body is not needed: the token in the address says who)
+    if (p === '/newsletter/unsubscribe' && (m === 'GET' || m === 'POST')) {
+      const ok = engage.unsubscribeNewsletter(db, url.searchParams.get('token'), env);
+      if (m === 'POST') return ok ? { ok: true, unsubscribed: true } : core.fail(400, 'That unsubscribe link is not valid.', 'bad_token');
+      return page(ok, 'You are unsubscribed from the Plot of the Day', 'That link is not valid.');
+    }
+    if (m === 'POST' && p === '/leads/unsubscribe') return engage.unsubscribeLead(db, url.searchParams.get('token')) ? { ok: true, unsubscribed: true } : core.fail(400, 'That unsubscribe link is not valid.', 'bad_token');
     if (m === 'GET' && p === '/me/verify') return page(engage.verifyEmail(db, url.searchParams.get('token')), 'Email confirmed', 'That link is not valid or was already used.');
     if (m === 'PATCH' && p === '/me') return engage.setEmail(db, account, await body(req));
     if (m === 'GET' && p === '/me/leads') return engage.myLeads(db, account);
@@ -628,7 +639,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/me/wallet') return engage.wallet(db, account);
     if (m === 'POST' && p === '/admin/newsletter') {
       adminOnly();
-      const out = logged(adminOnly(), 'newsletter.send', { kind: 'newsletter', id: new Date().toISOString().slice(0, 10) }, () => engage.sendNewsletter(db, new Date()), (o) => ({ queued: o.queued, already: Boolean(o.already) }));
+      const out = logged(adminOnly(), 'newsletter.send', { kind: 'newsletter', id: new Date().toISOString().slice(0, 10) }, () => engage.sendNewsletter(db, new Date(), env), (o) => ({ queued: o.queued, already: Boolean(o.already) }));
       deliver();
       return out;
     }
@@ -779,8 +790,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/admin\/billing\/grant\/([a-z0-9-]{1,48})$/)) && m === 'POST') return (adminOnly(token), billing.grant(db, r[1], await body(req), adminOnly()));
     if (m === 'POST' && p === '/admin/billing/reconcile') return (adminOnly(token), billing.reconcile(db, env, fetch, afterPaid));
     if (m === 'GET' && p === '/me/referrals') return business.myReferrals(db, account, env);
-    if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db) };
-    if ((r = p.match(/^\/ads\/([\w-]+)$/)) && m === 'GET') return core.getAdSlot(db, r[1]);
+    if (m === 'GET' && p === '/ads') return { slots: core.adSlots(db, account) };
+    if ((r = p.match(/^\/ads\/([\w-]+)$/)) && m === 'GET') return core.getAdSlot(db, r[1], account);
     if ((r = p.match(/^\/ads\/([\w-]+)\/history$/)) && m === 'GET') return { events: core.slotHistory(db, r[1]) };
     if ((r = p.match(/^\/ads\/([\w-]+)\/buy$/)) && m === 'POST') {
       const b = await screened(req, { advertiser: 0, headline: 0, tagline: 1, url: 1 });

@@ -1,5 +1,17 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.16.0 (2026-10-21)
+
+Privacy fixes before the legal review ([policy_review.md](../../docs/monetization/policy_review.md) section 3, gaps 2 and 8). New contracts, all version 1, in [`contracts/privacy.js`](src/contracts/privacy.js):
+
+- `plot.public`: a plot as the public sees it (an entry of `GET /plots/state`'s `plots`, and `GET /plots/:id`). The owner's public name (`owner`) stays; the owner's account number (`ownerAccount`) is **gone**. Instead `playerOwned` (a player leases it, so they can be messaged) and `mine` (it is the signed-in caller's own; false for everyone else and when signed out), worked out by the server. A key naming an account number does not fit.
+- `ad.public`: an ad space as the public sees it (`GET /ads`, `GET /ads/:id`, `/plots/state`'s `ads`): `ownerAccount` is gone too, `mine` as for a plot.
+- `account.settings`: the body of `PATCH /me`: `{ email?, notify?, newsletter? }`. `newsletter` (the Plot of the Day) is a new, separate, opt-in choice: `false` for every account until it is ticked (also in `GET /me`'s `account.newsletter`). `notify` is the service notices only.
+- `newsletter.unsubscribe.result`: `POST /newsletter/unsubscribe?token=` (the newsletter's List-Unsubscribe-Post one-click, no sign-in) and `POST /leads/unsubscribe?token=` answer `{ ok: true, unsubscribed: true }`; a token that is not valid is a 400 `bad_token`.
+- `API_CONTRACTS` now holds 68.
+
+A client that compared `ownerAccount` with its own account id must use `mine` (the game's `lib/data/sync.js` and the profiles page now do).
+
 ## 0.15.0 (2026-10-20)
 
 A forgotten admin password, reset from the pages (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-password-reset)). New contracts, all version 1, in [`contracts/admin.js`](src/contracts/admin.js):

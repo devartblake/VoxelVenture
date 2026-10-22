@@ -6,11 +6,12 @@ import { apiOn } from '@/lib/data/api';
 import { leadsCsv } from '@/lib/data/csv';
 import { myLeadsRemote, setEmailRemote, walletRemote } from '@/lib/data/sync';
 import { useAccount } from '@/lib/state/accountStore';
+import { NEWSLETTER_CONSENT, NOTICES_CONSENT } from '@/lib/legal/consent';
 
 const INPUT = 'w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-1.5 text-xs text-white focus:border-sx-cyan focus:outline-none';
 const REASON = { starter: 'Welcome Credits', quest: 'Visit quest reward', quest_budget: 'Added to a quest budget', budget_refund: 'Quest budget returned' };
 
-// Your account: the email for notices (confirmed by a link), whether to get them, and your Gold wallet (visit quests pay into it, and a
+// Your account: the email for notices (confirmed by a link), whether to get them, whether to get the Plot of the Day (opt-in), and your Gold wallet (visit quests pay into it, and a
 // business owner funds their quest budget from it).
 export default function AccountView() {
   const account = useAccount((s) => s.account);
@@ -50,7 +51,7 @@ export default function AccountView() {
 
       <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">
         <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-white"><Mail className="h-3.5 w-3.5 text-sx-cyan" /> Email notices</h3>
-        <p className="mb-2 text-[11px] text-slate-400">We email you when someone takes over your plot or ad space, and the Plot of the Day. Only to an address you have confirmed.</p>
+        <p className="mb-2 text-[11px] text-slate-400">We email you when someone takes over your plot or ad space, when a lease or a plot you watch needs you, and about your stalls and requests. Only to an address you have confirmed.</p>
         {account.email && (
           <p className="mb-2 text-[11px]">
             {account.email} · <span className={account.emailVerified ? 'text-green-400' : 'text-amber-300'}>{account.emailVerified ? 'confirmed' : 'waiting for you to open the link we sent'}</span>
@@ -62,7 +63,15 @@ export default function AccountView() {
         </form>
         {note && <p className="mt-1.5 text-[11px] text-slate-300">{note}</p>}
         <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-300">
-          <input type="checkbox" checked={account.notify} onChange={(e) => setEmailRemote({ notify: e.target.checked })} /> Send me notices
+          <input type="checkbox" checked={account.notify} onChange={(e) => setEmailRemote({ notify: e.target.checked })} /> {NOTICES_CONSENT.label}
+        </label>
+        {/* the newsletter is its own, opt-in choice (off until ticked), apart from the notices above */}
+        <label className="mt-2 flex items-start gap-2 text-[11px] text-slate-300">
+          <input type="checkbox" className="mt-0.5" checked={Boolean(account.newsletter)} onChange={(e) => setEmailRemote({ newsletter: e.target.checked }).catch((err) => setNote(err.message))} data-testid="newsletter-optin" />
+          <span>
+            {NEWSLETTER_CONSENT.label}
+            <span className="block text-slate-500">{NEWSLETTER_CONSENT.detail}{account.newsletter && !account.emailVerified ? ' It starts once your address is confirmed.' : ''}</span>
+          </span>
         </label>
       </section>
 

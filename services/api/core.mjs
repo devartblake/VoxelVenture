@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
 import { planOf } from '@voxelventure/business-core';
+import { countKept, keptByTarget } from './retention.mjs';
 
 // The rules of the world, with no HTTP in them: seeding the plots, accounts, claiming and taking over (atomic), events and statistics.
 // The game's own modules (generator, logo rules) are loaded from lib/, so the server and the game cannot disagree.
@@ -128,8 +129,8 @@ function startSession(db, accountId) {
 }
 // `pro`: one of the account's business profiles is on Pro now, so its plot leases cost 15% less (hasPro); the claim form shows the discount from it.
 export function publicAccount(db, id) {
-  const a = db.prepare('SELECT id, username, gold, created_at, email, email_verified, notify FROM accounts WHERE id = ?').get(id);
-  return a && { id: a.id, username: a.username, gold: a.gold, createdAt: a.created_at, email: a.email, emailVerified: Boolean(a.email_verified), notify: Boolean(a.notify), pro: hasPro(db, a.id) };
+  const a = db.prepare('SELECT id, username, gold, created_at, email, email_verified, notify, newsletter FROM accounts WHERE id = ?').get(id);
+  return a && { id: a.id, username: a.username, gold: a.gold, createdAt: a.created_at, email: a.email, emailVerified: Boolean(a.email_verified), notify: Boolean(a.notify), newsletter: Boolean(a.newsletter), pro: hasPro(db, a.id) };
 }
 // Is any of the account's published business profiles on an active Pro entitlement (@voxelventure/business-core planOf)? Then a plot lease (a claim, a
 // take-over, a renewal) costs it 15% less (lib/game/leases.js PRO_PLOT_DISCOUNT). The server always asks this itself: a browser's word is never taken.
@@ -153,14 +154,18 @@ export const requireAccount = (account) => account ?? fail(401, 'Sign in first.'
 // ---- plots -----------------------------------------------------------------------------------------------------------
 // Every count the API serves is verified events only (docs/architecture/authoritative_data.md). The generator's starting figures (base_visits,
 // base_views, base_clicks) are kept in the database as the seed's history but never added to a count: nobody sees an invented number as real.
-const visitsOf = (db, id) => db.prepare("SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND kind = 'visit' AND verified = 1").get(id).n;
-export function plotView(db, row) {
+// (All-time counts add the daily totals kept when old rows are deleted: services/api/retention.mjs.)
+const visitsOf = (db, id) => db.prepare("SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND kind = 'visit' AND verified = 1").get(id).n + countKept(db, 'events', { kind: 'visit', target: id });
+// A plot as the public sees it. Never the owner's account number (policy_review.md gap 8): only their public name, whether a player (not the city)
+// leases it (`playerOwned`: they can be messaged), and `mine` for the account asking (viewer), worked out here so no client needs the number.
+export function plotView(db, row, viewer = null) {
   const facts = JSON.parse(row.facts);
   return {
     id: row.id,
     title: row.title,
     owner: row.owner_name,
-    ownerAccount: row.owner_account,
+    playerOwned: row.owner_account != null,
+    mine: Boolean(viewer && row.owner_account != null && row.owner_account === viewer.id),
     website: row.website,
     buildingType: row.building_type,
     variant: row.variant,
@@ -205,8 +210,9 @@ export function directory(db, { sort = 'value', q = '', limit = 1000, offset = 0
 }
 // The state of every plot in one small list, for a client to sync with: who owns it and what the business looks like now.
 // (Empty lots are included with owner null; the generated facts are not: the client already has them.)
-export function worldState(db) {
+export function worldState(db, viewer = null) {
   const visits = Object.fromEntries(db.prepare("SELECT plot_id, COUNT(*) AS n FROM events WHERE kind = 'visit' AND verified = 1 GROUP BY plot_id").all().map((r) => [r.plot_id, r.n]));
+  for (const [id, n] of keptByTarget(db, 'events', { kind: 'visit' })) visits[id] = (visits[id] ?? 0) + n;
   // the last 30 days of verified engagement per plot: who came, how long they stayed, who clicked (the skyline grows with it)
   const since = now() - 30 * DAY;
   const eng = Object.fromEntries(
@@ -220,8 +226,9 @@ export function worldState(db) {
   const profiles = Object.fromEntries(db.prepare("SELECT plot_id, slug FROM businesses WHERE plot_id IS NOT NULL AND status = 'published'").all().map((r) => [r.plot_id, r.slug]));
   return {
     at: now(),
-    ads: adSlots(db),
-    plots: rows.map((r) => ({ id: r.id, owner: r.owner_name, ownerAccount: r.owner_account, title: r.title, website: r.website, buildingType: r.building_type, variant: r.variant, logo: r.logo ? JSON.parse(r.logo) : null, description: r.description, value: r.value, visits: visits[r.id] ?? 0, takeovers: r.takeovers, updatedAt: r.updated_at, skyline: eng[r.id] ? skylineFor(eng[r.id]) : null, lease: r.lease_end ? { days: r.lease_days, end: r.lease_end } : null, exterior: r.exterior ? JSON.parse(r.exterior) : null, profileSlug: profiles[r.id] ?? null })),
+    ads: adSlots(db, viewer),
+    // no account numbers (policy_review.md gap 8): whether a player leases it, and `mine` for the account asking
+    plots: rows.map((r) => ({ id: r.id, owner: r.owner_name, playerOwned: r.owner_account != null, mine: Boolean(viewer && r.owner_account != null && r.owner_account === viewer.id), title: r.title, website: r.website, buildingType: r.building_type, variant: r.variant, logo: r.logo ? JSON.parse(r.logo) : null, description: r.description, value: r.value, visits: visits[r.id] ?? 0, takeovers: r.takeovers, updatedAt: r.updated_at, skyline: eng[r.id] ? skylineFor(eng[r.id]) : null, lease: r.lease_end ? { days: r.lease_days, end: r.lease_end } : null, exterior: r.exterior ? JSON.parse(r.exterior) : null, profileSlug: profiles[r.id] ?? null })),
   };
 }
 export function getPlot(db, id) {
@@ -275,7 +282,7 @@ export function claimPlot(db, account, id, input, opts = {}) {
       .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.period, term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'claim', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, b.title, price, now());
     db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // a new owner starts from the generated interior (interiors.mjs)
-    return plotView(db, getPlot(db, p.id));
+    return plotView(db, getPlot(db, p.id), account);
   });
 }
 
@@ -306,7 +313,7 @@ export function takeOverPlot(db, account, id, input, opts = {}) {
     db.prepare('UPDATE plots SET owner_account=?, owner_name=?, title=?, website=?, building_type=?, variant=?, logo=?, description=?, exterior=?, value=?, lease_days=?, lease_start=?, lease_end=?, lease_notified=0, takeovers=takeovers+1, brand=NULL, quest_budget=0, updated_at=? WHERE id=?')
       .run(account.id, account.username, b.title, b.website, b.buildingType, b.variant, b.logo, b.description, exterior, quote.period, term, now(), now() + term * LEASE_DAY, now(), p.id);
     db.prepare('DELETE FROM plot_interiors WHERE plot_id = ?').run(p.id); // the old owner's interior goes with them (interiors.mjs)
-    return { plot: plotView(db, getPlot(db, p.id)), paidOut: price, previousOwner: p.owner_name, previousAccount: p.owner_account };
+    return { plot: plotView(db, getPlot(db, p.id), account), paidOut: price, previousOwner: p.owner_name, previousAccount: p.owner_account };
   });
 }
 
@@ -338,7 +345,7 @@ export function updateBusiness(db, account, id, input) {
       value = valueAfter(p, quote.diff);
     }
     db.prepare('UPDATE plots SET logo=?, description=?, exterior=?, value=?, updated_at=? WHERE id=?').run(logo, description, exterior, value, now(), p.id);
-    return plotView(db, getPlot(db, p.id));
+    return plotView(db, getPlot(db, p.id), account);
   });
 }
 
@@ -366,7 +373,7 @@ export function upgradeExterior(db, account, id, input = {}) {
     const quote = outsideQuote(p, exterior);
     db.prepare('UPDATE plots SET exterior=?, value=?, updated_at=? WHERE id=?').run(exterior, valueAfter(p, quote.diff), now(), p.id);
     if (quote.charge > 0) db.prepare("INSERT INTO ledger (plot_id, kind, account_id, owner_name, title, price, at) VALUES (?, 'exterior', ?, ?, ?, ?, ?)").run(p.id, account.id, account.username, p.title, quote.charge, now());
-    return { plot: plotView(db, getPlot(db, p.id)), paid: quote.charge, diff: quote.diff, before: p.exterior ?? null };
+    return { plot: plotView(db, getPlot(db, p.id), account), paid: quote.charge, diff: quote.diff, before: p.exterior ?? null };
   });
 }
 // A refunded outside upgrade is undone (billing.mjs): the outside it replaced comes back and the value goes down by what the upgrade added.
@@ -459,7 +466,7 @@ export function plotStats(db, id) {
 }
 
 export function worldStats(db, online = 0) {
-  const t = db.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'visit' AND verified = 1").get().n;
+  const t = db.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'visit' AND verified = 1").get().n + countKept(db, 'events', { kind: 'visit' });
   const built = db.prepare("SELECT COUNT(*) AS n FROM plots WHERE owner_name IS NOT NULL AND building_type != 'house'").get().n;
   return { online, totalVisits: t, buildings: built, accounts: db.prepare('SELECT COUNT(*) AS n FROM accounts').get().n };
 }
@@ -476,16 +483,17 @@ export function seedAds(db, seed = 20260101) {
   return { seeded: true, slots: city.billboards.length };
 }
 
-export function slotView(db, row) {
+// An ad space as the public sees it: never the advertiser's account number (policy_review.md gap 8), only `mine` for the account asking.
+export function slotView(db, row, viewer = null) {
   const ev = db.prepare('SELECT kind, COUNT(*) AS n FROM ad_events WHERE slot_id = ? AND verified = 1 GROUP BY kind').all(row.id);
-  const n = (k) => ev.find((e) => e.kind === k)?.n ?? 0;
-  return { id: row.id, kind: row.kind, label: row.label, ...JSON.parse(row.facts), ad: row.ad ? JSON.parse(row.ad) : null, ownerAccount: row.owner_account, value: row.value, views: n('view'), clicks: n('click'), takeovers: row.takeovers, price: Math.round(row.value * 1.25), open: !row.ad };
+  const n = (k) => (ev.find((e) => e.kind === k)?.n ?? 0) + countKept(db, 'ad_events', { kind: k, target: row.id });
+  return { id: row.id, kind: row.kind, label: row.label, ...JSON.parse(row.facts), ad: row.ad ? JSON.parse(row.ad) : null, mine: Boolean(viewer && row.owner_account != null && row.owner_account === viewer.id), value: row.value, views: n('view'), clicks: n('click'), takeovers: row.takeovers, price: Math.round(row.value * 1.25), open: !row.ad };
 }
-export function adSlots(db) {
-  return db.prepare('SELECT * FROM ad_slots ORDER BY kind, id').all().map((r) => slotView(db, r));
+export function adSlots(db, viewer = null) {
+  return db.prepare('SELECT * FROM ad_slots ORDER BY kind, id').all().map((r) => slotView(db, r, viewer));
 }
 const getSlot = (db, id) => db.prepare('SELECT * FROM ad_slots WHERE id = ?').get(String(id)) ?? fail(404, 'No such ad space.', 'no_slot');
-export const getAdSlot = (db, id) => slotView(db, getSlot(db, id));
+export const getAdSlot = (db, id, viewer = null) => slotView(db, getSlot(db, id), viewer);
 
 function cleanAd(input) {
   const advertiser = text(input.advertiser, 40);
@@ -512,7 +520,8 @@ export function buySlot(db, account, id, input) {
     db.prepare('UPDATE ad_slots SET ad=?, owner_account=?, value=?, takeovers=takeovers+?, base_views=0, base_clicks=0, updated_at=? WHERE id=?').run(JSON.stringify(ad), account.id, price, previous ? 1 : 0, now(), s.id);
     // the new advertiser starts from zero: the old advertiser's views are not theirs
     db.prepare('DELETE FROM ad_events WHERE slot_id = ?').run(s.id);
-    return { slot: slotView(db, getSlot(db, s.id)), paidOut: previous ? price : 0, previousAdvertiser: previous, previousAccount: s.owner_account };
+    db.prepare("DELETE FROM daily_counts WHERE source = 'ad_events' AND target = ?").run(s.id);
+    return { slot: slotView(db, getSlot(db, s.id), account), paidOut: previous ? price : 0, previousAdvertiser: previous, previousAccount: s.owner_account };
   });
 }
 export function slotHistory(db, id) {

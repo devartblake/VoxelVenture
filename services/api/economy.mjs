@@ -4,6 +4,7 @@ import { ApiError, fail, getPlot, hasPro, pricedPlot, requireAccount, text } fro
 import { BOT_UA, ipHashOf } from './business.mjs';
 import { enqueue, noticeAddress } from './engage.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
+import { keptByTarget } from './retention.mjs';
 
 // The plot economy's data (docs/monetization/plot_economy_data.md): what a demand index will be fitted on after the pilot. Nothing here sets a
 // price; the prices are the game's own (lib/game/claimPrice.js), only read here to record what a player was shown.
@@ -430,6 +431,14 @@ export function economyReport(db, { from, to, at = now() } = {}) {
   const firstClaim = byPlot("SELECT plot_id, MIN(at) AS at FROM ledger WHERE kind = 'claim' GROUP BY plot_id");
   const visits = byPlot("SELECT plot_id, COUNT(*) AS n FROM events WHERE kind = 'visit' AND verified = 1 AND at >= ? AND at < ? GROUP BY plot_id", start, end);
   const store = byPlot("SELECT b.plot_id, COUNT(*) AS n FROM business_events e JOIN businesses b ON b.id = e.business_id WHERE b.plot_id IS NOT NULL AND e.kind = 'store' AND e.verified = 1 AND e.at >= ? AND e.at < ? GROUP BY b.plot_id", start, end);
+  // ...plus the daily totals kept for days whose rows reached the end of their retention (services/api/retention.mjs)
+  const addKept = (map, plotId, k) => map.set(plotId, { plot_id: plotId, n: (map.get(plotId)?.n ?? 0) + k });
+  for (const [id, k] of keptByTarget(db, 'events', { kind: 'visit', from: start, to: end })) addKept(visits, Number(id), k);
+  const plotOf = db.prepare('SELECT plot_id FROM businesses WHERE id = ?');
+  for (const [id, k] of keptByTarget(db, 'business_events', { kind: 'store', from: start, to: end })) {
+    const plotId = plotOf.get(Number(id))?.plot_id;
+    if (plotId != null) addKept(store, plotId, k);
+  }
   const takeovers = byPlot("SELECT plot_id, COUNT(*) AS n FROM ledger WHERE kind = 'takeover' AND at >= ? AND at < ? GROUP BY plot_id", start, end);
   const renewals = byPlot("SELECT plot_id, COUNT(*) AS n FROM ledger WHERE kind = 'renew' AND at >= ? AND at < ? GROUP BY plot_id", start, end);
   const watchers = byPlot('SELECT plot_id, COUNT(*) AS n FROM plot_watches GROUP BY plot_id');

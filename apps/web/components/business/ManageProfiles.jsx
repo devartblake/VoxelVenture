@@ -24,12 +24,12 @@ export default function ManageProfiles() {
   const { live, ready, account, logout } = useOwner();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [plots, setPlots] = useState([]);
+  const [plots, setPlots] = useState([]); // the account's own plots, to link a profile to
   const load = useCallback(async () => {
     try {
       setData(await request('GET', '/me/businesses'));
       const state = await request('GET', '/plots/state');
-      setPlots(state.plots.filter((p) => p.ownerAccount != null));
+      setPlots(state.plots.filter((p) => p.mine)); // the server marks the signed-in owner's own plots: it sends no account numbers
       setError('');
     } catch (e) {
       setError(e.message);
@@ -53,7 +53,6 @@ export default function ManageProfiles() {
     );
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const mine = plots.filter((p) => p.ownerAccount === account.id);
   return (
     <>
       <div className="mb-6 flex flex-wrap items-end gap-3">
@@ -70,7 +69,7 @@ export default function ManageProfiles() {
         <p className="rounded-2xl border border-dashed border-sx-stroke p-6 text-center text-slate-300">You have no profiles yet. <Link href="/business/new" className="text-sx-cyan underline">List your business free</Link>.</p>
       )}
       <div className="space-y-6">
-        {data?.profiles.map((row) => <ProfileRow key={row.profile.slug} row={row} code={data.referral.code} origin={origin} plots={mine} onChange={load} checkoutOn={data.checkout} />)}
+        {data?.profiles.map((row) => <ProfileRow key={row.profile.slug} row={row} code={data.referral.code} origin={origin} plots={plots} onChange={load} checkoutOn={data.checkout} />)}
       </div>
       {data && <Referrals referral={data.referral} origin={origin} />}
       {data?.checkout && <Orders />}

@@ -28,6 +28,26 @@ check('the referral code is kept the stated days', has('lib/business/referral.js
 check('backups are kept the stated days', has('deploy/backup.sh', new RegExp(`BACKUP_KEEP:-${RETENTION.backupDays}\\}`)));
 check('the presence server keeps network addresses only scrambled, as the privacy policy says (gap 1)', has('services/multiplayer/server.mjs', /const netOf = /) && !has('services/multiplayer/server.mjs', /ip: p\.ip|^\s+ip,\r?$|`\$\{ip\} \(|from \$\{ip\}|\$\{id\}, \$\{ip\}/m));
 check('take-over emails call the payout game value, as the terms say (gap 3)', has('services/api/engage.mjs', /no real money is paid/) && !has('services/api/engage.mjs', /paid out \$/));
+check('off-site backups are kept the stated days', has('deploy/backup.sh', new RegExp(`RCLONE_KEEP:-${RETENTION.offsiteBackupDays}\\}d`)));
+// gap 7: the clean-up jobs read their periods from the same RETENTION the policy quotes (no number of their own), and the policy quotes each one
+const jobs = await import(new URL('../services/api/retention.mjs', import.meta.url).href);
+const jobKeys = ['expiredSessionDays', 'emailBodyDays', 'emailRecordDays', 'eventDays', 'arrivalDays', 'couponClaimDays', 'leadPendingDays', 'leadUnsubscribedDays', 'socialUnpostedDays'];
+check('the clean-up jobs use the policy\'s periods (gap 7)', JSON.stringify(jobs.RETENTION) === JSON.stringify(RETENTION) && jobKeys.every((k) => has('services/api/retention.mjs', new RegExp(`RETENTION\\.${k}\\b`))) && !has('services/api/retention.mjs', /\b\d+ \* DAY\b/));
+check('and the server runs them every hour', has('services/api/server.mjs', /retention\.pruneAll\(db/));
+const retentionText = JSON.stringify(policies(operator({})).find((p) => p.slug === 'retention'));
+check('the retention table states every clean-up period', jobKeys.every((k) => retentionText.includes(`${RETENTION[k]} day`)) && retentionText.includes(`${RETENTION.offsiteBackupDays} days in the off-site copy`), jobKeys.filter((k) => !retentionText.includes(`${RETENTION[k]} day`)).join());
+check('no "kept with no end date" note is left in the retention policy', !/no end date|While the service runs/.test(retentionText));
+// gap 2: the Plot of the Day is opt-in, worded the same in the account settings and the privacy policy
+const { NEWSLETTER_CONSENT } = await imp('legal/facts.js');
+const privacyText = JSON.stringify(policies(operator({})).find((p) => p.slug === 'privacy'));
+const sendNews = read('services/api/engage.mjs').match(/export function sendNewsletter[\s\S]*?\r?\n}\r?\n/)?.[0] ?? '';
+check('the newsletter goes only to accounts that opted in, with a one-click unsubscribe and its headers (gap 2)', /newsletter = 1/.test(sendNews) && !/notify = 1/.test(sendNews) && /List-Unsubscribe-Post/.test(read('services/api/engage.mjs')) && has('services/api/db.mjs', /addColumn\(db, 'accounts', 'newsletter', 'INTEGER NOT NULL DEFAULT 0'\)/));
+check('the account settings and the privacy policy use the same consent words', /NEWSLETTER_CONSENT\.label/.test(read('apps/web/components/ui/panel/AccountView.jsx')) && privacyText.includes(NEWSLETTER_CONSENT.label) && !/opt-out/.test(privacyText));
+// gap 8: no account number in the public plot and ad shapes
+check('public plots and ad spaces carry no owner account number (gap 8)', !/ownerAccount: (row|r)\.owner_account,/.test(read('services/api/core.mjs')) && !/\.ownerAccount\b/.test(read('lib/data/sync.js')));
+// gap 9: the X welcome-post consent needs a handle, on the server as on the form
+const BC = await import('@voxelventure/business-core');
+check('the server refuses the X welcome-post consent without a handle (gap 9)', BC.cleanProfile({ name: 'Zine', category: 'creators', cta: { kind: 'newsletter' }, announce: true }).errors?.announce && BC.cleanProfile({ name: 'Zine', category: 'creators', cta: { kind: 'newsletter' }, announce: true, xHandle: 'zine' }).ok);
 check('the error log is cut at the stated size', has('services/multiplayer/server.mjs', /MP_LOG_MAX_BYTES \|\| 2_000_000/) && RETENTION.errorLogBytes === 2_000_000);
 check('the attribution window is the code\'s', RETENTION.attributionDays === ATTRIBUTION_DAYS);
 const { SESSION: ADMIN_SESSION, LINK_MS: ADMIN_LINK_MS } = await import('../services/api/admin.mjs');

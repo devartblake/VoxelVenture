@@ -103,6 +103,8 @@ export function updateProfile(db, account, slug, input) {
   const row = ownRow(db, account, slug);
   const merged = { ...ownerView(row), ...input };
   if (input.website !== undefined && input.cta === undefined && merged.cta.kind === 'website') merged.cta = { ...merged.cta, url: null };
+  // removing the handle withdraws the welcome-post consent with it (a consent without a handle is refused: cleanProfile)
+  if (input.xHandle !== undefined && !String(input.xHandle ?? '').replace(/^@/, '').trim() && input.announce === undefined) merged.announce = false;
   const v = checked(merged);
   db.prepare('UPDATE businesses SET name=?, category=?, district=?, tagline=?, description=?, website=?, cta=?, x_handle=?, announce=?, updated_at=? WHERE id=?')
     .run(v.name, v.category, v.district ?? null, v.tagline ?? null, v.description ?? null, v.website ?? null, JSON.stringify(v.cta), v.xHandle ?? null, v.announce ? 1 : 0, now(), row.id);

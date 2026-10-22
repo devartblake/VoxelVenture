@@ -111,6 +111,9 @@ export function cleanProfile(input = {}, { partial = false } = {}) {
     if (h && !X_HANDLE.test(h)) errors.xHandle = 'An X handle is 1 to 15 letters, numbers or underscores.';
   }
   if (has('announce')) value.announce = input.announce === true;
+  // the welcome post tags the handle, so the consent needs one: refused without it, as the form does (policy_review.md gap 9). An edit that
+  // only ticks the box is checked by the server against the handle it already has (it merges the profile first).
+  if (value.announce && has('xHandle') && !value.xHandle && !errors.xHandle) errors.announce = 'Add your X handle first: the welcome post tags it.';
   if (has('cta')) {
     const c = input.cta ?? { kind: 'website' };
     const kind = ctaKindOf(c.kind);

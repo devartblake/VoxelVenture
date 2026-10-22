@@ -1,5 +1,9 @@
 # Changelog: @voxelventure/business-core
 
+## 0.5.1 (2026-10-21)
+
+- `cleanProfile` refuses the X welcome-post consent (`announce: true`) without an X handle, with `errors.announce`, as the profile form does ([policy_review.md](../../docs/monetization/policy_review.md) gap 9). A partial edit that only ticks the box is checked by the server against the handle it already has.
+
 ## 0.5.0 (2026-10-19)
 
 Promo codes (`src/promo.js`, [billing.md](../../docs/monetization/billing.md#promo-codes)), shared by the server and the pages:

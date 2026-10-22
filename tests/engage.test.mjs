@@ -160,16 +160,40 @@ try {
   await call('POST', `/ads/${openSlot.id}/buy`, { token: bob.token, body: { advertiser: 'Bob Co', headline: 'Bob', tagline: '', url: 'https://b.test', color: '#3b82f6' } });
   check('an advertiser is emailed when their ad space is taken over', Boolean(await waitMail((m) => m.to === 'eve@example.com' && /took over your ad space/.test(m.subject))));
 
-  // ---- the newsletter
+  // ---- the newsletter: opt-in, apart from notices, with a one-click unsubscribe (policy_review.md gap 2)
   const sub = await call('POST', '/leads', { body: { targetKind: 'world', email: 'reader@example.com' } });
   await call('GET', `/leads/confirm?token=${tokenIn(await waitMail((m) => m.to === 'reader@example.com' && /newsletter/i.test(m.subject)))}`);
+  const eveMe = (await call('GET', '/me', { token: eve.token })).data.account;
+  check('an account is not subscribed to the newsletter until it opts in (notices on or not)', eveMe.newsletter === false && eveMe.notify === true && eveMe.emailVerified === true);
+  check('the newsletter choice must be true or false', (await call('PATCH', '/me', { token: amy.token, body: { newsletter: 'yes' } })).status === 400);
+  const optIn = await call('PATCH', '/me', { token: amy.token, body: { newsletter: true } });
+  check('opting in is its own choice: Amy has notices off and the newsletter on', optIn.data.account.newsletter === true && optIn.data.account.notify === false);
   check('only an admin can send the newsletter', (await call('POST', '/admin/newsletter')).status === 403 && (await call('POST', '/admin/newsletter', { token: 'wrong' })).status === 403);
   const news = await call('POST', '/admin/newsletter', { token: 'admin-secret' });
   const got = await waitMail((m) => m.to === 'reader@example.com' && /Plot of the Day/.test(m.subject));
-  check('the Plot of the Day newsletter goes to confirmed readers, with an unsubscribe link', sub.status === 200 && news.data.queued >= 1 && got && /Unsubscribe: .*leads\/unsubscribe\?token=/.test(got.text) && /Walk in for a bonus/.test(got.text), JSON.stringify(news.data));
+  const amyNews = await waitMail((m) => m.to === 'amy@example.com' && /Plot of the Day/.test(m.subject));
+  check('the Plot of the Day goes to confirmed readers, with a one-click unsubscribe link', sub.status === 200 && news.data.queued === 2 && got && /Unsubscribe \(one click, no sign-in needed\): .*leads\/unsubscribe\?token=/.test(got.text) && /Walk in for a bonus/.test(got.text), JSON.stringify(news.data));
+  check('...and to the account that opted in, with its signed link', amyNews && /newsletter\/unsubscribe\?token=[0-9a-z]+\.[0-9a-f]{32}/.test(amyNews.text) && /you ticked/.test(amyNews.text), amyNews?.text);
+  const linkOf = (m) => m.text.match(/Unsubscribe \(one click, no sign-in needed\): (\S+)/)[1];
+  check('every issue carries the List-Unsubscribe and List-Unsubscribe-Post headers', [got, amyNews].every((m) => m.headers?.['List-Unsubscribe'] === `<${linkOf(m)}>` && m.headers?.['List-Unsubscribe-Post'] === 'List-Unsubscribe=One-Click'), JSON.stringify(amyNews?.headers));
+  check('an account that never opted in gets none', !mails.some((m) => /Plot of the Day/.test(m.subject) && m.to === 'eve@example.com'));
+  check('other emails carry no unsubscribe headers', !mails.some((m) => !/Plot of the Day/.test(m.subject) && m.headers));
   check('with no verified visits this week it lists no "busiest" businesses (never the generated figures)', got && !/busiest/.test(got.text));
   check('and a second send the same day does nothing', (await call('POST', '/admin/newsletter', { token: 'admin-secret' })).data.already === true);
   check('nobody who unsubscribed or never confirmed gets it', !mails.some((m) => /Plot of the Day/.test(m.subject) && m.to === 'fan@example.com'));
+  // the link works without signing in, and again when opened twice; a forged one does not
+  const amyLink = linkOf(amyNews).replace(/^https?:\/\/[^/]+/, '');
+  const open1 = await call('GET', amyLink);
+  check('the unsubscribe link works without signing in', open1.status === 200 && /unsubscribed/i.test(open1.data) && (await call('GET', '/me', { token: amy.token })).data.account.newsletter === false);
+  check('...and says so again when opened twice', /unsubscribed/i.test((await call('GET', amyLink)).data));
+  check('a forged link does nothing', /not valid/.test((await call('GET', amyLink.replace(/.{4}$/, '0000'))).data) && (await call('POST', '/newsletter/unsubscribe?token=1.abc')).status === 400);
+  // signed in, from the mail app's one-click button (RFC 8058: a form POST to the same address)
+  await call('PATCH', '/me', { token: amy.token, body: { newsletter: true } });
+  const oneClick = await fetch(base + amyLink, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Bearer ${amy.token}` }, body: 'List-Unsubscribe=One-Click' });
+  check('the List-Unsubscribe-Post one-click works too, signed in or not', oneClick.status === 200 && (await oneClick.json()).unsubscribed === true && (await call('GET', '/me', { token: amy.token })).data.account.newsletter === false);
+  const readerLink = linkOf(got).replace(/^https?:\/\/[^/]+/, '');
+  const leadClick = await fetch(base + readerLink, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' });
+  check('and for a confirmed reader of the public sign-up', leadClick.status === 200 && (await leadClick.json()).unsubscribed === true);
 
   // ---- instant push and spatial chat on the presence server
   const ws = (name, x) => new Promise((resolve) => { const s = new WebSocket(`ws://localhost:${mpPort}`); const inbox = []; s.on('message', (r) => inbox.push(JSON.parse(r.toString()))); s.on('open', () => { s.send(JSON.stringify({ type: 'hello', name, room: '20260101', x, z: 0, appearance: {} })); setTimeout(() => resolve({ s, inbox }), 200); }); });
@@ -208,7 +232,7 @@ try {
   await call('POST', `/plots/${lot4.id}/feedback/${rudeId}/show`, { token: dan.token });
   check('the business owner cannot bring back a message a moderator hid', !(await call('GET', `/plots/${lot4.id}/storefront`)).data.feedback.some((f) => f.id === rudeId) && !(await call('GET', `/plots/${lot4.id}/storefront`, { token: dan.token })).data.feedback.some((f) => f.id === rudeId));
   await call('POST', '/reports', { token: bob.token, body: { kind: 'plot', id: lot4.id, reason: 'misleading' } });
-  const adSlot = (await call('GET', '/ads')).data.slots.find((x) => !x.open && x.ownerAccount);
+  const adSlot = (await call('GET', '/ads')).data.slots.find((x) => !x.open && x.id === openSlot.id);
   await call('POST', '/reports', { token: amy.token, body: { kind: 'ad', id: adSlot.id, reason: 'spam' } });
   check('only an admin can read the queue', (await call('GET', '/admin/reports')).status === 403 && (await call('GET', '/admin/reports', { token: 'nope' })).status === 403);
   const q = (await call('GET', '/admin/reports', { token: 'admin-secret' })).data.reports;

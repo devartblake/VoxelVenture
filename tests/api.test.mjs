@@ -48,8 +48,22 @@ try {
   check('a bad logo, website or type is refused', (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, logo: { kind: 'icon', icon: 'bomb' } } })).status === 400 && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, website: 'javascript:alert(1)' } })).status === 400 && (await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: { ...biz, buildingType: 'casino' } })).status === 400);
   check('an Old Town house cannot be claimed', (await call('POST', `/plots/${city.plots.find((p) => p.districtId === 'suburb').id}/claim`, { token: amy.token, body: biz })).status === 409);
   const claim = await call('POST', `/plots/${lot.id}/claim`, { token: amy.token, body: biz });
-  check('a claim makes the plot hers, worth its land price (its price for 30 days, as the claim form shows it)', claim.status === 200 && claim.data.owner === 'Amy' && claim.data.value === lot.price && claim.data.ownerAccount === amy.account.id, JSON.stringify(claim.data).slice(0, 80));
+  check('a claim makes the plot hers, worth its land price (its price for 30 days, as the claim form shows it)', claim.status === 200 && claim.data.owner === 'Amy' && claim.data.value === lot.price && claim.data.mine === true && claim.data.playerOwned === true && !('ownerAccount' in claim.data), JSON.stringify(claim.data).slice(0, 80));
   check('it appears in the directory', (await call('GET', `/plots?q=${encodeURIComponent('Amy Coffee')}`)).data.matched === 1);
+  // no owner account numbers in anything public (policy_review.md gap 8): the public owner name stays, and `mine` is worked out for the caller
+  const accountKeys = (v, at = '$', out = []) => {
+    if (Array.isArray(v)) v.forEach((x, i) => accountKeys(x, `${at}[${i}]`, out));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { if (/account|ownerId|userId/i.test(k) && k !== 'accounts') out.push(`${at}.${k}`); accountKeys(x, `${at}.${k}`, out); }
+    return out;
+  };
+  const publicPaths = ['/plots/state', '/plots', `/plots/${lot.id}`, `/plots/${lot.id}/history`, `/plots/${lot.id}/stats`, `/plots/${lot.id}/storefront`, `/plots/${lot.id}/interior`, '/ads', `/ads/${(await call('GET', '/ads')).data.slots[0].id}`, '/world/stats', '/stats/overview', '/businesses', '/market', '/votes'];
+  const leaks = [];
+  for (const p of publicPaths) for (const token of [undefined, bob.token]) { const r = await call('GET', p, { token }); leaks.push(...accountKeys(r.data).map((k) => `${p} ${k}`)); }
+  check('no public response carries an account number, signed in or not', leaks.length === 0, leaks.slice(0, 5).join(' | '));
+  const stateAnon = (await call('GET', '/plots/state')).data.plots.find((p) => p.id === lot.id);
+  const stateAmy = (await call('GET', '/plots/state', { token: amy.token })).data.plots.find((p) => p.id === lot.id);
+  const stateBob = (await call('GET', '/plots/state', { token: bob.token })).data.plots.find((p) => p.id === lot.id);
+  check('the plot list keeps the owner\'s public name and says "mine" only to its owner', stateAnon.owner === 'Amy' && stateAnon.playerOwned === true && stateAnon.mine === false && stateAmy.mine === true && stateBob.mine === false);
   // the race: ten players claim one lot at the same moment, exactly one wins
   const racers = [];
   for (let i = 0; i < 10; i++) racers.push((await call('POST', '/auth/signup', { body: { username: `racer${i}`, password: 'longenough3' } })).data);

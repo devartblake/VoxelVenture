@@ -1,9 +1,10 @@
 import { text } from './core.mjs';
+import { countKept } from './retention.mjs';
 
 // Real site analytics and presence, kept in the database.
 //
 //   presence   one row per visitor: when they were last seen (the game pings every 15 seconds while the tab is open and visible)
-//   arrivals   one row per visit: a new visitor, or one back after half an hour away
+//   arrivals   one row per visit: a new visitor, or one back after half an hour away (kept 30 days: retention.mjs keeps the daily count)
 //   events     (existing) a visitor entered a building ('visit') or pressed Visit website ('click')
 //
 // "Online now" is the visitors seen in the last 35 seconds. Countries come from the network in front of the server (a CDN header such as
@@ -69,23 +70,24 @@ export function overview(db, { now = Date.now(), offsetMin = 0 } = {}) {
   const yesterday = today - DAY;
   const week = today - 6 * DAY; // the last seven days include today
   const count = (sql, ...args) => db.prepare(sql).get(...args).n;
-  const metric = (label, table, where) => ({
+  // the total adds the daily counts kept for rows past their retention (retention.mjs); yesterday and the last 7 days are always still raw
+  const metric = (label, table, where, kind) => ({
     label,
     yesterday: count(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where} AND at >= ? AND at < ?`, yesterday, today),
     last7: count(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where} AND at >= ?`, week),
-    total: count(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`),
+    total: count(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`) + countKept(db, table, { kind }),
   });
   return {
     now,
     windowSeconds: ONLINE_WINDOW_MS / 1000,
     online,
     arrivals,
-    activity: [metric('City visits', 'arrivals', '1=1'), metric('Building views', 'events', "kind = 'visit' AND verified = 1"), metric('Website clicks', 'events', "kind = 'click' AND verified = 1")],
+    activity: [metric('City visits', 'arrivals', '1=1', 'arrival'), metric('Building views', 'events', "kind = 'visit' AND verified = 1", 'visit'), metric('Website clicks', 'events', "kind = 'click' AND verified = 1", 'click')],
     timezone: offsetMin === 0 ? 'UTC' : `UTC${offsetMin > 0 ? '+' : '-'}${Math.abs(offsetMin / 60)}`,
   };
 }
 
-// Housekeeping: presence rows older than a day add nothing (their arrivals are kept).
+// Housekeeping: presence rows older than a day add nothing (their arrivals are kept, for RETENTION.arrivalDays: retention.mjs).
 export function prunePresence(db, now = Date.now()) {
   return Number(db.prepare('DELETE FROM presence WHERE last_at < ?').run(now - DAY).changes);
 }

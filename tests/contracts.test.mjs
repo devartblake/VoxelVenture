@@ -23,7 +23,7 @@ check('NaN is not a number', validate({ type: 'number' }, NaN).length === 1);
 
 // ---- every contract is well formed: an id, a whole version and a schema of plain JSON (so other languages can read it)
 for (const c of Object.values(CONTRACTS)) check(`${c.id} has a version and survives JSON`, Number.isInteger(c.version) && c.version >= 1 && JSON.stringify(JSON.parse(JSON.stringify(c.schema))) === JSON.stringify(c.schema));
-check('contract ids are unique', types.API_CONTRACTS.length === 64 && Object.keys(CONTRACTS).length === 64 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 2); // + test.scenario and demo.tour
+check('contract ids are unique', types.API_CONTRACTS.length === 68 && Object.keys(CONTRACTS).length === 68 + Object.keys(types.PRESENCE_CLIENT).length + Object.keys(types.PRESENCE_SERVER).length + 2); // + test.scenario and demo.tour
 
 // ---- the shared values are the ones the server and the funnel use
 import { OUTCOMES } from '@voxelventure/analytics';
@@ -45,6 +45,21 @@ try {
   const bob = (await call('POST', '/auth/signup', { body: { username: 'Bob', password: 'longenough1' } })).data;
   const cat = (await call('POST', '/auth/signup', { body: { username: 'Cat', password: 'longenough1' } })).data;
   await call('POST', '/businesses', { token: bob.token, body: { name: 'Bob Builds', category: 'services', website: 'https://bob.test', cta: { kind: 'order', url: 'https://bob.test/shop' } } });
+
+  // the public plot and ad shapes carry no account numbers; the account's email choices; the one-click unsubscribe (policy_review.md gaps 2, 8)
+  const catLot = api.db.prepare("SELECT id FROM plots WHERE owner_name IS NULL AND claimable = 1 AND json_extract(facts, '$.admin') = 0 ORDER BY id DESC LIMIT 1").get();
+  await call('POST', `/plots/${catLot.id}/claim`, { token: cat.token, body: { title: 'Cat Corner', buildingType: 'shop', website: 'https://cat.test', logo: { kind: 'generated' } } });
+  const state = (await call('GET', '/plots/state', { token: cat.token })).data;
+  check('every plot in /plots/state fits plot.public', state.plots.every((p) => fits(types.PLOT_PUBLIC, p).ok), state.plots.map((p) => fits(types.PLOT_PUBLIC, p)).find((r) => !r.ok)?.errors.join('; '));
+  check('...and every ad space fits ad.public', state.ads.every((a) => fits(types.AD_PUBLIC, a).ok), state.ads.map((a) => fits(types.AD_PUBLIC, a)).find((r) => !r.ok)?.errors.join('; '));
+  check('a plot with an account number in it would not fit', !fits(types.PLOT_PUBLIC, { ...state.plots[0], ownerAccount: 3 }).ok);
+  holds('the caller\'s own plot', types.PLOT_PUBLIC, (await call('GET', `/plots/${catLot.id}`, { token: cat.token })).data);
+  holds('an ad space', types.AD_PUBLIC, (await call('GET', `/ads/${state.ads[0].id}`)).data);
+  const settings = { email: 'cat@x.test', notify: true, newsletter: true };
+  holds('the account\'s email choices', types.ACCOUNT_SETTINGS, settings);
+  check('the server takes them', (await call('PATCH', '/me', { token: cat.token, body: settings })).data.account.newsletter === true);
+  const { newsletterToken } = await import('../services/api/engage.mjs');
+  holds('the one-click unsubscribe\'s answer', types.NEWSLETTER_UNSUBSCRIBE_RESULT, (await call('POST', `/newsletter/unsubscribe?token=${newsletterToken(cat.account.id, { REFERRAL_SECRET: 'contract-secret' })}`)).data);
 
   // a profile event: what the page sends, and what comes back
   const view = { kind: 'view', visitor: 'contract-visitor', source: 'social', campaign: 'spring' };
