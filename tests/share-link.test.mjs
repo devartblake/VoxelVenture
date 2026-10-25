@@ -37,10 +37,20 @@ const html = s.badgeHtml('https://x.example/?plot=12&city=1', evil);
 if (/<script|onerror=|javascript:/i.test(html) || html.includes('<img')) bad('the badge cannot carry code', html);
 if (!html.startsWith('<a href="https://x.example/?plot=12&amp;city=1"') || !/rel="noopener"/.test(html) || !/Plot #12/.test(html)) bad('the badge is a link to the building', html.slice(0, 120));
 if (!/flagship/.test(s.badgeLabel({ id: 1, luxury: true })) || /flagship/.test(s.badgeLabel({ id: 1 }))) bad('a luxury building is a flagship', '');
+const pb = s.profileBadgeHtml('https://x.example/business/joes-cafe', '<b>Joe</b> & Co');
+if (!/Find &lt;b&gt;Joe&lt;\/b&gt; &amp; Co on VoxelVenture<\/a>$/.test(pb) || !pb.startsWith('<a href="https://x.example/business/joes-cafe"') || /<script|<b>/.test(pb)) bad("a business page's badge names it, escaped", pb);
+if (s.profileBadgeLabel('') !== 'Find us on VoxelVenture') bad('a badge without a name', s.profileBadgeLabel(''));
 const quoteTrap = s.badgeHtml('https://x.example/?a="onmouseover="x', { id: 1 });
 if (/onmouseover=/.test(quoteTrap.replace(/&quot;/g, '')) && !quoteTrap.includes('&quot;')) bad('quotes in the link are escaped', quoteTrap);
 if (s.badgeMarkdown('https://x.example', { id: 3 }) !== '[Visit our 3D building on VoxelVenture · Plot #3](https://x.example)') bad('the markdown badge', s.badgeMarkdown('https://x.example', { id: 3 }));
 if (!/on District A/.test(s.shareCaption({ title: 'Cart Grill' }, 'District A')) || !/Cart Grill/.test(s.shareCaption({ title: 'Cart Grill' }))) bad('a share caption names the building', '');
+
+// a share link with the sharer's referral code
+const r = await imp('business/referral.js');
+if (r.withRef('https://x.example/business/joe?utm_campaign=a', 'r0123456789ab') !== 'https://x.example/business/joe?utm_campaign=a&ref=r0123456789ab') bad('the code is added to the link', '');
+if (r.withRef('https://x.example/business/joe', null) !== 'https://x.example/business/joe' || r.withRef('https://x.example/b', 'bad code') !== 'https://x.example/b') bad('no code, or a bad one, leaves the link as it is', '');
+if (r.withRef('https://x.example/?ref=old', 'r0123456789ab') !== 'https://x.example/?ref=r0123456789ab') bad("the sharer's code replaces an old one", '');
+if (await r.myRefCode() !== null) bad('without a server there is no code', '');
 
 console.log(total() === 0 ? 'ALL OK' : `${total()} problems`);
 if (total()) process.exitCode = 1;

@@ -58,8 +58,8 @@ try {
 
   // ---- referral codes and verified events
   const ref = (await call('GET', '/me/referrals', { token: bob.token })).data;
-  check("every account has a signed referral code", /^[0-9a-z]+\.[0-9a-f]{10}$/.test(ref.code) && ref.visits === 0);
-  const forged = `${ref.code.split('.')[0]}.0000000000`;
+  check('every account has a random referral code that does not show its account', /^r[0-9a-f]{12}$/.test(ref.code) && ref.visits === 0 && (await call('GET', '/me/referrals', { token: bob.token })).data.code === ref.code);
+  const forged = 'r000000000000';
   const view = (visitor, extra = {}, opts = {}) => call('POST', '/businesses/amys-cafe-bar/events', { body: { kind: 'view', visitor, ...extra }, ...opts });
   check('a view through a referral link is verified and credited', (await view('visitor-one', { ref: ref.code, source: 'social' })).data.verified === true);
   check('a repeat within a minute is one view', (await view('visitor-one', { ref: ref.code })).data.counted === false);

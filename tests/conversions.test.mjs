@@ -182,6 +182,25 @@ try {
   const { figuresFor } = await import('@voxelventure/business-core');
   const free = figuresFor(full, { pro: false });
   check('the free plan sees the funnel but not the breakdown by screen', free.funnel?.version === 1 && !('surfaces' in free) && 'surfaces' in figuresFor(full, { pro: true }));
+
+  // ---- referral links: random codes, old signed codes, an owner's own link, and 30 days from the first visit
+  const crypto = await import('node:crypto');
+  const carlRef = (await call('GET', '/me/referrals', { token: carl.token })).data.code;
+  const credited = (visitor) => api.db.prepare("SELECT ref_account FROM business_events WHERE visitor = ? AND kind = 'view' ORDER BY id DESC LIMIT 1").get(`x${visitor}`);
+  await ev('amy-cafe', { kind: 'view', visitor: 'friend-of-carl', ref: carlRef });
+  check("a visit through someone's random code credits them", credited('friend-of-carl')?.ref_account === carl.account.id && /^r[0-9a-f]{12}$/.test(carlRef));
+  const oldCode = `${carl.account.id.toString(36)}.${crypto.createHmac('sha256', 'conv-secret').update(`ref:${carl.account.id}`).digest('hex').slice(0, 10)}`;
+  await ev('bob-builds', { kind: 'view', visitor: 'old-link-reader', ref: oldCode });
+  check('an old signed code still credits its account', credited('old-link-reader')?.ref_account === carl.account.id);
+  await ev('carl-coaching', { kind: 'view', visitor: 'carls-own-reader', ref: carlRef });
+  const own = api.db.prepare("SELECT source, ref_account FROM business_events WHERE visitor = 'xcarls-own-reader'").get();
+  check("an owner's link to their own profile is a referral visit, but credits nobody", own?.source === 'referral' && own.ref_account === null, JSON.stringify(own));
+  api.db.prepare("UPDATE ref_firsts SET first_at = first_at - 31 * 86400000 WHERE visitor = 'xfriend-of-carl'").run();
+  await ev('bob-builds', { kind: 'view', visitor: 'friend-of-carl', ref: carlRef });
+  check('31 days after the first visit through a link, it no longer credits its sharer', credited('friend-of-carl')?.ref_account === null);
+  const { pruneRefFirsts } = await import('../services/api/business.mjs');
+  api.db.prepare("UPDATE ref_firsts SET first_at = first_at - 30 * 86400000 WHERE visitor = 'xfriend-of-carl'").run();
+  check('the first visit is deleted after 60 days, the others kept', pruneRefFirsts(api.db) === 1 && api.db.prepare('SELECT COUNT(*) AS n FROM ref_firsts').get().n >= 1);
 } catch (e) {
   fails++;
   console.log('FAIL', e.stack);
