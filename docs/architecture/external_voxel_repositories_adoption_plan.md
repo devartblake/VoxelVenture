@@ -657,6 +657,8 @@ Every asset used by merchant customization must pass:
 
 Initially permit only operator-approved built-in assets. Do not accept arbitrary merchant GLB uploads.
 
+**Implemented (2026-10-21):** the process is written in [asset_admission.md](../operations/asset_admission.md), with its checklist and pull-request lines. Steps 1, 2 (file signatures, formats, SVG content), 3 (size, triangles, texture edge per class) and 8 are enforced by `npm run check:assets` against the register `lib/content/assetSources.js`; steps 4 to 7 are reviews recorded in the pull request, and approval in the register.
+
 ### 9.5 Acceptance criteria
 
 - Every selectable asset has license and performance metadata.
@@ -971,6 +973,8 @@ For every third-party-derived addition:
 - add an automated credits/catalog consistency test;
 - have `CODEOWNERS` review relevant asset and security paths.
 
+All five are in place: the register (`lib/content/assetSources.js`) names each source's stored licence and evidence under `docs/licences/`, `npm run check:assets` checks them with both credits lists, and `CODEOWNERS` covers `apps/web/public/`, the register, the credits and `docs/licences/` ([asset_admission.md](../operations/asset_admission.md)).
+
 ## 16. Proposed code-folder evolution
 
 The modular-monorepo plan's Phase C has since moved the runtime into its target layout ([ADR 0003](adr/0003-apps-and-services.md), 2026-10-17):
@@ -1108,7 +1112,7 @@ The following analysis compares the recommended target with the current project 
 | Infinite voxel/chunk engine | Only if required by approved product direction | Generated bounded city; experimental road streaming | No current commercial need | Deferred | Reassess only after measured scale/product trigger |
 | WASM meshing | Only if profiling proves geometry bottleneck | Three.js/React Three Fiber with static batches | No evidence of a meshing bottleneck | Deferred | Profile first; write ADR before any spike |
 | Rust authoritative server | Only if Node cannot meet certified requirements | Node server with interest management, limits, telemetry, and load testing | No demonstrated gap | Deferred | Keep Node until evidence justifies migration |
-| Third-party licensing | Automated provenance, credits, policy checks | Credits system and license tests already exist | External additions need source-specific review; Tiny is AGPL | P0 governance | Extend admission checklist and prohibit unreviewed copies |
+| Third-party licensing | Automated provenance, credits, policy checks | **Done (admission controls):** the written rules ([asset_admission.md](../operations/asset_admission.md)) and an enforced register (`lib/content/assetSources.js`, `npm run check:assets`, in `npm test`): every file under `apps/web/public/` belongs to a source with an allowed licence (GPL, AGPL, NC, ND and unknown refused; Tiny World Builder reference only), provenance, a stored licence, both credits lists and its class's format, size, triangle and texture budget; the music releases, the interior props and the npm packages are checked too. `CODEOWNERS` covers the asset paths | Recorded gaps for assets admitted before the process: the Kenney licence files and versions, the ODbL text, the origin of the Pascal environment map and sounds, the props' commercial-use review, approvals; 11 catalogue items load from Pascal's storage | P0 governance | Close the recorded gaps (section 10 of the admission document); keep every addition going through the checklist |
 | Folder boundaries | Shared contracts now; world-core later; runtime relocation separately | `shared-types`, `analytics` and `business-core` exist. The runtime moved to its target layout in separate PRs (`apps/web/`, `services/api/`, `services/multiplayer/`; ADR 0002, ADR 0003) | `world-core` is not present (the agent and journey folders are, from Track A; `lib/performance/` from Track C) | Incremental | Add only as each approved slice begins |
 | Commercial validation | Customization and scaling decisions supported by customer data | Phase 6 pilot tooling exists; external-feature demand unvalidated | No customer evidence that a builder increases payment or renewal | Highest product gap | Run pilot before customizer/engine expansion |
 
@@ -1120,7 +1124,7 @@ The following analysis compares the recommended target with the current project 
 2. ✅ Reusable deterministic visitor and merchant journeys (Track A).
 3. Staging-capable browser and reconnect evidence. The journeys can now run against staging (6.6); the evidence comes with Phase D. The presence load test now covers reconnects, signed-in chat, slow clients and abuse at 500 players, with budgets, and passes locally. It can run against staging (`--mp`/`--api --allow-writes`); that run is still to do.
 4. ✅ A documented performance budget and centralized capability policy (Track C, [performance_policy.md](performance_policy.md)). The budgets are proposed and measured on a desktop; real-device confirmation is item 6 of section 19.
-5. Third-party admission and provenance controls for any borrowed material.
+5. ✅ Third-party admission and provenance controls for any borrowed material ([asset_admission.md](../operations/asset_admission.md); enforced by `npm run check:assets`). The assets admitted before it carry recorded gaps to close (its section 10).
 
 ### Gaps that should be closed only after the pilot
 

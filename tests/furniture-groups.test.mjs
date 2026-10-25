@@ -16,7 +16,7 @@ const other = groups.find((g) => g.id === 'other');
 if (other && other.items.length > items.length * 0.08) bad('few items are left in "More"', `${other.items.length}: ${other.items.map((i) => i.name).join(', ')}`);
 for (const g of groups) if (g.items.length > 22) bad('no group is too long to scan', `${g.label} ${g.items.length}`);
 if (groups.reduce((n, g) => n + g.items.length, 0) !== items.length) bad('every item is in exactly one group', '');
-const spot = { Sofa: 'seating', 'Office Chair': 'seating', Shelf: 'shop', Bookshelf: 'shop', 'Table Lamp': 'lighting', Toilet: 'bathroom', Fridge: 'kitchen', 'Single Bed': 'bedroom', Palm: 'plants', Television: 'tech', 'Smoke Detector': 'safety', 'Coffee Table': 'tables', Piano: 'fun', 'Tesla Model Y': 'outdoor' };
+const spot = { Sofa: 'seating', 'Office Chair': 'seating', Shelf: 'shop', Bookshelf: 'shop', 'Table Lamp': 'lighting', Toilet: 'bathroom', Fridge: 'kitchen', 'Single Bed': 'bedroom', Palm: 'plants', Television: 'tech', 'Smoke Detector': 'safety', 'Coffee Table': 'tables', Piano: 'fun', 'Electric Car': 'outdoor' };
 for (const [name, want] of Object.entries(spot)) {
   const it = items.find((i) => i.name === name);
   if (it && groupOf(it) !== want) bad('an item is in the group people expect', `${name}: ${groupOf(it)} (wanted ${want})`);

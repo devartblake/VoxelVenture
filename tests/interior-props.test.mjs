@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { imp, problemTally, root } from './helpers.mjs';
 import { ITEMS_DIR, MANIFEST_FILE, PROP_FILES, propFolders, readCatalog } from '../scripts/props/catalog.mjs';
-import { MANIFEST_KEY, buildManifest, staleness } from '../scripts/props/build-manifest.mjs';
+import { MANIFEST_KEY, buildManifest, staleness, upstreamOf } from '../scripts/props/build-manifest.mjs';
 import { rcloneCommands, uploadPlan } from '../scripts/props/upload.mjs';
 import { checkWebEnv } from '../services/api/config.mjs';
 
@@ -63,7 +63,8 @@ for (const c of inCatalog) {
   const p = manifest.props[c.id];
   if (!p.inCatalog || p.name !== c.name || p.category !== c.category) bad('a catalogue prop has its name and category', c.id);
   for (const k of ['dimensions', 'offset', 'rotation', 'scale', 'attachTo', 'surface']) if (JSON.stringify(p[k]) !== JSON.stringify(c[k])) bad('a catalogue prop has its placement data', `${c.id}.${k}`);
-  if (p.provenance.upstream !== c.src) bad('a catalogue prop names its upstream address', c.id);
+  if (p.provenance.upstream !== upstreamOf(c) || !/^Pascal catalogue/.test(p.provenance.upstream)) bad('a catalogue prop names where its upstream copy is', c.id);
+  if (/https?:/.test(p.provenance.upstream)) bad('the upstream record is a path, not an address anything could fetch', `${c.id}: ${p.provenance.upstream}`);
 }
 for (const p of Object.values(manifest.props)) if (p.inCatalog !== catalog.some((c) => c.id === p.id)) bad('inCatalog is right', p.id);
 for (const id of ['door', 'window-large']) if (!manifest.props[id]) bad('the generated rooms\' door and window are in the manifest', id);
@@ -96,6 +97,8 @@ if (warnings.length !== 1 || !warnings[0].includes(unknown.id)) bad('a missing p
 const bootstrap = fs.readFileSync(path.join(root, 'lib', 'content', 'pascalBootstrap.js'), 'utf8');
 const scenes = fs.readFileSync(path.join(root, 'lib', 'content', 'interiorScenes.js'), 'utf8');
 if (!/applyPropUrls\(CATALOG_ITEMS/.test(bootstrap)) bad('the bootstrap rewrites Pascal\'s catalogue', '');
+if (!/curateCatalog\(CATALOG_ITEMS, \{ keep: hasPropFiles \}\)/.test(bootstrap) || bootstrap.indexOf('curateCatalog(CATALOG_ITEMS') > bootstrap.indexOf('applyPropUrls(CATALOG_ITEMS')) bad('the bootstrap curates the catalogue first, keeping only items with local files', '');
+if (!/curateCatalog\(CATALOG_ITEMS, \{ keep: hasPropFiles \}\)/.test(scenes)) bad('the scene builder curates the catalogue too', '');
 if (!/resolvePropAsset\(DOOR_ASSET\)/.test(scenes) || !/resolvePropAsset\(WINDOW_ASSET\)/.test(scenes) || !/resolvePropAsset\(entry\)/.test(scenes)) bad('the generated rooms resolve their door, windows and furniture', '');
 for (const f of ['InteriorViewer.jsx', 'InteriorEditor.jsx']) if (!fs.readFileSync(path.join(root, 'apps', 'web', 'components', 'interior', f), 'utf8').includes("'@/lib/content/pascalBootstrap'")) bad('the viewer and the editor load the bootstrap', f);
 

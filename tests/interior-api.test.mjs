@@ -56,6 +56,50 @@ check('an id the catalogue does not have is left out when loading, and its paren
   return !g.nodes.x && g.nodes.l.children.join() === 'a' && g.nodes.a.asset.src === interiorAsset('sofa').src;
 })());
 
+// ---- a saved design from before the catalogue was curated (lib/content/catalogCuration.js) still loads: a retired id becomes its
+// replacement, a removed one is left out with whatever rests on it, and the design stays valid
+{
+  const plot = city.plots.find((q) => q.owner && q.interiorData);
+  const scene = buildInteriorScene(plot);
+  const room = roomForPlot({ buildingType: plot.buildingType, variant: plot.interiorData.variant, prime: plot.prime, luxury: plot.luxury, grand: plot.grand });
+  const old = storedDesign(scene);
+  const level = Object.values(old.nodes).find((n) => n.type === 'level');
+  const add = (id, assetId, parentId = level.id) => {
+    old.nodes[id] = { object: 'node', id, type: 'item', parentId, visible: true, position: [1, 0, 1], rotation: [0, 0, 0], asset: { id: assetId } };
+    old.nodes[parentId].children = [...(old.nodes[parentId].children ?? []), id];
+  };
+  add('old_aeron', 'herman-miller-aeron-mo8x36k9');
+  add('old_kallax', 'ikea-kallax-1x4-moa2y49n');
+  add('old_desk', 'standing-desk-mo8wgz95');
+  add('old_bar', 'wooden-kitchen-bar-moa2hhh4');
+  add('old_cabinet', 'cabinet');
+  add('old_tesla', 'tesla');
+  add('old_ecar', 'electric-car');
+  add('old_camaro', '1967-chevrolet-camaro-moa24wsf');
+  add('old_outlet', 'power-outlet-moa09g0o');
+  add('on_camaro', 'books', 'old_camaro'); // something resting on a removed item goes with it
+  let design = null;
+  try {
+    design = cleanDesign(old, room);
+  } catch (e) {
+    check('an old design that names retired ids is accepted', false, e.message);
+  }
+  if (design) {
+    const want = { old_aeron: 'office-chair', old_kallax: 'bookshelf', old_desk: 'office-table', old_bar: 'kitchen-counter', old_cabinet: 'kitchen-cabinet', old_tesla: 'car', old_ecar: 'car' };
+    check('an old design is stored with each retired id replaced by its local stand-in', Object.entries(want).every(([k, id]) => design.nodes[k]?.asset.id === id), JSON.stringify(Object.fromEntries(Object.keys(want).map((k) => [k, design.nodes[k]?.asset.id]))));
+    check('a removed id is left out, with what rests on it, and its parent forgets them', !design.nodes.old_camaro && !design.nodes.old_outlet && !design.nodes.on_camaro && !design.nodes[level.id].children.some((c) => ['old_camaro', 'old_outlet'].includes(c)));
+    check('the stored design fits the contract', types.check(types.INTERIOR_DESIGN, design).ok);
+    const back = withCatalogAssets(design);
+    check('and loads with local assets only', Object.values(back.nodes).filter((n) => n.type === 'item').every((n) => n.asset?.src && !/supabase/.test(n.asset.src) && !/supabase/.test(n.asset.thumbnail ?? '')));
+  }
+  // the client copes with an old stored design too (one saved before the API rewrote ids)
+  const g = withCatalogAssets({ nodes: { l: { id: 'l', type: 'level', children: ['a', 'b'] }, a: { id: 'a', type: 'item', asset: { id: 'herman-miller-aeron-mo8x36k9' } }, b: { id: 'b', type: 'item', asset: { id: 'dishwasher-movn72ls' } } }, rootNodeIds: [] });
+  check('the client gives a retired id its replacement\'s asset, and leaves a removed one out', g.nodes.a?.asset.id === 'office-chair' && !g.nodes.b && g.nodes.l.children.join() === 'a');
+  check('no retired id is in the API\'s list, and the Kenney car is', !CATALOG_ITEM_IDS.some((id) => ['tesla', 'electric-car', 'cabinet', 'herman-miller-aeron-mo8x36k9', 'dishwasher-movn72ls'].includes(id)) && CATALOG_ITEM_IDS.includes('car'));
+  const car = interiorAsset('tesla');
+  check('an old car loads as the Kenney SUV, from the site itself', car?.id === 'car' && /\/models\/kenney\/cars\/suv\.glb$/.test(car.src) && car.thumbnail === '/props/thumbnails/car.webp', JSON.stringify(car));
+}
+
 // ---- the API
 const api = createApi({ dbFile: ':memory:', deliverEveryMs: 0, env: { ADMIN_TOKEN: 'admin' } });
 await new Promise((r) => api.server.listen(0, r));
