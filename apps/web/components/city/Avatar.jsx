@@ -9,8 +9,8 @@ import { usePanel } from '@/lib/state/panelStore';
 import { avatarState } from '@/lib/sim/avatarState';
 import { surfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
-import { buildingHalf, buildCollisionMap, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
-import { facingCentre, spawnMode, startSpot } from '@/lib/game/spawn';
+import { buildingHalf, buildCollisionMap, findSpawn, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
+import { startSpot } from '@/lib/game/spawn';
 import { CORNER_REACHED, findWalkPath, prepareWalkMap } from '@/lib/sim/pathfind';
 import { graphFor } from '@/lib/city/routing';
 import { COSMETIC_BY_ID } from '@/lib/game/cosmetics';
@@ -173,12 +173,12 @@ export default function Avatar() {
     avatarState.target = null;
     avatarState.emote = null;
     avatarState.ready = true;
-    // a follow view starts looking across the avatar into the city (not out past the city's edge); the map view cannot turn
-    const view = useView.getState();
-    if (spawnMode(window.location.search) === 'random' && !PRESETS[view.view]?.iso) useView.setState({ azimuth: facingCentre(spawn, layout) });
+    // the original (map) view frames the city as it always has, round the arterial avenue (findSpawn), wherever the avatar starts; the
+    // follow views keep their own heading (a random start is never on the city's outer edge: lib/game/spawn.js SPAWN_EDGE)
     if (controls) {
-      const tx = spawn.x - layout.center.x;
-      const tz = spawn.z - layout.center.z;
+      const home = findSpawn(layout, collisionRef.current);
+      const tx = home.x - layout.center.x;
+      const tz = home.z - layout.center.z;
       const dx = camera.position.x - controls.target.x;
       const dy = camera.position.y - controls.target.y;
       const dz = camera.position.z - controls.target.z;
