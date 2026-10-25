@@ -89,7 +89,11 @@ try {
   await ev('click', 'street', amy);
   const dup = await ev('visit', 'billboard', amy, 90);
   check('a repeat visit within a minute is not counted again', dup.data.counted === false);
-  const st = (await call('GET', `/plots/${mine.id}/stats`)).data;
+  const st = (await call('GET', `/plots/${mine.id}/stats`, { token: 'admin-secret' })).data; // the admin token sees the full figures
+  const pub = (await call('GET', `/plots/${mine.id}/stats`)).data;
+  const other = (await call('GET', `/plots/${mine.id}/stats`, { token: amy.token })).data;
+  check('anyone but the owner sees a summary: visits, visitors and the busiest day', st.scope === 'owner' && pub.scope === 'summary' && other.scope === 'summary' && pub.views === 3 && pub.uniques === 3 && pub.busiestDay != null && ['clicks', 'ctr', 'sources', 'days', 'avgSeconds', 'busiestHour', 'humanShare'].every((k) => !(k in pub)), JSON.stringify(pub));
+  check('the owner sees the full figures of their own building', (await call('GET', `/plots/${lot.id}/stats`, { token: amy.token })).data.scope === 'owner' && (await call('GET', `/plots/${lot.id}/stats`, { token: bob.token })).data.scope === 'summary');
   check('three visits, three visitors, one click', st.views === 3 && st.uniques === 3 && st.clicks === 1 && Math.abs(st.ctr - 1 / 3) < 1e-9, JSON.stringify({ v: st.views, u: st.uniques, c: st.clicks }));
   check('average time inside and the sources add up', st.avgSeconds === 60 && Math.abs(st.sources.reduce((a, s) => a + s.share, 0) - 1) < 1e-9 && st.sources.find((s) => s.id === 'billboard').share > 0.3);
   check('today has the visits, with thirty days', st.days.length === 30 && st.days[29].views === 3 && st.busiestHour !== null);
@@ -103,7 +107,7 @@ try {
   check('a leave sets the time inside, capped by the time since the visit began', left.counted === false && left.seconds >= 0 && left.seconds <= 2, JSON.stringify(left));
   check('a second leave does not change it again', !('seconds' in (await call('POST', '/events', { body: { plotId: mine.id, kind: 'leave', seconds: 30, visitor: 'leaver' } })).data));
   check('a bad leave is refused', (await call('POST', '/events', { body: { plotId: mine.id, kind: 'leave', seconds: 'x', visitor: 'leaver' } })).status === 400);
-  const afterLeave = (await call('GET', `/plots/${mine.id}/stats`)).data;
+  const afterLeave = (await call('GET', `/plots/${mine.id}/stats`, { token: 'admin-secret' })).data;
   check('the visit found by search counts in the search source', afterLeave.sources.find((x) => x.id === 'search').share > 0 && afterLeave.views === 4, JSON.stringify(afterLeave.sources));
   const ws = (await call('GET', '/world/stats')).data;
   check('world statistics', ws.buildings === built.length + 2 + 0 || ws.buildings >= built.length, JSON.stringify(ws));
