@@ -23,7 +23,9 @@ export default function VehicleHud() {
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-sx-line bg-sx-panel/90 px-4 py-1.5 text-xs text-slate-100 shadow-xl backdrop-blur-md">
         {boat ? <Anchor className="h-4 w-4 text-sky-300" /> : <Car className="h-4 w-4 text-amber-300" />}
         <span className="font-mono tabular-nums">{(hud.speed * 3.6).toFixed(0)} km/h</span>
-        <span className="max-sm:hidden text-slate-400">{boat ? 'W / S power · A / D steer · Space cast and reel · X leave (it sails you to a pier if you are far out)' : 'W / S gas and brake · A / D steer · E or X get out'}</span>
+        <span className="max-sm:hidden pointer-coarse:hidden text-slate-400">{boat ? 'W / S power · A / D steer · Space cast and reel · X leave (it sails you to a pier if you are far out)' : 'W / S gas and brake · A / D steer · E or X get out'}</span>
+        {/* on a touch screen: the same, with the on-screen controls */}
+        <span className="hidden text-slate-400 pointer-coarse:inline" data-testid="vehicle-touch-hint">{boat ? 'Joystick: power and steer · Leave takes you to a pier' : 'Joystick: drive and steer · Get out to walk'}</span>
         <button onClick={leave} className="flex items-center gap-1 rounded-full border border-sx-line px-2 py-0.5 hover:bg-sx-alt" aria-label={boat ? 'Leave the boat' : 'Get out of the car'}>
           <LogOut className="h-3 w-3" /> {boat ? 'Leave' : 'Get out'}
         </button>

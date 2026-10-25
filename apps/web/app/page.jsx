@@ -22,6 +22,7 @@ import { startPresence } from '@/lib/data/presence';
 import StatsPill from '@/components/ui/StatsPill';
 import Compass from '@/components/ui/Compass';
 import ExploreButton from '@/components/ui/ExploreButton';
+import Guide from '@/components/ui/Guide';
 import VehicleHud from '@/components/ui/VehicleHud';
 import WorldMap from '@/components/ui/WorldMap';
 import DeepLink from '@/components/DeepLink';
@@ -90,6 +91,7 @@ export default function Home() {
       <SoundEngine />
       <AmbientControls />
       <AuthDialog />
+      <Guide />
       <TourPlayer />
     </main>
   );

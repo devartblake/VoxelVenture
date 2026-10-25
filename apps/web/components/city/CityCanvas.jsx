@@ -40,6 +40,7 @@ import FollowCamera from './FollowCamera';
 import { PRESETS, useView } from '@/lib/state/viewStore';
 import { Fields, Shrubs, Woods } from './Farmland';
 import Hills from './Hills';
+import Label3D from './Label3D';
 import Animals from './Animals';
 import GpuGuard, { GpuNotice } from './GpuGuard';
 import CameraHeading from './CameraHeading';
@@ -51,6 +52,25 @@ import { useCityStore } from '@/lib/state/store';
 import { initQuality, useQuality } from '@/lib/performance/runtime';
 import { thinOut } from '@/lib/performance/qualityPolicy';
 import QualityBadge from '@/components/ui/QualityBadge';
+
+// The names of the themed districts, floating high over the middle of their plots, in each district's colour: the same districts the world
+// map names (components/ui/worldMap/mapData.js), so a visitor knows where they are without opening the map (VV-UX-13).
+const SIGNED = ['saas', 'creator', 'bazaar', 'arcade', 'suburb'];
+function DistrictSigns({ plots, layout }) {
+  const signs = useMemo(() => {
+    const by = new Map();
+    for (const p of plots) {
+      if (!SIGNED.includes(p.districtId) || p.designSite) continue;
+      const d = by.get(p.districtId) ?? { x: 0, z: 0, n: 0 };
+      d.x += p.x;
+      d.z += p.z;
+      d.n++;
+      by.set(p.districtId, d);
+    }
+    return (layout.districts ?? []).filter((d) => (by.get(d.id)?.n ?? 0) > 6).map((d) => ({ id: d.id, name: d.name, color: d.color, x: by.get(d.id).x / by.get(d.id).n, z: by.get(d.id).z / by.get(d.id).n }));
+  }, [plots, layout]);
+  return signs.map((d) => <Label3D key={d.id} text={d.name} position={[d.x, 7.5, d.z]} background="#0b1020" color="#ffffff" border={d.color} height={1.3} />);
+}
 
 export default function CityCanvas() {
   const day = useCityStore((state) => state.day);
@@ -178,6 +198,7 @@ export default function CityCanvas() {
           <Airports airports={layout.airports} seed={layout.seed} />
           <Planes />
           <Malls />
+          <DistrictSigns plots={plots} layout={layout} />
           <Promenade promenades={layout.promenades} />
           <Piers piers={layout.piers} />
           <Vehicles />

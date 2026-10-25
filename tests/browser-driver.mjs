@@ -92,6 +92,9 @@ export async function openPage(url, { width = 1200, height = 800, mobile = false
     await call('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
   }
   if (userAgent) await call('Emulation.setUserAgentOverride', { userAgent });
+  // a returning player as far as the first-visit guide goes (apps/web/components/ui/Guide.jsx), so it never covers what a test taps;
+  // a test of the guide itself opens the page with ?guide=1
+  await call('Page.addScriptToEvaluateOnNewDocument', { source: "try { localStorage.setItem('voxelventure-guide', 'done'); } catch (e) {}" });
   await call('Page.navigate', { url });
 
   return {
