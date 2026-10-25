@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-18T21:03:01.610Z",
-  "revision": "835ac49d1f0452fe",
+  "generatedAt": "2026-10-25T00:23:35.770Z",
+  "revision": "436e08bc19d0afff",
   "generator": "scripts/props/build-manifest.mjs",
   "catalog": {
     "package": "@pascal-app/editor",
@@ -41,7 +41,7 @@
       "scale": [0.79, 0.79, 0.79],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/ac-block/model.glb",
+        "upstream": "Pascal catalogue: items/system/ac-block/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -145,7 +145,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/air-conditioning/model.glb",
+        "upstream": "Pascal catalogue: items/system/air-conditioning/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -183,7 +183,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/alarm-keypad/model.glb",
+        "upstream": "Pascal catalogue: items/system/alarm-keypad/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -220,7 +220,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/ball/model.glb",
+        "upstream": "Pascal catalogue: items/system/ball/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -257,7 +257,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/barbell/model.glb",
+        "upstream": "Pascal catalogue: items/system/barbell/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -294,7 +294,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/barbell-stand/model.glb",
+        "upstream": "Pascal catalogue: items/system/barbell-stand/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -331,7 +331,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/basket-hoop/model.glb",
+        "upstream": "Pascal catalogue: items/system/basket-hoop/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -368,7 +368,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/bathroom-sink/model.glb",
+        "upstream": "Pascal catalogue: items/system/bathroom-sink/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -405,7 +405,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/bathtub/model.glb",
+        "upstream": "Pascal catalogue: items/system/bathtub/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -478,7 +478,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/bedside-table/model.glb",
+        "upstream": "Pascal catalogue: items/system/bedside-table/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -515,7 +515,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/books/model.glb",
+        "upstream": "Pascal catalogue: items/system/books/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -552,7 +552,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/bookshelf/model.glb",
+        "upstream": "Pascal catalogue: items/system/bookshelf/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -589,7 +589,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/bunkbed/model.glb",
+        "upstream": "Pascal catalogue: items/system/bunkbed/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -626,7 +626,7 @@
       "scale": [0.96, 0.96, 0.96],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/bush/model.glb",
+        "upstream": "Pascal catalogue: items/system/bush/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -663,7 +663,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/cactus/model.glb",
+        "upstream": "Pascal catalogue: items/system/cactus/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -700,7 +700,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/car-toy/model.glb",
+        "upstream": "Pascal catalogue: items/system/car-toy/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -738,7 +738,7 @@
       "attachTo": "ceiling",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/ceiling-fan/model.glb",
+        "upstream": "Pascal catalogue: items/system/ceiling-fan/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -776,7 +776,7 @@
       "attachTo": "ceiling",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/ceiling-lamp/model.glb",
+        "upstream": "Pascal catalogue: items/system/ceiling-lamp/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -879,7 +879,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/closet/model.glb",
+        "upstream": "Pascal catalogue: items/system/closet/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -916,7 +916,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/coat-rack/model.glb",
+        "upstream": "Pascal catalogue: items/system/coat-rack/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -953,7 +953,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/coffee-machine/model.glb",
+        "upstream": "Pascal catalogue: items/system/coffee-machine/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -993,7 +993,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/coffee-table/model.glb",
+        "upstream": "Pascal catalogue: items/system/coffee-table/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1030,7 +1030,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/column/model.glb",
+        "upstream": "Pascal catalogue: items/system/column/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1067,7 +1067,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/computer/model.glb",
+        "upstream": "Pascal catalogue: items/system/computer/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1170,7 +1170,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/cutting-board/model.glb",
+        "upstream": "Pascal catalogue: items/system/cutting-board/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1240,7 +1240,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/dining-chair/model.glb",
+        "upstream": "Pascal catalogue: items/system/dining-chair/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1280,7 +1280,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/dining-table/model.glb",
+        "upstream": "Pascal catalogue: items/system/dining-table/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1449,7 +1449,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/double-bed/model.glb",
+        "upstream": "Pascal catalogue: items/system/double-bed/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1489,7 +1489,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/dresser/model.glb",
+        "upstream": "Pascal catalogue: items/system/dresser/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1526,7 +1526,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/drying-rack/model.glb",
+        "upstream": "Pascal catalogue: items/system/drying-rack/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1563,7 +1563,44 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/easel/model.glb",
+        "upstream": "Pascal catalogue: items/system/easel/model.glb",
+        "license": "MIT",
+        "licenseUrl": "https://opensource.org/license/mit",
+        "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
+        "attribution": "CREDITS.md",
+        "commercialUseApproved": null,
+        "reviewedBy": null,
+        "reviewedAt": null
+      }
+    },
+    "electric-car": {
+      "id": "electric-car",
+      "name": "Electric Car",
+      "category": "outdoor",
+      "inCatalog": true,
+      "files": {
+        "model": {
+          "key": "props/electric-car/ca3a9268057549a0/model.glb",
+          "path": "/items/electric-car/model.glb",
+          "bytes": 100340,
+          "contentType": "model/gltf-binary",
+          "sha256": "ca3a9268057549a0512d22505d26bab1c2df96c33d44f0f30fdb2c5a8650445c"
+        },
+        "thumbnail": {
+          "key": "props/electric-car/edc064d37fc985c0/thumbnail.webp",
+          "path": "/items/electric-car/thumbnail.webp",
+          "bytes": 3240,
+          "contentType": "image/webp",
+          "sha256": "edc064d37fc985c016997a59c4a48b42a9c8cc74004ba928b1139a375dd51895"
+        }
+      },
+      "dimensions": [1.98, 1.62, 4.76],
+      "offset": [0.0039, -0.0102, -0.0148],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "provenance": {
+        "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
+        "upstream": "Pascal catalogue (renamed: lib/content/catalogCuration.js)",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1601,7 +1638,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/electric-panel/model.glb",
+        "upstream": "Pascal catalogue: items/system/electric-panel/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1639,7 +1676,7 @@
       "attachTo": "wall",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/ev-wall-charger/model.glb",
+        "upstream": "Pascal catalogue: items/system/ev-wall-charger/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1710,7 +1747,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/exit-sign/model.glb",
+        "upstream": "Pascal catalogue: items/system/exit-sign/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1780,7 +1817,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/fir-tree/model.glb",
+        "upstream": "Pascal catalogue: items/system/fir-tree/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1851,7 +1888,7 @@
       "attachTo": "wall",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/fire-detector/model.glb",
+        "upstream": "Pascal catalogue: items/system/fire-detector/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -1954,7 +1991,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/floor-lamp/model.glb",
+        "upstream": "Pascal catalogue: items/system/floor-lamp/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2024,7 +2061,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/fridge/model.glb",
+        "upstream": "Pascal catalogue: items/system/fridge/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2061,7 +2098,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/fruits/model.glb",
+        "upstream": "Pascal catalogue: items/system/fruits/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2098,7 +2135,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/frying-pan/model.glb",
+        "upstream": "Pascal catalogue: items/system/frying-pan/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2168,7 +2205,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/guitar/model.glb",
+        "upstream": "Pascal catalogue: items/system/guitar/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2272,7 +2309,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/hood/model.glb",
+        "upstream": "Pascal catalogue: items/system/hood/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2309,7 +2346,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/hydrant/model.glb",
+        "upstream": "Pascal catalogue: items/system/hydrant/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2346,7 +2383,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/indoor-plant/model.glb",
+        "upstream": "Pascal catalogue: items/system/indoor-plant/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2383,7 +2420,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/iron/model.glb",
+        "upstream": "Pascal catalogue: items/system/iron/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2420,7 +2457,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/ironing-board/model.glb",
+        "upstream": "Pascal catalogue: items/system/ironing-board/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2457,7 +2494,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/kettle/model.glb",
+        "upstream": "Pascal catalogue: items/system/kettle/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2497,7 +2534,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/kitchen/model.glb",
+        "upstream": "Pascal catalogue: items/system/kitchen/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2537,7 +2574,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/kitchen-cabinet/model.glb",
+        "upstream": "Pascal catalogue: items/system/kitchen-cabinet/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2577,7 +2614,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/kitchen-counter/model.glb",
+        "upstream": "Pascal catalogue: items/system/kitchen-counter/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2648,7 +2685,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/kitchen-shelf/model.glb",
+        "upstream": "Pascal catalogue: items/system/kitchen-shelf/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2685,7 +2722,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/kitchen-utensils/model.glb",
+        "upstream": "Pascal catalogue: items/system/kitchen-utensils/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2722,7 +2759,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/laundry-bag/model.glb",
+        "upstream": "Pascal catalogue: items/system/laundry-bag/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2759,7 +2796,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/livingroom-chair/model.glb",
+        "upstream": "Pascal catalogue: items/system/livingroom-chair/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2796,7 +2833,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/lounge-chair/model.glb",
+        "upstream": "Pascal catalogue: items/system/lounge-chair/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2899,7 +2936,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/microwave/model.glb",
+        "upstream": "Pascal catalogue: items/system/microwave/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2936,7 +2973,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/office-chair/model.glb",
+        "upstream": "Pascal catalogue: items/system/office-chair/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -2976,7 +3013,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/office-table/model.glb",
+        "upstream": "Pascal catalogue: items/system/office-table/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3013,7 +3050,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/outdoor-playhouse/model.glb",
+        "upstream": "Pascal catalogue: items/system/outdoor-playhouse/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3050,7 +3087,7 @@
       "scale": [0.37, 0.37, 0.37],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/palm/model.glb",
+        "upstream": "Pascal catalogue: items/system/palm/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3090,7 +3127,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/parking-spot/model.glb",
+        "upstream": "Pascal catalogue: items/system/parking-spot/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3127,7 +3164,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/patio-umbrella/model.glb",
+        "upstream": "Pascal catalogue: items/system/patio-umbrella/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3164,7 +3201,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/piano/model.glb",
+        "upstream": "Pascal catalogue: items/system/piano/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3202,7 +3239,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/picture/model.glb",
+        "upstream": "Pascal catalogue: items/system/picture/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3239,7 +3276,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/pillar/model.glb",
+        "upstream": "Pascal catalogue: items/system/pillar/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3276,7 +3313,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/pool-table/model.glb",
+        "upstream": "Pascal catalogue: items/system/pool-table/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3314,7 +3351,7 @@
       "attachTo": "ceiling",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/recessed-light/model.glb",
+        "upstream": "Pascal catalogue: items/system/recessed-light/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3354,7 +3391,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/rectangular-carpet/model.glb",
+        "upstream": "Pascal catalogue: items/system/rectangular-carpet/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3460,7 +3497,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/round-carpet/model.glb",
+        "upstream": "Pascal catalogue: items/system/round-carpet/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3498,7 +3535,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/round-mirror/model.glb",
+        "upstream": "Pascal catalogue: items/system/round-mirror/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3535,7 +3572,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/scooter/model.glb",
+        "upstream": "Pascal catalogue: items/system/scooter/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3572,7 +3609,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/sewing-machine/model.glb",
+        "upstream": "Pascal catalogue: items/system/sewing-machine/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3613,7 +3650,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/shelf/model.glb",
+        "upstream": "Pascal catalogue: items/system/shelf/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3676,7 +3713,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/shower-angle/model.glb",
+        "upstream": "Pascal catalogue: items/system/shower-angle/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3716,7 +3753,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/shower-rug/model.glb",
+        "upstream": "Pascal catalogue: items/system/shower-rug/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3753,7 +3790,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/shower-square/model.glb",
+        "upstream": "Pascal catalogue: items/system/shower-square/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3790,7 +3827,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/single-bed/model.glb",
+        "upstream": "Pascal catalogue: items/system/single-bed/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3860,7 +3897,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/skate/model.glb",
+        "upstream": "Pascal catalogue: items/system/skate/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3897,7 +3934,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/small-indoor-plant/model.glb",
+        "upstream": "Pascal catalogue: items/system/small-indoor-plant/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3935,7 +3972,7 @@
       "attachTo": "ceiling",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/smoke-detector/model.glb",
+        "upstream": "Pascal catalogue: items/system/smoke-detector/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -3972,7 +4009,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/sofa/model.glb",
+        "upstream": "Pascal catalogue: items/system/sofa/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4010,7 +4047,7 @@
       "attachTo": "ceiling",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/sprinkler/model.glb",
+        "upstream": "Pascal catalogue: items/system/sprinkler/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4080,7 +4117,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/stereo-speaker/model.glb",
+        "upstream": "Pascal catalogue: items/system/stereo-speaker/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4117,7 +4154,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/stool/model.glb",
+        "upstream": "Pascal catalogue: items/system/stool/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4154,7 +4191,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/stove/model.glb",
+        "upstream": "Pascal catalogue: items/system/stove/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4191,7 +4228,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/sunbed/model.glb",
+        "upstream": "Pascal catalogue: items/system/sunbed/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4294,7 +4331,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/table-lamp/model.glb",
+        "upstream": "Pascal catalogue: items/system/table-lamp/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4331,44 +4368,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/television/model.glb",
-        "license": "MIT",
-        "licenseUrl": "https://opensource.org/license/mit",
-        "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
-        "attribution": "CREDITS.md",
-        "commercialUseApproved": null,
-        "reviewedBy": null,
-        "reviewedAt": null
-      }
-    },
-    "tesla": {
-      "id": "tesla",
-      "name": "Tesla Model Y",
-      "category": "outdoor",
-      "inCatalog": true,
-      "files": {
-        "model": {
-          "key": "props/tesla/ca3a9268057549a0/model.glb",
-          "path": "/items/tesla/model.glb",
-          "bytes": 100340,
-          "contentType": "model/gltf-binary",
-          "sha256": "ca3a9268057549a0512d22505d26bab1c2df96c33d44f0f30fdb2c5a8650445c"
-        },
-        "thumbnail": {
-          "key": "props/tesla/edc064d37fc985c0/thumbnail.webp",
-          "path": "/items/tesla/thumbnail.webp",
-          "bytes": 3240,
-          "contentType": "image/webp",
-          "sha256": "edc064d37fc985c016997a59c4a48b42a9c8cc74004ba928b1139a375dd51895"
-        }
-      },
-      "dimensions": [1.98, 1.62, 4.76],
-      "offset": [0.0039, -0.0102, -0.0148],
-      "rotation": [0, 0, 0],
-      "scale": [1, 1, 1],
-      "provenance": {
-        "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/tesla/model.glb",
+        "upstream": "Pascal catalogue: items/system/television/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4406,7 +4406,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/thermostat/model.glb",
+        "upstream": "Pascal catalogue: items/system/thermostat/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4443,7 +4443,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/threadmill/model.glb",
+        "upstream": "Pascal catalogue: items/system/threadmill/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4480,7 +4480,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/toaster/model.glb",
+        "upstream": "Pascal catalogue: items/system/toaster/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4517,7 +4517,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/toilet/model.glb",
+        "upstream": "Pascal catalogue: items/system/toilet/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4588,7 +4588,7 @@
       "attachTo": "wall-side",
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/toilet-paper/model.glb",
+        "upstream": "Pascal catalogue: items/system/toilet-paper/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4625,7 +4625,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/toy/model.glb",
+        "upstream": "Pascal catalogue: items/system/toy/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4662,7 +4662,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/trash-bin/model.glb",
+        "upstream": "Pascal catalogue: items/system/trash-bin/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4699,7 +4699,7 @@
       "scale": [0.65, 0.65, 0.65],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/tree/model.glb",
+        "upstream": "Pascal catalogue: items/system/tree/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4765,7 +4765,7 @@
       },
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/tv-stand/model.glb",
+        "upstream": "Pascal catalogue: items/system/tv-stand/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -4868,7 +4868,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/washing-machine/model.glb",
+        "upstream": "Pascal catalogue: items/system/washing-machine/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
@@ -5202,7 +5202,7 @@
       "scale": [1, 1, 1],
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "https://byrpxoiotywskoojsrzd.supabase.co/storage/v1/object/public/items/system/wine-bottle/model.glb",
+        "upstream": "Pascal catalogue: items/system/wine-bottle/model.glb",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",

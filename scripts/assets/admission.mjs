@@ -235,9 +235,13 @@ export function checkProps(reg, { root, acceptedIds = [] }) {
   }
   for (const id of remote) if (!acceptedIds.includes(id)) problems.push(`REMOTE_CATALOG_ITEMS lists "${id}", which the API no longer accepts: remove it (or retire it)`);
   if (remote.size) notes.push(`${remote.size} catalogue items load from Pascal’s storage, not ours: ${[...remote].join(', ')}`);
-  for (const [oldId, newId] of Object.entries(reg.RETIRED_ASSETS)) {
+  // a retired id is { to, why }: `to` the id that stands in for it, or null when it was removed (a saved design then leaves the item out)
+  for (const [oldId, retired] of Object.entries(reg.RETIRED_ASSETS)) {
+    const newId = retired?.to;
     if (props[oldId]) problems.push(`retired asset "${oldId}" is still in the props manifest: list it in RETIRED_ASSETS when its files are removed`);
-    if (!props[newId]) problems.push(`retired asset "${oldId}" is replaced by "${newId}", which is not in the props manifest`);
+    if (acceptedIds.includes(oldId)) problems.push(`retired asset "${oldId}" is still in the catalogue the API accepts (lib/content/catalogCuration.js should remove it)`);
+    if (!retired?.why) problems.push(`retired asset "${oldId}" gives no reason (why)`);
+    if (newId !== null && !props[newId]) problems.push(`retired asset "${oldId}" is replaced by "${newId}", which is not in the props manifest`);
   }
   if (unreviewed) notes.push(`${unreviewed} of ${Object.keys(props).length} props have no commercial-use review yet (commercialUseApproved, reviewedBy and reviewedAt are null in the props manifest)`);
   return { problems, notes, props: Object.keys(props).length };

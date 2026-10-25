@@ -26,10 +26,23 @@ const PLACEMENT = ['dimensions', 'offset', 'rotation', 'scale', 'attachTo', 'sur
 // What can be checked about where the props come from (docs/architecture/external_voxel_repositories_adoption_plan.md, section 9, Track D):
 // the folders were copied from Pascal's editor (CREDITS.md), whose package is MIT licensed. The review fields are left empty (null) until
 // someone has reviewed the prop: nothing here is guessed.
+// The catalogue's address for the model as a path in Pascal's storage ("items/system/<id>/model.glb"): the record of where the copy came
+// from, with no address that anything could fetch (no one loads from Pascal's storage). A renamed item (lib/content/catalogCuration.js)
+// says so instead: its upstream path carries the old name.
+export function upstreamOf(entry) {
+  if (!entry?.src) return null;
+  if (entry.renamedFrom) return 'Pascal catalogue (renamed: lib/content/catalogCuration.js)';
+  try {
+    return `Pascal catalogue: ${new URL(entry.src).pathname.replace(/^\/storage\/v1\/object\/public\//, '')}`;
+  } catch {
+    return `Pascal catalogue: ${entry.src}`;
+  }
+}
+
 function provenance(entry, pkg) {
   return {
     source: 'Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor',
-    upstream: entry?.src ?? null, // the catalogue's own address for the model (null: the prop is not in the catalogue)
+    upstream: upstreamOf(entry), // where the catalogue's own copy is, without its host (null: the prop is not in the catalogue)
     license: pkg.license ?? null,
     licenseUrl: pkg.license === 'MIT' ? 'https://opensource.org/license/mit' : null,
     licenseSource: `CREDITS.md; ${pkg.name} ${pkg.version} package.json and LICENSE`,

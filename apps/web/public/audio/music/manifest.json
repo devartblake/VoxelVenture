@@ -32,11 +32,18 @@
     "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
     "zone": "city",
     "files": [
-      "/audio/music/sideways-city.wav"
+      "/audio/music/sideways-city.ogg"
     ],
     "sha256": "549309746ba2609d7d91d19f5757de6c86a987017e7d0f54aa2a97cb88f8521c",
     "fileHashes": {
-      "/audio/music/sideways-city.wav": "549309746ba2609d7d91d19f5757de6c86a987017e7d0f54aa2a97cb88f8521c"
+      "/audio/music/sideways-city.ogg": "65910a27771fb167bb36dbc1f6642bdc0f766df4a44e481f34cb126cf3322127"
+    },
+    "encoded": {
+      "from": "sideways_city_loop.wav as downloaded (32-bit float PCM, 44.1 kHz stereo, 115.2 s, 40,642,838 bytes; SHA-256 in sha256)",
+      "to": "Ogg Vorbis, 44.1 kHz stereo, 115.2 s, about 151 kbit/s, 2,179,100 bytes",
+      "with": "ffmpeg 9.0.2 (libvorbis -q:a 5, metadata dropped)",
+      "on": "2026-10-24",
+      "why": "the WAV was over the 10 MB music budget (docs/operations/asset_admission.md, section 6); CC0 allows re-encoding"
     }
   },
   {

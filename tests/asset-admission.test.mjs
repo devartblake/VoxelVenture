@@ -4,7 +4,9 @@
 // credited; every npm package has an allowed licence. Then the checks themselves are shown to catch what they are for.
 import { imp, problemTally, root } from './helpers.mjs';
 import { checkDependencies, checkFile, checkFiles, checkSources, globToRegExp, licenseProblem, runAll } from '../scripts/assets/admission.mjs';
-import { glbInfo, imageSize, sniff, svgHazard } from '../scripts/assets/inspect.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { glbInfo, imageSize, sniff, svgHazard, walk } from '../scripts/assets/inspect.mjs';
 
 const { bad, total } = problemTally(50);
 
@@ -17,7 +19,7 @@ for (const g of all.gaps) console.log(`   gap: ${g}`);
 if (all.counts.files < 800) bad('the shipped files are read', String(all.counts.files));
 if (all.counts.releases !== 8 || all.counts.props < 140 || all.counts.packages < 300) bad('the music, props and packages are read', JSON.stringify(all.counts));
 // a gap may only excuse the assets that were admitted before the process: no new source can carry one
-const grandfathered = new Set(['kenney', 'pascal-editor', 'pascal-editor-code', 'openstreetmap']);
+const grandfathered = new Set(['kenney', 'pascal-editor', 'pascal-editor-code', 'openstreetmap', 'polyhaven']);
 for (const s of reg.ASSET_SOURCES) if (s.gaps && !grandfathered.has(s.id)) bad('a new source has no gaps (it is admitted complete)', s.id);
 
 // ---- the licence allow-list
@@ -101,6 +103,56 @@ for (const body of ['<script>alert(1)</script>', '<rect onload="x()"/>', '<a hre
 if (svgHazard('<svg xmlns="http://www.w3.org/2000/svg"/>')) bad('the SVG namespace is not a link', '');
 if (sniff(Buffer.from('OggS....')) !== 'ogg' || sniff(Buffer.from('#?RADIANCE\n')) !== 'hdr' || sniff(Buffer.from('VOX \x96\0\0\0')) !== 'vox') bad('the formats are recognised by their bytes', '');
 if (!globToRegExp('a/**.{mp3,ogg}').test('a/b/c.ogg') || globToRegExp('a/*.glb').test('a/b/c.glb') || !globToRegExp('a/{x,y}/*.png').test('a/y/z.png')) bad('the register\'s globs match as documented', '');
+
+// ---- nothing loads from Pascal's own storage, and nothing we name carries a brand
+// Pascal's catalogue kept 11 items (and every item's floor-plan picture) on its own Supabase storage, a server we do not control. They
+// are retired (lib/content/catalogCuration.js); no file we ship or configure may name that host again.
+const SUPABASE = /supabase\.co|byrpxoiotywskoojsrzd/i;
+const shipped = [
+  ...walk(path.join(root, 'apps', 'web').replace(/\\/g, '/')).filter((f) => !/^(node_modules|\.next|out)\//.test(f)).map((f) => `apps/web/${f}`),
+  ...walk(path.join(root, 'lib').replace(/\\/g, '/')).map((f) => `lib/${f}`),
+  ...walk(path.join(root, 'services').replace(/\\/g, '/')).filter((f) => !f.includes('node_modules/')).map((f) => `services/${f}`),
+  ...walk(path.join(root, 'packages').replace(/\\/g, '/')).filter((f) => !f.includes('node_modules/')).map((f) => `packages/${f}`),
+].filter((f) => /\.(m?js|jsx|ts|tsx|json|css|html|svg|txt|md)$/.test(f));
+if (shipped.length < 200) bad('the shipped code and manifests are read', String(shipped.length));
+for (const f of shipped) if (SUPABASE.test(fs.readFileSync(path.join(root, f), 'utf8'))) bad('no shipped file names Pascal\'s storage (catalogue items are served by us)', f);
+// the curated catalogue the pages use: no item without local files, no floor-plan address, nothing remote
+const { readCatalog } = await import('../scripts/props/catalog.mjs');
+const { curateCatalog, currentAssetId, RETIRED_ASSETS, CATALOG_RENAMES } = await imp('content/catalogCuration.js');
+const { PROP_KEYS } = await imp('content/interiorPropKeys.js');
+const raw = readCatalog(undefined, { raw: true });
+const curated = curateCatalog(raw.map((i) => ({ ...i })), { keep: (id) => Object.hasOwn(PROP_KEYS, id) });
+for (const item of curated) {
+  if (!Object.hasOwn(PROP_KEYS, item.id)) bad('every curated catalogue item has local files', item.id);
+  if ('floorPlanUrl' in item) bad('no curated item keeps a floor-plan address on Pascal\'s storage', item.id);
+}
+for (const id of Object.keys(RETIRED_ASSETS)) if (curated.some((i) => i.id === id)) bad('a retired id is not offered', id);
+for (const item of raw.filter((i) => SUPABASE.test(i.src ?? '') && !Object.hasOwn(PROP_KEYS, i.id) && !CATALOG_RENAMES[i.id])) if (!RETIRED_ASSETS[item.id]) bad('every catalogue item without local files is retired', item.id);
+// the 11 remote items and the renamed car: each old id resolves to a local prop, or to nothing (removed)
+const expectRetired = { 'dining-table-mo9ms5yh': 'dining-table', cabinet: 'kitchen-cabinet', 'my-leather-couch-modp80ha': 'sofa', 'ikea-kallax-1x4-moa2y49n': 'bookshelf', 'herman-miller-aeron-mo8x36k9': 'office-chair', 'standing-desk-mo8wgz95': 'office-table', 'wooden-kitchen-bar-moa2hhh4': 'kitchen-counter', 'power-outlet-moa09g0o': null, '1967-chevrolet-camaro-moa24wsf': null, 'dishwasher-movn72ls': null, 'fireplace-movn1fnn': null, tesla: 'electric-car' };
+for (const [oldId, want] of Object.entries(expectRetired)) {
+  const now = currentAssetId(oldId);
+  if (now !== want || (now && !Object.hasOwn(PROP_KEYS, now))) bad('a retired id resolves to its local replacement (or to nothing)', `${oldId}: ${now}`);
+}
+if (currentAssetId('sofa') !== 'sofa' || currentAssetId('no-such-thing') !== 'no-such-thing') bad('a current id resolves to itself', '');
+if (reg.REMOTE_CATALOG_ITEMS.ids.length) bad('no catalogue item is remote any more', reg.REMOTE_CATALOG_ITEMS.ids.join());
+// brand words: never in an id, a label or a file name we control (the curated catalogue, the props manifest, the API's ids, the files
+// we ship, the in-game credits and the Kenney prop catalogue). The mapping tables that retire the old ids are the only place they appear.
+const BRANDS = /ikea|kallax|herman.?miller|aeron|chevrolet|\bchevy\b|camaro|tesla|\bmodel.?y\b|eames|vitra|steelcase|\blego\b|\bnike\b|adidas|coca.?cola|pepsi|starbucks|mcdonald|\bapple\b|iphone|samsung|\bsony\b|playstation|nintendo|\bxbox\b|\bdyson\b|\bsmeg\b|kitchenaid|nespresso|\bbmw\b|mercedes|\baudi\b|porsche|ferrari|lamborghini|\bford\b|toyota|\bhonda\b|volkswagen|\bvespa\b|harley.?davidson|peloton|\bfender\b|\bgibson\b|yamaha|steinway/i;
+const { CATALOG_ITEM_IDS } = await imp('content/interiorAssetIds.js');
+const { PROP_CATALOG } = await imp('content/propCatalog.js');
+const propsManifest = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/props/manifest.json'), 'utf8'));
+const named = [
+  ...curated.flatMap((i) => [`catalogue id ${i.id}`, `catalogue name ${i.name}`, ...(i.tags ?? []).map((t) => `catalogue tag ${t}`)]),
+  ...CATALOG_ITEM_IDS.map((id) => `API id ${id}`),
+  ...Object.values(propsManifest.props).flatMap((p) => [`prop ${p.id}`, `prop name ${p.name}`, `prop upstream ${p.provenance?.upstream ?? ''}`]),
+  ...PROP_CATALOG.flatMap((p) => [`model ${p.id}`, `model ${p.url}`]),
+  ...walk(path.join(root, 'apps', 'web', 'public').replace(/\\/g, '/')).filter((f) => !f.startsWith('audio/music/')).map((f) => `file ${f}`),
+  ...CREDITS.flatMap((s) => s.entries.flatMap((e) => [`credit ${e.name}`, `credit note ${e.note ?? ''}`])),
+];
+if (named.length < 500) bad('the ids, labels and file names are read', String(named.length));
+for (const n of named) if (BRANDS.test(n)) bad('no brand name in an id, label or file name we control', n);
+if (!BRANDS.test('Ikea Kallax 2x4') || !BRANDS.test('herman-miller-aeron') || !BRANDS.test('1967 Chevrolet Camaro') || !BRANDS.test('Tesla Model Y') || BRANDS.test('office-chair')) bad('the brand list catches the old names', '');
 
 // ---- npm dependencies
 const deps = (license, extra = {}) => checkDependencies({ packages: { '': {}, 'node_modules/pkg': { license, ...extra } } }).problems;

@@ -150,19 +150,25 @@ The code owners (`.github/CODEOWNERS`; today @devartblake) approve every pull re
 Saved interiors and the props manifest name assets by id, so an id must keep resolving after its asset changes.
 
 - **Replacing the file but keeping the id** (a lighter model, a fixed texture): replace it, run `npm run props:manifest` (a changed file gets a new content-addressed key; old keys stay in object storage) and the admission check, and update the register's provenance if the source changed.
-- **Retiring an id:** keep the files until a migration has rewritten saved designs (adoption plan 9.5, "a saved configuration survives asset replacement through an explicit migration"), then remove the folder and add the id to `RETIRED_ASSETS` in the register with its replacement. The check fails if an id the API accepts is in neither the props manifest, `REMOTE_CATALOG_ITEMS` nor `RETIRED_ASSETS`, or if a replacement is not in the manifest.
+- **Retiring an id:** add it to `RETIRED_ASSETS` (kept with the catalogue's curation in [`lib/content/catalogCuration.js`](../../lib/content/catalogCuration.js) and re-exported by the register) as `{ to, why }`: `to` is the id that stands in for it, or `null` when nothing does. The curation then takes it out of the editor's menu, the generated rooms and the API's list of ids (`node scripts/interior-asset-ids.mjs`, `npm run props:manifest`); a saved design that names it still loads, because the API stores the replacement (or leaves the item, and anything resting on it, out) and the client does the same when it fills in the assets. Then remove the folder. The check fails if an id the API accepts is in neither the props manifest nor `REMOTE_CATALOG_ITEMS`, if a retired id is still offered, or if a replacement is not in the manifest.
+- **Renaming an id** (its name carries a brand, for example): rename the folder, add the old id to `CATALOG_RENAMES` and to `RETIRED_ASSETS` with the new id, regenerate as above, and upload the props again (`scripts/props/upload.mjs`): the new id has new object-storage keys.
 - **Removing a source:** delete its files, its register entry and both credits, but keep its `docs/licences/` folder as the record of what shipped and when.
 
-## 10. Where things stand (2026-10-21)
+## 10. Where things stand (2026-10-24)
 
-Every shipped file is registered and within budget, and every licence is on the allow-list. These are recorded as gaps (reported by `npm run check:assets`, not failures) because nothing here may be guessed:
+Every shipped file is registered and within budget (no exceptions), and every licence is on the allow-list. These are recorded as gaps (reported by `npm run check:assets`, not failures) because nothing here may be guessed:
 
-- **Kenney kits (CC0):** no stored copy of the kits' `License.txt` or download pages, and no kit versions. The CC0 text is stored. To close: download the kits again from kenney.nl and keep their licence files.
-- **Pascal Editor (MIT):** the licence file is stored, but the original author and licence of `hdri/venice_sunset_1k.hdr` (the name suggests Poly Haven) and the maker of the sounds in `audios/sfx/` are not recorded. All 144 props have `commercialUseApproved: null`. 11 catalogue items the API accepts load at run time from Pascal's own storage (`REMOTE_CATALOG_ITEMS`), so their files are not in the repository, have no hashes and are not checked against the budgets.
+- **Pascal Editor (MIT):** the licence file is stored, but the maker of the sounds in `audios/sfx/` is not recorded. All 144 props have `commercialUseApproved: null`.
 - **OpenStreetMap (ODbL):** the ODbL text is not stored.
 - **Owner-supplied logos:** generation tool and ownership record not written down ([brand README](../brand/README.md)).
 - **Approval:** every source admitted before 2026-10-21 has no `approvedBy`.
-- **Exceptions:** `sideways-city.wav` (39.7 MB) is over the 10 MB music limit; `audios/sfx/grid_snap.mamd` is an AIFF file nothing requests.
+
+Closed on 2026-10-24:
+
+- **Kenney kits:** each kit's page and `License.txt` are stored in [`docs/licences/kenney/`](../licences/kenney/README.md) with its version; every shipped Kenney file is byte-identical with the kit's current download.
+- **The sky, `hdri/venice_sunset_1k.hdr`:** Poly Haven's "Venice Sunset" by Greg Zaal, CC0, re-saved in Photoshop (same 1024 x 512 picture, pixel for pixel within rounding); its own source `polyhaven` in the register, credited in both lists, page saved in [`docs/licences/polyhaven/`](../licences/polyhaven/README.md).
+- **The 11 catalogue items on Pascal's own storage:** retired (`RETIRED_ASSETS`): seven map to the nearest prop we ship (dining table, kitchen cabinet, sofa, bookshelf, office chair, office table, kitchen counter), four are removed (power outlet, classic car, dishwasher, fireplace), and the branded "tesla" is renamed "electric-car". The pages drop any catalogue item without local files and every floor-plan picture address, and next.config no longer allows that host, so nothing is fetched from it. `REMOTE_CATALOG_ITEMS` is empty.
+- **Exceptions:** `sideways-city.wav` (39.7 MB) is now `sideways-city.ogg` (Ogg Vorbis, 2.1 MB; [music README](../licences/music/README.md)); `audios/sfx/grid_snap.mamd`, `items/piano/Fireplace_13.glb` and the two unused `floor-plan.svg` are deleted.
 
 ## 11. Pull request checklist
 

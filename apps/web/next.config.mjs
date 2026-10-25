@@ -31,10 +31,10 @@ const nextConfig = {
     '@pascal-app/editor',
     '@pascal-app/nodes',
   ],
-  // The Pascal editor shows item thumbnails with next/image: from the host its catalogue uses (the props it has that are not in the props
-  // manifest still come from there), and from the props bucket.
+  // The Pascal editor shows item thumbnails with next/image: only from the props bucket (and the site itself). Pascal's own storage is
+  // never allowed: every catalogue item we offer is served by us (lib/content/catalogCuration.js).
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: 'byrpxoiotywskoojsrzd.supabase.co', pathname: '/storage/v1/object/public/items/**' }, ...propsBucket],
+    remotePatterns: [...propsBucket],
   },
   turbopack: {
     root: repoRoot,
