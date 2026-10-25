@@ -9,6 +9,7 @@ import { useMap } from '@/lib/state/mapStore';
 import MiniMap, { ZOOMS, useMapZoom } from './MiniMap';
 import { usePanel } from '@/lib/state/panelStore';
 import { useHudExtrasShown } from '@/lib/state/hudStore';
+import { useGuide } from './Guide';
 import { scavengerHunt } from '@/lib/game/daily';
 
 const TAB_KEY = 'voxelventure-map-tab';
@@ -160,6 +161,7 @@ function PlayTab({ billboards }) {
       <WeekTeaser />
       <HuntClues />
       <p><Em>Move:</Em> WASD / arrows (Shift runs), or click the ground. <Em>E</Em> interacts, <Em>1 2 3</Em> are emotes. On a phone: the joystick walks, the run and interact buttons sit beside it, tap the ground to walk there, drag to pan, pinch to zoom.</p>
+      <button type="button" onClick={() => useGuide.getState().show()} className="text-[11px] text-sx-cyan underline" data-testid="guide-again">Show the guide again</button>
       <p><Em>Today:</Em> a gold gem marks the Plot of the Day (walk in for +20 Gold; gold ring on the map). A gold dot is the daily chest (E to open).</p>
       <p><Em>Billboards</Em> ({billboards.filter((b) => !b.kind).length}, at the start of the arterials): click one to see the ad, earn Gold or take the slot over for 1.25× ({billboards.filter((b) => !b.kind && !b.ad).length} open).</p>
       <p><Em>Aerial banners:</Em> two planes fly between the airports towing an ad across the city. Click a plane or its banner to see the ad, or buy the ad space ({billboards.filter((b) => b.kind === 'banner' && !b.ad).length} open).</p>
