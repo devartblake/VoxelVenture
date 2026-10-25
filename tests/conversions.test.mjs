@@ -202,6 +202,26 @@ try {
   api.db.prepare("UPDATE ref_firsts SET first_at = first_at - 30 * 86400000 WHERE visitor = 'xfriend-of-carl'").run();
   check('the first visit is deleted after 60 days, the others kept', pruneRefFirsts(api.db) === 1 && api.db.prepare('SELECT COUNT(*) AS n FROM ref_firsts').get().n >= 1);
 
+  // ---- reporting (VV-UX-10): new and returning visitors, the period before, churn, the weekly email
+  const { profileStats: ps, sendOwnerSummaries, weekOf } = await import('../services/api/business.mjs');
+  const carl2 = api.db.prepare("SELECT id FROM businesses WHERE slug = 'carl-coaching'").get().id;
+  api.db.prepare("INSERT INTO business_events (business_id, kind, source, visitor, verified, at) VALUES (?, 'view', 'direct', 'xloyal-reader', 1, ?)").run(carl2, Date.now() - 40 * 86400000);
+  await ev('carl-coaching', { kind: 'view', visitor: 'loyal-reader' });
+  const mix = ps(api.db, carl2);
+  check('a viewer seen before the period is returning, the others new', mix.returningVisitors >= 1 && mix.newVisitors + mix.returningVisitors === new Set(api.db.prepare("SELECT visitor FROM business_events WHERE business_id = ? AND kind = 'view' AND verified = 1 AND at >= ?").all(carl2, Date.now() - 30 * 86400000).map((r) => r.visitor)).size, JSON.stringify({ n: mix.newVisitors, r: mix.returningVisitors }));
+  check('the 30 days before are there to compare', mix.previous.views === 1 && 'ctaClicks' in mix.previous && 'qualifiedActions' in mix.previous, JSON.stringify(mix.previous));
+  const churnNow = (await call('GET', '/admin/metrics/renewals', { token: ADMIN })).data.churn;
+  check('the admin sees churn: Pro ended against running, leases lapsed against renewed', churnNow?.days === 30 && churnNow.pro.ended >= 0 && churnNow.pro.active >= 0 && churnNow.leases.lapsed >= 0 && churnNow.leases.renewed >= 0, JSON.stringify(churnNow));
+  check('a week starts on Monday (UTC)', weekOf(Date.UTC(2026, 9, 25, 12)) === '2026-10-19' && weekOf(Date.UTC(2026, 9, 26, 0, 1)) === '2026-10-26');
+  api.db.prepare("UPDATE accounts SET email = 'carl@coach.test', email_verified = 1, notify = 1 WHERE id = ?").run(carl.account.id);
+  const before1 = outbox('owner_summary').length;
+  const firstWeek = sendOwnerSummaries(api.db, { PUBLIC_SITE_URL: 'https://vv.test' });
+  const mails = outbox('owner_summary').slice(before1);
+  const carlMail = mails.find((m) => m.to_email === 'carl@coach.test');
+  check('an owner with activity gets the weekly summary, with last week to compare and a link', Boolean(carlMail) && /Profile views: \d+/.test(carlMail.body) && /week before/.test(carlMail.body) && /https:\/\/vv\.test\/business\/manage/.test(carlMail.body), carlMail?.body);
+  check('the summary goes once a week', sendOwnerSummaries(api.db, {}).sent === 0 && firstWeek.sent >= 1);
+  check('nobody without a confirmed email or with notices off gets one', mails.every((m) => api.db.prepare('SELECT 1 FROM accounts WHERE email = ? AND email_verified = 1 AND notify = 1').get(m.to_email)));
+
   // ---- the scrambled network address is blanked after 90 days; the rows stay
   const { scrubIpHashes } = await import('../services/api/core.mjs');
   const withHash = api.db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE ip_hash IS NOT NULL').get().n;

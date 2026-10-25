@@ -5,6 +5,7 @@ import { imp } from '../../scripts/lib-loader.mjs';
 import { postFor } from './social.mjs';
 import { markOwnerActive, memberStatus } from './ownerActivity.mjs';
 import { billingOn, planFor } from './billing.mjs';
+import { enqueue, noticeAddress } from './engage.mjs'; // (engage.mjs imports this file too: both are only used inside functions)
 
 // Free business profiles, referral attribution and the owner's figures (docs/product/business_funnel.md). The rules (categories, districts, calls to
 // action, validation, onboarding steps, upgrade prompts) are @voxelventure/business-core, shared with the public pages.
@@ -254,6 +255,69 @@ export const campaignOf = (v) => {
 };
 
 // ---- the owner's view ---------------------------------------------------------------------------------------------------------
+function visitorMix(db, businessId, views, since) {
+  const who = [...new Set(views.map((e) => e.visitor).filter((v) => v !== 'removed'))];
+  const before = db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND visitor = ? AND kind = 'view' AND verified = 1 AND at < ? LIMIT 1");
+  const returning = who.filter((v) => before.get(businessId, v, since)).length;
+  return { newVisitors: who.length - returning, returningVisitors: returning };
+}
+// A period's headline figures (verified): views, visitors, presses and qualified actions, for comparing two periods.
+export function periodTotals(db, businessId, from, to) {
+  const ev = db.prepare('SELECT kind, visitor FROM business_events WHERE business_id = ? AND verified = 1 AND at >= ? AND at < ?').all(businessId, from, to);
+  const views = ev.filter((e) => e.kind === 'view');
+  const count = (sql, ...a) => db.prepare(sql).get(...a).n;
+  const plotId = db.prepare('SELECT plot_id FROM businesses WHERE id = ?').get(businessId)?.plot_id ?? null;
+  const qualified =
+    count("SELECT COUNT(*) AS n FROM leads WHERE target_kind = 'business' AND target_id = ? AND status = 'confirmed' AND confirmed_at >= ? AND confirmed_at < ?", String(businessId), from, to) +
+    count('SELECT COUNT(*) AS n FROM business_inquiries WHERE business_id = ? AND verified = 1 AND created_at >= ? AND created_at < ?', businessId, from, to) +
+    (plotId ? count('SELECT COUNT(*) AS n FROM coupon_claims WHERE plot_id = ? AND at >= ? AND at < ?', plotId, from, to) : 0) +
+    ev.filter((e) => e.kind === 'purchase').length;
+  return { views: views.length, uniques: new Set(views.map((e) => e.visitor)).size, ctaClicks: ev.filter((e) => e.kind === 'cta').length, qualifiedActions: qualified };
+}
+
+// ---- the weekly summary email ---------------------------------------------------------------------------------------------------
+// Once a week (from Monday, UTC) each owner with a confirmed email and notices on gets one email per published profile: the last 7 days
+// against the 7 before. A profile with nothing in either week gets none. owner_summaries remembers which week was sent (the hour's job).
+export const weekOf = (at) => {
+  const d = new Date(at);
+  const monday = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return new Date(monday).toISOString().slice(0, 10);
+};
+export function sendOwnerSummaries(db, env = process.env, at = now()) {
+  const week = weekOf(at);
+  const site = String(env.PUBLIC_SITE_URL || env.API_ORIGIN || '').replace(/\/+$/, '').replace(/^\*$/, '');
+  const rows = db.prepare("SELECT b.id, b.name, b.account_id FROM businesses b WHERE b.status = 'published' AND NOT EXISTS (SELECT 1 FROM owner_summaries s WHERE s.business_id = b.id AND s.week = ?)").all(week);
+  let sent = 0;
+  for (const b of rows) {
+    db.prepare('INSERT OR IGNORE INTO owner_summaries (business_id, week, at) VALUES (?, ?, ?)').run(b.id, week, at);
+    const to = noticeAddress(db, b.account_id);
+    if (!to) continue;
+    const last = periodTotals(db, b.id, at - 7 * DAY, at);
+    const before = periodTotals(db, b.id, at - 14 * DAY, at - 7 * DAY);
+    if (![last, before].some((p) => p.views + p.ctaClicks + p.qualifiedActions > 0)) continue;
+    const line = (label, a, z) => `${label}: ${a}${z === a ? ' (the same as the week before)' : ` (${z} the week before)`}`;
+    enqueue(db, {
+      to,
+      kind: 'owner_summary',
+      subject: `${b.name}: your week on VoxelVenture`,
+      body: [
+        `Here is how ${b.name} did in the last 7 days (verified visitors only):`,
+        '',
+        line('Profile views', last.views, before.views),
+        line('Visitors', last.uniques, before.uniques),
+        line('Presses of your button', last.ctaClicks, before.ctaClicks),
+        line('Results (confirmed sign-ups, requests, coupon claims, purchases)', last.qualifiedActions, before.qualifiedActions),
+        '',
+        site ? `Your full figures: ${site}/business/manage` : 'Your full figures are on your dashboard.',
+        '',
+        'Turn these emails off in your account settings.',
+      ].join('\n'),
+    });
+    sent++;
+  }
+  return { sent, week };
+}
+
 // The funnel in the roadmap's event names (docs/roadmap/VoxelVenture_Mobile_UX_Commercial_Feature_Improvement_Plan.md, VV-UX-01), as the
 // versioned contract business.funnel v1. A qualified action is a confirmed result: a confirmed newsletter sign-up, a verified meeting or
 // quote request, a claimed coupon or a verified purchase. A page view or a press of an outside link never is.
@@ -332,6 +396,10 @@ export function profileStats(db, businessId, at = now()) {
     campaigns: [...byCampaign.values()].sort((a, b) => b.views - a.views || a.id.localeCompare(b.id)).slice(0, 10),
     days,
     surfaces: Object.values(bySurface),
+    // new and returning visitors among this period's viewers: returning means they viewed the profile before the period began
+    // (visitor numbers are kept 180 days, so "before" reaches that far at most)
+    ...visitorMix(db, businessId, views, since),
+    previous: periodTotals(db, businessId, since - 30 * DAY, since), // the 30 days before, to compare
     funnel: funnelOf({ impressions: of('impression').length, views: views.length, ctaClicks: cta.length, ...results }),
   };
 }

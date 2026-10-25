@@ -67,6 +67,13 @@ The owner's figures include `funnel`, contract `business.funnel` version 1, with
 
 A page view or a press of an outside link is never a qualified action. The pilot's "meaningful interaction" criterion (`packages/analytics` `hadInteraction`) still counts a verified press, as [world_freeze.md](../roadmap/world_freeze.md) defines it. Every plan sees the funnel. The breakdown by screen (`surfaces`) is Pro, like sources and campaigns.
 
+## Reporting for owners (VV-UX-10)
+
+- **New and returning visitors.** Among this period's viewers, a returning visitor viewed the profile before the period began. Visitor numbers are kept 180 days, so "before" reaches that far at most.
+- **Against the 30 days before.** `previous` has the earlier period's views, visitors, presses and qualified actions. The dashboard shows each figure with its change.
+- **Weekly summary email.** From Monday (UTC), each owner with a confirmed email and notices on gets one email per published profile: the last 7 days against the 7 before. A profile with nothing in either week gets none, and `owner_summaries` remembers which week was sent.
+- **Churn, for the admin.** `GET /admin/metrics/renewals` adds `churn` for the last 30 days: profiles whose Pro ended with none running now, against those with Pro now; and leases that ended and were not renewed, against renewals.
+
 ## Call, email and directions buttons
 
 A profile's button can also be **Call us** (a phone number, kept as a `tel:` link), **Email us** (an address, kept as `mailto:`) or **Get directions** (a street address, kept as a Google Maps directions link). A press counts as a press, like an outside link. It carries no click id, because no sale can be credited to it.
