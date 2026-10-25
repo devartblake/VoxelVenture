@@ -597,7 +597,36 @@ export function Funnel({ stats, ctaLabel }) {
           );
         })}
       </ol>
-      <p className="mt-1 text-xs text-sx-muted">{stats.uniques} unique visitors · {stats.referralVisits} via your link · store entries count people who walked into your 3D storefront</p>
+      <p className="mt-1 text-xs text-sx-muted">{stats.uniques} unique visitors{stats.newVisitors != null ? ` (${stats.newVisitors} new, ${stats.returningVisitors} returning)` : ''} · {stats.referralVisits} via your link · store entries count people who walked into your 3D storefront</p>
+      {stats.previous && <Compare now={stats} before={stats.previous} />}
+    </div>
+  );
+}
+
+// These 30 days against the 30 before: what changed, with the plain numbers (VV-UX-10). A result is a confirmed one (the funnel's
+// qualified_action), never a press of the button on its own.
+function Compare({ now, before }) {
+  const rows = [
+    ['Views', now.views, before.views],
+    ['Visitors', now.uniques, before.uniques],
+    ['Presses', now.ctaClicks, before.ctaClicks],
+    ['Results', now.funnel?.qualified_action ?? 0, before.qualifiedActions],
+  ];
+  const change = (a, b) => (b === 0 ? (a === 0 ? 'no change' : 'new') : `${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)}%`);
+  return (
+    <div className="mt-3" data-testid="compare-periods">
+      <h4 className="mb-1 text-xs font-semibold text-slate-300">Against the 30 days before</h4>
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {rows.map(([label, a, b]) => (
+          <div key={label} className="rounded-lg border border-sx-stroke bg-sx-alt/40 px-2.5 py-1.5">
+            <dt className="text-[11px] text-sx-muted">{label}</dt>
+            <dd className="text-sm text-white">
+              {a.toLocaleString()} <span className={`text-xs ${a > b ? 'text-emerald-300' : a < b ? 'text-rose-300' : 'text-sx-muted'}`}>{change(a, b)}</span>
+              <span className="block text-[11px] text-sx-muted">was {b.toLocaleString()}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

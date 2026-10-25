@@ -231,5 +231,21 @@ export function renewals(db) {
     const r = db.prepare("SELECT COUNT(*) AS buyers, COALESCE(SUM(CASE WHEN n > 1 THEN 1 ELSE 0 END), 0) AS again FROM (SELECT business_id, COUNT(*) AS n FROM orders WHERE product = ? AND status = 'paid' AND cents > 0 GROUP BY business_id)").get(product);
     return { buyers: r.buyers, again: r.again, rate: r.buyers ? r.again / r.buyers : 0 };
   };
-  return { pro: { plans: pro.n, renewed: pro.renewed, rate: pro.n ? pro.renewed / pro.n : 0 }, launch: repeat('launch'), sponsored: repeat('sponsored') };
+  return { pro: { plans: pro.n, renewed: pro.renewed, rate: pro.n ? pro.renewed / pro.n : 0 }, launch: repeat('launch'), sponsored: repeat('sponsored'), churn: churn(db) };
+}
+
+// The last 30 days' churn, for the admin (VV-UX-10):
+//   pro     profiles whose Pro ended in the period with no Pro running now, against those with Pro now
+//   leases  leases that ended in the period and were not renewed (the plot is in its grace days or open to a buyout), against renewals
+function churn(db, at = now()) {
+  const since = at - 30 * DAY;
+  const proActive = db.prepare("SELECT COUNT(DISTINCT business_id) AS n FROM entitlements WHERE kind = 'pro' AND status = 'active' AND starts_at <= ? AND ends_at > ?").get(at, at).n;
+  const proEnded = db.prepare("SELECT COUNT(DISTINCT e.business_id) AS n FROM entitlements e WHERE e.kind = 'pro' AND e.ends_at >= ? AND e.ends_at <= ? AND NOT EXISTS (SELECT 1 FROM entitlements x WHERE x.business_id = e.business_id AND x.kind = 'pro' AND x.status = 'active' AND x.starts_at <= ? AND x.ends_at > ?)").get(since, at, at, at).n;
+  const lapsed = db.prepare('SELECT COUNT(*) AS n FROM plots WHERE owner_account IS NOT NULL AND lease_end IS NOT NULL AND lease_end >= ? AND lease_end <= ?').get(since, at).n;
+  const renewed = db.prepare("SELECT COUNT(*) AS n FROM ledger WHERE kind = 'renew' AND at >= ?").get(since).n;
+  return {
+    days: 30,
+    pro: { ended: proEnded, active: proActive, rate: proEnded + proActive ? proEnded / (proEnded + proActive) : 0 },
+    leases: { lapsed, renewed, rate: lapsed + renewed ? lapsed / (lapsed + renewed) : 0 },
+  };
 }
