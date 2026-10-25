@@ -36,7 +36,7 @@ export default function DeepLink() {
       }
       if (hit.kind === 'plot') {
         useWorld.getState().focusOn(hit.plot.x, hit.plot.z, 30);
-        st.setSelectedPlot(hit.plot);
+        st.setSelectedPlot(hit.plot, 'friends'); // a shared link: "shared by other players" in the owner's sources
       } else {
         useWorld.getState().focusOn(hit.mall.x, hit.mall.z, 28);
         usePanel.getState().openMall(hit.mall.id);

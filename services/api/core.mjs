@@ -395,7 +395,8 @@ const BOT_UA = /bot|crawl|spider|slurp|headless|lighthouse|curl|wget|python-requ
 export function recordEvent(db, account, input, ctx = {}) {
   const p = getPlot(db, input.plotId);
   if (!p.owner_name) fail(400, 'Nothing to visit on an empty lot.', 'empty_lot');
-  const kind = ['visit', 'click'].includes(input.kind) ? input.kind : fail(400, 'kind must be visit or click.', 'bad_kind');
+  if (input.kind === 'leave') return recordLeave(db, account, p, input);
+  const kind = ['visit', 'click'].includes(input.kind) ? input.kind : fail(400, 'kind must be visit, click or leave.', 'bad_kind');
   const source = SOURCES.includes(input.source) ? input.source : 'street';
   const visitor = account ? `a${account.id}` : `x${text(input.visitor, 40) || 'anonymous'}`;
   // a visitor re-entering the same building within a minute is one visit (stops a client inflating the figures by spamming)
@@ -414,6 +415,20 @@ export function recordEvent(db, account, input, ctx = {}) {
   }
   db.prepare('INSERT INTO events (plot_id, kind, source, visitor, seconds, at, ip_hash, verified) VALUES (?,?,?,?,?,?,?,?)').run(p.id, kind, source, visitor, seconds, now(), ipHash, verified ? 1 : 0);
   return { counted: true, verified };
+}
+
+// Leaving a building: the time spent inside goes on that visitor's latest visit there, if it has none yet and was in the last
+// hour (a visit's time is set once; a leave without a visit changes nothing and is not an event of its own).
+function recordLeave(db, account, p, input) {
+  const visitor = account ? `a${account.id}` : `x${text(input.visitor, 40) || 'anonymous'}`;
+  const seconds = Number(input.seconds);
+  if (!Number.isFinite(seconds) || seconds < 0) fail(400, 'seconds must be a number.', 'bad_seconds');
+  const row = db.prepare("SELECT id, at FROM events WHERE plot_id = ? AND visitor = ? AND kind = 'visit' AND seconds IS NULL AND at >= ? ORDER BY id DESC LIMIT 1").get(p.id, visitor, now() - 3600000);
+  if (!row) return { counted: false };
+  // never more than the time since the visit began (a client cannot claim an hour for a ten-second visit)
+  const s = Math.min(3600, Math.round(seconds), Math.ceil((now() - row.at) / 1000));
+  db.prepare('UPDATE events SET seconds = ? WHERE id = ?').run(s, row.id);
+  return { counted: false, seconds: s };
 }
 
 // Thirty days of real figures, in the same shape as the game's simulated statistics (lib/game/plotInfo.js siteVisitStats).

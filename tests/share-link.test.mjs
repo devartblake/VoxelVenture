@@ -27,6 +27,10 @@ const hit = s.findBuilding(store.id, plots, layout);
 if (hit?.kind !== 'store' || hit.mall.id !== 'mall-2' || hit.store.id !== store.id) bad('a mall store is found by its code', JSON.stringify(hit?.kind));
 if (s.findBuilding('999999', plots, layout) !== null || s.findBuilding(null, plots, layout) !== null) bad('an unknown building is not found', '');
 
+// an ad that points at a building in the city
+if (s.cityPlotOf('/b/12', 'voxelventure.app') !== '12' || s.cityPlotOf('https://voxelventure.app/?plot=7', 'localhost:3000') !== '7' || s.cityPlotOf('https://staging.voxelventure.app/b/3/', 'x') !== '3') bad("an ad's link to a building in the city is found", '');
+if (s.cityPlotOf('https://evil.example/b/12', 'voxelventure.app') !== null || s.cityPlotOf('https://amy.test', 'voxelventure.app') !== null || s.cityPlotOf('not a url ::', 'voxelventure.app') !== null || s.cityPlotOf(null, 'voxelventure.app') !== null) bad('another site or a plain website is not a building', '');
+
 // the badge: self-contained, escaped, no script
 const evil = { id: 12, title: '<img src=x onerror=alert(1)>', luxury: true };
 const html = s.badgeHtml('https://x.example/?plot=12&city=1', evil);

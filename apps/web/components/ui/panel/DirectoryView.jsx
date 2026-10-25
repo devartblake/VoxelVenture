@@ -48,7 +48,7 @@ export default function DirectoryView() {
             <li key={p.id} className="overflow-hidden rounded-2xl border border-sx-stroke bg-sx-alt/40 transition hover:border-sx-line">
               <button
                 onClick={() => {
-                  setSelectedPlot(p);
+                  setSelectedPlot(p, 'search');
                   useWorld.getState().focusOn(p.x, p.z, 26);
                 }}
                 className="flex w-full items-start gap-3 p-3 text-left"
