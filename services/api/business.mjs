@@ -28,13 +28,33 @@ const now = () => Date.now();
 export const BOT_UA = /bot|crawl|spider|slurp|headless|lighthouse|curl|wget|python-requests|preview|facebookexternalhit/i;
 
 // ---- referral codes -------------------------------------------------------------------------------------------------------------
-// "<account id in base 36>.<signature>": anyone can read whose it is, nobody can make one for another account without the secret.
+// "r" and 12 random hex characters, kept on the account (accounts.ref_code), so a shared link does not say whose account it is. Codes of
+// the first kind, "<account id in base 36>.<signature>", still work: nobody can make one for another account without the secret.
 const signature = (id, secret) => crypto.createHmac('sha256', secret).update(`ref:${id}`).digest('hex').slice(0, 10);
 export const referralSecret = (env = process.env) => env.REFERRAL_SECRET || env.IP_SALT || 'voxelventure-referrals';
-export const referralCode = (accountId, secret) => `${Number(accountId).toString(36)}.${signature(accountId, secret)}`;
+export function referralCode(db, accountId) {
+  const of = () => db.prepare('SELECT ref_code FROM accounts WHERE id = ?').get(accountId)?.ref_code ?? null;
+  for (let i = 0; i < 5 && !of(); i++) {
+    try {
+      db.prepare('UPDATE accounts SET ref_code = ? WHERE id = ? AND ref_code IS NULL').run(`r${crypto.randomBytes(6).toString('hex')}`, accountId);
+    } catch {
+      /* the same code twice (unique index): try another */
+    }
+  }
+  return of();
+}
+// How long a link credits its sharer, counted from the visitor's first visit through it; that first visit is remembered for twice as long
+// (so a code kept or sent again after the 30 days cannot start a new 30 days), then deleted by the hour's job (pruneRefFirsts).
+export const REF_DAYS = 30;
+export const REF_FIRST_DAYS = 60;
+export const pruneRefFirsts = (db, at = now()) => Number(db.prepare('DELETE FROM ref_firsts WHERE first_at < ?').run(at - REF_FIRST_DAYS * DAY).changes);
 // The account a code belongs to, or null when the code is malformed, forged or names no account.
 export function referrerOf(db, code, secret) {
   if (!isRefCode(code)) return null;
+  if (!String(code).includes('.')) { // a random code (an old one always has a dot)
+    const a = db.prepare('SELECT id, banned FROM accounts WHERE ref_code = ?').get(String(code));
+    return a && !a.banned ? a.id : null;
+  }
   const [id36, sig] = String(code).split('.');
   const id = parseInt(id36, 36);
   if (!Number.isSafeInteger(id) || id <= 0) return null;
@@ -42,6 +62,15 @@ export function referrerOf(db, code, secret) {
   if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(want))) return null;
   const a = db.prepare('SELECT id, banned FROM accounts WHERE id = ?').get(id);
   return a && !a.banned ? a.id : null;
+}
+
+// The referrer, while the visitor is within 30 days of first coming through their link (the first visit is remembered here, so a link
+// kept in a browser for longer, or sent again by the browser, no longer credits anyone).
+function stillCredited(db, visitor, ref, at = now()) {
+  if (!ref) return null;
+  db.prepare('INSERT OR IGNORE INTO ref_firsts (visitor, ref_account, first_at) VALUES (?, ?, ?)').run(visitor, ref, at);
+  const first = db.prepare('SELECT first_at FROM ref_firsts WHERE visitor = ? AND ref_account = ?').get(visitor, ref).first_at;
+  return at - first < REF_DAYS * DAY ? ref : null;
 }
 
 // A new account that arrived through someone's link (called by POST /auth/signup).
@@ -197,7 +226,10 @@ export function recordProfileEvent(db, account, slug, input, ctx = {}) {
   if (last && now() - last.at < 60000) return { counted: false };
   let ref = referrerOf(db, input.ref, ctx.secret ?? referralSecret());
   if (ref && account && ref === account.id) ref = null; // nobody is credited for their own visits
-  const source = kind === 'store' || (kind === 'cta' && input.source === 'city') ? 'city' : ref ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
+  const shared = Boolean(ref); // it came through someone's link (the source), even when nobody is credited for it below
+  if (ref === row.account_id) ref = null; // nor an owner for visits to their own profile through their own link
+  ref = stillCredited(db, visitor, ref);
+  const source = kind === 'store' || (kind === 'cta' && input.source === 'city') ? 'city' : shared ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
   const campaign = campaignOf(input.campaign);
   const clickId = kind === 'cta' && isClickId(input.clickId) ? String(input.clickId) : null;
   const surface = surfaceOf(input.surface) ?? (kind === 'store' ? 'storefront' : null);
@@ -341,7 +373,7 @@ export function myReferrals(db, account, env = process.env, at = now()) {
   const since = at - 30 * DAY;
   const count = (sql, ...a) => db.prepare(sql).get(...a).n;
   return {
-    code: referralCode(account.id, referralSecret(env)),
+    code: referralCode(db, account.id),
     visits: count("SELECT COUNT(*) AS n FROM business_events WHERE ref_account = ? AND kind = 'view' AND verified = 1 AND at >= ?", account.id, since),
     ctaClicks: count("SELECT COUNT(*) AS n FROM business_events WHERE ref_account = ? AND kind = 'cta' AND verified = 1 AND at >= ?", account.id, since),
     signups: count('SELECT COUNT(*) AS n FROM accounts WHERE referred_by = ? AND created_at >= ?', account.id, since),

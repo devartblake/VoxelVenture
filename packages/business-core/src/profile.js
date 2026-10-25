@@ -187,9 +187,9 @@ export function upgradePrompts(profile, stats) {
 }
 
 // ---- referral links ---------------------------------------------------------------------------------------------------------------
-// A referral code is "<account id in base 36>.<10 hex characters of a signature>" made by the server (services/api/business.mjs); the shape is
-// checked here and the signature there. Share links carry it as ?ref=.
-const REF = /^[0-9a-z]{1,10}\.[0-9a-f]{10}$/;
+// A referral code is "r" and 12 random hex characters, or (codes made before) "<account id in base 36>.<10 hex characters of a signature>",
+// made by the server (services/api/business.mjs); the shape is checked here and the code there. Share links carry it as ?ref=.
+const REF = /^(?:r[0-9a-f]{12}|[0-9a-z]{1,10}\.[0-9a-f]{10})$/;
 export const isRefCode = (v) => REF.test(String(v ?? ''));
 export function profilePath(slug, ref) {
   return `/business/${encodeURIComponent(slug)}${isRefCode(ref) ? `?ref=${ref}` : ''}`;

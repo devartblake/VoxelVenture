@@ -55,7 +55,10 @@ A link tagged `?utm_campaign=<name>` (letters, digits, `-` and `_`, up to 40) ha
 
 ## Referral links
 
-- **The code.** It is `<account id in base 36>.<10 hex characters of HMAC-SHA256>`, signed with `REFERRAL_SECRET`. A forged code is ignored and the visit still counts, just without credit to anyone.
+- **The code.** It is `r` and 12 random hex characters, made the first time an account asks for it and kept on the account (`accounts.ref_code`), so a link does not show whose account it is. Codes made before, `<account id in base 36>.<10 hex characters of HMAC-SHA256>` signed with `REFERRAL_SECRET`, still work. A forged or unknown code is ignored and the visit still counts, just without credit to anyone.
+- **30 days, enforced by the server.** The server remembers when each visitor first came through each sharer's link (`ref_firsts`, deleted after 60 days). A link credits its sharer for 30 days from then, even if a browser keeps or resends the code for longer.
+- **Not your own profile.** A visit through an owner's link to their own profile is a referral visit in its sources, but credits nobody's referral figures.
+- **Share buttons.** A signed-in player's Share button on a business page, and the in-game share box, add the player's code to the link. The badge for a website does not carry a code. Owners of a business page without a 3D building get a page badge on their dashboard.
 - **Where it is kept.** The visitor's browser keeps the code for 30 days, and the most recent link wins (`lib/business/referral.js`). It is first-party only: no cookie leaves the site, and nothing is sent anywhere except the code itself.
 - **What gets credited.**
   - Profile views and presses that come through the link.

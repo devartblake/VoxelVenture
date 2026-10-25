@@ -54,6 +54,10 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'ad_events', 'ip_hash', 'TEXT');
   addColumn(db, 'ad_events', 'verified', 'INTEGER NOT NULL DEFAULT 0'); // rows from before verification are not counted
   addColumn(db, 'accounts', 'referred_by', 'INTEGER REFERENCES accounts(id)'); // the account whose referral link brought this one (business.mjs)
+  addColumn(db, 'accounts', 'ref_code', 'TEXT'); // the account's random referral code (business.mjs referralCode), made when first asked for
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS accounts_ref_code ON accounts(ref_code) WHERE ref_code IS NOT NULL');
+  // when a visitor first came through each referrer's link: a link credits its sharer for 30 days from then (business.mjs)
+  db.exec('CREATE TABLE IF NOT EXISTS ref_firsts (visitor TEXT NOT NULL, ref_account INTEGER NOT NULL, first_at INTEGER NOT NULL, PRIMARY KEY (visitor, ref_account))');
   addColumn(db, 'orders', 'parent_id', 'INTEGER REFERENCES orders(id)'); // a cart's line: the cart's own order (product 'cart') it was paid with (cart.mjs)
   db.exec('CREATE INDEX IF NOT EXISTS orders_parent ON orders(parent_id)');
   addColumn(db, 'orders', 'promo_code', 'TEXT'); // the promo code this order was bought with (promo.mjs); a cart's lines carry it too

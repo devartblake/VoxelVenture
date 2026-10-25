@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiBase, getToken, request } from '@/lib/data/api';
 import { PLACEMENTS, PRODUCTS, dollars } from '@voxelventure/business-core';
 import { CTA_KINDS, categoryOf, districtOf, profileUrl } from '@voxelventure/business-core';
+import { profileBadgeHtml, profileBadgeLabel } from '@/lib/game/shareLink';
 import { FUNNEL, OUTCOMES, RESULTS, CLICK_PARAM } from '@voxelventure/analytics';
 import AuthDialog from '@/components/ui/AuthDialog';
 import { useCart } from '@/lib/state/cartStore';
@@ -87,10 +88,10 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
   const [msg, setMsg] = useState('');
   const [added, setAdded] = useState('');
   const link = profileUrl(origin, p.slug, code);
-  const copy = async () => {
+  const copy = async (text = link, what = 'link') => {
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* the link is shown to copy by hand */
@@ -222,10 +223,18 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
             <div className="space-y-4">
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-slate-200">Your share link</h3>
-                <p className="mb-2 text-xs text-sx-muted">Visits, presses and sign-ups through this link are credited to you. To compare campaigns, add <code className="text-slate-300">&amp;utm_campaign=spring-sale</code> (any name) to the link you post in each place.</p>
+                <p className="mb-2 text-xs text-sx-muted">Visits through this link show as referral visits in your figures. To compare campaigns, add <code className="text-slate-300">&amp;utm_campaign=spring-sale</code> (any name) to the link you post in each place.</p>
                 <div className="flex gap-2">
                   <input readOnly value={link} aria-label="Your share link" className="min-w-0 flex-1 rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-xs text-slate-200" onFocus={(e) => e.target.select()} />
-                  <button type="button" onClick={copy} className="rounded-lg bg-sx-cyan px-3 py-2 text-sm font-semibold text-slate-950">{copied ? 'Copied' : 'Copy'}</button>
+                  <button type="button" onClick={() => copy()} className="rounded-lg bg-sx-cyan px-3 py-2 text-sm font-semibold text-slate-950">{copied === 'link' ? 'Copied' : 'Copy'}</button>
+                </div>
+                {/* a badge for the owner's own website: plain HTML, one link to the page, no scripts (lib/game/shareLink.js) */}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500 bg-[#0b1020] px-3 py-1.5 font-semibold text-white" data-testid="profile-badge-preview">
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-gradient-to-br from-violet-500 to-cyan-400" />
+                    {profileBadgeLabel(p.name)}
+                  </span>
+                  <button type="button" onClick={() => copy(profileBadgeHtml(profileUrl(origin, p.slug), p.name), 'badge')} className="rounded-lg border border-sx-stroke px-2.5 py-1.5 text-slate-200 hover:bg-sx-alt" data-testid="copy-profile-badge">{copied === 'badge' ? 'Badge code copied' : 'Copy badge for your website'}</button>
                 </div>
               </div>
               <div>
