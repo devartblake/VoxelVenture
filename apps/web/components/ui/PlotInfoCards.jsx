@@ -141,6 +141,8 @@ function Sources({ sources }) {
 // Who visits the business and its website: thirty days of figures, the best times and where the visitors come from.
 export function SiteVisits({ stats, own }) {
   if (!stats) return null;
+  // only the owner sees the full figures (the server sends anyone else just this summary)
+  if (!own || stats.scope === 'summary') return <SiteVisitsSummary stats={stats} />;
   return (
     <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">
       <h3 className="mb-3 flex items-center justify-between text-xs font-bold text-white">
@@ -184,6 +186,25 @@ export function SiteVisits({ stats, own }) {
   );
 }
 
+// What a visitor sees of someone else's building: visits, visitors and the busiest day.
+function SiteVisitsSummary({ stats }) {
+  return (
+    <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">
+      <h3 className="mb-3 flex items-center justify-between text-xs font-bold text-white">
+        <span>Site visits <span className="font-normal text-slate-400">· last 30 days</span></span>
+        {stats.simulated && <span className="rounded-full bg-sx-stroke px-2 py-0.5 text-[9px] font-medium text-slate-300">simulated</span>}
+        {stats.verified && <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-medium text-emerald-300" title="Only visits from a running page, not known bots, and at most 3 visits per network per day are counted">verified human traffic</span>}
+      </h3>
+      <div className="grid grid-cols-3 gap-2">
+        <Fig icon={Eye} label="Visits" value={stats.views.toLocaleString()} />
+        <Fig icon={Users} label="Visitors" value={stats.uniques.toLocaleString()} />
+        <Fig icon={Clock} label="Busiest day" value={stats.busiestDay ?? '–'} />
+      </div>
+      <p className="mt-2.5 text-[10px] leading-snug text-slate-500">A summary: clicks, sources and visiting hours are shown only to the building's owner.</p>
+    </section>
+  );
+}
+
 // Past owners and what they paid, newest first, as a timeline.
 export function BuildingHistory({ events, clicks, days }) {
   if (!events.length) return null;
@@ -191,7 +212,7 @@ export function BuildingHistory({ events, clicks, days }) {
     <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">
       <h3 className="mb-3 flex items-center justify-between text-xs font-bold text-white">
         <span className="flex items-center gap-1.5"><History className="h-3.5 w-3.5 text-sx-cyan" /> Building history</span>
-        <span className="font-normal text-slate-400">{clicks.toLocaleString()} clicks · {days} days</span>
+        <span className="font-normal text-slate-400">{clicks == null ? '' : `${clicks.toLocaleString()} clicks · `}{days} days</span>
       </h3>
       <ol className="relative ml-1.5 space-y-3 border-l border-sx-line pl-4">
         {events.map((e, i) => (

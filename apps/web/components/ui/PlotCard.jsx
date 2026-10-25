@@ -905,7 +905,7 @@ export default function PlotCard() {
           {figuresState(p.id, liveFigures) === 'error' ? 'Visitor figures could not be loaded from the server. Try again in a moment.' : 'Loading verified visitor figures…'}
         </p>
       )}
-      {isClaimed && !isSuburb && !hqOffline && <BuildingHistory events={history} clicks={info.stats?.clicks ?? 0} days={daysOpen} />}
+      {isClaimed && !isSuburb && !hqOffline && <BuildingHistory events={history} clicks={p.userClaimed ? (info.stats?.clicks ?? 0) : null} days={daysOpen} />}
     </div>
   );
 }
