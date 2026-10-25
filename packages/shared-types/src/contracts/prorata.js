@@ -2,6 +2,7 @@
 // docs/monetization/billing.md#refunds-of-unused-time).
 //
 //   GET  /me/prorata                       what deleting the account would give back now (the confirmation screen's estimate)
+//   GET  /businesses/:slug/prorata         what deleting that page would give back (its owner; the page's own orders: Pro, sponsored weeks)
 //   GET  /admin/accounts/:id/prorata       the same for any account (?rules=1: as if closed for breaking the rules: nothing)
 //   GET  /admin/billing/orders/:id/prorata one order's lines (a cart: each line; a running lease: with its later renewals)
 //   POST /admin/accounts/:id/prorata       { reason }: refund every line's unused time, and end what was refunded

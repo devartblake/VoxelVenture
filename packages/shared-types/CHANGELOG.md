@@ -13,6 +13,7 @@ Changed:
 
 - `privacy.admin-delete` **version 2**: `rules` (true: closed for breaking the rules, no refund).
 - `privacy.delete.result` **version 2**: `refunds`, `{ totalCents, lines: [{ orderId, cents, unusedDays }], closedForRules }` (required).
+- `business.delete.result` **version 2**: the same `refunds` (deleting a page refunds its own orders' unused time: Pro's month, sponsored weeks). `GET /businesses/:slug/prorata` (the owner) answers `prorata.preview`.
 
 ## 0.16.0 (2026-10-21)
 

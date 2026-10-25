@@ -68,6 +68,8 @@ export const PRIVACY_ADMIN_DELETE = {
 };
 
 const STATEMENT = { type: 'object', required: ['what', 'why'], properties: { what: { type: 'string' }, why: { type: 'string' } } };
+// what a deletion refunded for unused time first (services/api/prorata.mjs): in all, and each line
+const REFUNDS = { type: 'object', required: ['totalCents', 'lines'], properties: { totalCents: { type: 'integer', minimum: 0 }, lines: { type: 'array', items: { type: 'object', required: ['orderId', 'cents'], properties: { orderId: id, cents: { type: 'integer', minimum: 1 }, unusedDays: { type: ['integer', 'null'] } } } }, closedForRules: { type: 'boolean' } } };
 // The answer to both: the account's new name (deleted-<id>), the plots released, and what was kept (and why) and removed. Version 2: `refunds`,
 // the unused time refunded before the deletion (prorata.mjs): in all, and each line.
 export const PRIVACY_DELETE_RESULT = {
@@ -82,7 +84,7 @@ export const PRIVACY_DELETE_RESULT = {
       plotsReleased: { type: 'array', items: id },
       businessesDeleted: { type: 'integer', minimum: 0 },
       proCancelled: { type: 'integer', minimum: 0 },
-      refunds: { type: 'object', required: ['totalCents', 'lines'], properties: { totalCents: { type: 'integer', minimum: 0 }, lines: { type: 'array', items: { type: 'object', required: ['orderId', 'cents'], properties: { orderId: id, cents: { type: 'integer', minimum: 1 }, unusedDays: { type: ['integer', 'null'] } } } }, closedForRules: { type: 'boolean' } } },
+      refunds: REFUNDS,
       kept: { type: 'array', items: STATEMENT },
       removed: { type: 'array', items: { type: 'string' } },
     },
@@ -90,10 +92,12 @@ export const PRIVACY_DELETE_RESULT = {
 };
 
 // DELETE /businesses/:slug (the owner): the page is gone from its address, Discover and the sitemap, its plot unlinked, its Pro cancelled in Stripe.
+// Version 2: `refunds`, the unused time of the page's own orders (Pro's month, sponsored weeks) refunded first (none for a page removed for breaking
+// the rules). GET /businesses/:slug/prorata (the owner) is the estimate, contract prorata.preview.
 export const BUSINESS_DELETE_RESULT = {
   id: 'business.delete.result',
-  version: 1,
-  schema: { type: 'object', required: ['deleted', 'slug', 'proCancelled', 'plotUnlinked'], properties: { deleted: { enum: [true] }, slug: { type: 'string' }, proCancelled: { type: 'boolean' }, plotUnlinked: { type: ['integer', 'null'] } } },
+  version: 2,
+  schema: { type: 'object', required: ['deleted', 'slug', 'proCancelled', 'plotUnlinked', 'refunds'], properties: { deleted: { enum: [true] }, slug: { type: 'string' }, proCancelled: { type: 'boolean' }, plotUnlinked: { type: ['integer', 'null'] }, refunds: REFUNDS } },
 };
 
 // GET /admin/privacy/accounts?q= (admin): accounts by number, name or email (exact, any case), for a privacy request by email.

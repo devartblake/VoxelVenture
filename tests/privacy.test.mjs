@@ -258,6 +258,7 @@ try {
   check('deleting a page needs its owner', (await call('DELETE', '/businesses/cat-corner')).status === 401 && (await call('DELETE', '/businesses/cat-corner', { token: bob.token })).status === 403);
   S.calls.length = 0;
   const gone = await call('DELETE', '/businesses/cat-corner', { token: cat.token });
+  check('the page\'s Pro month is refunded first, for its unused time (prorata.mjs)', gone.data.refunds?.totalCents > 0 && S.refunds.some((x) => x.key === `vv-prorata-${catPro}` && Number(x.amount) === gone.data.refunds.totalCents), JSON.stringify(gone.data.refunds));
   check('the owner deletes the page, and its Pro is cancelled in Stripe at once', gone.status === 200 && gone.data.deleted && gone.data.proCancelled && S.calls.some((c) => c.method === 'DELETE' && c.path === '/v1/subscriptions/sub_cat' && c.auth === 'Bearer sk_test_priv'), JSON.stringify(gone.data));
   check('the page is gone: no public page, not in Discover or the sitemap', (await call('GET', '/businesses/cat-corner')).status === 404 && !(await call('GET', '/businesses')).data.profiles.some((p) => p.name === 'Cat Corner') && !(await call('GET', '/businesses/sitemap')).data.entries.some((e) => e.slug === 'cat-corner'));
   check('its plot is unlinked', (await call('GET', `/plots/${catPlot}`)).data.profileSlug === null);
@@ -283,7 +284,7 @@ try {
   const tomb = `deleted-${A}`;
   check('the right password and name delete the account', del.status === 200 && del.data.deleted === true && del.data.username === tomb, JSON.stringify(del.data).slice(0, 300));
   check('the answer says what was kept and why, and what was removed', del.data.kept.some((k) => /accounting/.test(k.why)) && del.data.removed.length >= 4);
-  check('the unused time is refunded first (prorata.mjs): Pro\'s month and the ad week (less what was refunded of it), and the answer says so', S.refunds.some((r) => r.key === `vv-prorata-${proOrder}` && r.payment_intent === 'pi_inv_sub_amy') && S.refunds.some((r) => r.key === `vv-prorata-${adOrder}` && r.payment_intent === 'pi_amy_ad' && Number(r.amount) === Math.floor((1100 * 6) / 7)) && del.data.refunds.totalCents === S.refunds.reduce((a, r) => a + Number(r.amount), 0) && del.data.refunds.lines.length === 2, JSON.stringify([S.refunds, del.data.refunds]));
+  check('the unused time is refunded first (prorata.mjs): Pro\'s month and the ad week (less what was refunded of it), and the answer says so', S.refunds.some((r) => r.key === `vv-prorata-${proOrder}` && r.payment_intent === 'pi_inv_sub_amy') && S.refunds.some((r) => r.key === `vv-prorata-${adOrder}` && r.payment_intent === 'pi_amy_ad' && Number(r.amount) === Math.floor((1100 * 6) / 7)) && del.data.refunds.totalCents === S.refunds.filter((r) => [`vv-prorata-${proOrder}`, `vv-prorata-${adOrder}`].includes(r.key)).reduce((a, r) => a + Number(r.amount), 0) && del.data.refunds.lines.length === 2, JSON.stringify([S.refunds, del.data.refunds]));
   check('Pro is cancelled in Stripe at once, and open checkouts are closed', S.calls.some((c) => c.method === 'DELETE' && c.path === '/v1/subscriptions/sub_amy') && (await new Promise((r) => setTimeout(r, 200)), S.calls.some((c) => c.path === '/v1/checkout/sessions/cs_amy_open/expire')));
 
   // ---- what happened to each table ----------------------------------------------------------------------------------------

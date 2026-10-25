@@ -119,6 +119,12 @@ export function forAccount(db, accountId, opts = {}) {
   const orders = db.prepare("SELECT * FROM orders WHERE account_id = ? AND product != 'cart' AND status IN ('paid', 'charged_back') ORDER BY id").all(Number(accountId));
   return planOf(db, orders, opts);
 }
+// Every line of one business page: the orders made for it (Pro, sponsored weeks, the Launch Pack: a cart's lines carry it too). Leases and ad spaces
+// belong to the account, not the page (deleting the page only unlinks its plot), so they are not in it.
+export function forBusiness(db, businessId, opts = {}) {
+  const orders = db.prepare("SELECT * FROM orders WHERE business_id = ? AND product != 'cart' AND status IN ('paid', 'charged_back') ORDER BY id").all(Number(businessId));
+  return planOf(db, orders, opts);
+}
 // One order: itself, or a cart's lines; a lease line whose time is running takes the later renewals of the same lease with it (refunding it ends
 // the lease, so they could not be used either).
 export function forOrder(db, orderId, opts = {}) {

@@ -275,7 +275,49 @@ try {
   const deeDel = await call('POST', `/admin/accounts/${dee.account.id}/delete`, { token: ADMIN, body: { confirm: 'DeeAsk', reason: 'asked by email' } });
   check('an admin deletion for an email request refunds the unused time first', deeDel.status === 200 && deeDel.data.refunds.totalCents === deePv.totalCents && deePv.totalCents > 0 && Number(refundsOf(deeClaim)[0]?.amount) === deePv.totalCents);
 
-  check('the audit chain is intact', (await call('GET', '/admin/audit/verify', { token: ADMIN })).data.ok === true);
+  // ==== Ella deletes a business page: its own orders' unused time is refunded first; her lease is not (the building stays hers) ==========
+  const ella = await signup('EllaPage');
+  const ePage = (await call('POST', '/businesses', { token: ella.token, body: { name: 'Ella Flowers', category: 'food', district: 'creator', website: 'https://ella.test' } })).data;
+  const eSlug = ePage.slug;
+  const ePro = (await call('POST', `/businesses/${eSlug}/checkout`, { token: ella.token, body: { product: 'pro' } })).data.orderId;
+  await payPro(ePro, 'sub_ella', Date.now() + 30 * DAY);
+  db.prepare('UPDATE entitlements SET starts_at = ?, ends_at = ? WHERE order_id = ?').run(Date.now() - 10 * DAY, Date.now() + 20 * DAY - H, ePro);
+  const eSpon = (await call('POST', `/businesses/${eSlug}/checkout`, { token: ella.token, body: { product: 'sponsored', placement: 'category:food' } })).data.orderId;
+  await pay(eSpon);
+  const eSpon2 = (await call('POST', `/businesses/${eSlug}/checkout`, { token: ella.token, body: { product: 'sponsored', placement: 'district:creator' } })).data.orderId;
+  await pay(eSpon2);
+  await webhook('charge.dispute.created', { id: 'dp_ella', object: 'dispute', charge: `ch_${eSpon2}`, payment_intent: `pi_${eSpon2}`, amount: order(eSpon2).cents, reason: 'fraudulent', status: 'needs_response' });
+  const eLaunch = (await call('POST', `/businesses/${eSlug}/checkout`, { token: ella.token, body: { product: 'launch' } })).data.orderId;
+  await pay(eLaunch);
+  const eClaim = (await call('POST', `/plots/${lots[4].id}/claim`, { token: ella.token, body: biz('Ella Shop') })).data.checkout.orderId;
+  await pay(eClaim);
+  await call('PUT', `/businesses/${eSlug}/plot`, { token: ella.token, body: { plotId: lots[4].id } });
+  const pageEst = await call('GET', `/businesses/${eSlug}/prorata`, { token: ella.token });
+  fits('the page\'s estimate', types.PRORATA_PREVIEW, pageEst.data);
+  const pe = (id) => pageEst.data.lines.find((l) => l.orderId === id);
+  check('the page\'s estimate is its owner\'s only', (await call('GET', `/businesses/${eSlug}/prorata`, { token: bob.token })).status === 403 && (await call('GET', `/businesses/${eSlug}/prorata`)).status === 401);
+  check('a page\'s lines: Pro\'s month and its sponsored week; not the Launch Pack, not a disputed week, not the lease', pe(ePro)?.cents === Math.floor((1900 * 19) / 30) && pe(eSpon)?.refund && /disputed/.test(pe(eSpon2)?.why) && pe(eLaunch)?.refund === false && !pe(eClaim) && pageEst.data.count === 2, JSON.stringify(pageEst.data.lines.map((l) => [l.orderId, l.cents, l.why])));
+  S.failRefunds = true;
+  const pageDown = await call('DELETE', `/businesses/${eSlug}`, { token: ella.token });
+  check('if Stripe cannot refund, the page is not deleted (502)', pageDown.status === 502 && db.prepare('SELECT status FROM businesses WHERE id = ?').get(ePage.id ?? db.prepare('SELECT id FROM businesses WHERE slug = ?').get(eSlug).id).status === 'published' && ent(ePro).status === 'active' && order(ePro).refunded_cents === 0, JSON.stringify(pageDown.data));
+  S.failRefunds = false;
+  const pageDel = await call('DELETE', `/businesses/${eSlug}`, { token: ella.token });
+  fits('the page deletion\'s answer', types.BUSINESS_DELETE_RESULT, pageDel.data);
+  check('then the page is deleted, after refunding what the estimate said', pageDel.status === 200 && pageDel.data.refunds.totalCents === pageEst.data.totalCents && pageDel.data.refunds.lines.length === 2 && Number(refundsOf(ePro)[0]?.amount) === pe(ePro).cents && Number(refundsOf(eSpon)[0]?.amount) === pe(eSpon).cents, JSON.stringify(pageDel.data));
+  check('Pro refunded on its latest invoice and cancelled once; the page\'s entitlements end', refundsOf(ePro)[0].payment_intent === 'pi_for_sub_ella' && S.calls.filter((c) => c.method === 'DELETE' && c.path === '/v1/subscriptions/sub_ella').length === 1 && ent(ePro).status === 'revoked' && ent(eSpon).status === 'revoked');
+  check('nothing for the lease, the Launch Pack or the disputed week; the building stays Ella\'s', refundsOf(eClaim).length === 0 && refundsOf(eLaunch).length === 0 && refundsOf(eSpon2).length === 0 && plotRow(lots[4].id).owner_account === ella.account.id);
+  check('each refund is noted on its order and audited, and the deletion records the total', /pro-rata refund of unused time \(business page deleted\)/.test(order(ePro).note) && auditOf('billing.prorata_refunded', eSpon).length === 1 && JSON.parse(auditOf('business.delete', eSlug).at(-1).detail).refundedCents === pageEst.data.totalCents);
+  // a page moderation removed for breaking the rules: deleting it refunds nothing
+  const fay = await signup('FayRemoved');
+  const fSlug = (await call('POST', '/businesses', { token: fay.token, body: { name: 'Fay Fakes', category: 'food', website: 'https://fay.test' } })).data.slug;
+  const fSpon = (await call('POST', `/businesses/${fSlug}/checkout`, { token: fay.token, body: { product: 'sponsored', placement: 'category:food' } })).data.orderId;
+  await pay(fSpon);
+  db.prepare("UPDATE businesses SET status = 'removed' WHERE slug = ?").run(fSlug);
+  check('(a page removed for breaking the rules: its estimate is nothing)', (await call('GET', `/businesses/${fSlug}/prorata`, { token: fay.token })).data.totalCents === 0);
+  const fDel = await call('DELETE', `/businesses/${fSlug}`, { token: fay.token });
+  check('deleting a page removed for breaking the rules refunds nothing', fDel.status === 200 && fDel.data.refunds.totalCents === 0 && fDel.data.refunds.closedForRules === true && refundsOf(fSpon).length === 0);
+
+  check('the audit chain is intact',(await call('GET', '/admin/audit/verify', { token: ADMIN })).data.ok === true);
 } catch (e) {
   fails++;
   console.log('FAIL threw', e.stack);

@@ -646,6 +646,10 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       if (String(b.confirm ?? '').trim().toLowerCase() !== account.username.toLowerCase()) throw new core.ApiError(400, 'Type your account name to confirm.', 'confirm_name');
       return removeAccount(account.id, A.byAccount(account));
     }
+    if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})\/prorata$/)) && m === 'GET') {
+      const b = privacy.ownBusinessPage(db, account, r[1]); // what deleting the page would refund (its confirmation screen)
+      return prorata.forBusiness(db, b.id, { closedForRules: privacy.pageClosedForRules(b) }).preview;
+    }
     if ((r = p.match(/^\/businesses\/([a-z0-9-]{1,48})$/)) && m === 'DELETE') {
       const out = await privacy.deleteBusiness(db, account, r[1], { env, fetchImpl: fetch });
       if (out.plotUnlinked) push('plot', [out.plotUnlinked]);

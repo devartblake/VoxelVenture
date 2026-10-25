@@ -73,7 +73,7 @@ export const TABLES = {
   stripe_events: { export: null, excluded: 'the ids of Stripe events already applied: nothing about a person', deletion: 'nothing' },
   disputes: { export: 'disputes (of its own orders: amount, reason, status, dates)', deletion: 'kept for accounting and the payment processor (amounts and Stripe ids; nothing personal)' },
   order_refunds: { export: 'orders[].refunds', deletion: 'kept for accounting and tax, with the orders' },
-  entitlements: { export: 'businesses[].plans', deletion: 'ended with the page; Pro is cancelled in Stripe at once (an account deletion refunds the unused part of the month first; deleting only the page does not)' },
+  entitlements: { export: 'businesses[].plans', deletion: 'ended with the page; Pro is cancelled in Stripe at once (the unused part of the month is refunded first, when the account or the page is deleted)' },
   pilot_members: { export: 'businesses[].pilot', deletion: 'the page leaves the pilot (the staff note is kept)' },
   owner_activity: { export: 'businesses[].activeWeeks', deletion: 'kept (the weeks the page was used: business-level, no person)' },
   pilot_feedback: { export: 'businesses[].pilotFeedback', deletion: 'kept for the pilot\'s results with the written answers wiped' },
@@ -223,8 +223,8 @@ export function summaryOf(x) {
 }
 
 // ---- deleting a business page ------------------------------------------------------------------------------------------------------
-// The owner's (or the account deletion's) part: Pro is cancelled in Stripe first (now, not at the end of the month; deleting a page alone refunds
-// nothing, an account's deletion refunds the unused time first); then, in one transaction, the page's totals are kept on its row and everything else about it goes (below). The row stays,
+// The owner's (or the account deletion's) part: Pro is cancelled in Stripe first (now, not at the end of the month; its unused time was
+// refunded just before, prorata.mjs); then, in one transaction, the page's totals are kept on its row and everything else about it goes (below). The row stays,
 // renamed deleted-<id> and with no content, because orders refer to it.
 async function cancelProNow(db, businessIds, env, fetchImpl) {
   if (!businessIds.length) return [];
@@ -266,15 +266,27 @@ function eraseBusiness(db, b, at = now()) {
   return totals;
 }
 
-export async function deleteBusiness(db, account, slug, { env = process.env, fetchImpl = fetch, actor } = {}) {
+// Deleting a page refunds the unused time of its own orders first (Pro's month, sponsored weeks; prorata.forBusiness), as an account's deletion does,
+// except for a page moderation removed for breaking the rules (status 'removed') or one an admin closes so (`closedForRules`). Its plot is only
+// unlinked (the building stays the owner's), so no lease is refunded.
+export const pageClosedForRules = (b) => b.status === 'removed';
+export const ownBusinessPage = (db, account, slug) => {
   core.requireAccount(account);
   const b = db.prepare("SELECT * FROM businesses WHERE slug = ? AND status IN ('published', 'removed')").get(String(slug)) ?? core.fail(404, 'No such business.', 'no_business');
   if (b.account_id !== account.id) core.fail(403, 'This is not your business.', 'forbidden');
+  return b;
+};
+export async function deleteBusiness(db, account, slug, { env = process.env, fetchImpl = fetch, actor, closedForRules = false } = {}) {
+  const b = ownBusinessPage(db, account, slug);
+  const rules = closedForRules || pageClosedForRules(b);
+  const who = actor ?? { kind: 'account', id: account.id };
+  // outside calls first: the refunds (each recorded as Stripe makes it, never made twice), then Pro's cancellation; a failure deletes nothing
+  const refunds = await prorata.issue(db, prorata.forBusiness(db, b.id, { closedForRules: rules }), { env, fetchImpl, actor: who, why: 'business page deleted', end: false });
   const cancelled = await cancelProNow(db, [b.id], env, fetchImpl);
   return transaction(db, () => {
     const totals = eraseBusiness(db, b);
-    audit(db, actor ?? { kind: 'account', id: account.id }, 'business.delete', { kind: 'business', id: b.slug }, { business: b.id, proCancelled: cancelled.length, totals });
-    return { deleted: true, slug: b.slug, proCancelled: cancelled.length > 0, plotUnlinked: b.plot_id ?? null };
+    audit(db, who, 'business.delete', { kind: 'business', id: b.slug }, { business: b.id, proCancelled: cancelled.length, refundedCents: refunds.totalCents, refundedLines: refunds.refunded.map((r) => r.orderId), ...(rules ? { closedForRules: true } : {}), totals });
+    return { deleted: true, slug: b.slug, proCancelled: cancelled.length > 0, plotUnlinked: b.plot_id ?? null, refunds: { totalCents: refunds.totalCents, lines: refunds.refunded.map((r) => ({ orderId: r.orderId, cents: r.cents, unusedDays: r.unusedDays })), closedForRules: rules } };
   });
 }
 

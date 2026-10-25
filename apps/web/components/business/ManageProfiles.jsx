@@ -282,10 +282,20 @@ function ProfileRow({ row, code, origin, plots, onChange, checkoutOn }) {
 }
 
 // Deleting a business page (DELETE /businesses/:slug, services/api/privacy.mjs): what happens, said first; the page's name typed to confirm.
+// The refund of unused time it makes first (GET /businesses/:slug/prorata: Pro's month, sponsored weeks) is shown before the owner confirms.
+const usd = (cents) => `$${((cents ?? 0) / 100).toFixed(2)}`;
 function DeletePage({ profile, pro, onCancel, onDeleted }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [estimate, setEstimate] = useState(null);
+  useEffect(() => {
+    let live = true;
+    request('GET', `/businesses/${profile.slug}/prorata`).then((x) => live && setEstimate(x)).catch(() => live && setEstimate({ error: true }));
+    return () => {
+      live = false;
+    };
+  }, [profile.slug]);
   const go = async (e) => {
     e.preventDefault();
     setBusy(true);
@@ -303,6 +313,14 @@ function DeletePage({ profile, pro, onCancel, onDeleted }) {
       <p className="font-semibold text-rose-100">Delete the page {profile.name}? It goes at once and cannot be brought back.</p>
       <ul className="mt-2 ml-5 list-disc space-y-1 text-sm text-slate-200">{PAGE_DELETE.map((x) => <li key={x}>{x}</li>)}</ul>
       {pro && <p className="mt-2 text-sm text-amber-200">This page has Pro: it is cancelled now. <a href="/legal/refunds" className="underline">The refund policy</a></p>}
+      <div className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2 text-sm text-slate-200" data-testid="delete-page-refund" role="status">
+        {!estimate ? 'Working out your refund…' : estimate.error ? 'Your refund could not be worked out right now. What is due is still refunded when you delete.' : estimate.totalCents > 0 ? (
+          <>
+            <span className="font-semibold text-emerald-100">You&apos;ll get back about {usd(estimate.totalCents)} for unused time</span>, to the card you paid with:
+            <ul className="ml-5 mt-1 list-disc">{estimate.lines.filter((l) => l.refund).map((l) => <li key={l.orderId}>{l.label}: {usd(l.cents)} ({l.notStarted ? 'not started yet' : `${l.unusedDays} of ${l.termDays} days unused`})</li>)}</ul>
+          </>
+        ) : 'Nothing paid for this page has unused time to refund.'}
+      </div>
       <label className="mt-3 block text-sm text-slate-200">Type the page's name ({profile.name}) to confirm
         <input autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-sm text-white" aria-label="Type the page's name" />
       </label>

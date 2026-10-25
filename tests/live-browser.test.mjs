@@ -211,6 +211,7 @@ try {
   check('privacy: My profiles has Delete page on the profile and the Your data box', await waitFor(mgr, `Boolean(document.querySelector('[data-testid="delete-page"]')) && Boolean(document.querySelector('[data-testid="privacy-controls"]'))`, 30));
   await mgr.eval(`document.querySelector('[data-testid="delete-page"]').click()`);
   check('privacy: the page\'s confirmation says what happens and waits for its name', await waitFor(mgr, `(() => { const f = document.querySelector('[data-testid="delete-page-confirm"]'); return f && /Discover/.test(f.innerText) && /requests and newsletter sign-ups are deleted/.test(f.innerText) && f.querySelector('[data-testid="delete-page-go"]').disabled; })()`, 10));
+  check('privacy: the page\'s confirmation shows its refund estimate (nothing paid here)', await waitFor(mgr, `/Nothing paid for this page has unused time to refund/.test(document.querySelector('[data-testid="delete-page-refund"]')?.innerText ?? '')`, 15));
   await type2(mgr, 'input[aria-label="Type the page\'s name"]', 'Browser Bakery');
   await waitFor(mgr, `!document.querySelector('[data-testid="delete-page-go"]').disabled`, 5);
   await mgr.eval(`document.querySelector('[data-testid="delete-page-go"]').click()`);
