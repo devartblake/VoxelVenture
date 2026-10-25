@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PROP_CATALOG } from '@/lib/content/propCatalog';
+import { planeFit, planeModelEntry, planeRecolor } from '@/lib/content/planeModels';
 import { instanceSpheres, useCulledInstances } from '@/lib/performance/lodRuntime';
 
 // Kenney trees, bushes and cars (CC0) as instanced meshes. Each model is loaded once, merged into one geometry and drawn for every tree / car
@@ -65,10 +66,11 @@ export async function loadProps(ids) {
         const { geometries, materials } = useProps.getState();
         const m = { ...materials };
         if (entry.textured) {
-          if (!m[entry.kit]) {
-            m[entry.kit] = material.clone();
-            m[entry.kit].roughness = 0.6;
-            m[entry.kit].metalness = 0.1;
+          const key = materialKey(entry);
+          if (!m[key]) {
+            m[key] = material.clone();
+            m[key].roughness = 0.6;
+            m[key].metalness = 0.1;
           }
         } else if (!m.vertex) m.vertex = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
         useProps.setState({ geometries: { ...geometries, [id]: geometry }, materials: m });
@@ -82,7 +84,10 @@ export async function loadProps(ids) {
   );
 }
 
-export const propMaterial = (materials, entry) => (entry.textured ? materials[entry.kit] : materials.vertex);
+// A kit's textured models share its colormap.png, so one material; a model with `ownMaterial` (an outside model with a texture of its
+// own, such as a plane) gets one of its own.
+const materialKey = (entry) => (entry.ownMaterial ? entry.id : entry.kit);
+export const propMaterial = (materials, entry) => (entry.textured ? materials[materialKey(entry)] : materials.vertex);
 
 const tmp = new THREE.Object3D();
 const col = new THREE.Color();
@@ -165,4 +170,41 @@ export function PropModel({ id, position = [0, 0, 0], rotation = [0, 0, 0], scal
   const entry = byId.get(id);
   if (!ready || !entry || !geometry) return fallback;
   return <mesh geometry={geometry} material={propMaterial(materials, entry)} position={position} rotation={rotation} scale={scale} castShadow={castShadow} receiveShadow />;
+}
+
+// A plane (lib/content/planeModels.js): the model `row` names, fitted to the row's length with its nose along +Z, its colours recoloured
+// as the row asks ('body', 'trim', 'tail' from `palette`). `fallback` (the primitive plane) is drawn while the model is not in the
+// catalog, has not loaded, failed to load, or with ?models=0. `ground`: wheels on y = 0; otherwise centred (a plane in the air).
+// `unit`: the scale of the group it is drawn in.
+export function PlaneModel({ row, palette, ground = true, unit = 1, fallback = null }) {
+  const entry = useMemo(() => planeModelEntry(row, PROP_CATALOG), [row]);
+  const ids = useMemo(() => (entry ? [entry.id] : []), [entry]);
+  const ready = usePropsReady(ids);
+  const geometry = useProps((s) => (entry ? s.geometries[entry.id] : null));
+  const materials = useProps((s) => s.materials);
+  const recolor = useMemo(() => planeRecolor(row, palette), [row, palette]);
+  const drawn = useMemo(() => recolored(geometry, recolor), [geometry, recolor]);
+  useEffect(() => () => {
+    if (drawn && drawn !== geometry) drawn.dispose();
+  }, [drawn, geometry]);
+  if (!entry || !ready || !drawn) return fallback;
+  const fit = planeFit(entry, row, { ground, unit });
+  return <mesh geometry={drawn} material={propMaterial(materials, entry)} position={fit.position} rotation={fit.rotation} scale={fit.scale} castShadow receiveShadow />;
+}
+
+// A copy of a model with plain colours (baked into vertex colours) where the colours near each `from` are `to`; the model itself when
+// there is nothing to change (or it is textured: no vertex colours).
+const near = 0.03;
+function recolored(geometry, recolor) {
+  const colors = geometry?.attributes.color;
+  if (!geometry || !colors || !recolor.length) return geometry ?? null;
+  const pairs = recolor.map((r) => ({ from: new THREE.Color(r.from), to: new THREE.Color(r.to) }));
+  const out = geometry.clone();
+  const c = out.attributes.color;
+  for (let i = 0; i < c.count; i++) {
+    const hit = pairs.find(({ from }) => Math.abs(c.getX(i) - from.r) < near && Math.abs(c.getY(i) - from.g) < near && Math.abs(c.getZ(i) - from.b) < near);
+    if (hit) c.setXYZ(i, hit.to.r, hit.to.g, hit.to.b);
+  }
+  c.needsUpdate = true;
+  return out;
 }

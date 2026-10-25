@@ -29,6 +29,24 @@ All three kits are **CC0** (no credit required; they are credited anyway: per mo
 
 Tests: `tests/kenney-models.test.mjs` (every model the code names is in the catalog and on disk with its texture, boat sizes and seats, the entrance and pier slab fit the layout, the credits) and the "Kenney models" checks in `tests/browser.test.mjs` (they load and are in the scene).
 
+## Airports
+### The terminal seam (fixed 2026-10-21)
+The terminal is a row of Kenney building "wings" (`terminalWings` in `lib/content/models.js`, drawn by `TerminalModels` in `apps/web/components/city/Airports.jsx`). The owner saw a dotted, flickering seam along Voxel International's facade. Two causes, both z-fighting:
+- **The box terminal stayed drawn round the models.** The airport is baked into merged meshes once, when it mounts (`StaticBatch`); the box terminal (the stand-in while the models load) was inside the batch, so its baked copy outlived it, its walls in the same planes as the models' walls. The terminal is now drawn beside the batch, and the batch is baked again when the parked planes' models arrive.
+- **Wings edge to edge.** Neighbouring wings put their end walls and roof trims in one plane. They now stand `WING_GAP` (0.12) apart, the model shrunk a hair along the row (the same stock model the game chose before), with a slate joint in each gap: a plain box a little inside the wings' sides and top and 0.06 into each wing, so no faces coincide and nothing shows through. It reads as an expansion joint.
+`tests/airport-models.test.mjs` checks the gaps and joints for every terminal of three cities. The hangars (one box and a wider roof slab) had no coinciding faces.
+
+### Plane models
+The planes are primitives until three CC BY 4.0 models are added: "Low Poly Passenger Aircraft" by Crimexix (the parked airliner), "Low-poly Stylized Aircraft" by mithgarden.studio (the banner planes) and "Cargo plane (voxel)" by StarlyRD (the second parked plane at the international airport). The table is `lib/content/planeModels.js` (`PLANE_MODELS`, `PLANE_ROLES`: which airport and role uses which model, its length, an optional span cap, a yaw that points the nose along +Z, an optional recolour). The parked planes (`ParkedPlane` in `Airports.jsx`) and banner planes (`Planes.jsx`) draw the model through `PlaneModel` (`PropModels.jsx`, the prop loader the boats use), fitted and centred; **while a model is not in the prop catalog, has not loaded, failed to load, or with `?models=0`, the primitive plane is drawn.** The banner planes keep their flight animation (the model sits in the same moving group); the spinning propeller is the primitive's only.
+
+To add them:
+1. Download the GLBs into `incoming-models/` (git-ignored).
+2. **Convert** each into `incoming-models/airport/airliner.glb`, `small-plane.glb`, `cargo-plane.glb` (Blender or gltf-transform): one self-contained `.glb`; transforms applied; Y up; **no Draco, Meshopt or KTX2** (the loader has no decoders); under 3,000 triangles; size does not matter (the table fits it). Prefer plain material colours (no texture): they are baked into vertex colours, all parts merge into one mesh, and the table's recolour works. An embedded texture also works (the import marks it `ownMaterial`), but then the whole model must use that one material and recolour does nothing.
+3. **Import**: `node scripts/models/import-props.mjs incoming-models --only airport` copies them to `apps/web/public/models/airport/`, adds `airport/airliner`, `airport/small-plane`, `airport/cargo-plane` to `lib/content/propCatalog.js` (size, centre, floor, triangles) and the CC BY line to `apps/web/public/models/CREDITS.md`. The import needs a World-freeze exception trailer (new files under `apps/web/public/models`).
+4. **Orient and size**: open `/models?kit=airport`; set each row's `yaw` so the nose points along +Z (the preview's arrow), and `recolor` if wanted (`{ from: '#rrggbb', to: 'body' | 'trim' | 'tail' | '#rrggbb' }`).
+5. **Credit** (CC BY needs title, author, source link and licence): an entry in `lib/content/credits.js` (3D models section) and the root `CREDITS.md` (`tests/credits.test.mjs` checks they agree), and a **licence snapshot** in `docs/licences/models/`: each model's source page saved as HTML on the download date, the CC BY 4.0 legal text, and a README with source URLs, the download date, file hashes and what was changed (converted, resized, recoloured), like `docs/licences/music/`.
+6. Run `node tests/run.mjs airport-models kenney-models credits` and the browser tests.
+
 ![The models](../img/models-boats.png)
 ![The pier](../img/k-pier.png)
 ![The park](../img/k-park.png)
