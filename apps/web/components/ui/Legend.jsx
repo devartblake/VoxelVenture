@@ -8,6 +8,7 @@ import { useCityStore } from '@/lib/state/store';
 import { useMap } from '@/lib/state/mapStore';
 import MiniMap, { ZOOMS, useMapZoom } from './MiniMap';
 import { usePanel } from '@/lib/state/panelStore';
+import { useHudExtrasShown } from '@/lib/state/hudStore';
 import { scavengerHunt } from '@/lib/game/daily';
 
 const TAB_KEY = 'voxelventure-map-tab';
@@ -173,20 +174,21 @@ export function MiniMapButton() {
   const view = usePanel((s) => s.view);
   const level = useMapZoom((s) => s.level);
   const zoom = useMapZoom((s) => s.zoom);
+  const shown = useHudExtrasShown();
   useEffect(() => {
     useMapZoom.getState().hydrate();
   }, []);
-  if (view === 'city') return null;
+  if (view === 'city' || !shown) return null;
   return (
-    <aside className="absolute bottom-6 left-6 z-20 rounded-full border border-sx-stroke bg-sx-panel/90 p-1 shadow-2xl backdrop-blur-md max-sm:bottom-auto max-sm:left-2 max-sm:top-14">
+    <aside style={{ marginLeft: 'env(safe-area-inset-left)' }} className="absolute bottom-6 left-6 z-20 rounded-full border border-sx-stroke bg-sx-panel/90 p-1 shadow-2xl backdrop-blur-md max-sm:bottom-auto max-sm:left-2 max-sm:top-14" data-testid="minimap">
       <button onClick={() => useMap.getState().toggle()} className="block rounded-full" title="Open the world map (M)" aria-label="Open the world map">
         <MiniMap size={COMPACT_SIZE} follow />
       </button>
       <div className="absolute -right-3 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-sx-stroke bg-sx-panel/95 text-slate-200 shadow-lg" title={`${ZOOMS[level].label}: how much of the city the map shows`}>
-        <button type="button" onClick={() => zoom(-1)} disabled={level === 0} aria-label="Map closer" className="px-1.5 py-0.5 text-sm leading-none hover:bg-sx-alt disabled:opacity-30">
+        <button type="button" onClick={() => zoom(-1)} disabled={level === 0} aria-label="Map closer" className="px-1.5 py-0.5 text-sm leading-none hover:bg-sx-alt disabled:opacity-30 pointer-coarse:px-3 pointer-coarse:py-2.5">
           +
         </button>
-        <button type="button" onClick={() => zoom(1)} disabled={level === ZOOMS.length - 1} aria-label="Map wider" className="border-t border-sx-stroke px-1.5 py-0.5 text-sm leading-none hover:bg-sx-alt disabled:opacity-30">
+        <button type="button" onClick={() => zoom(1)} disabled={level === ZOOMS.length - 1} aria-label="Map wider" className="border-t border-sx-stroke px-1.5 py-0.5 text-sm leading-none hover:bg-sx-alt disabled:opacity-30 pointer-coarse:px-3 pointer-coarse:py-2.5">
           −
         </button>
       </div>

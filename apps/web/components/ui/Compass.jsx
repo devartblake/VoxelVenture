@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Crosshair, RotateCcw, RotateCw } from 'lucide-react';
 import { avatarState } from '@/lib/sim/avatarState';
 import { ISO_AZIMUTH, PRESETS, useView } from '@/lib/state/viewStore';
+import { useHudExtrasShown } from '@/lib/state/hudStore';
 
 // The compass, top right: it shows which way the camera is facing and turns the camera. The rose turns as the camera does, so the red N always points
 // to the real north of the city. Click a letter to face that way (the camera swings round to it), the arrows turn a quarter at a time, and clicking the
@@ -56,8 +57,10 @@ export default function Compass() {
     return () => cancelAnimationFrame(raf);
   }, []);
   const behindMe = () => turnTo(avatarState.yaw + Math.PI); // the camera swings to stand behind the avatar
+  const shown = useHudExtrasShown(); // the compact HUD keeps it behind More (lib/state/hudStore.js)
+  if (!shown) return null;
   return (
-    <div className="pointer-events-none fixed right-[84px] top-[88px] z-30 flex flex-col items-center gap-1" data-testid="compass">
+    <div style={{ marginRight: 'env(safe-area-inset-right)' }} className="pointer-events-none fixed right-[84px] top-[88px] z-30 flex flex-col items-center gap-1 pointer-coarse:right-[92px]" data-testid="compass">
       <div className="pointer-events-auto relative h-[68px] w-[68px] rounded-full border border-sx-stroke bg-sx-panel/90 shadow-lg backdrop-blur" role="group" aria-label={`Compass: facing ${name.long}`}>
         <div className="absolute inset-0 transition-transform duration-75" style={{ transform: `rotate(${(azimuth * 180) / Math.PI}deg)` }} data-testid="compass-rose">
           {Object.entries({ N: [50, 12], E: [88, 50], S: [50, 88], W: [12, 50] }).map(([letter, [x, y]]) => (
