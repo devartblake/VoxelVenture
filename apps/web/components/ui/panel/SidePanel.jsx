@@ -40,6 +40,8 @@ export default function SidePanel() {
   const [small, setSmall] = useState(false);
   const panel = useRef(null);
   const drag = useRef(null);
+  const heading = useRef(null);
+  const opener = useRef(null); // what had focus before a card opened: it gets it back when the card closes
 
   useEffect(() => {
     hydrate();
@@ -60,6 +62,20 @@ export default function SidePanel() {
     else if (SELECTION_VIEWS.includes(current)) back();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey]);
+
+  // a building, park or billboard card takes the focus to its heading (so a screen reader starts there, and Tab moves through the card),
+  // and gives it back to what had it when the card closes
+  const selectionOpen = SELECTION_VIEWS.includes(view);
+  useEffect(() => {
+    if (!selectionOpen) {
+      const back = opener.current;
+      opener.current = null;
+      if (back && back.isConnected && document.activeElement === document.body) back.focus?.({ preventScroll: true });
+      return;
+    }
+    if (!opener.current && document.activeElement !== document.body) opener.current = document.activeElement;
+    heading.current?.focus({ preventScroll: true });
+  }, [selectionOpen, selectionKey]);
 
   // the avatar stops reacting to the keyboard while the wardrobe is open
   useEffect(() => {
@@ -112,6 +128,8 @@ export default function SidePanel() {
     <aside
       ref={panel}
       data-testid="side-panel"
+      role={small ? 'dialog' : 'complementary'}
+      aria-labelledby="side-panel-title"
       style={style}
       className="absolute z-30 flex flex-col overflow-hidden rounded-2xl border border-sx-stroke bg-gradient-to-b from-[#15104a]/95 via-sx-page/95 to-[#02040d]/97 text-slate-100 shadow-2xl shadow-black/60 backdrop-blur-md max-sm:inset-x-2 max-sm:bottom-2 max-sm:max-h-[62dvh]"
     >
@@ -134,7 +152,7 @@ export default function SidePanel() {
         ) : (
           <span className="w-2" />
         )}
-        <h2 className="flex flex-1 items-center gap-2 truncate text-xs font-bold uppercase tracking-[0.18em] text-slate-100"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sx-cyan shadow-[0_0_8px_#22d3ee]" />{VIEWS[view]}</h2>
+        <h2 id="side-panel-title" ref={heading} tabIndex={-1} className="flex flex-1 items-center gap-2 truncate outline-none text-xs font-bold uppercase tracking-[0.18em] text-slate-100"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sx-cyan shadow-[0_0_8px_#22d3ee]" />{VIEWS[view]}</h2>
         {!small && (
           <button onClick={toggleExpanded} className="rounded-md p-1.5 text-slate-300 hover:bg-sx-alt hover:text-white" aria-label={expanded ? 'Shrink the panel' : 'Expand the panel'} title={expanded ? 'Shrink' : 'Expand'}>
             {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}

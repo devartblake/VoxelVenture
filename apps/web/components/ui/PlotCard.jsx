@@ -724,24 +724,37 @@ export default function PlotCard() {
 
   return (
     <div className="space-y-3 text-slate-100">
-      {isClaimed && !isSuburb && <StepInside plot={p} people={people} visits={hqOffline ? null : info.visits} onClick={() => openInterior(p)} />}
-
       {/* who it is */}
       <div className="flex items-start gap-3">
         <LogoBadge plot={p} />
         <div className="min-w-0">
-          <h2 className="text-xl font-extrabold leading-tight text-white">{p.title}</h2>
+          <h3 className="text-xl font-extrabold leading-tight text-white">{p.title}</h3>
           <p className="mt-1 text-xs leading-snug text-slate-400">{describeBusiness(p)}</p>
         </div>
       </div>
+
+      {/* what a visitor does: the business's own site first, then step inside, then its page (VV-UX-07) */}
+      {p.website && isClaimed && (
+        <a href={p.website} target="_blank" rel="noreferrer" onClick={(e) => openSiteLink(e, p)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-cyan/50 bg-sx-cyan/10 py-2.5 text-sm font-bold text-sx-cyan transition hover:bg-sx-cyan/20">
+          <Globe className="h-4 w-4" /> Visit website
+        </a>
+      )}
+      {isClaimed && !isSuburb && <StepInside plot={p} people={people} visits={hqOffline ? null : info.visits} onClick={() => openInterior(p)} />}
+      {p.brand && (p.brand.coupon || p.brand.quest || p.brand.video || p.brand.game) && (
+        <p className="rounded-lg border border-violet-900 bg-violet-950/40 px-2.5 py-1.5 text-[11px] text-violet-300">
+          Offers inside: {[p.brand.coupon && 'coupon', p.brand.quest && `${p.brand.quest.gold} Gold visit reward`, p.brand.video && 'video', p.brand.game && 'game demo'].filter(Boolean).join(' · ')}
+        </p>
+      )}
+      {businessPage && (
+        <a href={businessPage} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-stroke bg-sx-alt/60 py-2 text-xs font-semibold text-slate-100 hover:border-sx-line" data-testid="business-page-link">
+          <FileText className="h-3.5 w-3.5 text-sx-cyan" /> Business page
+        </a>
+      )}
 
       <StatGrid height={floors} visits={hqOffline ? null : info.visits} price={price} priceLabel={isClaimed ? (canTakeOver ? 'Take over for' : 'Value') : 'Buy from'} owners={isClaimed ? info.owners : 0} />
 
       {p.admin && <HqLive company={p.owner} />}
       {apiOn() && isClaimed && p.ownerAccount && !p.userClaimed && <MessageOwner plot={p} />}
-      {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
-      {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && typeof p.id === 'number' && <WatchButton plot={p} />}
-      {apiOn() && p.userClaimed && account && typeof p.id === 'number' && <WatchCount plot={p} />}
       {isClaimed && !isSuburb && !p.admin && !p.userClaimed && <VoteBox plot={p} />}
 
       <div className="flex flex-wrap gap-1.5">
@@ -756,16 +769,6 @@ export default function PlotCard() {
         {p.id === potdId && <Chip tone="border-amber-500/50 text-amber-300" dot="bg-amber-400">Plot of the Day{potdPaid ? '' : ` +${POTD_VISIT_GOLD}`}</Chip>}
       </div>
 
-      {p.website && isClaimed && (
-        <a href={p.website} target="_blank" rel="noreferrer" onClick={(e) => openSiteLink(e, p)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-cyan/50 bg-sx-cyan/10 py-2.5 text-sm font-bold text-sx-cyan transition hover:bg-sx-cyan/20">
-          <Globe className="h-4 w-4" /> Visit website
-        </a>
-      )}
-      {businessPage && (
-        <a href={businessPage} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sx-stroke bg-sx-alt/60 py-2 text-xs font-semibold text-slate-100 hover:border-sx-line" data-testid="business-page-link">
-          <FileText className="h-3.5 w-3.5 text-sx-cyan" /> Business page
-        </a>
-      )}
       <div className="grid grid-cols-2 gap-2">
         <button onClick={focusHere} className="flex items-center justify-center gap-1.5 rounded-full border border-sx-stroke bg-sx-alt/60 py-1.5 text-xs text-slate-200 hover:border-sx-line hover:bg-sx-alt">
           <Eye className="h-3.5 w-3.5" /> Show on the map
@@ -821,12 +824,14 @@ export default function PlotCard() {
           Moved here after being bought out of {p.retiredFrom.title} for ${p.retiredFrom.paidOut.toLocaleString()}.
         </p>
       )}
-      {p.brand && (p.brand.coupon || p.brand.quest || p.brand.video || p.brand.game) && (
-        <p className="rounded-lg border border-violet-900 bg-violet-950/40 px-2.5 py-1.5 text-[11px] text-violet-300">
-          Offers inside: {[p.brand.coupon && 'coupon', p.brand.quest && `${p.brand.quest.gold} Gold visit reward`, p.brand.video && 'video', p.brand.game && 'game demo'].filter(Boolean).join(' · ')}
-        </p>
-      )}
 
+      {/* an owner's or a would-be owner's business, kept apart from what a visitor does (VV-UX-07) */}
+      {isClaimed && !isSuburb && !p.admin && (apiOn() || p.userClaimed || canTakeOver) && (
+        <h3 className="pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400" data-testid="owner-actions">{p.userClaimed ? 'Your building' : 'Lease, watch or buy'}</h3>
+      )}
+      {apiOn() && isClaimed && !isSuburb && !p.admin && <LeaseBox plot={p} />}
+      {apiOn() && isClaimed && !isSuburb && !p.admin && !p.userClaimed && typeof p.id === 'number' && <WatchButton plot={p} />}
+      {apiOn() && p.userClaimed && account && typeof p.id === 'number' && <WatchCount plot={p} />}
       {/* buy it, take it over, or run it */}
       {isSuburb && !isClaimed ? (
         <p className="text-xs text-slate-400">A house lot in Old Town, kept for owners who get bought out of their business.</p>
@@ -899,13 +904,19 @@ export default function PlotCard() {
         </Fold>
       )}
 
-      {isClaimed && !isSuburb && !hqOffline && <SiteVisits stats={info.stats} own={p.userClaimed} />}
-      {isClaimed && !isSuburb && apiOn() && !info.stats && typeof p.id === 'number' && (
-        <p className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3 text-[11px] text-slate-400" role="status">
-          {figuresState(p.id, liveFigures) === 'error' ? 'Visitor figures could not be loaded from the server. Try again in a moment.' : 'Loading verified visitor figures…'}
-        </p>
+      {isClaimed && !isSuburb && (
+        <Fold title="Visitors and history" hint="30 days · past owners" defaultOpen={Boolean(p.userClaimed)}>
+          <div className="space-y-3" data-testid="figures-fold">
+          {isClaimed && !isSuburb && !hqOffline && <SiteVisits stats={info.stats} own={p.userClaimed} />}
+          {isClaimed && !isSuburb && apiOn() && !info.stats && typeof p.id === 'number' && (
+            <p className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3 text-[11px] text-slate-400" role="status">
+              {figuresState(p.id, liveFigures) === 'error' ? 'Visitor figures could not be loaded from the server. Try again in a moment.' : 'Loading verified visitor figures…'}
+            </p>
+          )}
+          {isClaimed && !isSuburb && !hqOffline && <BuildingHistory events={history} clicks={p.userClaimed ? (info.stats?.clicks ?? 0) : null} days={daysOpen} />}
+          </div>
+        </Fold>
       )}
-      {isClaimed && !isSuburb && !hqOffline && <BuildingHistory events={history} clicks={p.userClaimed ? (info.stats?.clicks ?? 0) : null} days={daysOpen} />}
     </div>
   );
 }
