@@ -1,5 +1,9 @@
 # Changelog: @voxelventure/business-core
 
+## 0.6.0 (2026-10-25)
+
+- `PRO_FIELDS` adds `surfaces`: the owner's breakdown by screen is Pro, like sources, campaigns and the daily chart.
+
 ## 0.5.0 (2026-10-19)
 
 Promo codes (`src/promo.js`, [billing.md](../../docs/monetization/billing.md#promo-codes)), shared by the server and the pages:

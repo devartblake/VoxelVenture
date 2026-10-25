@@ -9,7 +9,8 @@ const SEND_EVERY_MS = 4000;
 
 // Counts the impressions of the business cards in the list it sits in: a card (li[data-slug]) at least half on screen for a second.
 // Sent in small batches; the server keeps one per visitor and profile an hour (services/api/conversions.mjs). Renders an empty marker.
-export default function ImpressionTracker() {
+// `surface` is the screen the list is on (services/api/business.mjs SURFACES); `watch` changes when the list's cards do (a new search).
+export default function ImpressionTracker({ surface = null, watch = null }) {
   const marker = useRef(null);
   useEffect(() => {
     const list = marker.current?.parentElement;
@@ -21,7 +22,7 @@ export default function ImpressionTracker() {
       if (!pending.size) return;
       const slugs = [...pending];
       pending.clear();
-      request('POST', '/businesses/impressions', { slugs, visitor: visitorId() }).catch(() => {});
+      request('POST', '/businesses/impressions', { slugs, visitor: visitorId(), ...(surface ? { surface } : {}) }).catch(() => {});
     };
     const observer = new IntersectionObserver((entries) => {
       for (const e of entries) {
@@ -46,6 +47,6 @@ export default function ImpressionTracker() {
       document.removeEventListener('visibilitychange', away);
       flush();
     };
-  }, []);
+  }, [surface, watch]);
   return <span ref={marker} hidden />;
 }

@@ -162,6 +162,26 @@ try {
   api.db.prepare("INSERT INTO orders (account_id, business_id, product, cents, status, created_at, paid_at) VALUES (?, (SELECT id FROM businesses WHERE slug = 'carl-coaching'), 'pro', 1900, 'paid', ?, ?)").run(carl.account.id, Date.now(), Date.now());
   const ren = await call('GET', '/admin/metrics/renewals', { token: ADMIN });
   check('the renewal rate counts paid Pro plans that renewed', ren.data.pro.plans === 2 && ren.data.pro.renewed === 1 && ren.data.pro.rate === 0.5 && (await call('GET', '/admin/metrics/renewals', { token: bob.token })).status === 403);
+
+  // ---- the screen an event happened on, and the funnel in the roadmap's names (VV-UX-01)
+  const { profileStats } = await import('../services/api/business.mjs');
+  await call('POST', '/businesses/impressions', { body: { slugs: ['carl-coaching'], visitor: 'game-player-1', surface: 'directory' } });
+  await call('POST', '/businesses/impressions', { body: { slugs: ['carl-coaching'], visitor: 'site-visitor-1', surface: 'nowhere' } });
+  const seen = api.db.prepare("SELECT source, surface FROM business_events WHERE kind = 'impression' AND visitor IN ('xgame-player-1', 'xsite-visitor-1') ORDER BY visitor").all();
+  check('an impression in the in-game directory is from the city, on the directory; an unknown screen is dropped', JSON.stringify(seen) === JSON.stringify([{ source: 'city', surface: 'directory' }, { source: 'direct', surface: null }]), JSON.stringify(seen));
+  await ev('carl-coaching', { kind: 'view', visitor: 'game-player-1', surface: 'profile' });
+  await ev('carl-coaching', { kind: 'cta', visitor: 'game-player-1', surface: 'profile' });
+  check('a press keeps its screen', api.db.prepare("SELECT surface FROM business_events WHERE kind = 'cta' AND visitor = 'xgame-player-1'").get()?.surface === 'profile');
+  const carlId = api.db.prepare("SELECT id FROM businesses WHERE slug = 'carl-coaching'").get().id;
+  const full = profileStats(api.db, carlId);
+  const f = full.funnel;
+  check('the funnel uses the roadmap names, version 1, from the verified figures', f.version === 1 && f.business_impression === full.impressions && f.profile_open === full.views && f.business_cta_click === full.ctaClicks, JSON.stringify(f));
+  check('a qualified action is a confirmed result, never a press of the button', f.business_cta_click >= 1 && f.qualified_action === full.newsletterSignups + full.meetingRequests + full.quoteRequests + full.couponClaims + full.purchases, JSON.stringify({ f, m: full.meetingRequests }));
+  const dir = full.surfaces.find((x) => x.id === 'directory');
+  check('the figures by screen count the directory impression and the profile press', dir.impressions === 1 && full.surfaces.find((x) => x.id === 'profile').ctaClicks === 1, JSON.stringify(full.surfaces.filter((x) => x.impressions + x.views + x.ctaClicks)));
+  const { figuresFor } = await import('@voxelventure/business-core');
+  const free = figuresFor(full, { pro: false });
+  check('the free plan sees the funnel but not the breakdown by screen', free.funnel?.version === 1 && !('surfaces' in free) && 'surfaces' in figuresFor(full, { pro: true }));
 } catch (e) {
   fails++;
   console.log('FAIL', e.stack);

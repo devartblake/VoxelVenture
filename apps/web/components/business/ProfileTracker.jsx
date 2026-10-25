@@ -24,7 +24,7 @@ export default function ProfileTracker({ slug }) {
     let qualified = false;
     let visibleFor = 0; // ms the page has been visible, over every visible stretch
     let since = 0;
-    const post = (body) => request('POST', `/businesses/${encodeURIComponent(slug)}/events`, { visitor: visitorId(), campaign: campaignParam(), ...body }).catch(() => {});
+    const post = (body) => request('POST', `/businesses/${encodeURIComponent(slug)}/events`, { visitor: visitorId(), campaign: campaignParam(), surface: 'profile', ...body }).catch(() => {});
     const send = () => {
       if (sent || document.visibilityState !== 'visible') return;
       sent = true;
@@ -61,5 +61,5 @@ export default function ProfileTracker({ slug }) {
 // A press of the call to action (the server only counts it after a view by the same visitor), with the click id added to its link.
 export function trackCta(slug, clickId) {
   if (!apiOn()) return;
-  request('POST', `/businesses/${encodeURIComponent(slug)}/events`, { kind: 'cta', visitor: visitorId(), ref: captureRef(), campaign: campaignParam(), ...(clickId ? { clickId } : {}) }).catch(() => {});
+  request('POST', `/businesses/${encodeURIComponent(slug)}/events`, { kind: 'cta', visitor: visitorId(), ref: captureRef(), campaign: campaignParam(), surface: 'profile', ...(clickId ? { clickId } : {}) }).catch(() => {});
 }

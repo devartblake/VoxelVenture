@@ -34,8 +34,8 @@ export default async function DistrictPage({ params }) {
         {district.name}
       </h1>
       <p className="mb-6 mt-1 text-slate-300">{total} business{total === 1 ? '' : 'es'} · <Link href="/" className="underline hover:text-white">walk the district in 3D</Link></p>
-      <FeaturedList title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
-      <BusinessList profiles={profiles} empty={`No businesses in ${district.name} yet.`} />
+      <FeaturedList surface="district" title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
+      <BusinessList surface="district" profiles={profiles} empty={`No businesses in ${district.name} yet.`} />
     </>
   );
 }

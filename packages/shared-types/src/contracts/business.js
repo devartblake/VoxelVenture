@@ -1,6 +1,6 @@
 // Contracts of the business pages and the owner's dashboard (services/api/business.mjs, services/api/conversions.mjs; docs/monetization/conversions.md).
 // Each is { id, version, schema }; see docs/architecture/adr/0001-shared-package-boundaries.md for how versions change.
-import { OUTCOME_FAMILIES, PROFILE_EVENT_KINDS, TRAFFIC_SOURCES } from '../enums.js';
+import { EVENT_SURFACES, FUNNEL_EVENTS, OUTCOME_FAMILIES, PROFILE_EVENT_KINDS, TRAFFIC_SOURCES } from '../enums.js';
 
 const CLICK_ID = '^[A-Za-z0-9]{10,32}$';
 const CAMPAIGN = '^[a-z0-9_-]{1,40}$';
@@ -10,7 +10,7 @@ const centsOrNull = { type: ['integer', 'null'], minimum: 0 };
 // POST /businesses/<slug>/events: what a page reports about a visitor (the server verifies it; anything else in the body is ignored).
 export const PROFILE_EVENT = {
   id: 'business.profile-event',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     required: ['kind', 'visitor'],
@@ -21,6 +21,7 @@ export const PROFILE_EVENT = {
       campaign: { type: 'string', pattern: CAMPAIGN },
       clickId: { type: 'string', pattern: CLICK_ID },
       ref: { type: 'string' },
+      surface: { type: 'string', enum: EVENT_SURFACES }, // v2: the screen it happened on (unknown values are dropped by the server)
     },
   },
 };
@@ -55,7 +56,7 @@ export const PURCHASE_REPORT_RESULT = {
 // The owner's figures for one profile (GET /me/businesses -> profiles[].stats), the parts other code relies on.
 export const OWNER_FIGURES = {
   id: 'business.owner-figures',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     required: ['verified', 'impressions', 'views', 'qualified', 'storeEntries', 'ctaClicks', 'outcomes', 'revenue', 'spendCents', 'returnOnSpend'],
@@ -82,6 +83,14 @@ export const OWNER_FIGURES = {
       // Pro only (absent on the free plan)
       sources: { type: 'array', items: { type: 'object', required: ['id', 'views', 'ctaClicks', 'leads', 'purchases'], properties: { id: { type: 'string', enum: TRAFFIC_SOURCES } } } },
       campaigns: { type: 'array', items: { type: 'object', required: ['id', 'views', 'ctaClicks', 'leads', 'purchases'] } },
+      // v2: the screens events happened on, and the funnel in the roadmap's names (business.funnel v1)
+      surfaces: { type: 'array', items: { type: 'object', required: ['id', 'impressions', 'views', 'storeEntries', 'ctaClicks'], properties: { id: { type: 'string', enum: EVENT_SURFACES } } } },
+      funnel: {
+        type: 'object',
+        required: ['version', ...FUNNEL_EVENTS],
+        additionalProperties: false,
+        properties: { version: { type: 'integer', minimum: 1, maximum: 1 }, ...Object.fromEntries(FUNNEL_EVENTS.map((k) => [k, cents])) },
+      },
     },
   },
 };

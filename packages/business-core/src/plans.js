@@ -84,7 +84,7 @@ export function planOf(entitlements, at = Date.now()) {
 }
 
 // The figures a free profile sees, and the ones Pro adds (the server leaves the Pro ones out unless the plan includes them).
-export const PRO_FIELDS = ['sources', 'campaigns', 'days'];
+export const PRO_FIELDS = ['sources', 'campaigns', 'days', 'surfaces'];
 export function figuresFor(stats, plan) {
   if (!stats || plan?.pro) return stats;
   const out = { ...stats, pro: false };

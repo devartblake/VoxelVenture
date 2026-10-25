@@ -108,7 +108,7 @@ export default function InteriorModal() {
               href={shownPlot.website}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => openSiteLink(e, shownPlot)}
+              onClick={(e) => openSiteLink(e, shownPlot, 'storefront')}
               className="absolute bottom-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sx-panel/90 hover:bg-sx-alt text-xs font-medium text-white transition border border-sx-stroke"
             >
               Visit Official Website <ExternalLink className="w-3.5 h-3.5" />

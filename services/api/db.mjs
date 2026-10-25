@@ -42,6 +42,7 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'business_events', 'click_id', 'TEXT'); // a press of the call to action: the id added to its link (docs/monetization/conversions.md)
   addColumn(db, 'business_events', 'value_cents', 'INTEGER'); // a purchase: its value
   addColumn(db, 'business_events', 'order_ref', 'TEXT'); // a purchase: the business's own order number (a purchase is counted once)
+  addColumn(db, 'business_events', 'surface', 'TEXT'); // the screen it happened on (business.mjs SURFACES), or NULL when not told
   db.exec('CREATE INDEX IF NOT EXISTS business_events_click ON business_events(business_id, click_id)');
   addColumn(db, 'coupon_claims', 'ticket', 'TEXT'); // one per claim, so the owner can mark exactly that claim redeemed
   addColumn(db, 'coupon_claims', 'redeemed_at', 'INTEGER');

@@ -31,8 +31,8 @@ export default async function CategoryPage({ params }) {
       <nav aria-label="Breadcrumb" className="mb-3 text-sm text-sx-muted"><Link href="/discover" className="hover:text-white">Discover</Link> / Category</nav>
       <h1 className="text-3xl font-bold text-white">{category.label}</h1>
       <p className="mb-6 mt-1 text-slate-300">{total} business{total === 1 ? '' : 'es'}</p>
-      <FeaturedList title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
-      <BusinessList profiles={profiles} empty={`No ${category.label.toLowerCase()} listed yet.`} />
+      <FeaturedList surface="category" title="Sponsored" profiles={featured.sponsored} badge="Sponsored" />
+      <BusinessList surface="category" profiles={profiles} empty={`No ${category.label.toLowerCase()} listed yet.`} />
       <ul className="mt-8 flex flex-wrap gap-2 text-sm" aria-label="Other categories">
         {CATEGORIES.filter((c) => c.id !== category.id).map((c) => (
           <li key={c.id}><Link href={`/category/${c.id}`} className="inline-block rounded-full border border-sx-stroke px-3 py-1.5 text-slate-300 hover:text-white">{c.label}</Link></li>
