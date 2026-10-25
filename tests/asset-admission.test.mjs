@@ -118,27 +118,31 @@ if (shipped.length < 200) bad('the shipped code and manifests are read', String(
 for (const f of shipped) if (SUPABASE.test(fs.readFileSync(path.join(root, f), 'utf8'))) bad('no shipped file names Pascal\'s storage (catalogue items are served by us)', f);
 // the curated catalogue the pages use: no item without local files, no floor-plan address, nothing remote
 const { readCatalog } = await import('../scripts/props/catalog.mjs');
-const { curateCatalog, currentAssetId, RETIRED_ASSETS, CATALOG_RENAMES } = await imp('content/catalogCuration.js');
+const { curateCatalog, currentAssetId, RETIRED_ASSETS, CATALOG_REPLACEMENTS, KIT_PROPS } = await imp('content/catalogCuration.js');
 const { PROP_KEYS } = await imp('content/interiorPropKeys.js');
+const served = (id) => Object.hasOwn(PROP_KEYS, id) || Object.hasOwn(KIT_PROPS, id); // a prop folder, or a city model (KIT_PROPS)
 const raw = readCatalog(undefined, { raw: true });
-const curated = curateCatalog(raw.map((i) => ({ ...i })), { keep: (id) => Object.hasOwn(PROP_KEYS, id) });
+const curated = curateCatalog(raw.map((i) => ({ ...i })), { keep: served });
 for (const item of curated) {
-  if (!Object.hasOwn(PROP_KEYS, item.id)) bad('every curated catalogue item has local files', item.id);
+  if (!served(item.id)) bad('every curated catalogue item has local files', item.id);
   if ('floorPlanUrl' in item) bad('no curated item keeps a floor-plan address on Pascal\'s storage', item.id);
 }
 for (const id of Object.keys(RETIRED_ASSETS)) if (curated.some((i) => i.id === id)) bad('a retired id is not offered', id);
-for (const item of raw.filter((i) => SUPABASE.test(i.src ?? '') && !Object.hasOwn(PROP_KEYS, i.id) && !CATALOG_RENAMES[i.id])) if (!RETIRED_ASSETS[item.id]) bad('every catalogue item without local files is retired', item.id);
+for (const item of raw.filter((i) => SUPABASE.test(i.src ?? '') && !served(i.id) && !CATALOG_REPLACEMENTS[i.id])) if (!RETIRED_ASSETS[item.id]) bad('every catalogue item without local files is retired', item.id);
 // the 11 remote items and the renamed car: each old id resolves to a local prop, or to nothing (removed)
-const expectRetired = { 'dining-table-mo9ms5yh': 'dining-table', cabinet: 'kitchen-cabinet', 'my-leather-couch-modp80ha': 'sofa', 'ikea-kallax-1x4-moa2y49n': 'bookshelf', 'herman-miller-aeron-mo8x36k9': 'office-chair', 'standing-desk-mo8wgz95': 'office-table', 'wooden-kitchen-bar-moa2hhh4': 'kitchen-counter', 'power-outlet-moa09g0o': null, '1967-chevrolet-camaro-moa24wsf': null, 'dishwasher-movn72ls': null, 'fireplace-movn1fnn': null, tesla: 'electric-car' };
+const expectRetired = { 'dining-table-mo9ms5yh': 'dining-table', cabinet: 'kitchen-cabinet', 'my-leather-couch-modp80ha': 'sofa', 'ikea-kallax-1x4-moa2y49n': 'bookshelf', 'herman-miller-aeron-mo8x36k9': 'office-chair', 'standing-desk-mo8wgz95': 'office-table', 'wooden-kitchen-bar-moa2hhh4': 'kitchen-counter', 'power-outlet-moa09g0o': null, '1967-chevrolet-camaro-moa24wsf': null, 'dishwasher-movn72ls': null, 'fireplace-movn1fnn': null, tesla: 'car', 'electric-car': 'car' };
 for (const [oldId, want] of Object.entries(expectRetired)) {
   const now = currentAssetId(oldId);
-  if (now !== want || (now && !Object.hasOwn(PROP_KEYS, now))) bad('a retired id resolves to its local replacement (or to nothing)', `${oldId}: ${now}`);
+  if (now !== want || (now && !served(now))) bad('a retired id resolves to its local replacement (or to nothing)', `${oldId}: ${now}`);
 }
+// the car is the Kenney Car Kit's SUV (no Pascal car model is used), on the floor and car-sized
+const car = curated.find((i) => i.id === 'car');
+if (!car || car.src !== '/models/kenney/cars/suv.glb' || KIT_PROPS.car.model !== car.src || car.dimensions[2] < 3.5 || car.dimensions[2] > 5 || fs.existsSync(path.join(root, 'apps/web/public/items/electric-car'))) bad('the car is the Kenney SUV, car-sized, and the old car model is gone', JSON.stringify(car));
 if (currentAssetId('sofa') !== 'sofa' || currentAssetId('no-such-thing') !== 'no-such-thing') bad('a current id resolves to itself', '');
 if (reg.REMOTE_CATALOG_ITEMS.ids.length) bad('no catalogue item is remote any more', reg.REMOTE_CATALOG_ITEMS.ids.join());
 // brand words: never in an id, a label or a file name we control (the curated catalogue, the props manifest, the API's ids, the files
 // we ship, the in-game credits and the Kenney prop catalogue). The mapping tables that retire the old ids are the only place they appear.
-const BRANDS = /ikea|kallax|herman.?miller|aeron|chevrolet|\bchevy\b|camaro|tesla|\bmodel.?y\b|eames|vitra|steelcase|\blego\b|\bnike\b|adidas|coca.?cola|pepsi|starbucks|mcdonald|\bapple\b|iphone|samsung|\bsony\b|playstation|nintendo|\bxbox\b|\bdyson\b|\bsmeg\b|kitchenaid|nespresso|\bbmw\b|mercedes|\baudi\b|porsche|ferrari|lamborghini|\bford\b|toyota|\bhonda\b|volkswagen|\bvespa\b|harley.?davidson|peloton|\bfender\b|\bgibson\b|yamaha|steinway/i;
+const BRANDS = /ikea|kallax|herman.?miller|aeron|chevrolet|\bchevy\b|camaro|tesla|\bmodel[ _-]?[3xy]\b|\bmodel[ _-]s\b|cybertruck|eames|vitra|steelcase|\blego\b|\bnike\b|adidas|coca.?cola|pepsi|starbucks|mcdonald|\bapple\b|iphone|samsung|\bsony\b|playstation|nintendo|\bxbox\b|\bdyson\b|\bsmeg\b|kitchenaid|nespresso|\bbmw\b|mercedes|\baudi\b|porsche|ferrari|lamborghini|\bford\b|toyota|\bhonda\b|volkswagen|\bvespa\b|harley.?davidson|peloton|\bfender\b|\bgibson\b|yamaha|steinway/i;
 const { CATALOG_ITEM_IDS } = await imp('content/interiorAssetIds.js');
 const { PROP_CATALOG } = await imp('content/propCatalog.js');
 const propsManifest = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/props/manifest.json'), 'utf8'));
@@ -152,7 +156,7 @@ const named = [
 ];
 if (named.length < 500) bad('the ids, labels and file names are read', String(named.length));
 for (const n of named) if (BRANDS.test(n)) bad('no brand name in an id, label or file name we control', n);
-if (!BRANDS.test('Ikea Kallax 2x4') || !BRANDS.test('herman-miller-aeron') || !BRANDS.test('1967 Chevrolet Camaro') || !BRANDS.test('Tesla Model Y') || BRANDS.test('office-chair')) bad('the brand list catches the old names', '');
+if (!BRANDS.test('Ikea Kallax 2x4') || !BRANDS.test('herman-miller-aeron') || !BRANDS.test('1967 Chevrolet Camaro') || !BRANDS.test('Tesla Model Y') || !BRANDS.test('model 3') || !BRANDS.test('Model-S') || BRANDS.test('office-chair')) bad('the brand list catches the old names', '');
 
 // ---- npm dependencies
 const deps = (license, extra = {}) => checkDependencies({ packages: { '': {}, 'node_modules/pkg': { license, ...extra } } }).problems;

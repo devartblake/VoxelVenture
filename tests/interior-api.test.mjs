@@ -74,6 +74,7 @@ check('an id the catalogue does not have is left out when loading, and its paren
   add('old_bar', 'wooden-kitchen-bar-moa2hhh4');
   add('old_cabinet', 'cabinet');
   add('old_tesla', 'tesla');
+  add('old_ecar', 'electric-car');
   add('old_camaro', '1967-chevrolet-camaro-moa24wsf');
   add('old_outlet', 'power-outlet-moa09g0o');
   add('on_camaro', 'books', 'old_camaro'); // something resting on a removed item goes with it
@@ -84,7 +85,7 @@ check('an id the catalogue does not have is left out when loading, and its paren
     check('an old design that names retired ids is accepted', false, e.message);
   }
   if (design) {
-    const want = { old_aeron: 'office-chair', old_kallax: 'bookshelf', old_desk: 'office-table', old_bar: 'kitchen-counter', old_cabinet: 'kitchen-cabinet', old_tesla: 'electric-car' };
+    const want = { old_aeron: 'office-chair', old_kallax: 'bookshelf', old_desk: 'office-table', old_bar: 'kitchen-counter', old_cabinet: 'kitchen-cabinet', old_tesla: 'car', old_ecar: 'car' };
     check('an old design is stored with each retired id replaced by its local stand-in', Object.entries(want).every(([k, id]) => design.nodes[k]?.asset.id === id), JSON.stringify(Object.fromEntries(Object.keys(want).map((k) => [k, design.nodes[k]?.asset.id]))));
     check('a removed id is left out, with what rests on it, and its parent forgets them', !design.nodes.old_camaro && !design.nodes.old_outlet && !design.nodes.on_camaro && !design.nodes[level.id].children.some((c) => ['old_camaro', 'old_outlet'].includes(c)));
     check('the stored design fits the contract', types.check(types.INTERIOR_DESIGN, design).ok);
@@ -94,7 +95,9 @@ check('an id the catalogue does not have is left out when loading, and its paren
   // the client copes with an old stored design too (one saved before the API rewrote ids)
   const g = withCatalogAssets({ nodes: { l: { id: 'l', type: 'level', children: ['a', 'b'] }, a: { id: 'a', type: 'item', asset: { id: 'herman-miller-aeron-mo8x36k9' } }, b: { id: 'b', type: 'item', asset: { id: 'dishwasher-movn72ls' } } }, rootNodeIds: [] });
   check('the client gives a retired id its replacement\'s asset, and leaves a removed one out', g.nodes.a?.asset.id === 'office-chair' && !g.nodes.b && g.nodes.l.children.join() === 'a');
-  check('no retired id is in the API\'s list, and the renamed car is', !CATALOG_ITEM_IDS.some((id) => ['tesla', 'cabinet', 'herman-miller-aeron-mo8x36k9', 'dishwasher-movn72ls'].includes(id)) && CATALOG_ITEM_IDS.includes('electric-car'));
+  check('no retired id is in the API\'s list, and the Kenney car is', !CATALOG_ITEM_IDS.some((id) => ['tesla', 'electric-car', 'cabinet', 'herman-miller-aeron-mo8x36k9', 'dishwasher-movn72ls'].includes(id)) && CATALOG_ITEM_IDS.includes('car'));
+  const car = interiorAsset('tesla');
+  check('an old car loads as the Kenney SUV, from the site itself', car?.id === 'car' && /\/models\/kenney\/cars\/suv\.glb$/.test(car.src) && car.thumbnail === '/props/thumbnails/car.webp', JSON.stringify(car));
 }
 
 // ---- the API

@@ -8,7 +8,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { imp } from '../lib-loader.mjs';
 
-const { curateCatalog } = await imp('content/catalogCuration.js');
+const { curateCatalog, KIT_PROPS } = await imp('content/catalogCuration.js');
+export { KIT_PROPS }; // catalogue items whose model is a city model (served by the site, not a prop folder)
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const ITEMS_DIR = path.join(root, 'apps', 'web', 'public', 'items');

@@ -11,7 +11,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ITEMS_DIR, KEYS_FILE, MANIFEST_FILE, PROP_FILES, editorVersion, propFolders, readCatalog, root } from './catalog.mjs';
+import { ITEMS_DIR, KEYS_FILE, KIT_PROPS, MANIFEST_FILE, PROP_FILES, editorVersion, propFolders, readCatalog, root } from './catalog.mjs';
 
 export const MANIFEST_VERSION = 1;
 export const KEY_SCHEME = 'props/<id>/<sha256, first 16 hex digits>/<file name>';
@@ -27,11 +27,9 @@ const PLACEMENT = ['dimensions', 'offset', 'rotation', 'scale', 'attachTo', 'sur
 // the folders were copied from Pascal's editor (CREDITS.md), whose package is MIT licensed. The review fields are left empty (null) until
 // someone has reviewed the prop: nothing here is guessed.
 // The catalogue's address for the model as a path in Pascal's storage ("items/system/<id>/model.glb"): the record of where the copy came
-// from, with no address that anything could fetch (no one loads from Pascal's storage). A renamed item (lib/content/catalogCuration.js)
-// says so instead: its upstream path carries the old name.
+// from, with no address that anything could fetch (no one loads from Pascal's storage).
 export function upstreamOf(entry) {
   if (!entry?.src) return null;
-  if (entry.renamedFrom) return 'Pascal catalogue (renamed: lib/content/catalogCuration.js)';
   try {
     return `Pascal catalogue: ${new URL(entry.src).pathname.replace(/^\/storage\/v1\/object\/public\//, '')}`;
   } catch {
@@ -139,6 +137,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const bytes = props.reduce((n, p) => n + p.files.model.bytes + (p.files.thumbnail?.bytes ?? 0), 0);
   console.log(`${rel(MANIFEST_FILE)}: ${props.length} props (${props.filter((p) => p.inCatalog).length} in the catalogue), ${(bytes / 1048576).toFixed(1)} MB, revision ${out.revision}`);
   console.log(`${rel(KEYS_FILE)}: written`);
-  const missing = readCatalog().filter((c) => !out.props[c.id]).map((c) => c.id);
+  const missing = readCatalog().filter((c) => !out.props[c.id] && !Object.hasOwn(KIT_PROPS, c.id)).map((c) => c.id);
   if (missing.length) console.log(`Not on disk, so they keep the catalogue's own address: ${missing.join(', ')}`);
 }

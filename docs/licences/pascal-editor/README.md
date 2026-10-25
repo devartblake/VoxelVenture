@@ -10,7 +10,7 @@ Recorded in [project_status.md](../../roadmap/project_status.md) ("Vendored / co
 
 | Path | What it is |
 | --- | --- |
-| `apps/web/public/items/` | Interior props: `model.glb` and `thumbnail.webp` per prop. The [props manifest](../../../apps/web/public/props/manifest.json) records each prop's path in Pascal's catalogue storage (`upstream`, without the host), hashes and licence. The catalogue is curated before use (`lib/content/catalogCuration.js`): `tesla` was renamed `electric-car` (folder included), and the 11 items Pascal kept only on its own storage are retired. The unused `items/piano/Fireplace_13.glb`, two `floor-plan.svg` and `audios/sfx/grid_snap.mamd` were deleted on 2026-10-24 |
+| `apps/web/public/items/` | Interior props: `model.glb` and `thumbnail.webp` per prop. The [props manifest](../../../apps/web/public/props/manifest.json) records each prop's path in Pascal's catalogue storage (`upstream`, without the host), hashes and licence. The catalogue is curated before use (`lib/content/catalogCuration.js`): the branded `tesla` car was replaced by the Kenney Car Kit SUV (id `car`; the Pascal model was deleted), and the 11 items Pascal kept only on its own storage are retired. The unused `items/piano/Fireplace_13.glb`, two `floor-plan.svg` and `audios/sfx/grid_snap.mamd` were deleted on 2026-10-24 |
 | `apps/web/public/material/` | Surface materials (colour, normal, roughness and occlusion maps; JPEG, PNG, WebP and KTX2) |
 | `apps/web/public/icons/` | The editor's interface icons. `icons/fittings/` were generated upstream with an image-generation tool, as `icons/fittings/README.md` says |
 | `apps/web/public/audios/sfx/` | The editor's interface sounds |

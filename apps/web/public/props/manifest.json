@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-25T00:23:35.770Z",
-  "revision": "436e08bc19d0afff",
+  "generatedAt": "2026-10-25T02:27:43.938Z",
+  "revision": "cebe4e9104cb378d",
   "generator": "scripts/props/build-manifest.mjs",
   "catalog": {
     "package": "@pascal-app/editor",
@@ -1564,43 +1564,6 @@
       "provenance": {
         "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
         "upstream": "Pascal catalogue: items/system/easel/model.glb",
-        "license": "MIT",
-        "licenseUrl": "https://opensource.org/license/mit",
-        "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",
-        "attribution": "CREDITS.md",
-        "commercialUseApproved": null,
-        "reviewedBy": null,
-        "reviewedAt": null
-      }
-    },
-    "electric-car": {
-      "id": "electric-car",
-      "name": "Electric Car",
-      "category": "outdoor",
-      "inCatalog": true,
-      "files": {
-        "model": {
-          "key": "props/electric-car/ca3a9268057549a0/model.glb",
-          "path": "/items/electric-car/model.glb",
-          "bytes": 100340,
-          "contentType": "model/gltf-binary",
-          "sha256": "ca3a9268057549a0512d22505d26bab1c2df96c33d44f0f30fdb2c5a8650445c"
-        },
-        "thumbnail": {
-          "key": "props/electric-car/edc064d37fc985c0/thumbnail.webp",
-          "path": "/items/electric-car/thumbnail.webp",
-          "bytes": 3240,
-          "contentType": "image/webp",
-          "sha256": "edc064d37fc985c016997a59c4a48b42a9c8cc74004ba928b1139a375dd51895"
-        }
-      },
-      "dimensions": [1.98, 1.62, 4.76],
-      "offset": [0.0039, -0.0102, -0.0148],
-      "rotation": [0, 0, 0],
-      "scale": [1, 1, 1],
-      "provenance": {
-        "source": "Pascal Editor (Pascal Group Inc.), https://github.com/pascalorg/editor",
-        "upstream": "Pascal catalogue (renamed: lib/content/catalogCuration.js)",
         "license": "MIT",
         "licenseUrl": "https://opensource.org/license/mit",
         "licenseSource": "CREDITS.md; @pascal-app/editor 1.0.4 package.json and LICENSE",

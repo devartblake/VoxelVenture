@@ -204,7 +204,7 @@ export function checkMusic(reg, { root, credits, creditsMd }) {
 
 // The interior props manifest: each prop's provenance is an allowed licence with a source and attribution, and every id the API
 // accepts (and every retired id's replacement) resolves to a prop.
-export function checkProps(reg, { root, acceptedIds = [] }) {
+export function checkProps(reg, { root, acceptedIds = [], kitProps = {} }) {
   const problems = [];
   const notes = [];
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/props/manifest.json'), 'utf8'));
@@ -228,8 +228,17 @@ export function checkProps(reg, { root, acceptedIds = [] }) {
     for (const [kind, f] of Object.entries(p.files ?? {})) if (!fs.existsSync(path.join(root, 'apps/web/public', f.path))) problems.push(`${at}: its ${kind} ${f.path} is missing`);
     if (pr.commercialUseApproved == null) unreviewed++;
   }
+  // items whose model is a city model (KIT_PROPS in lib/content/catalogCuration.js): served by the site, so both files must be shipped,
+  // under a source of the register (checkFiles checks the source and the budget)
+  const kit = {};
+  for (const [id, k] of Object.entries(kitProps)) {
+    if (props[id]) problems.push(`kit prop "${id}" also has a prop folder: keep one`);
+    for (const f of [k.model, k.thumbnail]) if (!f || !fs.existsSync(path.join(root, 'apps/web/public', f))) problems.push(`kit prop "${id}": ${f} is missing`);
+    kit[id] = true;
+  }
   const remote = new Set(reg.REMOTE_CATALOG_ITEMS?.ids ?? []);
   for (const id of acceptedIds) {
+    if (kit[id]) continue;
     if (props[id] && remote.has(id)) problems.push(`interior asset id "${id}" now has local files: remove it from REMOTE_CATALOG_ITEMS`);
     else if (!props[id] && !remote.has(id) && !reg.RETIRED_ASSETS[id]) problems.push(`interior asset id "${id}" is accepted by the API but is not in the props manifest: copy its files in (npm run props:manifest), list it in REMOTE_CATALOG_ITEMS, or retire it through RETIRED_ASSETS (never just delete it)`);
   }
@@ -241,7 +250,7 @@ export function checkProps(reg, { root, acceptedIds = [] }) {
     if (props[oldId]) problems.push(`retired asset "${oldId}" is still in the props manifest: list it in RETIRED_ASSETS when its files are removed`);
     if (acceptedIds.includes(oldId)) problems.push(`retired asset "${oldId}" is still in the catalogue the API accepts (lib/content/catalogCuration.js should remove it)`);
     if (!retired?.why) problems.push(`retired asset "${oldId}" gives no reason (why)`);
-    if (newId !== null && !props[newId]) problems.push(`retired asset "${oldId}" is replaced by "${newId}", which is not in the props manifest`);
+    if (newId !== null && !props[newId] && !kit[newId]) problems.push(`retired asset "${oldId}" is replaced by "${newId}", which is not in the props manifest`);
   }
   if (unreviewed) notes.push(`${unreviewed} of ${Object.keys(props).length} props have no commercial-use review yet (commercialUseApproved, reviewedBy and reviewedAt are null in the props manifest)`);
   return { problems, notes, props: Object.keys(props).length };
@@ -290,7 +299,8 @@ export async function runAll({ root, imp }) {
   const sources = checkSources(reg, ctx);
   const files = checkFiles(reg, ctx);
   const music = checkMusic(reg, ctx);
-  const props = checkProps(reg, { root, acceptedIds: [...CATALOG_ITEM_IDS, ...OWN_ASSET_IDS] });
+  const { KIT_PROPS } = await imp('content/catalogCuration.js');
+  const props = checkProps(reg, { root, acceptedIds: [...CATALOG_ITEM_IDS, ...OWN_ASSET_IDS], kitProps: KIT_PROPS });
   const deps = checkDependencies(JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8')));
   const notes = [...reg.ASSET_SOURCES.flatMap((s) => (s.notes ?? []).map((n) => `${s.id}: ${n}`)), ...Object.entries(reg.ASSET_EXCEPTIONS).map(([f, e]) => `exception ${f}: ${e.reason}`), ...props.notes];
   return {

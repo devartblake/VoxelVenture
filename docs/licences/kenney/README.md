@@ -16,6 +16,8 @@
 
 The pages show no version number of their own ("not stated" there); the versions above are the ones each kit's `License.txt` names (for example "Car Kit (3.1)"), and its "Creation date" (day-month-year) is given as "Kit created". The models are the kits' `Models/GLB format/*.glb` (the Nature Kit's `Models/GLTF format/*.glb`) and the kits' shared `Textures/colormap.png`, copied unmodified.
 
+The interior editor's **Car** (catalogue id `car`, `KIT_PROPS` in `lib/content/catalogCuration.js`) is the Car Kit's `suv.glb` from `apps/web/public/models/kenney/cars/`, scaled 1.6 to about 4.1 m; it replaced a branded car model on 2026-10-24. Its thumbnail, `apps/web/public/props/thumbnails/car.webp`, is the Car Kit's `Previews/suv.png` (64 px) scaled to 256 px and saved as lossless WebP with ffmpeg 9.0.2.
+
 Which kit each placed model comes from: [`apps/web/public/models/CREDITS.md`](../../../apps/web/public/models/CREDITS.md). The register entry is `kenney` in `lib/content/assetSources.js`.
 
 ## Not recorded
