@@ -39,7 +39,7 @@ const problemsOf = (db) => {
 }
 
 // ---- a stand-in Stripe and a stand-in messaging service ------------------------------------------------------------------------
-const S = { calls: [], failSubs: false };
+const S = { calls: [], refunds: [], failSubs: false };
 const stripeServer = http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => (body += c));
@@ -48,6 +48,8 @@ const stripeServer = http.createServer((req, res) => {
     const reply = (status, data) => (res.writeHead(status, { 'Content-Type': 'application/json' }), res.end(JSON.stringify(data)));
     if (req.url.startsWith('/v1/subscriptions/')) return S.failSubs ? reply(500, { error: { message: 'down' } }) : reply(200, { id: req.url.split('/').pop(), status: 'canceled' });
     if (/\/v1\/checkout\/sessions\/.+\/expire/.test(req.url)) return reply(200, { status: 'expired' });
+    if (req.url.startsWith('/v1/invoices')) return reply(200, { data: [{ payment_intent: `pi_inv_${new URL(req.url, 'http://x').searchParams.get('subscription')}` }] });
+    if (req.url === '/v1/refunds') return S.failSubs ? reply(500, { error: { message: 'down' } }) : (S.refunds.push({ ...Object.fromEntries(new URLSearchParams(body)), key: req.headers['idempotency-key'] }), reply(200, { id: `re_${S.refunds.length}` }));
     return reply(404, { error: { message: 'unknown' } });
   });
 });
@@ -281,6 +283,7 @@ try {
   const tomb = `deleted-${A}`;
   check('the right password and name delete the account', del.status === 200 && del.data.deleted === true && del.data.username === tomb, JSON.stringify(del.data).slice(0, 300));
   check('the answer says what was kept and why, and what was removed', del.data.kept.some((k) => /accounting/.test(k.why)) && del.data.removed.length >= 4);
+  check('the unused time is refunded first (prorata.mjs): Pro\'s month and the ad week (less what was refunded of it), and the answer says so', S.refunds.some((r) => r.key === `vv-prorata-${proOrder}` && r.payment_intent === 'pi_inv_sub_amy') && S.refunds.some((r) => r.key === `vv-prorata-${adOrder}` && r.payment_intent === 'pi_amy_ad' && Number(r.amount) === Math.floor((1100 * 6) / 7)) && del.data.refunds.totalCents === S.refunds.reduce((a, r) => a + Number(r.amount), 0) && del.data.refunds.lines.length === 2, JSON.stringify([S.refunds, del.data.refunds]));
   check('Pro is cancelled in Stripe at once, and open checkouts are closed', S.calls.some((c) => c.method === 'DELETE' && c.path === '/v1/subscriptions/sub_amy') && (await new Promise((r) => setTimeout(r, 200)), S.calls.some((c) => c.path === '/v1/checkout/sessions/cs_amy_open/expire')));
 
   // ---- what happened to each table ----------------------------------------------------------------------------------------

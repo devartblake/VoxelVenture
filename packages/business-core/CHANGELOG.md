@@ -1,5 +1,12 @@
 # Changelog: @voxelventure/business-core
 
+## 0.7.0 (2026-10-24)
+
+Refunds of unused time, pro rata (`src/refunds.js`, [billing.md](../../docs/monetization/billing.md#refunds-of-unused-time)):
+
+- `prorataLine(line, { at, closedForRules })`: what one paid order line gives back (a lease or renewal: unused days ÷ term; an ad space or sponsored week: ÷ 7; Pro: the period paid now; a stall not opened: all; nothing for the Launch Pack, upgrades, free, refunded, disputed or charged-back lines, or a rule-breaking closure), rounded down, nothing under `PRORATA.minCents` (100).
+- `prorataPlan(lines, opts)`, `monthPeriod(end, startedAt)`, `PRORATA` (`minCents`, `weekDays`, `adDays`, `stripeFeeDeducted: false`), `PRORATA_KINDS`.
+
 ## 0.6.0 (2026-10-21)
 
 Ad spaces are paid, with the Pro discount ([billing.md](../../docs/monetization/billing.md#ad-spaces)):

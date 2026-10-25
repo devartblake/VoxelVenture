@@ -40,6 +40,18 @@ const refundsPolicy = JSON.stringify(policies(operator({})).find((p) => p.slug =
 const adsPolicy = JSON.stringify(policies(operator({})).find((p) => p.slug === 'advertising'));
 check('the advertising policy no longer calls ad spaces free, and says what they cost (gap 4)', !/no real money is charged for them/.test(adsPolicy) && MONEY.adSpaces.every((a) => adsPolicy.includes(a.price) && refundsPolicy.includes(a.price)) && /paid ad spaces/.test(adsPolicy));
 check('the refund policy says how a dispute and a part refund work, with no review note left on them (gap 5)', /is paused while the dispute is open/.test(refundsPolicy) && /refunded in part goes on/.test(refundsPolicy) && !/not yet handled by the system/.test(refundsPolicy) && has('services/api/billing.mjs', /case 'charge\.dispute\.created':/) && has('services/api/billing.mjs', /case 'charge\.dispute\.closed':/));
+// refunds of unused time (@voxelventure/business-core refunds.js, services/api/prorata.mjs): the policy states the rule the code applies
+{
+  const { PRORATA, prorataLine, DAY_MS } = await import('@voxelventure/business-core');
+  const legalPrivacy0 = await imp('legal/privacy.js');
+  const unused = JSON.stringify(policies(operator({})).find((p) => p.slug === 'refunds').sections.find((s) => s.id === 'unused'));
+  const at = Date.now();
+  const lease = { id: 1, kind: 'lease', status: 'paid', cents: 1400, refundedCents: 0, start: at - DAY_MS, end: at + 13 * DAY_MS - 1, termDays: 14 };
+  check('refunds of unused time: the minimum, the week and Stripe\'s fee are the code\'s', MONEY.prorata.minimum === `$${PRORATA.minCents / 100}` && MONEY.prorata.weekDays === 7 && MONEY.prorata.stripeFeeDeducted === false && unused.includes(MONEY.prorata.minimum) && /divided by 7/.test(unused) && /keeps its own fee, and we do not take it off your refund/.test(unused));
+  check('...each product\'s rule is stated, and the rule computes it so', /unused days, divided by the lease's days/.test(unused) && /has not started yet \(it extends a lease still running\) is refunded in full/.test(unused) && /unused days of the month you paid for last/.test(unused) && prorataLine(lease, { at }).cents === Math.floor((1400 * 12) / 14));
+  check('...and what gets nothing: delivered products, disputes, rule-breaking closures', /Launch Pack or a building upgrade/.test(unused) && /while a payment is disputed/.test(unused) && /broke our terms or rules/.test(unused) && !prorataLine({ ...lease, kind: 'launch' }, { at }).refund && !prorataLine({ ...lease, dispute: 'open' }, { at }).refund && !prorataLine(lease, { at, closedForRules: true }).refund && has('services/api/server.mjs', /b\.rules === true/));
+  check('the deletion screen and the terms no longer say no refund is made', !legalPrivacy0.MONEY_ON_DELETE.some((m) => /No refund is made automatically/.test(m)) && !/no refund is made automatically/i.test(JSON.stringify(policies(operator({})))));
+}
 check('the cart rules are the code\'s', MONEY.cart.minimum === `$${CART.minimumCents / 100}` && MONEY.cart.maxPlots === CART.maxPlots);
 check('the promo code rules are the code\'s: one per checkout, the smallest charge', MONEY.promo.smallestCharge === `$${(STRIPE_MIN_CENTS / 100).toFixed(2)}` && MONEY.promo.perCheckout === 1 && has('services/api/cart.mjs', /SELECT promo_code FROM carts/) && has('services/api/billing.mjs', /duration: 'once'/));
 

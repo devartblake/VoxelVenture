@@ -52,6 +52,7 @@ import * as interiors from './interiors.mjs';
 import * as economy from './economy.mjs';
 import * as admin from './admin.mjs';
 import * as privacy from './privacy.mjs';
+import * as prorata from './prorata.mjs';
 import crypto from 'node:crypto';
 import { dryRun, transaction } from './db.mjs';
 import { checkApiEnv, isProduction } from './config.mjs';
@@ -255,8 +256,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     A.audit(db, actor, 'account.export', { kind: 'account', id: accountId }, { by: actor.kind === 'admin' ? 'admin' : 'self' });
     return out;
   };
-  const removeAccount = async (accountId, actor, reason = null) => {
-    const out = await privacy.deleteAccount(db, accountId, { seed, env, fetchImpl: fetch, actor, reason, eraseRemote: messagingService ? (id, username) => messagingPrivacy('erase', { accountId: id, username }) : null });
+  const removeAccount = async (accountId, actor, reason = null, closedForRules = false) => {
+    const out = await privacy.deleteAccount(db, accountId, { seed, env, fetchImpl: fetch, actor, reason, closedForRules, eraseRemote:messagingService ? (id, username) => messagingPrivacy('erase', { accountId: id, username }) : null });
     if (out.plotsReleased.length) push('plot', out.plotsReleased);
     push('ad', []);
     return out;
@@ -657,7 +658,21 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       const b = await body(req, 4000);
       const row = db.prepare('SELECT username FROM accounts WHERE id = ?').get(Number(r[1])) ?? core.fail(404, 'No such account.', 'no_account');
       if (String(b.confirm ?? '').trim().toLowerCase() !== row.username.toLowerCase()) throw new core.ApiError(400, 'Type the account\'s name to confirm.', 'confirm_name');
-      return removeAccount(Number(r[1]), who, b.reason);
+      return removeAccount(Number(r[1]), who, b.reason, b.rules === true);
+    }
+    // refunds of unused time (prorata.mjs): the deletion screen's estimate, and an admin's preview and refund, for an account or one order
+    if (m === 'GET' && p === '/me/prorata') return (core.requireAccount(account), prorata.forAccount(db, account.id).preview);
+    if ((r = p.match(/^\/admin\/(accounts|billing\/orders)\/(\d+)\/prorata$/)) && (m === 'GET' || m === 'POST')) {
+      const who = adminOnly();
+      const isAccount = r[1] === 'accounts';
+      if (isAccount) db.prepare('SELECT id FROM accounts WHERE id = ?').get(Number(r[2])) ?? core.fail(404, 'No such account.', 'no_account');
+      const plan = () => (isAccount ? prorata.forAccount(db, r[2], { closedForRules: m === 'GET' && url.searchParams.get('rules') === '1' }) : prorata.forOrder(db, r[2]));
+      if (m === 'GET') return plan().preview;
+      const b = await body(req, 4000);
+      const out = await prorata.adminRefund(db, plan(), { kind: isAccount ? 'account' : 'order', id: Number(r[2]) }, { reason: b.reason, actor: who, env, fetchImpl: fetch, seed });
+      if (out.released.length) push('plot', out.released);
+      if (out.ended.length) push('ad', []);
+      return { totalCents: out.totalCents, refunded: out.refunded, ended: out.ended, warnings: out.warnings };
     }
     if (m === 'POST' && p === '/reports') {
       const b = await body(req);

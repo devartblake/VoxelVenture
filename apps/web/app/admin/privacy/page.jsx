@@ -1,15 +1,19 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Download, Search, ShieldAlert, Trash2 } from 'lucide-react';
+import { Download, Search, ShieldAlert, Trash2, Undo2 } from 'lucide-react';
 import { Field, FormError, SafeForm, Submit, useAdmin } from '@/components/admin/AdminShell';
-import { Alert, Badge, Button, DataTable, PageHeader, Section, StatusPill } from '@/components/admin/ui';
+import { Alert, Badge, Button, Checkbox, DataTable, PageHeader, Section, StatusPill } from '@/components/admin/ui';
+import ProrataRefund from '@/components/admin/ProrataRefund';
 import { KEPT, REMOVED } from '@/lib/legal/privacy';
 
 // Privacy requests by email (services/api/privacy.mjs): find the person's account (by email, name or number), download their data for them
 // (GET /admin/accounts/:id/export) or delete the account (POST /admin/accounts/:id/delete, the name typed and a reason). Players can do both
 // themselves from their account; this is for people who write in. Every export and deletion is in the audit trail, listed below.
+// A deletion refunds the account's unused time first (prorata.mjs), unless the account is closed for breaking the rules (`rules`: nothing back);
+// the form shows what it would refund. "Refund unused time" refunds it without deleting (services/api/prorata.mjs), and ends what was refunded.
 const when = (t) => (t ? new Date(t).toLocaleString() : '');
+const usd = (cents) => `${((cents ?? 0) / 100).toFixed(2)}`;
 const saveJson = (name, data) => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   const a = Object.assign(document.createElement('a'), { href: url, download: name });
@@ -31,6 +35,19 @@ export default function AdminPrivacyPage() {
   const [reason, setReason] = useState('');
   const [formError, setFormError] = useState('');
   const [log, setLog] = useState([]);
+  const [rules, setRules] = useState(false);
+  const [estimate, setEstimate] = useState(null);
+  const [refundFor, setRefundFor] = useState(null);
+
+  // what deleting would refund (nothing when closed for breaking the rules)
+  useEffect(() => {
+    if (!target) return undefined;
+    let live = true;
+    call(`/admin/accounts/${target.id}/prorata${rules ? '?rules=1' : ''}`).then((p) => live && setEstimate(p)).catch(() => live && setEstimate({ error: true }));
+    return () => {
+      live = false;
+    };
+  }, [call, target, rules]);
 
   const loadLog = useCallback(async () => {
     try {
@@ -74,8 +91,9 @@ export default function AdminPrivacyPage() {
     setBusy(true);
     setFormError('');
     try {
-      const out = await call(`/admin/accounts/${target.id}/delete`, { method: 'POST', body: { confirm: confirm.trim(), reason: reason.trim() || 'asked by email' } });
-      setNotice(`${target.username} is deleted: the account is now ${out.username}.${out.plotsReleased.length ? ` Plots released: ${out.plotsReleased.join(', ')}.` : ''}`);
+      const out = await call(`/admin/accounts/${target.id}/delete`, { method: 'POST', body: { confirm: confirm.trim(), reason: reason.trim() || 'asked by email', rules } });
+      setNotice(`${target.username} is deleted: the account is now ${out.username}.${out.plotsReleased.length ? ` Plots released: ${out.plotsReleased.join(', ')}.` : ''} ${out.refunds.closedForRules ? 'Closed for breaking the rules: nothing was refunded.' : out.refunds.totalCents ? `Refunded for unused time: ${usd(out.refunds.totalCents)}.` : 'Nothing to refund.'}`);
+      setRules(false);
       setTarget(null);
       setConfirm('');
       setReason('');
@@ -101,7 +119,8 @@ export default function AdminPrivacyPage() {
       render: (a) => !a.deletedAt && (
         <span className="flex justify-end gap-2">
           <Button size="sm" icon={Download} onClick={() => exportFor(a)}>Export</Button>
-          <Button size="sm" variant="danger" icon={Trash2} onClick={() => (setTarget(a), setConfirm(''), setFormError(''))} data-testid={`admin-delete-${a.id}`}>Delete…</Button>
+          <Button size="sm" icon={Undo2} onClick={() => setRefundFor(a)} data-testid={`admin-prorata-${a.id}`}>Refund unused time…</Button>
+          <Button size="sm" variant="danger" icon={Trash2} onClick={() => (setTarget(a), setConfirm(''), setFormError(''), setRules(false), setEstimate(null))} data-testid={`admin-delete-${a.id}`}>Delete…</Button>
         </span>
       ),
     },
@@ -121,13 +140,17 @@ export default function AdminPrivacyPage() {
       </Section>
 
       {target && (
-        <Section title={`Delete ${target.username}`} icon={ShieldAlert} description="It happens at once and cannot be undone. Plots and ad spaces are released, Pro is cancelled in Stripe, and no refund is made automatically.">
+        <Section title={`Delete ${target.username}`} icon={ShieldAlert} description="It happens at once and cannot be undone. The unused time of what the account paid for is refunded first (unless it is closed for breaking the rules), then plots and ad spaces are released and Pro is cancelled in Stripe.">
           <SafeForm onSubmit={remove} className="space-y-4" data-testid="admin-delete-form">
             <div className="grid gap-4 md:grid-cols-2 text-sm">
               <div><p className="mb-1 font-semibold text-white">Removed</p><ul className="ml-4 list-disc space-y-1 text-slate-300">{REMOVED.map((r) => <li key={r}>{r}</li>)}</ul></div>
               <div><p className="mb-1 font-semibold text-white">Kept, and why</p><ul className="ml-4 list-disc space-y-1 text-slate-300">{KEPT.map((k) => <li key={k.what}>{k.what}: {k.why}.</li>)}</ul></div>
             </div>
             <Field id="privacy-confirm" label={`Type ${target.username} to confirm`} autoComplete="off" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            <div className="rounded-xl border border-sx-line p-3 text-sm text-slate-200" data-testid="admin-delete-refund">
+              {!estimate ? 'Working out the refund…' : estimate.error ? 'The refund could not be worked out: the deletion will still refund what is due, or refuse if Stripe cannot.' : estimate.totalCents ? <>Refunded first, for unused time: <span className="font-semibold text-white">{usd(estimate.totalCents)}</span> ({estimate.lines.filter((l) => l.refund).map((l) => `#${l.orderId} ${l.label}: ${usd(l.cents)}`).join('; ')}).</> : rules ? 'Closed for breaking the rules: nothing is refunded.' : 'Nothing to refund.'}
+            </div>
+            <Checkbox label="Closed for breaking the rules: no refund for unused time" checked={rules} onChange={(e) => (setEstimate(null), setRules(e.target.checked))} data-testid="admin-delete-rules" />
             <Field id="privacy-reason" label="Why (for the audit trail)" hint="For example: asked by email on 21 October from their confirmed address." autoComplete="off" value={reason} onChange={(e) => setReason(e.target.value)} />
             <FormError>{formError}</FormError>
             <div className="flex flex-wrap gap-3">
@@ -135,6 +158,12 @@ export default function AdminPrivacyPage() {
               <Button onClick={() => setTarget(null)}>Cancel</Button>
             </div>
           </SafeForm>
+        </Section>
+      )}
+
+      {refundFor && (
+        <Section title={`Refund unused time: ${refundFor.username}`} icon={Undo2} description="Every paid line of the account still running, pro rata, without deleting it. What is refunded ends at once." actions={<Button size="sm" onClick={() => setRefundFor(null)}>Close</Button>}>
+          <ProrataRefund key={refundFor.id} path={`/admin/accounts/${refundFor.id}/prorata`} label="Show what would be refunded" />
         </Section>
       )}
 

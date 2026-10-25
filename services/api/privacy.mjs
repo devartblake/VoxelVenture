@@ -6,6 +6,7 @@ import { orderById, expire, closeSessions, stripe, planFor } from './billing.mjs
 import { profileStats, ownerView, referralCode, referralSecret } from './business.mjs';
 import { endHold, hashOf } from './economy.mjs';
 import { exportFor as messagingExport, eraseFor as messagingErase } from './messaging.mjs';
+import * as prorata from './prorata.mjs';
 import { figuresFor } from '@voxelventure/business-core';
 import { imp } from '../../scripts/lib-loader.mjs';
 
@@ -28,7 +29,7 @@ export const TOMBSTONE = (id) => `deleted-${id}`;
 export const TABLES = {
   accounts: { export: 'account', deletion: 'kept as a row with no personal data: the name becomes deleted-<id>; email, password, notices, referral and Credits are wiped (orders and the action log refer to its number)' },
   sessions: { export: 'sessions', deletion: 'deleted: every device is signed out' },
-  plots: { export: 'plots', deletion: 'a plot it leases is released at once: back to the empty lot (or the city\'s business) the world started with; no refund is made automatically' },
+  plots: { export: 'plots', deletion: 'a plot it leases is released at once: back to the empty lot (or the city\'s business) the world started with; its unused lease time is refunded first (prorata.mjs)' },
   plot_interiors: { export: 'plots[].interior', deletion: 'deleted' },
   ledger: { export: 'plotHistory', deletion: 'kept (the plot\'s history of who held it, and the price): the name in it becomes deleted-<id>' },
   events: { export: 'activity.visits', deletion: 'kept for the businesses\' figures, with the visitor replaced by a random number that leads to nobody' },
@@ -45,7 +46,7 @@ export const TABLES = {
   outbox: { export: 'emails (subject, kind and date; the body is left out: it can hold one-use links)', deletion: 'every email to its address is deleted, sent or not' },
   reports: { export: 'reportsMade (what it reported and why; not the reported content)', deletion: 'kept for moderation, its note wiped; a copy of its own reported message keeps its text until the report is decided, under the new name' },
   market_layouts: { export: null, excluded: 'the market\'s weekly layout set by staff: nothing about a player', deletion: 'nothing' },
-  market_bookings: { export: 'marketStalls', deletion: 'a stall booked for later is cancelled (no automatic refund); past ones are kept for accounting with the name, goods, offer and website wiped' },
+  market_bookings: { export: 'marketStalls', deletion: 'a stall booked for later is cancelled and refunded in full first; past ones are kept for accounting with the name, goods, offer and website wiped' },
   market_visits: { export: 'activity.stallVisits', deletion: 'kept for the stallholders\' figures, with the visitor replaced by a random number' },
   presence: { export: 'activity.online', deletion: 'deleted' },
   arrivals: { export: 'activity.arrivals', deletion: 'kept (the visits count), with the visitor replaced by a random number' },
@@ -64,7 +65,7 @@ export const TABLES = {
   upgrade_interest: { export: 'businesses[].upgradeInterest', deletion: 'deleted with the page' },
   audit_log: { export: 'actionLog (entries it made, and entries about the account)', deletion: 'kept: it cannot be changed or deleted (security and accountability; the privacy policy says so). Entries name the account by number, and some by the name it had then' },
   social_posts: { export: 'welcomePosts', deletion: 'a post not yet made is cancelled and its text wiped; one already on X stays there (ask us to remove it)' },
-  orders: { export: 'orders (amounts, dates, products; never card details: Stripe holds those)', deletion: 'kept for accounting and tax; checkouts still open are closed' },
+  orders: { export: 'orders (amounts, dates, products; never card details: Stripe holds those)', deletion: 'kept for accounting and tax; checkouts still open are closed; the unused time of what is still running is refunded first, pro rata, and recorded on the order' },
   carts: { export: 'cart', deletion: 'deleted' },
   cart_items: { export: 'cart.items', deletion: 'deleted' },
   promo_codes: { export: 'promoCodesMade (only a code an account made: none today)', deletion: 'kept (a code is not about a person)' },
@@ -72,7 +73,7 @@ export const TABLES = {
   stripe_events: { export: null, excluded: 'the ids of Stripe events already applied: nothing about a person', deletion: 'nothing' },
   disputes: { export: 'disputes (of its own orders: amount, reason, status, dates)', deletion: 'kept for accounting and the payment processor (amounts and Stripe ids; nothing personal)' },
   order_refunds: { export: 'orders[].refunds', deletion: 'kept for accounting and tax, with the orders' },
-  entitlements: { export: 'businesses[].plans', deletion: 'ended with the page; Pro is cancelled in Stripe at once (no refund automatically)' },
+  entitlements: { export: 'businesses[].plans', deletion: 'ended with the page; Pro is cancelled in Stripe at once (an account deletion refunds the unused part of the month first; deleting only the page does not)' },
   pilot_members: { export: 'businesses[].pilot', deletion: 'the page leaves the pilot (the staff note is kept)' },
   owner_activity: { export: 'businesses[].activeWeeks', deletion: 'kept (the weeks the page was used: business-level, no person)' },
   pilot_feedback: { export: 'businesses[].pilotFeedback', deletion: 'kept for the pilot\'s results with the written answers wiped' },
@@ -222,8 +223,8 @@ export function summaryOf(x) {
 }
 
 // ---- deleting a business page ------------------------------------------------------------------------------------------------------
-// The owner's (or the account deletion's) part: Pro is cancelled in Stripe first (now, not at the end of the month; no refund is made
-// automatically); then, in one transaction, the page's totals are kept on its row and everything else about it goes (below). The row stays,
+// The owner's (or the account deletion's) part: Pro is cancelled in Stripe first (now, not at the end of the month; deleting a page alone refunds
+// nothing, an account's deletion refunds the unused time first); then, in one transaction, the page's totals are kept on its row and everything else about it goes (below). The row stays,
 // renamed deleted-<id> and with no content, because orders refer to it.
 async function cancelProNow(db, businessIds, env, fetchImpl) {
   if (!businessIds.length) return [];
@@ -280,12 +281,15 @@ export async function deleteBusiness(db, account, slug, { env = process.env, fet
 // ---- deleting an account -----------------------------------------------------------------------------------------------------------
 // Outside calls first (Stripe, the messaging service when it holds messages): if one fails, nothing here has changed and the person can try
 // again. Then one transaction does the rest, table by table (TABLES says what and why). Returns { deleted, username, plots, kept, removed }.
-export async function deleteAccount(db, accountId, { seed, env = process.env, fetchImpl = fetch, actor, reason = null, eraseRemote = null } = {}) {
+export async function deleteAccount(db, accountId, { seed, env = process.env, fetchImpl = fetch, actor, reason = null, closedForRules = false, eraseRemote = null } = {}) {
   const a = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(accountId)) ?? core.fail(404, 'No such account.', 'no_account');
   if (a.deleted_at) core.fail(409, 'This account is already deleted.', 'already_deleted');
   const id = a.id;
   const tomb = TOMBSTONE(id);
   const bizIds = db.prepare("SELECT id FROM businesses WHERE account_id = ? AND status != 'deleted'").all(id).map((b) => b.id);
+  // unused time is refunded first (prorata.mjs; none for an account closed for breaking the rules): each refund is recorded as Stripe makes it, and
+  // the deletion below ends what it paid for (so nothing is refunded twice, and a Pro refunded here is only cancelled, below)
+  const refunds = await prorata.issue(db, prorata.forAccount(db, id, { closedForRules }), { env, fetchImpl, actor: actor ?? { kind: 'account', id }, why: 'account deleted', end: false });
   const cancelled = await cancelProNow(db, bizIds, env, fetchImpl);
   const openSessions = db.prepare("SELECT stripe_session FROM orders WHERE account_id = ? AND status = 'pending' AND stripe_session IS NOT NULL").all(id).map((o) => o.stripe_session);
   if (eraseRemote) await eraseRemote(id, tomb);
@@ -353,8 +357,8 @@ export async function deleteAccount(db, accountId, { seed, env = process.env, fe
     run('DELETE FROM sessions WHERE account_id = ?', id);
     const name = db.prepare('SELECT 1 FROM accounts WHERE username = ? AND id != ?').get(tomb, id) ? `${tomb}-${crypto.randomBytes(2).toString('hex')}` : tomb;
     run("UPDATE accounts SET username = ?, pass_salt = ?, pass_hash = ?, email = NULL, email_verified = 0, email_token = NULL, notify = 0, dm_requests = 0, gold = 0, referred_by = NULL, banned = 1, ban_reason = 'deleted', deleted_at = ? WHERE id = ?", name, crypto.randomBytes(16).toString('hex'), crypto.randomBytes(32).toString('hex'), at, id);
-    audit(db, actor ?? { kind: 'account', id }, 'account.delete', { kind: 'account', id }, { by: actor?.kind === 'admin' ? 'admin' : 'self', reason: reason ? String(reason).slice(0, 200) : null, businesses: bizIds.length, plotsReleased: plots.length, proCancelled: cancelled.length, chat });
-    return { deleted: true, username: name, plotsReleased: plots, businessesDeleted: bizIds.length, proCancelled: cancelled.length };
+    audit(db, actor ?? { kind: 'account', id }, 'account.delete', { kind: 'account', id }, { by: actor?.kind === 'admin' ? 'admin' : 'self', reason: reason ? String(reason).slice(0, 200) : null, ...(closedForRules ? { closedForRules: true } : {}), businesses: bizIds.length, plotsReleased: plots.length, proCancelled: cancelled.length, refundedCents: refunds.totalCents, refundedLines: refunds.refunded.map((r) => r.orderId), chat });
+    return { deleted: true, username: name, plotsReleased: plots, businessesDeleted: bizIds.length, proCancelled: cancelled.length, refunds: { totalCents: refunds.totalCents, lines: refunds.refunded.map((r) => ({ orderId: r.orderId, cents: r.cents, unusedDays: r.unusedDays })), closedForRules } };
   });
   closeSessions(env, openSessions, fetchImpl); // the Stripe pages of checkouts that were open (fire and forget: their orders are already closed)
   return { ...out, kept: KEPT, removed: REMOVED };

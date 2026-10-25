@@ -790,6 +790,39 @@ export async function refundOrder(db, orderId, actor = ADMIN, env = process.env,
   return { refunded: true };
 }
 
+// ---- refunds of unused time (prorata.mjs) ------------------------------------------------------------------------------------------------
+// The payment a line was paid with, to refund part of it: Pro's latest invoice (the period paid now), else the order's own payment or its cart's.
+export async function paymentOfLine(db, order, env = process.env, fetchImpl = fetch) {
+  const parent = order.parent_id ? orderById(db, order.parent_id) : null;
+  const sub = order.product === 'pro' ? (order.stripe_subscription ?? parent?.stripe_subscription ?? null) : null;
+  if (sub) {
+    const invoices = await stripe(env, 'GET', '/invoices', { subscription: sub, limit: 1 }, { fetchImpl });
+    const pi = invoices.data?.[0]?.payment_intent ?? (await lastInvoicePayment(env, sub, fetchImpl));
+    if (pi) return pi;
+  }
+  return order.stripe_payment_intent ?? parent?.stripe_payment_intent ?? (parent ? await cartPayment(db, parent, env, fetchImpl) : null);
+}
+// A refund of unused time is recorded on its line (Stripe has already made it): what was refunded, the refund's record (its note starts "pro-rata", so the
+// same line is never refunded for its unused time twice), its share of a promo code, and the audit. A line refunded to its last cent is 'refunded'.
+// Ending what it bought is the caller's (prorata.mjs endLines; for a deleted account the deletion itself ends everything).
+export const PRORATA_NOTE = 'pro-rata refund of unused time';
+export const proRataDone = (db, orderId) => Boolean(db.prepare("SELECT 1 FROM order_refunds WHERE order_id = ? AND note LIKE 'pro-rata%'").get(Number(orderId)));
+export function recordProrata(db, order, cents, why, actor, detail = {}) {
+  const before = order.refunded_cents ?? 0;
+  const after = before + cents;
+  const full = after >= order.cents;
+  const note = `${PRORATA_NOTE} (${why})`;
+  db.prepare('UPDATE orders SET refunded_cents = ?, note = ?, status = ?, refunded_at = ? WHERE id = ?').run(after, `${note}: ${usd(after)} of ${usd(order.cents)} refunded`, full ? 'refunded' : order.status, full ? now() : order.refunded_at ?? null, order.id);
+  db.prepare('INSERT INTO order_refunds (order_id, cents, full, source, note, at) VALUES (?,?,?,?,?,?)').run(order.id, cents, full ? 1 : 0, sourceOf(actor), note, now());
+  const off = promoShare(order, Math.min(after, order.cents)) - promoShare(order, before);
+  if (off > 0) promo.reduceUse(db, order.parent_id ?? order.id, off);
+  audit(db, actor, 'billing.prorata_refunded', { kind: 'order', id: order.id }, { cents, refundedCents: after, of: order.cents, why, ...detail, ...(order.parent_id ? { cart: order.parent_id } : {}) });
+  if (!order.parent_id) return;
+  syncCartRefunded(db, order.parent_id);
+  const parent = orderById(db, order.parent_id);
+  if (parent.status === 'paid' && !childrenOf(db, parent).some((c) => c.status === 'paid')) db.prepare("UPDATE orders SET status = 'refunded', refunded_at = ?, note = COALESCE(note, 'every line refunded') WHERE id = ?").run(now(), parent.id);
+}
+
 // The payment a cart was paid with. In subscription mode (Pro in the cart) the session has no payment intent of its own: its first invoice's
 // payment carries the whole cart.
 async function cartPayment(db, parent, env, fetchImpl) {

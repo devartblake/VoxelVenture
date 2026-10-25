@@ -7,8 +7,9 @@ Phase 4 of the [competitive alignment review](../competitive-research/claimavenu
 - **The cart:** any of these together, in one payment ([below](#the-cart)).
 - **Promo codes:** discount codes the owner makes in `/admin/promos`, applied at any of these checkouts ([below](#promo-codes)).
 - **Disputes and partial refunds:** what a disputed payment bought is paused until the dispute closes; a part refund made in the Stripe dashboard is allocated to what the payment bought ([below](#disputes-and-partial-refunds)).
+- **Refunds of unused time:** pro rata, when an account is deleted or an admin refunds it ([below](#refunds-of-unused-time)).
 
-The code is in `services/api/billing.mjs`. The catalogue is in `packages/business-core/src/plans.js`, imported everywhere as `@voxelventure/business-core` ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). The tests are `tests/billing.test.mjs`, `tests/billing-game.test.mjs`, `tests/ads-billing.test.mjs` and `tests/disputes.test.mjs`, which run against a fake Stripe server.
+The code is in `services/api/billing.mjs`. The catalogue is in `packages/business-core/src/plans.js`, imported everywhere as `@voxelventure/business-core` ([ADR 0001](../architecture/adr/0001-shared-package-boundaries.md)). The tests are `tests/billing.test.mjs`, `tests/billing-game.test.mjs`, `tests/ads-billing.test.mjs`, `tests/disputes.test.mjs` and `tests/prorata.test.mjs`, which run against a fake Stripe server.
 
 ## What is sold
 
@@ -254,6 +255,32 @@ The admin sees the real state of each code in `/admin/promos`.
 A promo code's counted discount follows: a line refunded in full takes its share (what is left of it) off what the code is counted as having given; one refunded in part takes off the same share of its promo cents; a whole order refunded voids the use. Revenue figures (a business's spend, a code's revenue) count what was paid less what was refunded. An admin refund of an order already refunded in part refunds only what is left. Pro refunded in full from the dashboard has its plan cancelled.
 
 Every refund, in full or in part and by whoever (an admin, the server, the Stripe dashboard), is a row in `order_refunds`. `GET /admin/billing/disputes` lists the disputes and the refunds; `GET /admin/billing/orders/<id>` shows one order, its lines, its refunds and the disputes of its payment (both on `/admin/disputes`). Owners see `refundedCents` on their own orders.
+
+## Refunds of unused time
+
+**Decided (2026-10-24): unused time is refunded, pro rata,** when an account is deleted and when an admin chooses to (`services/api/prorata.mjs`). The rule is one pure function, `prorataLine` in `@voxelventure/business-core` (`packages/business-core/src/refunds.js`), shared by the server, the policy (`lib/legal/facts.js` `MONEY.prorata`) and the tests.
+
+For each order line **actually paid** (a cart's lines one by one), from what was charged for the line (after a promo code and the Pro price) less what was refunded of it already, never more than is left:
+
+| Line | Refund |
+| --- | --- |
+| Plot lease (claim, take-over, renewal; 7, 14 or 30 days) | unused full days ÷ the term's days × paid. A renewal not started yet (it extends a running lease) counts its whole term as unused |
+| Ad space week, sponsored week | unused full days ÷ 7 × paid; a booking not started yet: all of it |
+| Pro (monthly) | unused full days of the period paid now ÷ the days in that period × what was paid for it. The period is the calendar month back from the plan's end (not before it started); the first month is the order's amount (a code covers it), later months the full price, less what was refunded in that period |
+| Market stall not opened yet | all of it |
+| Nothing | the Launch Pack and building upgrades (delivered at once); a stall that has opened; a free or complimentary order; anything refunded in full, or already refunded for its unused time; an order whose payment is disputed (open) or was charged back; every line of an account closed for breaking the rules |
+
+Rounded down to the cent; a line that would give back less than **$1.00** gives nothing. **Stripe keeps its fee** and nothing is taken off the customer's refund for it (the refund policy says so).
+
+**Which time a lease line paid for.** A plot's lease is the chain of its tenant's paid orders since the last claim or take-over, walked back from the lease's end: the latest renewal holds the last days, the one before it the days before, down to the claim. A plot no longer the tenant's has nothing left. (A renewal fully refunded already gave its days back, so it is not in the chain.)
+
+**Where it applies:**
+
+1. **Deleting an account** (`POST /me/delete`, and the admin's `POST /admin/accounts/:id/delete`): before anything is deleted, every eligible line is refunded in Stripe, a partial refund of the payment it was paid with (Pro: its latest invoice; a cart line: the cart's payment), idempotency key `vv-prorata-<order line>`. This is part of the "outside calls first" rule: if Stripe refuses, the answer is 502 and nothing is deleted. A refund Stripe already made before a later one failed is recorded at once (the money went back) and is never made again; the deletion, retried, goes on with the rest. Then the deletion runs as before: leases are released, ad bookings removed, stalls cancelled, Pro cancelled in Stripe at once (`cancelProNow`, which never refunds: no double refund). The confirmation screen (`PrivacyControls`) shows the estimate first ("You'll get back about $X for unused time", line by line, from `GET /me/prorata`), and the answer (`privacy.delete.result` v2) has `refunds`. Each refund is on its order (`refunded_cents`, an `order_refunds` row noted "pro-rata refund of unused time (account deleted)") and in the audit log (`billing.prorata_refunded`; `account.delete` records the total).
+   - **Closed for breaking the rules:** the admin's delete form has the box "Closed for breaking the rules" (`rules: true`, contract `privacy.admin-delete` v2): nothing is refunded, and the audit entry says `closedForRules`.
+2. **An admin's "Refund unused time"**, for one order (Admin > Disputes, "One order") or every line of an account (Admin > Privacy requests): a preview (`GET /admin/billing/orders/:id/prorata`, `GET /admin/accounts/:id/prorata`; each line, its days unused and amount, or why nothing comes back), then a required reason and the refund (`POST` the same path `{ reason }`). What is refunded **ends at once**: a lease whose time was running is released (the plot goes back to the city; a running lease line takes its later renewals with it), a renewal still to come gives its days back, an ad booking is revoked (a later one moves forward), a sponsored week and Pro stop (Pro's plan is cancelled in Stripe; if that call fails the admin is told to cancel it in the dashboard). Admin-only, audited as a whole (`billing.prorata`, with the reason) and line by line, and idempotent: a second call refunds nothing more, because each refunded line is marked done (its `order_refunds` note starts with "pro-rata").
+
+A refund that leaves a line nothing paid makes it `refunded` (and a cart whose every line is refunded); one that leaves something keeps it `paid` with `refunded_cents`. Stripe's `charge.refunded` for these refunds changes nothing (they are recorded before Stripe reports them). Contracts: `prorata.preview`, `prorata.refund`, `prorata.result` (`@voxelventure/shared-types` 0.17.0). Tests: `tests/prorata.test.mjs` (the rule for each kind of line, deletion, a Stripe failure, the admin's preview and refund, idempotency, what ends, the audit), `tests/privacy.test.mjs`, `tests/legal.test.mjs`, `tests/live-browser.test.mjs` (the estimate on the confirmation screen).
 
 ## Refunds and support
 

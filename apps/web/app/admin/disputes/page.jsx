@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw, Search, ShieldAlert, Undo2 } from 'lucide-react';
 import { useAdmin } from '@/components/admin/AdminShell';
 import { Alert, Button, DataTable, Input, PageHeader, Section, StatCard, StatusPill } from '@/components/admin/ui';
+import ProrataRefund from '@/components/admin/ProrataRefund';
 
 // Disputes and refunds (services/api/billing.mjs, docs/monetization/billing.md#disputes-and-partial-refunds): every disputed payment (chargeback), open
 // ones first, with what it paused and how it ended; every refund recorded, in full or in part, by an admin, by the server or in the Stripe dashboard;
@@ -64,7 +65,7 @@ export default function DisputesPage() {
     load();
   }, [load]);
   const find = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     const id = Math.round(Number(lookup));
     if (!(id > 0)) return;
     try {
@@ -100,7 +101,7 @@ export default function DisputesPage() {
       <Section title="Refunds" icon={Undo2} description="Every refund recorded, newest first: in full (what it bought was ended) or in part (it goes on)." bodyClassName="p-3 sm:p-4">
         <DataTable caption="Refunds" columns={refundColumns} rows={refunds} rowKey={(r) => r.id} minWidth="52rem" empty="No refunds yet." />
       </Section>
-      <Section title="One order" icon={Search} description="Its lines (a cart), what was refunded of each, and the disputes of its payment." bodyClassName="p-3 sm:p-4 space-y-3">
+      <Section title="One order" icon={Search} description="Its lines (a cart), what was refunded of each, and the disputes of its payment. A paid order can have its unused time refunded, pro rata." bodyClassName="p-3 sm:p-4 space-y-3">
         <form onSubmit={find} className="flex max-w-md gap-2">
           <Input type="number" min={1} value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="Order number" aria-label="Order number" />
           <Button type="submit" variant="primary">Show</Button>
@@ -114,6 +115,7 @@ export default function DisputesPage() {
             {one.lines.length > 0 && <DataTable caption="Lines" columns={lineColumns} rows={one.lines} rowKey={(o) => o.id} minWidth="36rem" />}
             <DataTable caption="Refunds of this order" columns={refundColumns} rows={one.refunds} rowKey={(r) => r.id} minWidth="52rem" empty="Nothing refunded." />
             <DataTable caption="Disputes of this payment" columns={disputeColumns} rows={one.disputes} rowKey={(d) => d.id} minWidth="64rem" empty="No disputes." />
+            {one.order.status === 'paid' && <ProrataRefund key={one.order.id} path={`/admin/billing/orders/${one.order.id}/prorata`} label={one.lines.length ? 'Refund unused time of this cart…' : 'Refund unused time…'} onDone={() => (find(), load())} />}
           </div>
         )}
       </Section>

@@ -1,5 +1,19 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.17.0 (2026-10-24)
+
+Refunds of unused time, pro rata (`services/api/prorata.mjs`, [billing.md](../../docs/monetization/billing.md#refunds-of-unused-time)). New contracts, all version 1, in [`contracts/prorata.js`](src/contracts/prorata.js):
+
+- `prorata.preview`: `GET /me/prorata` (the deletion screen's estimate), `GET /admin/accounts/:id/prorata` (`?rules=1`: as if closed for breaking the rules) and `GET /admin/billing/orders/:id/prorata`: `{ totalCents, count, lines, minCents, at, closedForRules }`, each line `{ orderId, parentId, product, kind, label, paidCents, unusedDays, termDays, notStarted, cents, refund, why }`.
+- `prorata.refund`: the body of `POST /admin/accounts/:id/prorata` and `POST /admin/billing/orders/:id/prorata`, `{ reason }` (required).
+- `prorata.result`: their answer, `{ totalCents, refunded: [{ orderId, cents, unusedDays, stripeRefund }], ended: [{ orderId, what }], warnings }`.
+- `API_CONTRACTS` now holds 77.
+
+Changed:
+
+- `privacy.admin-delete` **version 2**: `rules` (true: closed for breaking the rules, no refund).
+- `privacy.delete.result` **version 2**: `refunds`, `{ totalCents, lines: [{ orderId, cents, unusedDays }], closedForRules }` (required).
+
 ## 0.16.0 (2026-10-21)
 
 Two sets of changes in one version (the privacy and the billing work were merged before a release).

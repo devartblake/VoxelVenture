@@ -51,29 +51,41 @@ export const PRIVACY_EXPORT = {
 };
 
 // POST /me/delete: the account's password again and its name typed (any case). 401 bad_password, 400 confirm_name, 429 after 5 wrong tries
-// in 15 minutes, 502 when Stripe cannot cancel Pro and 503 when the messaging service is down (nothing is deleted then).
+// in 15 minutes, 502 when Stripe cannot refund unused time or cancel Pro and 503 when the messaging service is down (nothing is deleted then;
+// a refund Stripe already made is kept and recorded, and is not made again).
 export const PRIVACY_DELETE = {
   id: 'privacy.delete',
   version: 1,
   schema: { type: 'object', required: ['password', 'confirm'], properties: { password: { type: 'string', minLength: 1, maxLength: 100 }, confirm: { type: 'string', maxLength: 40 } } },
 };
 
-// POST /admin/accounts/:id/delete (admin, for a request by email): the account's name typed, and why.
+// POST /admin/accounts/:id/delete (admin, for a request by email): the account's name typed, and why. Version 2: `rules` true closes an account
+// for breaking the rules, and then nothing is refunded for unused time.
 export const PRIVACY_ADMIN_DELETE = {
   id: 'privacy.admin-delete',
-  version: 1,
-  schema: { type: 'object', required: ['confirm'], properties: { confirm: { type: 'string', maxLength: 40 }, reason: { type: 'string', maxLength: 200 } } },
+  version: 2,
+  schema: { type: 'object', required: ['confirm'], properties: { confirm: { type: 'string', maxLength: 40 }, reason: { type: 'string', maxLength: 200 }, rules: { type: 'boolean' } } },
 };
 
 const STATEMENT = { type: 'object', required: ['what', 'why'], properties: { what: { type: 'string' }, why: { type: 'string' } } };
-// The answer to both: the account's new name (deleted-<id>), the plots released, and what was kept (and why) and removed.
+// The answer to both: the account's new name (deleted-<id>), the plots released, and what was kept (and why) and removed. Version 2: `refunds`,
+// the unused time refunded before the deletion (prorata.mjs): in all, and each line.
 export const PRIVACY_DELETE_RESULT = {
   id: 'privacy.delete.result',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
-    required: ['deleted', 'username', 'plotsReleased', 'businessesDeleted', 'proCancelled', 'kept', 'removed'],
-    properties: { deleted: { enum: [true] }, username: { type: 'string', pattern: '^deleted-\\d+' }, plotsReleased: { type: 'array', items: id }, businessesDeleted: { type: 'integer', minimum: 0 }, proCancelled: { type: 'integer', minimum: 0 }, kept: { type: 'array', items: STATEMENT }, removed: { type: 'array', items: { type: 'string' } } },
+    required: ['deleted', 'username', 'plotsReleased', 'businessesDeleted', 'proCancelled', 'refunds', 'kept', 'removed'],
+    properties: {
+      deleted: { enum: [true] },
+      username: { type: 'string', pattern: '^deleted-\\d+' },
+      plotsReleased: { type: 'array', items: id },
+      businessesDeleted: { type: 'integer', minimum: 0 },
+      proCancelled: { type: 'integer', minimum: 0 },
+      refunds: { type: 'object', required: ['totalCents', 'lines'], properties: { totalCents: { type: 'integer', minimum: 0 }, lines: { type: 'array', items: { type: 'object', required: ['orderId', 'cents'], properties: { orderId: id, cents: { type: 'integer', minimum: 1 }, unusedDays: { type: ['integer', 'null'] } } } }, closedForRules: { type: 'boolean' } } },
+      kept: { type: 'array', items: STATEMENT },
+      removed: { type: 'array', items: { type: 'string' } },
+    },
   },
 };
 
