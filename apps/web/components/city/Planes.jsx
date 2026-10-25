@@ -8,6 +8,8 @@ import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
 import { flightClock, flightPlanFor, flightState, trailPoint } from '@/lib/sim/flight';
 import { useCityStore } from '@/lib/state/store';
+import { planeRole } from '@/lib/content/planeModels';
+import { PlaneModel } from './PropModels';
 
 const SEGMENTS = 24; // the banner is a strip of this many quads
 const STEP = 0.2; // seconds of flight between the strip's columns (about 1.3 units at cruise: a banner about 31 units long)
@@ -16,7 +18,8 @@ const BANNER_HEIGHT = 3.6;
 const PLANE_COLOURS = [
   { body: '#facc15', trim: '#dc2626' },
   { body: '#f8fafc', trim: '#2563eb' },
-];
+].map((c) => ({ ...c, tail: c.trim }));
+const PLANE_SCALE = 1.35; // the plane's group is drawn this much bigger than its parts (the model is fitted to the world size)
 
 // The ad on a banner, drawn on a canvas: the advertiser's colour with a headline, or an invitation when the space
 // is for sale. Read left to right from the tail to the plane.
@@ -48,6 +51,7 @@ function Plane({ index, plan, banner }) {
   const bannerGroup = useRef(null);
   const rope = useRef(null);
   const colours = PLANE_COLOURS[index % PLANE_COLOURS.length];
+  const row = useMemo(() => planeRole({ role: 'flying', slot: index }), [index]); // its model (lib/content/planeModels.js), or the box plane
 
   // the banner strip: pairs of vertices (top, bottom) along the trail, rewritten every frame
   const strip = useMemo(() => {
@@ -151,53 +155,14 @@ function Plane({ index, plan, banner }) {
   return (
     <>
       {/* the plane: a small voxel high-wing prop plane; the nose points along local +Z */}
-      <group ref={body} scale={1.35}>
+      <group ref={body} scale={PLANE_SCALE}>
         <group {...handlers}>
           {/* a generous invisible target, so a small, fast plane is easy to click */}
           <mesh>
             <sphereGeometry args={[2.1, 8, 8]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} />
           </mesh>
-          <mesh castShadow>
-            <boxGeometry args={[0.5, 0.46, 2.1]} />
-            <meshStandardMaterial color={colours.body} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 0.02, 0.95]}>
-            <boxGeometry args={[0.54, 0.5, 0.4]} />
-            <meshStandardMaterial color={colours.trim} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 0.2, 0.35]}>
-            <boxGeometry args={[0.46, 0.2, 0.5]} />
-            <meshStandardMaterial color="#7dd3fc" roughness={0.1} metalness={0.5} />
-          </mesh>
-          <mesh position={[0, 0.34, 0.1]} castShadow>
-            <boxGeometry args={[3.2, 0.08, 0.62]} />
-            <meshStandardMaterial color={colours.trim} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 0.06, -0.95]} castShadow>
-            <boxGeometry args={[1.2, 0.06, 0.3]} />
-            <meshStandardMaterial color={colours.trim} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 0.32, -0.95]} castShadow>
-            <boxGeometry args={[0.07, 0.5, 0.36]} />
-            <meshStandardMaterial color={colours.trim} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, -0.34, 0.35]}>
-            <boxGeometry args={[0.7, 0.08, 0.08]} />
-            <meshStandardMaterial color="#1e293b" />
-          </mesh>
-          {[-0.3, 0.3].map((x) => (
-            <mesh key={x} position={[x, -0.4, 0.35]}>
-              <boxGeometry args={[0.12, 0.16, 0.18]} />
-              <meshStandardMaterial color="#1e293b" />
-            </mesh>
-          ))}
-          <group ref={prop} position={[0, 0.02, 1.2]}>
-            <mesh>
-              <boxGeometry args={[1.1, 0.1, 0.04]} />
-              <meshStandardMaterial color="#334155" />
-            </mesh>
-          </group>
+          <PlaneModel row={row} palette={colours} ground={false} unit={PLANE_SCALE} fallback={<PrimitivePlane colours={colours} prop={prop} />} />
         </group>
       </group>
 
@@ -211,6 +176,55 @@ function Plane({ index, plan, banner }) {
         </mesh>
       </group>
       <primitive ref={rope} object={ropeLine} />
+    </>
+  );
+}
+
+// The banner plane built from boxes (a small voxel high-wing prop plane, nose along +Z): the fallback when the plane table's model is not
+// there. `prop` is the propeller's ref (it spins).
+function PrimitivePlane({ colours, prop }) {
+  return (
+    <>
+      <mesh castShadow>
+        <boxGeometry args={[0.5, 0.46, 2.1]} />
+        <meshStandardMaterial color={colours.body} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.02, 0.95]}>
+        <boxGeometry args={[0.54, 0.5, 0.4]} />
+        <meshStandardMaterial color={colours.trim} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.2, 0.35]}>
+        <boxGeometry args={[0.46, 0.2, 0.5]} />
+        <meshStandardMaterial color="#7dd3fc" roughness={0.1} metalness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.34, 0.1]} castShadow>
+        <boxGeometry args={[3.2, 0.08, 0.62]} />
+        <meshStandardMaterial color={colours.trim} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.06, -0.95]} castShadow>
+        <boxGeometry args={[1.2, 0.06, 0.3]} />
+        <meshStandardMaterial color={colours.trim} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.32, -0.95]} castShadow>
+        <boxGeometry args={[0.07, 0.5, 0.36]} />
+        <meshStandardMaterial color={colours.trim} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, -0.34, 0.35]}>
+        <boxGeometry args={[0.7, 0.08, 0.08]} />
+        <meshStandardMaterial color="#1e293b" />
+      </mesh>
+      {[-0.3, 0.3].map((x) => (
+        <mesh key={x} position={[x, -0.4, 0.35]}>
+          <boxGeometry args={[0.12, 0.16, 0.18]} />
+          <meshStandardMaterial color="#1e293b" />
+        </mesh>
+      ))}
+      <group ref={prop} position={[0, 0.02, 1.2]}>
+        <mesh>
+          <boxGeometry args={[1.1, 0.1, 0.04]} />
+          <meshStandardMaterial color="#334155" />
+        </mesh>
+      </group>
     </>
   );
 }

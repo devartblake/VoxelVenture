@@ -32,6 +32,9 @@ const KITS = {
     },
   },
   cars: { folder: 'car-kit', dir: 'GLB format', textured: true, models: { car: ['sedan', 'hatchback-sports', 'suv', 'taxi', 'van', 'sedan-sports'], truck: ['truck', 'delivery'] } },
+  // Outside models (not Kenney): the planes (lib/content/planeModels.js; CC BY 4.0, credited below). `<folder>/airport/<name>.glb` as
+  // converted (docs/world/kenney_assets.md#plane-models), copied to apps/web/public/models/airport/. Only with --only airport.
+  airport: { folder: 'airport', outside: true, textured: false, optIn: true, models: { plane: ['airliner', 'small-plane', 'cargo-plane'] } },
 };
 const round = (n) => Math.round(n * 1000) / 1000;
 function readGlb(file) {
@@ -60,27 +63,33 @@ function readGlb(file) {
     for (const c of node.children ?? []) visit(c, world);
   };
   for (const n of json.scenes[json.scene ?? 0].nodes) visit(n, new Matrix4());
-  return { min, max, tris, bytes: b.length, images: (json.images ?? []).map((i) => i.uri) };
+  return { min, max, tris, bytes: b.length, images: (json.images ?? []).map((i) => i.uri), required: json.extensionsRequired ?? [] };
 }
 // With --only, the kits not named keep the entries they have in the catalog now.
+// Without it, the opt-in kits (the outside models: airport) keep theirs.
 let catalog = [];
-if (only) {
+{
   const old = fs.readFileSync(path.join(root, 'lib', 'content', 'propCatalog.js'), 'utf8');
   const start = old.indexOf('= [') + 2;
-  catalog = JSON.parse(old.slice(start, old.lastIndexOf(']') + 1)).filter((m) => !only.includes(m.kit));
+  catalog = JSON.parse(old.slice(start, old.lastIndexOf(']') + 1)).filter((m) => (only ? !only.includes(m.kit) : KITS[m.kit]?.optIn));
 }
 for (const [kit, spec] of Object.entries(KITS)) {
-  if (only && !only.includes(kit)) continue;
-  const from = path.join(source, spec.folder, 'Models', spec.dir);
+  if ((only && !only.includes(kit)) || (!only && spec.optIn)) continue;
+  const from = spec.outside ? path.join(source, spec.folder) : path.join(source, spec.folder, 'Models', spec.dir);
   if (!fs.existsSync(from)) throw new Error(`Missing ${from}`);
-  const to = path.join(root, 'apps', 'web', 'public', 'models', 'kenney', kit);
+  const dest = spec.outside ? kit : `kenney/${kit}`;
+  const to = path.join(root, 'apps', 'web', 'public', 'models', ...dest.split('/'));
   fs.mkdirSync(spec.textured ? path.join(to, 'Textures') : to, { recursive: true });
   if (spec.textured) fs.copyFileSync(path.join(from, 'Textures', 'colormap.png'), path.join(to, 'Textures', 'colormap.png'));
   for (const [cls, names] of Object.entries(spec.models)) for (const name of names) {
     const info = readGlb(path.join(from, `${name}.glb`));
-    if (info.images.some((u) => u !== 'Textures/colormap.png')) throw new Error(`${name} uses an unexpected texture`);
+    // an outside model must be one self-contained .glb the plain GLTFLoader reads: its texture (if any) embedded, no compression
+    const unsupported = info.required.filter((x) => /draco|meshopt|basisu|ktx/i.test(x));
+    if (unsupported.length) throw new Error(`${name} needs ${unsupported.join(', ')}: export it without compression`);
+    if (spec.outside ? info.images.some(Boolean) : info.images.some((u) => u !== 'Textures/colormap.png')) throw new Error(`${name} uses an unexpected texture`);
+    const own = spec.outside && info.images.length > 0; // an outside model with an embedded texture gets a material of its own
     fs.copyFileSync(path.join(from, `${name}.glb`), path.join(to, `${name}.glb`));
-    catalog.push({ id: `${kit}/${name}`, kit, cls, url: `/models/kenney/${kit}/${name}.glb`, textured: spec.textured, w: round(info.max[0] - info.min[0]), h: round(info.max[1] - info.min[1]), d: round(info.max[2] - info.min[2]), cx: round((info.max[0] + info.min[0]) / 2), cz: round((info.max[2] + info.min[2]) / 2), y0: round(info.min[1]), tris: info.tris, kb: Math.round(info.bytes / 1024) });
+    catalog.push({ id: `${kit}/${name}`, kit, cls, url: `/models/${dest}/${name}.glb`, textured: spec.outside ? own : spec.textured, ...(own ? { ownMaterial: true } : {}), w: round(info.max[0] - info.min[0]), h: round(info.max[1] - info.min[1]), d: round(info.max[2] - info.min[2]), cx: round((info.max[0] + info.min[0]) / 2), cz: round((info.max[2] + info.min[2]) / 2), y0: round(info.min[1]), tris: info.tris, kb: Math.round(info.bytes / 1024) });
   }
 }
 fs.writeFileSync(
@@ -98,6 +107,15 @@ if (!c.includes('Watercraft Kit')) {
 }
 if (!c.includes('Nature Kit')) {
   c = c.replace('\nVoxel landmarks', '\nThe trees and bushes in `kenney/nature/` are from the **Kenney Nature Kit**, and the cars in `kenney/cars/` from the **Kenney Car Kit**, also CC0.\n\nVoxel landmarks');
+  fs.writeFileSync(credits, c);
+}
+// CC BY: the planes must be credited (title, maker, licence). The in-game credits (lib/content/credits.js) and the root CREDITS.md are
+// updated by hand, with the source links and the licence snapshot (docs/world/kenney_assets.md#plane-models).
+if (catalog.some((m) => m.kit === 'airport') && !c.includes('`airport/`')) {
+  const { imp } = await import('../lib-loader.mjs');
+  const { PLANE_MODELS } = await imp('content/planeModels.js');
+  const names = Object.values(PLANE_MODELS).filter((p) => catalog.some((m) => m.id === p.id)).map((p) => `"${p.title}" by ${p.by}`);
+  c = c.replace('\nVoxel landmarks', `\nThe planes in \`airport/\` are ${names.join(', ')}, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); resized and recoloured for this game.\n\nVoxel landmarks`);
   fs.writeFileSync(credits, c);
 }
 console.log(`${catalog.length} models, ${catalog.reduce((n, m) => n + m.kb, 0)} KB, ${catalog.reduce((n, m) => n + m.tris, 0)} triangles`);

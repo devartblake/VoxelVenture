@@ -269,10 +269,12 @@ try {
   check('admin: adding an email sends a confirmation link', await waitFor(adm, `/confirmation link is on its way/.test(document.body.innerText) && /Waiting for confirmation/.test(document.querySelector('[data-testid="admin-email-status"]')?.textContent ?? '')`, 20), await adm.eval(`document.querySelector('[data-testid="admin-form-error"]')?.textContent ?? ''`));
   const verifyLink = await linkFrom('verify-email', seenMail);
   check('admin: the confirmation email is in the outbox, linking to the site', Boolean(verifyLink));
-  await adm.eval(`location.href = ${JSON.stringify(verifyLink)}; 1`);
-  check('admin: opening it confirms the address, and the link leaves the address bar', await waitFor(adm, `document.querySelector('[data-testid="admin-verify-result"]')?.dataset.ok === '1' && !location.hash`, 20), await adm.eval('location.href + " " + document.body.innerText.slice(0, 200)'));
-  await adm.eval(`location.href = '/admin/password'; 1`);
-  check('admin: the Account page shows it confirmed', await waitFor(adm, `document.querySelector('[data-testid="admin-email-status"]')?.dataset.verified === '1'`, 20));
+  // the link opened elsewhere (another browser, like a phone): the Account page still open here shows Confirmed without a reload
+  await adm.eval(`window.__noReload = true; 1`);
+  const ver = await openPage(verifyLink, { width: 390, height: 800, mobile: true });
+  check('admin: opening it confirms the address, and the link leaves the address bar', await waitFor(ver, `document.querySelector('[data-testid="admin-verify-result"]')?.dataset.ok === '1' && !location.hash`, 20), await ver.eval('location.href + " " + document.body.innerText.slice(0, 200)'));
+  await ver.close();
+  check('admin: the Account page open meanwhile shows it confirmed, without a reload', await waitFor(adm, `window.__noReload === true && document.querySelector('[data-testid="admin-email-status"]')?.dataset.verified === '1'`, 12));
   await adm.eval(`document.querySelector('[data-testid="admin-sign-out"]').click()`);
   check('admin: signing out goes to the sign-in', await waitFor(adm, `location.pathname === '/admin/login' && location.search.includes('signedOut=1')`, 20));
   await adm.eval(`location.href = '/admin/economy'; 1`);
