@@ -118,7 +118,8 @@ try {
   await sleep(600);
 
   // the compact HUD on a phone, and a plain way into the businesses
-  check('a phone gets the compact HUD: the main tools, the camera and More', await phone.eval(`document.querySelector('[data-testid="toolbar"]')?.dataset.compact === 'true' && document.querySelectorAll('[data-testid="toolbar"] [data-tool]').length === 4 && Boolean(document.querySelector('[data-testid="hud-more"]'))`));
+  const hudNow = await phone.eval(`JSON.stringify({ compact: document.querySelector('[data-testid="toolbar"]')?.dataset.compact, tools: [...document.querySelectorAll('[data-testid="toolbar"] [data-tool]')].map((b) => b.dataset.tool), more: Boolean(document.querySelector('[data-testid="hud-more"]')), view: window.__vvPanel?.getState().view ?? null })`);
+  check('a phone gets the compact HUD: the main tools, the camera and More', (() => { const h = JSON.parse(hudNow); return h.compact === 'true' && h.tools.filter((t) => t !== 'camera').length === 4 && h.tools.includes('camera') && h.more; })(), hudNow);
   check('the clock and sound buttons sit bottom left, clear of the joystick', await phone.eval(`(() => { const r = document.querySelector('[data-testid="ambient-controls"]').getBoundingClientRect(); return r.left < 40 && r.right < window.innerWidth / 2 - 50; })()`));
   check('every tool bar button is at least 44 px', await phone.eval(`[...document.querySelectorAll('[data-testid="toolbar"] button')].every((b) => { const r = b.getBoundingClientRect(); return r.width >= 43.5 && r.height >= 43.5; })`));
   await phone.eval(`document.querySelector('[data-testid="explore-businesses"]').click(); 1`);
