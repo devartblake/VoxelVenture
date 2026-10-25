@@ -722,7 +722,8 @@ try {
   await adminPage.eval(`document.querySelector('[data-testid="admin-forgot-link"]').click()`);
   check('it opens /admin/forgot without a session, with the email form (method post)', await waitFor(adminPage, `location.pathname === '/admin/forgot' && document.querySelector('[data-testid="admin-forgot-form"]')?.method === 'post' && Boolean(document.querySelector('input#login'))`, 20), await adminPage.eval('location.href'));
   check('two ways, as tabs: an email link and the admin token', await adminPage.eval(`[...document.querySelectorAll('[role=tab]')].map((t) => t.textContent).join('|') === 'Email me a link|Admin token'`));
-  await adminPage.eval(`[...document.querySelectorAll('[role=tab]')][1].click()`);
+  // the tab may not answer until the page has started (hydration): click it until it is selected, rather than once
+  await waitFor(adminPage, `(() => { const t = [...document.querySelectorAll('[role=tab]')][1]; if (t?.getAttribute('aria-selected') !== 'true') t?.click(); return t?.getAttribute('aria-selected') === 'true'; })()`, 15);
   check('the token form: username, the token hidden as a password, the new password twice', await waitFor(adminPage, `(() => { const f = document.querySelector('[data-testid="admin-forgot-token-form"]'); return Boolean(f && f.method === 'post' && f.querySelector('input#reset-username') && f.querySelector('input#reset-token[type=password]') && f.querySelector('input#reset-password[type=password]') && f.querySelector('input#reset-confirm[type=password]')); })()`, 10));
   check('the forgot page fits a phone', await adminPage.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1`));
   await adminPage.eval(`location.href = '/admin/reset#token=' + 'x'.repeat(43); 1`);

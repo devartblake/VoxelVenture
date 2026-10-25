@@ -6,6 +6,8 @@ node_modules/
 *.log
 # the journeys' reports, logs and screenshots (tests/agents/scenario.mjs)
 artifacts/
+# downloaded outside models waiting to be converted and imported (docs/world/kenney_assets.md#plane-models)
+incoming-models/
 *.tsbuildinfo
 next-env.d.ts
 services/multiplayer/logs/
