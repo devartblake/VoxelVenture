@@ -151,6 +151,12 @@ try {
   const pending = ins('orders', { account_id: A, product: 'lease', target: `plot:${lots[1]}`, label: 'Lease', cents: 700, status: 'pending', stripe_session: 'cs_amy_open', hold_until: now + 1800000, created_at: now });
   const promoId = ins('promo_codes', { code: 'AMYTEST', kind: 'percent', value: 10, applies_to: '["all"]', created_by: `account:${A}`, created_at: now, updated_at: now });
   ins('promo_redemptions', { promo_id: promoId, code: 'AMYTEST', account_id: A, order_id: proOrder, cents_off: 190, status: 'redeemed', created_at: now, updated_at: now });
+  // a paid ad booking, refunded in part, whose payment was disputed and won (billing.mjs)
+  const slot2 = db.prepare('SELECT id FROM ad_slots WHERE owner_account IS NULL AND id != ? LIMIT 1').get(slot).id;
+  const adOrder = ins('orders', { account_id: A, product: 'ad', target: `ad:${slot2}`, label: 'Ad space', cents: 1200, refunded_cents: 100, status: 'paid', stripe_payment_intent: 'pi_amy_ad', created_at: now, paid_at: now });
+  ins('ad_terms', { slot_id: slot2, order_id: adOrder, account_id: A, ad: JSON.stringify({ advertiser: 'Amy Realname Ads', headline: 'Amy Secretwords week', tagline: '', url: '', color: '#00ffff' }), starts_at: now, ends_at: now + 7 * DAY, status: 'active' });
+  ins('order_refunds', { order_id: adOrder, cents: 100, full: 0, source: 'admin', note: 'goodwill', at: now });
+  ins('disputes', { stripe_dispute: 'dp_amy', order_id: adOrder, cents: 1200, reason: 'fraudulent', status: 'won', created_at: now, closed_at: now });
   ins('carts', { account_id: A, created_at: now, updated_at: now });
   ins('cart_items', { account_id: A, kind: 'launch', target: `business:${amyBiz}`, business_id: amyBiz, label: 'Launch Pack', cents: 900, created_at: now });
   // the plot economy
@@ -176,6 +182,9 @@ try {
     events: () => x.activity.visits.some((v) => v.plotId === city),
     ad_slots: () => x.adSpaces.some((s) => s.id === slot && s.ad.advertiser === 'Amy Realname Ads'),
     ad_ledger: () => x.adHistory.length === 1,
+    ad_terms: () => x.adBookings.some((b) => b.orderId === adOrder && b.ad.advertiser === 'Amy Realname Ads'),
+    order_refunds: () => x.orders.find((o) => o.id === adOrder).refunds.some((r) => r.cents === 100) && x.orders.find((o) => o.id === adOrder).refundedCents === 100,
+    disputes: () => x.disputes.some((d) => d.orderId === adOrder && d.reason === 'fraudulent' && d.status === 'won'),
     ad_events: () => x.activity.adViews.length === 1,
     coupon_claims: () => x.couponClaims.some((c) => c.code === 'SAVE-10'),
     leads: () => x.newsletters.mine.some((l) => l.kind === 'world') && x.plots[0].newsletterSignups.confirmed.some((l) => l.email === 'fan.of.amy@example.test') && x.businesses[0].newsletterSignups.confirmed.length === 1,
@@ -287,6 +296,9 @@ try {
     events: () => n('SELECT COUNT(*) AS n FROM events WHERE visitor = ?', `a${A}`) === 0 && n("SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND visitor LIKE 'z%'", city) === 1,
     ad_slots: () => one('SELECT * FROM ad_slots WHERE id = ?', slot).ad === null && one('SELECT * FROM ad_slots WHERE id = ?', slot).owner_account === null,
     ad_ledger: () => one('SELECT * FROM ad_ledger WHERE account_id = ?', A).advertiser === '(removed)' && one('SELECT * FROM ad_ledger WHERE account_id = ?', A).price === 10,
+    ad_terms: () => one('SELECT * FROM ad_terms WHERE order_id = ?', adOrder).status === 'removed' && one('SELECT * FROM ad_terms WHERE order_id = ?', adOrder).ad === '{}' && !/Amy/.test(one('SELECT * FROM ad_slots WHERE id = ?', slot2).ad ?? ''),
+    order_refunds: () => n('SELECT COUNT(*) AS n FROM order_refunds WHERE order_id = ?', adOrder) >= 1,
+    disputes: () => n('SELECT COUNT(*) AS n FROM disputes WHERE order_id = ?', adOrder) === 1,
     ad_events: () => n('SELECT COUNT(*) AS n FROM ad_events WHERE visitor = ?', `a${A}`) === 0 && n('SELECT COUNT(*) AS n FROM ad_events WHERE slot_id = ?', slot) === 1,
     coupon_claims: () => n('SELECT COUNT(*) AS n FROM coupon_claims WHERE visitor = ?', `a${A}`) === 0 && n('SELECT COUNT(*) AS n FROM coupon_claims WHERE plot_id = ?', city) === 1,
     leads: () => n("SELECT COUNT(*) AS n FROM leads WHERE email LIKE '%amy%'") === 0,

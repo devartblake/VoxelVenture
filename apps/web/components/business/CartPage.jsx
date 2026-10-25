@@ -10,7 +10,7 @@ import NotLive from './NotLive';
 import { signIn, useOwner } from './useOwner';
 
 const money = (c) => `$${(c / 100).toFixed(2)}`;
-const KIND = { claim: 'Plot lease', takeover: 'Take-over', renew: 'Lease renewal', exterior: 'Building upgrade', launch: 'Launch Pack', pro: 'Pro, monthly', sponsored: 'Sponsored week', stall: 'Market stall' };
+const KIND = { claim: 'Plot lease', takeover: 'Take-over', renew: 'Lease renewal', exterior: 'Building upgrade', launch: 'Launch Pack', pro: 'Pro, monthly', sponsored: 'Sponsored week', stall: 'Market stall', ad: 'Ad space' };
 
 // /cart: what is in the cart, each line at the server's price (the Pro plot discount as its own line), the total, the $4 minimum and checkout. One
 // payment for everything, so Stripe's fixed fee is paid once (services/api/cart.mjs, docs/monetization/billing.md#the-cart).
@@ -67,7 +67,7 @@ export default function CartPage() {
           </ul>
           <dl className="mt-4 space-y-1 rounded-2xl border border-sx-stroke bg-sx-alt/50 p-4 text-sm">
             {(cart.discountCents > 0 || cart.promo?.cents > 0) && <div className="flex justify-between text-slate-300"><dt>Subtotal</dt><dd className="font-mono">{money(cart.subtotalCents)}</dd></div>}
-            {cart.discountCents > 0 && <div className="flex justify-between text-emerald-300"><dt>Pro discount (15% off plots)</dt><dd className="font-mono">−{money(cart.discountCents)}</dd></div>}
+            {cart.discountCents > 0 && <div className="flex justify-between text-emerald-300"><dt>Pro discount (15% off plots and ad spaces)</dt><dd className="font-mono">−{money(cart.discountCents)}</dd></div>}
             {cart.promo?.cents > 0 && <div className="flex justify-between text-emerald-300" data-testid="cart-promo"><dt>Code {cart.promo.code}{cart.items.some((i) => i.kind === 'pro' && i.promoCents > 0) ? ' (Pro: first month only)' : ''}</dt><dd className="font-mono">−{money(cart.promo.cents)}</dd></div>}
             <div className="flex justify-between text-base font-semibold text-white"><dt>Total</dt><dd className="font-mono" data-testid="cart-total">{money(cart.totalCents)}</dd></div>
             {cart.feeSavedCents > 0 && <p className="text-xs text-sx-muted">One payment instead of {cart.count} saves {money(cart.feeSavedCents)} in card fees.</p>}

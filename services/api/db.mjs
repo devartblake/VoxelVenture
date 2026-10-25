@@ -66,6 +66,10 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'accounts', 'deleted_at', 'INTEGER'); // when the account was deleted (its name is then deleted-<id>)
   addColumn(db, 'businesses', 'deleted_at', 'INTEGER'); // when the owner (or the account's deletion) deleted the page; status is then 'deleted'
   addColumn(db, 'businesses', 'final_stats', 'TEXT'); // JSON: the page's figures in total when it was deleted (its events and requests are gone)
+  addColumn(db, 'orders', 'refunded_cents', 'INTEGER NOT NULL DEFAULT 0'); // what has been refunded of this order, in full or in part (order_refunds; billing.mjs)
+  addColumn(db, 'orders', 'dispute_id', 'INTEGER REFERENCES disputes(id)'); // the latest dispute of the payment this order was paid with
+  addColumn(db, 'plots', 'disputed', 'INTEGER NOT NULL DEFAULT 0'); // 1: a payment for this lease is disputed: the building stays, its owner cannot change, upgrade or renew it
+  addColumn(db, 'ad_slots', 'paid_until', 'INTEGER'); // with payments on: the end of the paid booking shown now (ad_terms); NULL: not a paid ad
   return db;
 }
 

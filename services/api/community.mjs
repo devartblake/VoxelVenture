@@ -1,4 +1,4 @@
-import { ApiError, TERM_MESSAGE, fail, getPlot, hasPro, plotView, pricedPlot, requireAccount } from './core.mjs';
+import { ApiError, TERM_MESSAGE, assertNotDisputed, fail, getPlot, hasPro, plotView, pricedPlot, requireAccount } from './core.mjs';
 import { transaction } from './db.mjs';
 import { enqueue, noticeAddress } from './engage.mjs';
 import { imp } from '../../scripts/lib-loader.mjs';
@@ -23,6 +23,7 @@ export function renewLease(db, account, plotId, input = {}, opts = {}) {
     const p = getPlot(db, plotId);
     if (p.owner_account !== account.id) throw new ApiError(404, 'There is no business of yours here.', 'not_yours');
     if (!p.lease_end) fail(409, 'This business has no lease to renew.', 'no_lease');
+    assertNotDisputed(p);
     const state = leaseState(p.lease_end, now(), p.lease_days);
     if (state === 'active') fail(409, `You can renew in the last ${renewalWindowDays(p.lease_days)} days of the lease.`, 'too_early');
     const days = input.leaseDays == null ? termFor(p.lease_days) : termOf(input.leaseDays)?.days ?? fail(400, TERM_MESSAGE, 'bad_term');

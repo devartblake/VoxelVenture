@@ -238,7 +238,7 @@ const USAGE = `SELECT p.*,
   (SELECT COUNT(*) FROM promo_redemptions r WHERE r.promo_id = p.id AND r.status = 'reserved') AS reserved,
   (SELECT COUNT(*) FROM promo_redemptions r WHERE r.promo_id = p.id AND r.status = 'voided') AS voided,
   (SELECT COALESCE(SUM(r.cents_off), 0) FROM promo_redemptions r WHERE r.promo_id = p.id AND r.status = 'redeemed') AS discounted_cents,
-  (SELECT COALESCE(SUM(o.cents), 0) FROM promo_redemptions r JOIN orders o ON o.id = r.order_id WHERE r.promo_id = p.id AND r.status = 'redeemed' AND o.status = 'paid') AS revenue_cents
+  (SELECT COALESCE(SUM(o.cents - o.refunded_cents), 0) FROM promo_redemptions r JOIN orders o ON o.id = r.order_id WHERE r.promo_id = p.id AND r.status = 'redeemed' AND o.status = 'paid') AS revenue_cents
   FROM promo_codes p`;
 const withUsage = (db, p) => db.prepare(`${USAGE} WHERE p.id = ?`).get(p.id);
 export const statusOf = (p, at = now()) => (!p.active ? 'inactive' : p.expires_at && p.expires_at <= at ? 'expired' : p.starts_at && p.starts_at > at ? 'scheduled' : p.max_redemptions != null && (p.redeemed ?? 0) + (p.reserved ?? 0) >= p.max_redemptions ? 'used_up' : 'active');

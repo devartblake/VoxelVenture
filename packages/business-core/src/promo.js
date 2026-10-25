@@ -3,7 +3,7 @@
 // Pure, shared by the server (which prices and enforces every code) and the pages (which show what a code would take off, as the server will).
 
 // The product groups a code can apply to, and which purchases are in each. A purchase is named by its cart kind (services/api/cart.mjs CART_KINDS),
-// which is also how a single checkout names it: a lease action (claim, takeover, renew, exterior), a stall, or a business product.
+// which is also how a single checkout names it: a lease action (claim, takeover, renew, exterior), a stall, an ad space ('ad'), or a business product.
 export const PROMO_GROUPS = {
   plots: { label: 'Plot leases (claim, take-over, renewal)', kinds: ['claim', 'takeover', 'renew'] },
   outside: { label: 'Building upgrades (the outside)', kinds: ['exterior'] },
@@ -11,6 +11,7 @@ export const PROMO_GROUPS = {
   pro: { label: 'Pro (first month only)', kinds: ['pro'] },
   sponsored: { label: 'Sponsored weeks', kinds: ['sponsored'] },
   market: { label: 'Market stalls', kinds: ['stall'] },
+  ads: { label: 'Ad spaces (billboards and banners)', kinds: ['ad'] },
 };
 export const PROMO_GROUP_IDS = Object.keys(PROMO_GROUPS);
 export const PROMO_KINDS = ['percent', 'amount'];

@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
-import { Activity, BarChart3, KeyRound, LogOut, Menu, Rocket, ShieldCheck, Ticket, UserX, X } from 'lucide-react';
+import { Activity, BarChart3, KeyRound, LogOut, Menu, Rocket, ShieldAlert, ShieldCheck, Ticket, UserX, X } from 'lucide-react';
 import { adminFetch, isOpenAdminPath, loginHref, signedOut } from '@/lib/data/admin';
 import { Alert, BrandMark, Button, Field, StatusPill, Wordmark, buttonClass, cx } from '@/components/admin/ui';
 
@@ -29,6 +29,7 @@ export const ADMIN_NAV = [
       { href: '/admin/pilot', label: 'Pilot', title: 'Pilot dashboard', icon: Rocket },
       { href: '/admin/economy', label: 'Economy', title: 'Plot economy', icon: BarChart3 },
       { href: '/admin/promos', label: 'Promo codes', title: 'Promo codes', icon: Ticket },
+      { href: '/admin/disputes', label: 'Disputes', title: 'Disputes and refunds', icon: ShieldAlert },
     ],
   },
   { group: 'Support', items: [{ href: '/admin/privacy', label: 'Privacy requests', title: 'Privacy requests', icon: UserX }] },

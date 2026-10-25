@@ -2,6 +2,8 @@
 
 ## 0.16.0 (2026-10-21)
 
+Two sets of changes in one version (the privacy and the billing work were merged before a release).
+
 Self-service privacy rights (`services/api/privacy.mjs`, [backend.md](../../docs/architecture/backend.md#privacy)). New contracts, all version 1, in [`contracts/privacy.js`](src/contracts/privacy.js):
 
 - `privacy.export`: `GET /me/export` (3 a day per account) and `GET /admin/accounts/:id/export`: everything held about an account, in fixed sections (`account`, `sessions`, `businesses`, `plots`, `orders`, `messaging`, `activity`, `actionLog`, ...), with `notIncluded` (each table left out, and why) and `summary` (plain-language lines).
@@ -10,9 +12,18 @@ Self-service privacy rights (`services/api/privacy.mjs`, [backend.md](../../docs
 - `privacy.delete.result`: the answer to both, `{ deleted: true, username: 'deleted-<id>', plotsReleased, businessesDeleted, proCancelled, kept: [{ what, why }], removed }`.
 - `business.delete.result`: `DELETE /businesses/:slug` (the owner), `{ deleted: true, slug, proCancelled, plotUnlinked }`.
 - `privacy.accounts`: `GET /admin/privacy/accounts?q=` (by number, name or email), each account with its counts.
-- `API_CONTRACTS` now holds 70.
 
-No existing contract changed.
+Paid ad spaces, disputes and partial refunds (`services/api/billing.mjs`, [billing.md](../../docs/monetization/billing.md#ad-spaces)). New contracts, all version 1, in [`contracts/billing.js`](src/contracts/billing.js):
+
+- `ad.buy` and `ad.buy.result`: `POST /ads/:id/buy` `{ advertiser, headline, tagline?, url?, color, promoCode? }`. With payments on the answer is Stripe's page (`checkout`); without, the free game's take-over as before. Each ad slot now carries `sale` (`{ cents, proCents, days, paidUntil, bookedUntil, bookedBy }`).
+- `billing.disputes`: `GET /admin/billing/disputes`, `{ open, disputes, refunds }`.
+- `billing.order`: `GET /admin/billing/orders/:id`, `{ order, cart, lines, refunds, disputes }`. An order now has `refundedCents` and `disputeId`, and the status `charged_back` (a dispute lost).
+- `API_CONTRACTS` now holds 74 (both sets in this version).
+
+Changed (a new value in a list, so a new version):
+
+- `CART_KINDS` has `ad` (an ad space). `cart.item` **version 2** (also `slotId`), `cart.view` **version 3**, `cart.checkout.result` **version 3**.
+- `PROMO_GROUP_IDS` has `ads`. `promo.check`, `promo.check.result`, `promo.create`, `promo.view`, `promo.list` and `promo.detail` **version 2**.
 
 ## 0.15.0 (2026-10-20)
 

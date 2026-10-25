@@ -3,6 +3,7 @@ import * as market from './market.mjs';
 import * as economy from './economy.mjs';
 import * as billing from './billing.mjs';
 import * as promo from './promo.mjs';
+import * as core from './core.mjs';
 import { ApiError, fail, hasPro, requireAccount } from './core.mjs';
 import { audit, byAccount } from './audit.mjs';
 import { CART, PRODUCTS, categoryOf, districtOf, dollars, isSlug, placementOf, priceOf, promoGroupOf } from '@voxelventure/business-core';
@@ -11,11 +12,12 @@ import { CART, PRODUCTS, categoryOf, districtOf, dollars, isSlug, placementOf, p
 // Stripe's 30¢ a payment is paid once instead of once per item.
 //
 //   lines      a plot lease (claim), a take-over, a renewal, an outside upgrade (each a "plot line": at most CART.maxPlots, each plot once), the Launch
-//              Pack, a sponsored week, a market stall, and Pro (the only subscription, at most once). One cart per account, kept on the server.
+//              Pack, a sponsored week, a market stall, an ad space (a billboard or banner, for its days), and Pro (the only subscription, at most
+//              once). One cart per account, kept on the server.
 //   prices     always the server's: each line is priced from the catalogue and the game's pricing code when it is added (to show it) and again at
 //              checkout (what is charged). A price that changed in between stops the checkout once, with the new price shown.
-//   Pro        with Pro in the cart the plot lines already get the Pro discount (the same payment buys Pro). If the Pro line then fails or is
-//              refunded, the discount stays: it is not clawed back.
+//   Pro        with Pro in the cart the plot lines and ad spaces already get the Pro discount (the same payment buys Pro). If the Pro line then fails
+//              or is refunded, the discount stays: it is not clawed back.
 //   holds      adding a line holds nothing. Checkout checks every line (by doing it and undoing it, as a single "Buy now" does) and holds them all
 //              at once for billing.HOLD_MS; if any line cannot be had, nothing is held and the answer says which lines and why.
 //   orders     one parent order (product 'cart', the whole amount, the Stripe session) and a child order per line (orders.parent_id), each the
@@ -24,11 +26,12 @@ import { CART, PRODUCTS, categoryOf, districtOf, dollars, isSlug, placementOf, p
 //   promo      one promo code per cart (POST /cart/promo, promo.mjs): shown as its own line, on the lines it covers, after the Pro discount. The minimum
 //              is the total before the code. Checked again at checkout; the parent order reserves its use and each line carries its share (promo_cents).
 //              A cart the code makes free (and without Pro) is done at once, with no Stripe session.
-// Without payments (billing.billingOn false) the game's lines are done at once, all or nothing, as the game's own routes do without payments;
+// Without payments (billing.billingOn false) the game's lines (plots, stalls, ad spaces) are done at once, all or nothing, as the game's own routes do;
 // the business products (Launch Pack, Pro, sponsored) cannot be bought without payments (503 billing_off, as their own checkout).
 const PLOT_KINDS = ['claim', 'takeover', 'renew', 'exterior'];
 const BUSINESS_KINDS = ['launch', 'pro', 'sponsored'];
-export const CART_KINDS = [...PLOT_KINDS, ...BUSINESS_KINDS, 'stall'];
+export const CART_KINDS = [...PLOT_KINDS, ...BUSINESS_KINDS, 'stall', 'ad'];
+const PRO_PRICED = [...PLOT_KINDS.filter((k) => k !== 'exterior'), 'ad']; // the lines Pro is cheaper for (an outside upgrade is not)
 const now = () => Date.now();
 
 // ---- the lines -------------------------------------------------------------------------------------------------------------------------
@@ -36,14 +39,17 @@ const now = () => Date.now();
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o?.[k] !== undefined).map((k) => [k, o[k]]));
 const SETUP = ['title', 'buildingType', 'website', 'variant', 'logo', 'description', 'exterior', 'leaseDays'];
 const STALL = ['siteCode', 'week', 'stallId', 'hours', 'start', 'brand', 'product', 'goods', 'offer', 'website'];
+const AD = ['advertiser', 'headline', 'tagline', 'url', 'color'];
 function requestOf(kind, input = {}) {
   if (kind === 'claim' || kind === 'takeover') return pick(input, SETUP);
   if (kind === 'renew') return pick(input, ['leaseDays']);
   if (kind === 'exterior') return pick(input, ['exterior']);
   if (kind === 'stall') return pick(input, STALL);
+  if (kind === 'ad') return pick(input, AD);
   return {};
 }
 const plotOf = (line) => Number(String(line.target).split(':')[1]);
+const slotOf = (line) => String(line.target).slice('ad:'.length);
 const lineOf = (row) => ({ ...row, request: JSON.parse(row.request || '{}') });
 const itemsOf = (db, accountId) => db.prepare('SELECT * FROM cart_items WHERE account_id = ? ORDER BY id').all(accountId);
 const proIn = (rows) => rows.some((r) => r.kind === 'pro');
@@ -74,6 +80,11 @@ function priceLine(db, seed, account, line, pro) {
   if (line.kind === 'stall') {
     const booked = dryRun(db, () => market.book(db, seed, account, req, { holdUntil: now() + billing.HOLD_MS }));
     return { cents: booked.paid, discountCents: 0, label: stallLabel(booked) };
+  }
+  if (line.kind === 'ad') {
+    core.cleanAd(req);
+    const q = core.adQuote(db, account, slotOf(line), { pro });
+    return { cents: q.cents, discountCents: q.discountCents, label: q.label };
   }
   const b = profileOf(db, account, line.business_id);
   if (line.kind === 'pro' && billing.planFor(db, b.id).pro) fail(409, `${b.name} already has Pro.`, 'already_pro');
@@ -155,12 +166,12 @@ export function clearPromo(db, account, env = process.env) {
   return cartView(db, account, env);
 }
 
-// Plot lines are priced again (quietly) when Pro comes into or leaves the cart: the discount the cart shows follows it. A line that cannot be priced
+// Plot and ad lines are priced again (quietly) when Pro comes into or leaves the cart: the discount the cart shows follows it. A line that cannot be priced
 // now keeps its price; checkout will say why.
 function repricePlots(db, seed, account) {
   const rows = itemsOf(db, account.id);
   const pro = hasPro(db, account.id) || proIn(rows);
-  for (const r of rows.filter((x) => PLOT_KINDS.includes(x.kind))) {
+  for (const r of rows.filter((x) => PRO_PRICED.includes(x.kind))) {
     try {
       const p = priceLine(db, seed, account, lineOf(r), pro);
       db.prepare('UPDATE cart_items SET cents = ?, discount_cents = ?, label = ? WHERE id = ?').run(p.cents, p.discountCents, p.label, r.id);
@@ -175,6 +186,7 @@ function repricePlots(db, seed, account) {
 //   renew              plotId and input { leaseDays? }
 //   exterior           plotId and input { exterior }
 //   stall              input (the booking, as POST /market/book takes it)
+//   ad                 slotId (the billboard or banner) and input (the ad, as POST /ads/:id/buy takes it: advertiser, headline, tagline, url, color)
 //   launch | pro | sponsored   business (the profile's slug), and placement for a sponsored week
 export function addItem(db, seed, account, body = {}, env = process.env) {
   requireAccount(account);
@@ -196,6 +208,10 @@ export function addItem(db, seed, account, body = {}, env = process.env) {
     } else if (kind === 'stall') {
       target = `stall:${request.siteCode}:${request.week}:${request.stallId}:${request.start}`;
       if (rows.some((r) => r.target === target)) fail(409, 'This stall is in your cart already.', 'already_in_cart');
+    } else if (kind === 'ad') {
+      if (!/^[A-Za-z0-9_-]{1,60}$/.test(String(body.slotId ?? ''))) fail(400, 'Which ad space?', 'bad_slot');
+      target = `ad:${body.slotId}`;
+      if (rows.some((r) => r.target === target)) fail(409, 'This ad space is in your cart already. Remove it first to change the ad.', 'already_in_cart');
     } else {
       const b = (isSlug(body.business) ? db.prepare("SELECT * FROM businesses WHERE slug = ? AND status = 'published'").get(String(body.business)) : null) ?? fail(404, 'No such business.', 'no_business');
       if (b.account_id !== account.id) fail(403, 'This is not your business.', 'forbidden');
@@ -371,6 +387,10 @@ function holdLine(db, seed, account, l, { parentId, holdUntil, pro }) {
     const booked = market.book(db, seed, account, l.request, { holdUntil });
     return insert('market', { target: `booking:${booked.booking.id}` });
   }
+  if (l.kind === 'ad') {
+    const q = core.adQuote(db, account, slotOf(l), { pro }); // two carts cannot both hold the space: the first checkout's order holds it
+    return insert('ad', { target: l.target, request: JSON.stringify({ slotId: q.slotId, ad: core.cleanAd(l.request), days: q.days, pro }) });
+  }
   if (l.kind === 'sponsored') {
     const p = placementOf(l.placement);
     if (billing.taken(db, p.key) >= p.slots) fail(409, `${placementName(p)} is full right now.`, 'placement_full');
@@ -381,6 +401,11 @@ function holdLine(db, seed, account, l, { parentId, holdUntil, pro }) {
 
 // Without payments: a game line done at once, as its own route does (audited; the server tells the other players through `after`).
 function doLine(db, seed, account, l) {
+  if (l.kind === 'ad') {
+    const out = core.buySlot(db, account, slotOf(l), l.request);
+    audit(db, byAccount(account), 'ad.buy', { kind: 'ad', id: slotOf(l) }, { advertiser: out.slot.ad.advertiser, value: out.slot.value, paidOut: out.paidOut, previousAdvertiser: out.previousAdvertiser, cart: true });
+    return { ...l, fulfilled: { kind: 'ad', slotId: slotOf(l), previousAccount: out.previousAccount, out } };
+  }
   if (l.kind === 'stall') {
     const out = market.book(db, seed, account, l.request);
     audit(db, byAccount(account), 'market.book', { kind: 'booking', id: out.booking.id }, { stall: out.stall.id, site: l.request.siteCode ?? null, week: l.request.week ?? null, cents: out.paid, cart: true });

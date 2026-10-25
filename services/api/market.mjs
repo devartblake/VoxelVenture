@@ -193,6 +193,16 @@ export function confirmBooking(db, id) {
 export function releaseBooking(db, id) {
   db.prepare("UPDATE market_bookings SET status = 'cancelled', hold_until = NULL WHERE id = ? AND status IN ('pending', 'booked')").run(Number(id));
 }
+// A booking cancelled while its payment was disputed comes back when the dispute is won (billing.mjs), if the stall is still free then and the
+// booking is still to come. true when it is booked again.
+export function restoreBooking(db, id) {
+  const b = db.prepare('SELECT * FROM market_bookings WHERE id = ?').get(Number(id));
+  if (!b || b.status !== 'cancelled' || b.start_at <= Date.now()) return false;
+  const clash = db.prepare(`SELECT 1 FROM market_bookings WHERE id != ? AND site_code = ? AND week_start = ? AND stall_id = ? AND ${TAKEN} AND start_at < ? AND end_at > ?`).get(b.id, b.site_code, b.week_start, b.stall_id, Date.now(), b.end_at, b.start_at);
+  if (clash) return false;
+  db.prepare("UPDATE market_bookings SET status = 'booked', hold_until = NULL WHERE id = ?").run(b.id);
+  return true;
+}
 
 // The player's stalls: coming up, open now, and the ones that closed in the last two weeks, each with how many people stopped by.
 export function myBookings(db, account) {

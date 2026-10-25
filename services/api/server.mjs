@@ -102,7 +102,11 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   const afterPaid = (f) => {
     economy.onFulfilled(db, f); // a paid claim or take-over is a step of the plot economy's data
     if (f.kind === 'market') push('market', [f.stallId]);
-    else {
+    else if (f.kind === 'ad') {
+      push('ad', [f.slotId]);
+      // the free game's take-over (a cart without payments) tells the advertiser it replaced, as POST /ads/:id/buy does
+      if (f.previousAccount && f.out?.previousAdvertiser) engage.notifyAdTakeover(db, f.previousAccount, { slot: f.out.slot.label, newAdvertiser: f.out.slot.ad.advertiser, paidOut: f.out.paidOut });
+    } else {
       push('plot', [f.plotId]);
       if (f.action === 'claim' && social.welcomePlot(db, f.plotId, f.accountId, env)) setImmediate(postSocial);
       if (f.action === 'takeover') engage.notifyTakeover(db, f.out.previousAccount, { title: f.out.plot.title, newOwner: f.out.plot.owner, paidOut: null, plotId: f.out.plot.id });
@@ -817,7 +821,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/cart/items') {
       const b = await body(req);
       // a plot's setup and a stall's names are screened as their own routes screen them
-      const spec = ['claim', 'takeover'].includes(b.kind) ? BUSINESS : b.kind === 'stall' ? { brand: 0, product: 1 } : null;
+      const spec = ['claim', 'takeover'].includes(b.kind) ? BUSINESS : b.kind === 'stall' ? { brand: 0, product: 1 } : b.kind === 'ad' ? { advertiser: 0, headline: 0, tagline: 1, url: 1 } : null;
       if (spec) (mod.screen(b.input ?? {}, spec), await mod.screenWithService(b.input ?? {}, env));
       return cart.addItem(db, seed, account, b, env);
     }
@@ -836,6 +840,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/me/orders') return billing.myOrders(db, account);
     if ((r = p.match(/^\/me\/orders\/(\d+)$/)) && m === 'GET') return billing.orderStatus(db, account, r[1]);
     if (m === 'GET' && p === '/admin/billing/orders') return (adminOnly(token), billing.adminOrders(db, url.searchParams.get('status')));
+    if ((r = p.match(/^\/admin\/billing\/orders\/(\d+)$/)) && m === 'GET') return (adminOnly(token), billing.adminOrder(db, r[1]));
+    if (m === 'GET' && p === '/admin/billing/disputes') return (adminOnly(token), billing.adminDisputes(db));
     if ((r = p.match(/^\/admin\/billing\/orders\/(\d+)\/refund$/)) && m === 'POST') return (adminOnly(token), billing.refundOrder(db, r[1], adminOnly(), env));
     if ((r = p.match(/^\/admin\/billing\/grant\/([a-z0-9-]{1,48})$/)) && m === 'POST') return (adminOnly(token), billing.grant(db, r[1], await body(req), adminOnly()));
     if (m === 'POST' && p === '/admin/billing/reconcile') return (adminOnly(token), billing.reconcile(db, env, fetch, afterPaid));
@@ -845,6 +851,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if ((r = p.match(/^\/ads\/([\w-]+)\/history$/)) && m === 'GET') return { events: core.slotHistory(db, r[1]) };
     if ((r = p.match(/^\/ads\/([\w-]+)\/buy$/)) && m === 'POST') {
       const b = await screened(req, { advertiser: 0, headline: 0, tagline: 1, url: 1 });
+      // with payments on an ad space is booked for its days through Stripe (billing.mjs payAd); the ad goes up once the payment arrives
+      if (billing.billingOn(env)) return billing.payAd(db, account, r[1], b, env, fetch, payCtx(req));
       const out = logged(A.byAccount(account), 'ad.buy', { kind: 'ad', id: r[1] }, () => core.buySlot(db, account, r[1], b), (o) => ({ advertiser: o.slot.ad.advertiser, value: o.slot.value, paidOut: o.paidOut, previousAdvertiser: o.previousAdvertiser }));
       if (out.previousAdvertiser) engage.notifyAdTakeover(db, out.previousAccount, { slot: out.slot.label, newAdvertiser: out.slot.ad.advertiser, paidOut: out.paidOut });
       delete out.previousAccount;

@@ -2,13 +2,14 @@
 // price: every line is priced on the server, when it is added and again at checkout.
 const cents = { type: 'integer', minimum: 0 };
 const id = { type: 'integer', minimum: 1 };
-export const CART_KINDS = ['claim', 'takeover', 'renew', 'exterior', 'launch', 'pro', 'sponsored', 'stall'];
+export const CART_KINDS = ['claim', 'takeover', 'renew', 'exterior', 'launch', 'pro', 'sponsored', 'stall', 'ad']; // 'ad' (an ad space) since 0.16.0
 
 // POST /cart/items: a line to add. A plot line names the plot (and its setup in `input`, as the plot's own route takes it); a business product names
-// the profile (`business`, its slug) and, for a sponsored week, the placement; a stall's booking is in `input`, as POST /market/book takes it.
+// the profile (`business`, its slug) and, for a sponsored week, the placement; a stall's booking is in `input`, as POST /market/book takes it. v2: an ad
+// space (`kind: 'ad'`) names the billboard or banner (`slotId`), and its ad is in `input`, as POST /ads/:id/buy takes it.
 export const CART_ITEM = {
   id: 'cart.item',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     required: ['kind'],
@@ -18,6 +19,7 @@ export const CART_ITEM = {
       plotId: id,
       business: { type: 'string', pattern: '^[a-z0-9-]{1,48}$' },
       placement: { type: 'string', pattern: '^(discover|category:[a-z0-9-]{1,40}|district:[a-z0-9-]{1,40})$' },
+      slotId: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,60}$' },
       input: { type: 'object' },
     },
   },
@@ -32,7 +34,7 @@ const line = {
     kind: { type: 'string', enum: CART_KINDS },
     label: { type: 'string', minLength: 1 },
     cents, // what the line costs, the Pro discount already taken off
-    discountCents: cents, // the Pro plot discount on this line
+    discountCents: cents, // the Pro discount on this line (a plot lease or, v3, an ad space)
     promoCents: cents, // this line's share of the cart's promo code (v2)
     previousCents: { type: ['integer', 'null'], minimum: 0 }, // the price before checkout found it changed
     plotId: { type: ['integer', 'null'], minimum: 1 },
@@ -44,9 +46,10 @@ const line = {
 // GET /cart (and the answer to DELETE /cart, DELETE /cart/items/:id, POST and DELETE /cart/promo, and inside the other answers as `cart`): the lines,
 // the subtotal before the Pro discount, the discount, the promo code (v2: `promo`, null without one; `error` when it cannot be used on the cart now),
 // the total (after the code), and what the minimum still needs (`missingCents`, on the total before the code; `ready` when it can be checked out).
+// v3: a line can be an ad space (kind 'ad').
 export const CART_VIEW = {
   id: 'cart.view',
-  version: 2,
+  version: 3,
   schema: {
     type: 'object',
     required: ['items', 'count', 'plots', 'maxPlots', 'maxLines', 'subtotalCents', 'discountCents', 'promo', 'totalCents', 'minimumCents', 'missingCents', 'ready', 'feeSavedCents', 'payments', 'pending'],
@@ -79,9 +82,10 @@ export const CART_ADD_RESULT = { id: 'cart.add.result', version: 1, schema: with
 // The answer to POST /cart/checkout: Stripe's page for the whole cart (payments on; `mode` is 'subscription' with Pro in the cart, else 'payment'),
 // or, without payments, the lines done at once. v2: `promo` ({ code, cents }) when a promo code took something off; and `mode: 'free'` (cents 0,
 // `free: true`, `url` the cart's paid page) when the code took everything off a cart without Pro: no Stripe session, every line done at once.
+// v3: a line done can be an ad space (kind 'ad').
 export const CART_CHECKOUT_RESULT = {
   id: 'cart.checkout.result',
-  version: 2,
+  version: 3,
   schema: {
     anyOf: [
       {

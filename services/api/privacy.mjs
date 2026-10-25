@@ -33,6 +33,7 @@ export const TABLES = {
   ledger: { export: 'plotHistory', deletion: 'kept (the plot\'s history of who held it, and the price): the name in it becomes deleted-<id>' },
   events: { export: 'activity.visits', deletion: 'kept for the businesses\' figures, with the visitor replaced by a random number that leads to nobody' },
   ad_slots: { export: 'adSpaces', deletion: 'an ad space it holds is emptied' },
+  ad_terms: { export: 'adBookings', deletion: 'a paid booking still running or to come is removed (the space is emptied); the ad text is wiped, the dates and order kept for accounting' },
   ad_ledger: { export: 'adHistory', deletion: 'kept (prices and dates); the advertiser and headline are wiped' },
   ad_events: { export: 'activity.adViews', deletion: 'kept for the figures, with the visitor replaced by a random number' },
   coupon_claims: { export: 'couponClaims', deletion: 'kept for the business\'s figures, with the visitor replaced by a random number' },
@@ -69,6 +70,8 @@ export const TABLES = {
   promo_codes: { export: 'promoCodesMade (only a code an account made: none today)', deletion: 'kept (a code is not about a person)' },
   promo_redemptions: { export: 'promoUses', deletion: 'kept for accounting; a use held by an open checkout is released' },
   stripe_events: { export: null, excluded: 'the ids of Stripe events already applied: nothing about a person', deletion: 'nothing' },
+  disputes: { export: 'disputes (of its own orders: amount, reason, status, dates)', deletion: 'kept for accounting and the payment processor (amounts and Stripe ids; nothing personal)' },
+  order_refunds: { export: 'orders[].refunds', deletion: 'kept for accounting and tax, with the orders' },
   entitlements: { export: 'businesses[].plans', deletion: 'ended with the page; Pro is cancelled in Stripe at once (no refund automatically)' },
   pilot_members: { export: 'businesses[].pilot', deletion: 'the page leaves the pilot (the staff note is kept)' },
   owner_activity: { export: 'businesses[].activeWeeks', deletion: 'kept (the weeks the page was used: business-level, no person)' },
@@ -95,7 +98,7 @@ const json = (s, d = null) => {
     return d;
   }
 };
-const orderView = (o) => ({ id: o.id, product: o.product, label: o.label ?? null, business: o.slug ?? null, placement: o.placement ?? null, target: o.target ?? null, cents: o.cents, currency: o.currency, status: o.status, promoCode: o.promo_code ?? null, promoCents: o.promo_cents ?? 0, renewals: o.renewals ?? 0, parentId: o.parent_id ?? null, createdAt: o.created_at, paidAt: o.paid_at ?? null, refundedAt: o.refunded_at ?? null, note: o.note ?? null });
+const orderView = (o) => ({ id: o.id, product: o.product, label: o.label ?? null, business: o.slug ?? null, placement: o.placement ?? null, target: o.target ?? null, cents: o.cents, currency: o.currency, status: o.status, refundedCents: o.refunded_cents ?? 0, promoCode: o.promo_code ?? null, promoCents: o.promo_cents ?? 0, renewals: o.renewals ?? 0, parentId: o.parent_id ?? null, createdAt: o.created_at, paidAt: o.paid_at ?? null, refundedAt: o.refunded_at ?? null, note: o.note ?? null });
 const leadsOf = (db, kind, id) => {
   const rows = db.prepare('SELECT email, status, confirmed_at FROM leads WHERE target_kind = ? AND target_id = ?').all(kind, String(id));
   return { confirmed: rows.filter((r) => r.status === 'confirmed').map((r) => ({ email: r.email, at: r.confirmed_at })), pending: rows.filter((r) => r.status === 'pending').length, unsubscribed: rows.filter((r) => r.status === 'unsubscribed').length };
@@ -149,7 +152,9 @@ export function exportAccount(db, accountId, { env = process.env, messaging = nu
     watches: all('SELECT plot_id, created_at FROM plot_watches WHERE account_id = ?', id).map((w) => ({ plotId: w.plot_id, since: w.created_at })),
     adSpaces: all('SELECT id, label, ad, value FROM ad_slots WHERE owner_account = ?', id).map((s) => ({ id: s.id, label: s.label, ad: json(s.ad), value: s.value, newsletterSignups: leadsOf(db, 'ad', s.id) })),
     adHistory: all('SELECT slot_id, advertiser, headline, price, at FROM ad_ledger WHERE account_id = ? ORDER BY id', id).map((l) => ({ slotId: l.slot_id, advertiser: l.advertiser, headline: l.headline, price: l.price, at: l.at })),
-    orders: all('SELECT o.*, b.slug FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.account_id = ? ORDER BY o.id', id).map(orderView),
+    adBookings: all('SELECT slot_id, order_id, ad, starts_at, ends_at, status FROM ad_terms WHERE account_id = ? ORDER BY id', id).map((t) => ({ slotId: t.slot_id, orderId: t.order_id, ad: json(t.ad), from: t.starts_at, until: t.ends_at, status: t.status })),
+    orders: all('SELECT o.*, b.slug FROM orders o LEFT JOIN businesses b ON b.id = o.business_id WHERE o.account_id = ? ORDER BY o.id', id).map((o) => ({ ...orderView(o), refunds: all('SELECT cents, full, source, note, at FROM order_refunds WHERE order_id = ? ORDER BY id', o.id).map((r) => ({ cents: r.cents, full: Boolean(r.full), source: r.source, note: r.note, at: r.at })) })),
+    disputes: all('SELECT d.order_id, d.cents, d.reason, d.status, d.created_at, d.closed_at FROM disputes d JOIN orders o ON o.id = d.order_id WHERE o.account_id = ? ORDER BY d.id', id).map((d) => ({ orderId: d.order_id, cents: d.cents, reason: d.reason, status: d.status, at: d.created_at, closedAt: d.closed_at })),
     promoUses: all('SELECT code, order_id, cents_off, status, created_at FROM promo_redemptions WHERE account_id = ? ORDER BY id', id).map((p) => ({ code: p.code, orderId: p.order_id, centsOff: p.cents_off, status: p.status, at: p.created_at })),
     promoCodesMade: all('SELECT code, kind, value, created_at FROM promo_codes WHERE created_by = ?', `account:${id}`),
     cart: (() => {
@@ -296,7 +301,12 @@ export async function deleteAccount(db, accountId, { seed, env = process.env, fe
     if (a.email) run('DELETE FROM leads WHERE email = ?', a.email);
     for (const pid of plots) run("DELETE FROM leads WHERE target_kind = 'plot' AND target_id = ?", String(pid));
     for (const s of db.prepare('SELECT id FROM ad_slots WHERE owner_account = ?').all(id)) run("DELETE FROM leads WHERE target_kind = 'ad' AND target_id = ?", s.id);
-    run('UPDATE ad_slots SET ad = NULL, owner_account = NULL, updated_at = ? WHERE owner_account = ?', at, id);
+    // its paid bookings end (one to come too) and their ad text goes; the dates and the order stay for accounting
+    const bookedSlots = db.prepare("SELECT DISTINCT slot_id FROM ad_terms WHERE account_id = ? AND status IN ('active', 'paused')").all(id).map((t) => t.slot_id);
+    run("UPDATE ad_terms SET status = 'removed' WHERE account_id = ? AND status IN ('active', 'paused')", id);
+    run("UPDATE ad_terms SET ad = '{}' WHERE account_id = ?", id);
+    run('UPDATE ad_slots SET ad = NULL, owner_account = NULL, paid_until = NULL, updated_at = ? WHERE owner_account = ?', at, id);
+    for (const sid of bookedSlots) core.syncSlot(db, sid, at);
     run("UPDATE ad_ledger SET advertiser = '(removed)', headline = '(removed)' WHERE account_id = ?", id);
     run('DELETE FROM plot_interiors WHERE account_id = ?', id);
     run('UPDATE ledger SET owner_name = ? WHERE account_id = ?', tomb, id);

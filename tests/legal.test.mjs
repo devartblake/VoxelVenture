@@ -12,7 +12,7 @@ const { RETENTION, LIMITS, MONEY, BROWSER_STORAGE } = await imp('legal/facts.js'
 const { POLICY_STATUS, policies } = await imp('legal/policies.js');
 const { operator } = await imp('legal/operator.js');
 import { ATTRIBUTION_DAYS } from '@voxelventure/analytics';
-import { CART, PRODUCTS, PLACEMENTS, STRIPE_MIN_CENTS } from '@voxelventure/business-core';
+import { AD_SPACES, CART, PRODUCTS, PLACEMENTS, PRO_DISCOUNT, STRIPE_MIN_CENTS, adPriceOf } from '@voxelventure/business-core';
 
 // ---- the numbers the policies quote are the code's
 const has = (file, re) => re.test(read(file));
@@ -35,6 +35,11 @@ check('a staff sign-in lasts as stated (absolute and idle)', ADMIN_SESSION.absol
 check('a staff reset or email link lasts as stated', ADMIN_LINK_MS === RETENTION.adminLinkMinutes * 60000);
 check('the limits are the code\'s', has('services/api/business.mjs', new RegExp(`MAX_PROFILES = ${LIMITS.profilesPerAccount};`)) && has('services/api/market.mjs', new RegExp(`MAX_ACTIVE_PER_WEEK = ${MONEY.stallsPerWeek};`)) && has('services/api/billing.mjs', new RegExp(`HOLD_MS = ${MONEY.checkoutHoldMinutes} \\* 60000`)) && has('services/api/social.mjs', new RegExp(`default ${LIMITS.socialPostsPerDay}\\)`)));
 check('the prices are the catalogue\'s', MONEY.launch.price === `$${PRODUCTS.launch.cents / 100}` && MONEY.pro.price === `$${PRODUCTS.pro.cents / 100}` && MONEY.placements.length === Object.keys(PLACEMENTS).length);
+check('the ad space prices are the catalogue\'s, with the one Pro discount (gap 4)', MONEY.adSpaces.length === Object.keys(AD_SPACES).length && MONEY.adSpaces.every((a) => a.price === `$${AD_SPACES[a.kind].cents / 100}` && a.proPrice === `$${(adPriceOf(a.kind, { pro: true }) / 100).toFixed(2)}` && a.days === AD_SPACES[a.kind].days) && MONEY.proDiscount === PRO_DISCOUNT && MONEY.proPlotDiscount === PRO_DISCOUNT);
+const refundsPolicy = JSON.stringify(policies(operator({})).find((p) => p.slug === 'refunds'));
+const adsPolicy = JSON.stringify(policies(operator({})).find((p) => p.slug === 'advertising'));
+check('the advertising policy no longer calls ad spaces free, and says what they cost (gap 4)', !/no real money is charged for them/.test(adsPolicy) && MONEY.adSpaces.every((a) => adsPolicy.includes(a.price) && refundsPolicy.includes(a.price)) && /paid ad spaces/.test(adsPolicy));
+check('the refund policy says how a dispute and a part refund work, with no review note left on them (gap 5)', /is paused while the dispute is open/.test(refundsPolicy) && /refunded in part goes on/.test(refundsPolicy) && !/not yet handled by the system/.test(refundsPolicy) && has('services/api/billing.mjs', /case 'charge\.dispute\.created':/) && has('services/api/billing.mjs', /case 'charge\.dispute\.closed':/));
 check('the cart rules are the code\'s', MONEY.cart.minimum === `$${CART.minimumCents / 100}` && MONEY.cart.maxPlots === CART.maxPlots);
 check('the promo code rules are the code\'s: one per checkout, the smallest charge', MONEY.promo.smallestCharge === `$${(STRIPE_MIN_CENTS / 100).toFixed(2)}` && MONEY.promo.perCheckout === 1 && has('services/api/cart.mjs', /SELECT promo_code FROM carts/) && has('services/api/billing.mjs', /duration: 'once'/));
 
