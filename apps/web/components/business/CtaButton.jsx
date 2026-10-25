@@ -14,9 +14,19 @@ const FIELD = 'w-full rounded-xl border border-sx-stroke bg-sx-alt px-4 py-2.5 t
 //   a link (website, booking, order, demo): opens it with a click id added, so a sale on the business's site can be credited to the press
 //   newsletter: a sign-up form (double opt-in, services/api/engage.mjs)
 //   meeting / quote: a short form; the owner gets the request by email (services/api/conversions.mjs)
+//   call / email / directions: a tel:, mailto: or map link, counted as a press (no click id: nothing to credit a sale to)
 export default function CtaButton({ slug, cta }) {
   if (cta?.kind === 'newsletter') return <Newsletter slug={slug} cta={cta} />;
   if (cta?.kind === 'meeting' || cta?.kind === 'quote') return <Inquiry slug={slug} cta={cta} />;
+  if (['call', 'email', 'directions'].includes(cta?.kind) && cta.url) {
+    const away = cta.kind === 'directions' ? { target: '_blank', rel: 'noopener nofollow' } : {};
+    return (
+      <a href={cta.url} {...away} onClick={() => trackCta(slug)} className={BUTTON}>
+        {cta.label}
+        {away.target && <span aria-hidden="true">↗</span>}
+      </a>
+    );
+  }
   if (!cta?.url) return <p className="text-sm text-sx-muted">This business has not added a link yet.</p>;
   // the click id is made when the button is pressed, sent with the press, and added to the link the browser then opens
   const open = (e) => {

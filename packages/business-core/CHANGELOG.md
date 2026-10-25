@@ -3,6 +3,7 @@
 ## 0.6.0 (2026-10-25)
 
 - `PRO_FIELDS` adds `surfaces`: the owner's breakdown by screen is Pro, like sources, campaigns and the daily chart.
+- Three more calls to action, each with a `field`: `call` (a phone number, kept as a `tel:` link), `email` (an address, kept as `mailto:`) and `directions` (a street address, kept as a Google Maps directions link). `ctaLink(field, typed)` makes the link, or returns null when the input is not valid. `ctaInputOf(cta)` gives back what was typed, for the edit form.
 
 ## 0.5.0 (2026-10-19)
 

@@ -40,8 +40,33 @@ export const CTA_KINDS = [
   // answered on the profile itself: the visitor leaves their details, the owner gets an email (phase 5, docs/monetization/conversions.md)
   { id: 'meeting', label: 'Request a meeting', needsUrl: false },
   { id: 'quote', label: 'Request a quote', needsUrl: false },
+  // a phone number, an email address or a street address, kept as a tel:, mailto: or map link (ctaLink)
+  { id: 'call', label: 'Call us', needsUrl: false, field: 'phone' },
+  { id: 'email', label: 'Email us', needsUrl: false, field: 'email' },
+  { id: 'directions', label: 'Get directions', needsUrl: false, field: 'address' },
 ];
 export const ctaKindOf = (id) => CTA_KINDS.find((k) => k.id === id) ?? null;
+
+// What the owner types for a call, email or directions button, and the link it becomes (null when it is not valid).
+const PHONE = /^\+?[0-9][0-9 ().-]{5,24}$/;
+const EMAIL = /^[^\s@<>"'()\[\],;:]+@[^\s@<>"'()\[\],;:]+\.[a-z]{2,}$/i;
+const MAPS = 'https://www.google.com/maps/dir/?api=1&destination=';
+export function ctaLink(field, raw) {
+  const v = String(raw ?? '').trim();
+  if (field === 'phone') return PHONE.test(v) ? `tel:${v.replace(/[^\d+]/g, '')}` : null;
+  if (field === 'email') return v.length <= 120 && EMAIL.test(v) ? `mailto:${v}` : null;
+  if (field === 'address') return v.length >= 5 && v.length <= 120 && !/[<>]/.test(v) ? MAPS + encodeURIComponent(v) : null;
+  return null;
+}
+// The other way round, to fill the form when the owner edits the profile.
+export function ctaInputOf(cta) {
+  const url = String(cta?.url ?? '');
+  if (url.startsWith('tel:')) return url.slice(4);
+  if (url.startsWith('mailto:')) return url.slice(7);
+  if (url.startsWith(MAPS)) return decodeURIComponent(url.slice(MAPS.length));
+  return url;
+}
+const FIELD_ERROR = { phone: 'Enter a phone number, like +1 555 010 2030.', email: 'Enter an email address, like hello@yourshop.com.', address: 'Enter a street address of 5 to 120 characters.' };
 
 // Paths under /business that are pages of their own, so no business can be given them as a slug.
 export const RESERVED_SLUGS = ['new', 'manage', 'edit', 'admin', 'api', 'search', 'sitemap', 'featured', 'impressions'];
@@ -118,7 +143,10 @@ export function cleanProfile(input = {}, { partial = false } = {}) {
     else {
       const url = kind.needsUrl ? clean(c.url, LIMITS.website) || (kind.id === 'website' ? value.website ?? clean(input.website, LIMITS.website) : '') : null;
       if (kind.needsUrl && !isHttpUrl(url)) errors.cta = `${kind.label} needs a link that starts with https://`;
-      value.cta = { kind: kind.id, url: kind.needsUrl ? url : null, label: clean(c.label, LIMITS.ctaLabel) || kind.label };
+      // a call, email or directions button: what the owner typed (or the link it already is, when the profile is saved again)
+      const link = kind.field ? ctaLink(kind.field, ctaInputOf({ url: c.url })) : null;
+      if (kind.field && !link) errors.cta = FIELD_ERROR[kind.field];
+      value.cta = { kind: kind.id, url: kind.needsUrl ? url : link, label: clean(c.label, LIMITS.ctaLabel) || kind.label };
     }
   }
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };

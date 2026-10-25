@@ -67,6 +67,10 @@ The owner's figures include `funnel`, contract `business.funnel` version 1, with
 
 A page view or a press of an outside link is never a qualified action. The pilot's "meaningful interaction" criterion (`packages/analytics` `hadInteraction`) still counts a verified press, as [world_freeze.md](../roadmap/world_freeze.md) defines it. Every plan sees the funnel. The breakdown by screen (`surfaces`) is Pro, like sources and campaigns.
 
+## Call, email and directions buttons
+
+A profile's button can also be **Call us** (a phone number, kept as a `tel:` link), **Email us** (an address, kept as `mailto:`) or **Get directions** (a street address, kept as a Google Maps directions link). A press counts as a press, like an outside link. It carries no click id, because no sale can be credited to it.
+
 ## Calls to action that collect a request
 
 There are two new kinds of call to action, alongside the website, newsletter, booking, order and demo buttons:
