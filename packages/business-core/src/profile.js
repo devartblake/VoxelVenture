@@ -49,7 +49,7 @@ export const ctaKindOf = (id) => CTA_KINDS.find((k) => k.id === id) ?? null;
 
 // What the owner types for a call, email or directions button, and the link it becomes (null when it is not valid).
 const PHONE = /^\+?[0-9][0-9 ().-]{5,24}$/;
-const EMAIL = /^[^\s@<>"'()\[\],;:]+@[^\s@<>"'()\[\],;:]+\.[a-z]{2,}$/i;
+const EMAIL = /^[^\s@<>"'()[\],;:]+@[^\s@<>"'()[\],;:]+\.[a-z]{2,}$/i;
 const MAPS = 'https://www.google.com/maps/dir/?api=1&destination=';
 export function ctaLink(field, raw) {
   const v = String(raw ?? '').trim();
