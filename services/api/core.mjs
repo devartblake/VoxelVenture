@@ -454,10 +454,19 @@ function recordLeave(db, account, p, input) {
   return { counted: false, seconds: s };
 }
 
-// Thirty days of real figures, in the same shape as the game's simulated statistics (lib/game/plotInfo.js siteVisitStats).
-export function plotStats(db, id) {
+// A building's last 30 days of verified traffic. Its owner sees everything (clicks, click rate, sources, hours, dwell time);
+// anyone else sees a summary: visits, visitors and the busiest day (the visit count is public in the directory anyway).
+export function plotStats(db, id, viewer = null, { full: all = false } = {}) {
   const p = getPlot(db, id);
   if (!p.owner_name) return null;
+  const full = statsOf(db, p);
+  if (all || (viewer && p.owner_account && viewer.id === p.owner_account)) return { ...full, scope: 'owner' };
+  const { simulated, verified, skyline, views, uniques, busiestDay } = full;
+  return { scope: 'summary', simulated, verified, skyline, views, uniques, busiestDay };
+}
+
+// Thirty days of real figures, in the same shape as the game's simulated statistics (lib/game/plotInfo.js siteVisitStats).
+function statsOf(db, p) {
   const since = now() - 30 * DAY;
   const all = db.prepare('SELECT COUNT(*) AS n FROM events WHERE plot_id = ? AND at >= ?').get(p.id, since).n;
   const ev = db.prepare('SELECT kind, source, visitor, seconds, at FROM events WHERE plot_id = ? AND at >= ? AND verified = 1').all(p.id, since);

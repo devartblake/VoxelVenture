@@ -335,7 +335,7 @@ try {
   await page.eval(`document.querySelector('[aria-label="Expand the panel"]').click()`);
   await sleep(250);
   check('the panel can be expanded', (await panelBox()).w > before.w + 100);
-  await page.eval(`window.__vvStore.getState().setSelectedPlot(window.__vvStore.getState().plots.find((p) => p.owner && p.buildingType !== 'house'))`);
+  await page.eval(`window.__vvStore.getState().setSelectedPlot(window.__vvStore.getState().plots.find((p) => p.owner && !p.userClaimed && p.buildingType !== 'house'))`);
   await sleep(400);
   check('selecting a plot shows it in the same panel', /building/i.test(await panelTitle()), String(await panelTitle()));
   check('the business comes first: its name, then Visit website, then Step inside; owner actions sit below under their own heading', await page.eval(`(() => { const t = document.querySelector('[data-testid="side-panel"]').innerText; const at = (x) => t.indexOf(x); return at('Visit website') > 0 && at('Visit website') < at('Step inside') && at('Step inside') < at('Address') && (at('Lease, watch or buy') === -1 || at('Lease, watch or buy') > at('Address')); })()`));
@@ -343,7 +343,12 @@ try {
   check('the figures and history start folded on a building that is not yours', await page.eval(`!document.querySelector('[data-testid="figures-fold"]').closest('details').open`));
   await page.eval(`document.querySelector('[data-testid="figures-fold"]').closest('details').open = true`);
   const card = await page.eval(`document.querySelector('[data-testid="side-panel"]').innerText`);
-  check('the building card shows Step inside, an address, the site visits and the building history', ['Step inside', 'Address', 'Site visits', 'Where visitors come from', 'Building history', 'Visit website'].every((t) => card.toLowerCase().includes(t.toLowerCase())), card.slice(0, 80));
+  check('the building card shows Step inside, an address, the site visits and the building history', ['Step inside', 'Address', 'Site visits', 'Building history', 'Visit website'].every((t) => card.toLowerCase().includes(t.toLowerCase())), card.slice(0, 80));
+  check("someone else's building shows a summary of its visits, not its sources or clicks", /shown only to the building's owner/i.test(card) && !/Where visitors come from/i.test(card) && !/Site clicks/i.test(card));
+  await page.eval(`window.__vvStore.getState().setSelectedPlot(window.__vvStore.getState().plots.find((p) => p.id === ${luxuryId}))`);
+  await sleep(400);
+  const ownCard = await page.eval(`document.querySelector('[data-testid="side-panel"]').innerText`);
+  check('your own building shows the full figures', /Where visitors come from/i.test(ownCard) && /Site clicks/i.test(ownCard), ownCard.slice(0, 80));
   await page.eval(`document.querySelector('[data-testid="create-image"]').click()`);
   // drawing the picture takes 2 to 7 seconds on a busy machine (it was a fixed 1.2 s wait, the cause of this check's flakiness)
   for (let i = 0; i < 40 && !/Image saved|Shared|Could not/.test(String(await page.eval(`window.__vvStore.getState().toast?.text ?? ''`))); i++) await sleep(250);
