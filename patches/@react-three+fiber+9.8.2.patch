@@ -1,7 +1,6 @@
-diff --git a/node_modules/@react-three/fiber/dist/events-9ce18a08.esm.js b/node_modules/@react-three/fiber/dist/events-9ce18a08.esm.js
-index ea6b4c9..4dc3c25 100644
---- a/node_modules/@react-three/fiber/dist/events-9ce18a08.esm.js
-+++ b/node_modules/@react-three/fiber/dist/events-9ce18a08.esm.js
+diff --git a/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js b/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js
+--- a/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js
++++ b/node_modules/@react-three/fiber/dist/events-e51d7528.esm.js
 @@ -1,6 +1,48 @@
  import * as React from 'react';
  import React__default from 'react';
@@ -51,7 +50,7 @@ index ea6b4c9..4dc3c25 100644
  import { jsx, Fragment } from 'react/jsx-runtime';
  import { createWithEqualityFn } from 'zustand/traditional';
  import { suspend, preload, clear } from 'suspend-react';
-@@ -1051,7 +1093,7 @@ const createStore = (invalidate, advance) => {
+@@ -1204,7 +1246,7 @@ const createStore = (invalidate, advance) => {
        linear: false,
        flat: false,
        controls: null,
