@@ -27,22 +27,22 @@ export default function BusinessCard({ profile, badge }) {
 
 // A clearly labelled row of paid cards (sponsored placements, launch weeks); nothing when there are none. `id` lets a link open the page at it
 // (the demo tour's /discover#sponsored).
-export function FeaturedList({ title, profiles, badge, id }) {
+export function FeaturedList({ title, profiles, badge, id, surface }) {
   if (!profiles?.length) return null;
   return (
     <section id={id} aria-label={title} className="mb-8 scroll-mt-4">
       <h2 className="mb-3 text-lg font-semibold text-white">{title}</h2>
-      <ImpressionTracker />
+      <ImpressionTracker surface={surface} />
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{profiles.map((p) => <BusinessCard key={p.slug} profile={p} badge={badge} />)}</ul>
     </section>
   );
 }
 
-export function BusinessList({ profiles, empty = 'No businesses here yet.' }) {
+export function BusinessList({ profiles, empty = 'No businesses here yet.', surface }) {
   if (!profiles.length) return <p className="rounded-2xl border border-dashed border-sx-stroke p-6 text-center text-sx-muted">{empty}</p>;
   return (
     <div>
-      <ImpressionTracker />
+      <ImpressionTracker surface={surface} />
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{profiles.map((p) => <BusinessCard key={p.slug} profile={p} />)}</ul>
     </div>
   );

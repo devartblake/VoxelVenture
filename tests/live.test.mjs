@@ -92,6 +92,15 @@ try {
   const stats = await (await fetch(`http://localhost:${port}/plots/${built.id}/stats`, { headers: { Authorization: 'Bearer admin-secret' } })).json();
   const ad = await (await fetch(`http://localhost:${port}/ads/${openAd.id}`)).json();
   check('visits, website clicks and ad views reach the server', stats.views === 1 && stats.clicks === 1 && ad.views === 1);
+  // a building found by search: the visit counts for search, and leaving it sends the time spent inside
+  const found = store().plots.find((p) => p.owner && p.generated && p.id !== prey.id && p.id !== built.id);
+  store().setSelectedPlot(found, 'search');
+  store().openInterior(found);
+  await sleep(1600);
+  store().closeInterior();
+  await sleep(500);
+  const fs2 = await (await fetch(`http://localhost:${port}/plots/${found.id}/stats`, { headers: { Authorization: 'Bearer admin-secret' } })).json();
+  check('a visit found by search counts for search, with its time inside', fs2.views === 1 && fs2.sources.find((x) => x.id === 'search').share === 1 && fs2.avgSeconds >= 1, JSON.stringify({ v: fs2.views, s: fs2.sources?.[0], t: fs2.avgSeconds }));
   await sync.refresh();
   check('the next sync brings the new numbers back', store().plots.find((p) => p.id === built.id).visits === built.visits + 1 || store().plots.find((p) => p.id === built.id).visits >= built.visits);
 

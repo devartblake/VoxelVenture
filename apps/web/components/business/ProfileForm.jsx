@@ -1,13 +1,20 @@
 "use client";
 
 import { useState } from 'react';
-import { BUSINESS_DISTRICTS, CATEGORIES, CTA_KINDS, LIMITS, cleanProfile } from '@voxelventure/business-core';
+import { BUSINESS_DISTRICTS, CATEGORIES, CTA_KINDS, LIMITS, cleanProfile, ctaInputOf } from '@voxelventure/business-core';
 
 const INPUT = 'w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-2 text-white placeholder:text-slate-500 focus:border-sx-cyan focus:outline-none';
 const LABEL = 'mb-1 block text-sm font-medium text-slate-200';
 
 // The fields of a free profile, checked with the same rules as the server (@voxelventure/business-core) before sending.
 // `onSubmit(values)` resolves, or throws an error with `errors` (the server's per-field messages).
+// The field a call, email or directions button asks for.
+const CTA_FIELD = {
+  phone: { label: 'Phone number visitors call', type: 'tel', autoComplete: 'tel', placeholder: '+1 555 010 2030' },
+  email: { label: 'Email address visitors write to', type: 'email', autoComplete: 'email', placeholder: 'hello@yourshop.com' },
+  address: { label: 'Street address for directions', type: 'text', autoComplete: 'street-address', placeholder: '12 Main Street, Springfield' },
+};
+
 export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCancel }) {
   const [v, setV] = useState({
     name: initial.name ?? '',
@@ -17,7 +24,7 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCan
     description: initial.description ?? '',
     website: initial.website ?? '',
     ctaKind: initial.cta?.kind ?? 'website',
-    ctaUrl: initial.cta?.kind && initial.cta.kind !== 'website' ? initial.cta.url ?? '' : '',
+    ctaUrl: initial.cta?.kind && initial.cta.kind !== 'website' ? ctaInputOf(initial.cta) : '', // a call, email or directions button shows what was typed
     xHandle: initial.xHandle ?? '',
     announce: initial.announce ?? false,
   });
@@ -99,6 +106,12 @@ export default function ProfileForm({ initial = {}, submitLabel, onSubmit, onCan
           <div className="mt-3">
             <label htmlFor="pf-cta-url" className={LABEL}>Link for “{kind.label}”</label>
             <input id="pf-cta-url" type="url" className={INPUT} value={v.ctaUrl} onChange={set('ctaUrl')} placeholder={kind.id === 'booking' ? 'https://cal.com/you' : 'https://'} {...aria('cta')} />
+          </div>
+        )}
+        {kind?.field && (
+          <div className="mt-3">
+            <label htmlFor="pf-cta-url" className={LABEL}>{CTA_FIELD[kind.field].label}</label>
+            <input id="pf-cta-url" type={CTA_FIELD[kind.field].type} autoComplete={CTA_FIELD[kind.field].autoComplete} className={INPUT} value={v.ctaUrl} onChange={set('ctaUrl')} placeholder={CTA_FIELD[kind.field].placeholder} {...aria('cta')} />
           </div>
         )}
         {kind?.id === 'newsletter' && <p className="mt-2 text-xs text-sx-muted">Visitors leave their email; they confirm it before you see it.</p>}

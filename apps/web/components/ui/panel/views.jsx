@@ -154,7 +154,7 @@ export function StatsView() {
             <li key={p.id}>
               <button
                 onClick={() => {
-                  setSelectedPlot(p);
+                  setSelectedPlot(p, 'search');
                   show(p.x, p.z);
                 }}
                 className="flex w-full items-center justify-between rounded-lg border border-sx-alt bg-sx-panel/60 px-2.5 py-1.5 text-left hover:bg-sx-alt"
@@ -232,7 +232,7 @@ export function SearchView() {
               <li key={p.id}>
                 <button
                   onClick={() => {
-                    setSelectedPlot(p);
+                    setSelectedPlot(p, 'search');
                     show(p.x, p.z);
                   }}
                   className="flex w-full items-center justify-between rounded-lg border border-sx-alt bg-sx-panel/60 px-2.5 py-1.5 text-left hover:bg-sx-alt"
@@ -271,7 +271,7 @@ export function PlacesView() {
     <div className="text-slate-100">
       <Section title="Building of the Week">
         <ul className="space-y-1">
-          {winner && <PlaceRow title={winner.title} detail={`${botw.votes} vote${botw.votes === 1 ? '' : 's'} last week · ${winner.district}`} x={winner.x} z={winner.z} onOpen={() => setSelectedPlot(winner)} tone="text-yellow-300" />}
+          {winner && <PlaceRow title={winner.title} detail={`${botw.votes} vote${botw.votes === 1 ? '' : 's'} last week · ${winner.district}`} x={winner.x} z={winner.z} onOpen={() => setSelectedPlot(winner, 'search')} tone="text-yellow-300" />}
         </ul>
         <button type="button" onClick={() => usePanel.getState().open('week')} className="mt-1 w-full rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1.5 text-left text-[11px] font-medium text-yellow-100 hover:bg-yellow-400/15">
           {winner ? 'Vote for next week\'s: see this week\'s top 5 ›' : 'Vote for the first one: see this week\'s top 5 ›'}
@@ -314,7 +314,7 @@ export function PlacesView() {
       <Section title="Estates">
         <ul className="space-y-1">
           {estates.map((p) => (
-            <PlaceRow key={p.id} title={p.title} detail={`${tierOf(p)} · ${p.owner ? `built, ${p.owner}` : `for sale $${p.value.toLocaleString()}`}`} x={p.x} z={p.z} onOpen={() => setSelectedPlot(p)} tone={TIER_COLOUR[tierOf(p)]} />
+            <PlaceRow key={p.id} title={p.title} detail={`${tierOf(p)} · ${p.owner ? `built, ${p.owner}` : `for sale $${p.value.toLocaleString()}`}`} x={p.x} z={p.z} onOpen={() => setSelectedPlot(p, 'search')} tone={TIER_COLOUR[tierOf(p)]} />
           ))}
         </ul>
       </Section>

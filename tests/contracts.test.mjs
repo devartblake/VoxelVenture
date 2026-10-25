@@ -4,7 +4,7 @@
 import { createApi } from '../services/api/server.mjs';
 import { imp } from '../scripts/lib-loader.mjs';
 import * as types from '@voxelventure/shared-types';
-import { SOURCES, EVENT_KINDS } from '../services/api/business.mjs';
+import { SOURCES, EVENT_KINDS, SURFACES } from '../services/api/business.mjs';
 
 const { check: fits, validate, CONTRACTS } = types;
 let fails = 0;
@@ -29,6 +29,7 @@ check('contract ids are unique', types.API_CONTRACTS.length === 64 && Object.key
 import { OUTCOMES } from '@voxelventure/analytics';
 check('traffic sources are the server\'s', JSON.stringify(types.TRAFFIC_SOURCES) === JSON.stringify(SOURCES));
 check('profile event kinds are the server\'s', JSON.stringify(types.PROFILE_EVENT_KINDS) === JSON.stringify(EVENT_KINDS));
+check("event surfaces are the server's", JSON.stringify(types.EVENT_SURFACES) === JSON.stringify(SURFACES));
 const { TERMS } = await imp('game/leases.js');
 check('lease terms are the game\'s', JSON.stringify(types.LEASE_TERMS) === JSON.stringify(TERMS.map((t) => t.days)));
 check('outcome families are the funnel\'s', JSON.stringify(types.OUTCOME_FAMILIES) === JSON.stringify(OUTCOMES.map((o) => o.id)));

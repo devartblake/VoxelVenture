@@ -24,6 +24,11 @@ check('a newsletter call to action needs no link', P.cleanProfile({ name: 'Zine'
 check('a website call to action with no website is refused', !P.cleanProfile({ name: 'Zine', category: 'creators', cta: { kind: 'website' } }).ok);
 check('a custom button label is kept, but short', P.cleanProfile({ name: 'Zine', category: 'creators', cta: { kind: 'newsletter', label: 'Get the zine every Friday, forever and ever' } }).value.cta.label.length === P.LIMITS.ctaLabel);
 check('a partial edit checks only what it changes', P.cleanProfile({ tagline: 'New line' }, { partial: true }).ok && !P.cleanProfile({ category: 'x' }, { partial: true }).ok);
+const cta = (kind, url) => P.cleanProfile({ name: 'Zine', category: 'creators', cta: { kind, url } });
+check('a call button keeps the number as a tel: link', cta('call', '+1 (555) 010-2030').value?.cta.url === 'tel:+15550102030' && cta('call', 'call me').errors?.cta);
+check('an email button is a mailto: link of a real address', cta('email', 'hello@zine.test').value?.cta.url === 'mailto:hello@zine.test' && cta('email', 'x@y').errors?.cta && cta('email', 'a@b.co?bcc=evil@x.co').errors?.cta);
+check('a directions button is a map link to the address', cta('directions', '12 Main St, Springfield').value?.cta.url === 'https://www.google.com/maps/dir/?api=1&destination=12%20Main%20St%2C%20Springfield' && cta('directions', 'abc').errors?.cta && cta('directions', '<script>x</script> road').errors?.cta);
+check('saving again keeps the same link, and the form gets back what was typed', ['call', 'email', 'directions'].every((k) => { const first = cta(k, { call: '+44 20 7946 0000', email: 'hi@zine.test', directions: '1 High Street, London' }[k]).value.cta; return cta(k, first.url).value?.cta.url === first.url && P.ctaLink(P.ctaKindOf(k).field, P.ctaInputOf(first)) === first.url; }));
 check('no district is fine', P.cleanProfile({ name: 'Zine', category: 'creators', district: '', cta: { kind: 'newsletter' } }).value.district === null);
 
 // ---- districts agree with the city

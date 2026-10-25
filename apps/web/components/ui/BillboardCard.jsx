@@ -5,6 +5,8 @@ import { Eye, MousePointerClick, TrendingUp, Gift, Mail, Coins, Trophy, External
 import { MAX_SHARERS, ROTATE_MS, SHARE_PRICE, textContrast, textOn } from '@/lib/game/adRotation';
 import { BILLBOARD_BUYOUT_MULTIPLIER } from '@/lib/city/cityGenerator';
 import { apiOn } from '@/lib/data/api';
+import { cityPlotOf } from '@/lib/game/shareLink';
+import { useWorld } from '@/lib/state/worldStore';
 import ReportButton from './ReportButton';
 import { buyAdRemote, subscribeRemote } from '@/lib/data/sync';
 import { useAccount } from '@/lib/state/accountStore';
@@ -24,6 +26,8 @@ const INPUT = 'w-full px-3 py-1.5 text-xs bg-sx-alt border border-sx-stroke roun
 function AdActions({ billboard }) {
   const recordClick = useCityStore((s) => s.recordBillboardClick);
   const { ad } = billboard;
+  const plotId = cityPlotOf(ad.url);
+  const plot = useCityStore((s) => (plotId == null ? null : s.plots.find((p) => String(p.id) === plotId && p.owner)));
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
   const [codeShown, setCodeShown] = useState(false);
@@ -86,6 +90,20 @@ function AdActions({ billboard }) {
           <ExternalLink className="h-4 w-4" />
         </a>
       </div>
+      {plot && (
+        <button
+          data-testid="ad-go-to-building"
+          onClick={() => {
+            recordClick(billboard.id);
+            useWorld.getState().focusOn(plot.x, plot.z, 26);
+            // the visit and website click that follow count for this billboard or banner in the owner's sources
+            useCityStore.getState().setSelectedPlot(plot, billboard.kind === 'banner' ? 'banner' : 'billboard');
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded border border-sx-stroke bg-sx-alt px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-sx-stroke"
+        >
+          Go to {plot.title} in the city
+        </button>
+      )}
     </div>
   );
 }

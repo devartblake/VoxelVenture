@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { transaction } from './db.mjs';
 import { ApiError, fail, getPlot, requireAccount, text } from './core.mjs';
-import { BOT_UA, campaignOf, getRow, ipHashOf, ownRow, SOURCES, visitorOf } from './business.mjs';
+import { BOT_UA, campaignOf, getRow, ipHashOf, ownRow, SOURCES, surfaceOf, visitorOf } from './business.mjs';
 import { cleanEmail, enqueue, noticeAddress } from './engage.mjs';
 
 // Conversion measurement (phase 5, docs/monetization/conversions.md): the parts of the funnel that are not a profile event of business.mjs.
@@ -18,6 +18,7 @@ import { cleanEmail, enqueue, noticeAddress } from './engage.mjs';
 import { ATTRIBUTION_DAYS, isTicket } from '@voxelventure/analytics';
 const DAY = 86400000;
 const now = () => Date.now();
+const GAME_SURFACES = ['card', 'directory', 'search', 'map', 'storefront'];
 const goodVisitor = (id) => /^[A-Za-z0-9_-]{4,40}$/.test(String(id ?? ''));
 
 // ---- impressions ------------------------------------------------------------------------------------------------------------------
@@ -25,6 +26,8 @@ const goodVisitor = (id) => /^[A-Za-z0-9_-]{4,40}$/.test(String(id ?? ''));
 export function recordImpressions(db, account, input = {}, ctx = {}) {
   const slugs = [...new Set((Array.isArray(input.slugs) ? input.slugs : []).map(String))].slice(0, 30);
   const visitor = visitorOf(account, String(input.visitor ?? ''));
+  const surface = surfaceOf(input.surface);
+  const source = GAME_SURFACES.includes(surface) ? 'city' : 'direct'; // a card seen in the 3D city's lists, or on the site
   const ipHash = ipHashOf(ctx);
   const human = (account || goodVisitor(input.visitor)) && !BOT_UA.test(String(ctx.userAgent ?? ''));
   const cap = ctx.impressionCap ?? 10;
@@ -36,7 +39,7 @@ export function recordImpressions(db, account, input = {}, ctx = {}) {
       if (db.prepare("SELECT 1 FROM business_events WHERE business_id = ? AND visitor = ? AND kind = 'impression' AND at >= ?").get(row.id, visitor, now() - 3600000)) continue;
       let verified = human;
       if (verified && ipHash) verified = db.prepare("SELECT COUNT(*) AS n FROM business_events WHERE business_id = ? AND kind = 'impression' AND ip_hash = ? AND verified = 1 AND at >= ?").get(row.id, ipHash, now() - DAY).n < cap;
-      db.prepare("INSERT INTO business_events (business_id, kind, source, visitor, ip_hash, verified, at) VALUES (?, 'impression', 'direct', ?, ?, ?, ?)").run(row.id, visitor, ipHash, verified ? 1 : 0, now());
+      db.prepare("INSERT INTO business_events (business_id, kind, source, visitor, ip_hash, verified, at, surface) VALUES (?, 'impression', ?, ?, ?, ?, ?, ?)").run(row.id, source, visitor, ipHash, verified ? 1 : 0, now(), surface);
       if (verified) counted++;
     }
   });

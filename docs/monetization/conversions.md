@@ -52,6 +52,25 @@ Outcomes are reported in separate families, each with its own cost, and are **ne
 
 Nothing is ever simulated: a profile nobody has visited shows zeros.
 
+## Screens and the funnel (VV-UX-01)
+
+Every business event can carry the screen it happened on (`surface`, `services/api/business.mjs` `SURFACES`). The site's screens are `discover`, `category`, `district` and `profile`; the 3D city's are `card`, `directory`, `search`, `map` and `storefront`. The server drops a value it does not know, and events from before surfaces were kept have none. An impression on a city screen has source `city`; an impression on the site has source `direct`.
+
+The owner's figures include `funnel`, contract `business.funnel` version 1, with the roadmap's names:
+
+| Name | What it counts (verified, last 30 days) |
+|---|---|
+| `business_impression` | the profile's card was on screen in a list |
+| `profile_open` | a view of the profile |
+| `business_cta_click` | a press of the call to action, or of the website link in the city |
+| `qualified_action` | a confirmed result: a confirmed newsletter sign-up, a verified meeting or quote request, a claimed coupon, or a verified purchase |
+
+A page view or a press of an outside link is never a qualified action. The pilot's "meaningful interaction" criterion (`packages/analytics` `hadInteraction`) still counts a verified press, as [world_freeze.md](../roadmap/world_freeze.md) defines it. Every plan sees the funnel. The breakdown by screen (`surfaces`) is Pro, like sources and campaigns.
+
+## Call, email and directions buttons
+
+A profile's button can also be **Call us** (a phone number, kept as a `tel:` link), **Email us** (an address, kept as `mailto:`) or **Get directions** (a street address, kept as a Google Maps directions link). A press counts as a press, like an outside link. It carries no click id, because no sale can be credited to it.
+
 ## Calls to action that collect a request
 
 There are two new kinds of call to action, alongside the website, newsletter, booking, order and demo buttons:

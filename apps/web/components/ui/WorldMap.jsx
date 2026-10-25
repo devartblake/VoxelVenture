@@ -364,7 +364,7 @@ function MapOverlay() {
     const w = worldAt(p.x, p.y);
     if (e.shiftKey && hit) {
       useMap.getState().close();
-      useCityStore.getState().setSelectedPlot(hit);
+      useCityStore.getState().setSelectedPlot(hit, 'search');
       return;
     }
     // a click on a building or a mall offers to open it (wherever you are: the map can reach every building) or to put a waypoint on it
@@ -495,7 +495,7 @@ function MapOverlay() {
               type="button"
               onClick={() => {
                 useMap.getState().close();
-                if (card.kind === 'plot') useCityStore.getState().setSelectedPlot(card.plot);
+                if (card.kind === 'plot') useCityStore.getState().setSelectedPlot(card.plot, 'search');
                 else usePanel.getState().openMall(card.mall.id);
               }}
               className="flex-1 rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue px-2 py-1.5 font-bold text-white hover:brightness-110"

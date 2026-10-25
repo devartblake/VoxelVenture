@@ -8,6 +8,7 @@ import { DIRECTORY_SORTS, buildDirectory, isLive, liveDataProvider } from '@/lib
 import { describeBusiness } from '@/lib/game/plotInfo';
 import { openSiteLink } from '@/lib/data/sync';
 import { LogoBadge } from '../PlotInfoCards';
+import ImpressionTracker from '@/components/business/ImpressionTracker';
 
 // The directory: every plot with a building, numbered from 1 to the last, newest ideas first (by value by default). It is the first
 // thing a visitor sees. Click a row to open the building (and fly the map there); Visit website opens the business's site.
@@ -41,14 +42,16 @@ export default function DirectoryView() {
       </div>
 
       {!entries.length && <p className="text-xs text-slate-500">Nothing matches.</p>}
+      {/* the rows of buildings linked to a business profile count as that profile's impressions in the in-game directory */}
+      <ImpressionTracker surface="directory" watch={`${sort}|${query}`} />
       <ol className="space-y-2" data-testid="directory-list">
         {entries.map(({ plot: p, number, rank }) => {
           const visits = provider.visits(p, activity[p.id]);
           return (
-            <li key={p.id} className="overflow-hidden rounded-2xl border border-sx-stroke bg-sx-alt/40 transition hover:border-sx-line">
+            <li key={p.id} data-slug={p.profileSlug ?? undefined} className="overflow-hidden rounded-2xl border border-sx-stroke bg-sx-alt/40 transition hover:border-sx-line">
               <button
                 onClick={() => {
-                  setSelectedPlot(p);
+                  setSelectedPlot(p, 'search');
                   useWorld.getState().focusOn(p.x, p.z, 26);
                 }}
                 className="flex w-full items-start gap-3 p-3 text-left"
@@ -67,7 +70,7 @@ export default function DirectoryView() {
               </button>
               <div className="flex border-t border-sx-stroke text-[11px]">
                 {p.website ? (
-                  <a href={p.website} target="_blank" rel="noreferrer" onClick={(e) => openSiteLink(e, p)} className="flex flex-1 items-center justify-center gap-1.5 py-2 font-semibold text-slate-300 hover:bg-sx-panel hover:text-sx-cyan">
+                  <a href={p.website} target="_blank" rel="noreferrer" onClick={(e) => openSiteLink(e, p, 'directory')} className="flex flex-1 items-center justify-center gap-1.5 py-2 font-semibold text-slate-300 hover:bg-sx-panel hover:text-sx-cyan">
                     <Globe className="h-3.5 w-3.5" /> Visit website
                   </a>
                 ) : (

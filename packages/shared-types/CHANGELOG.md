@@ -1,5 +1,13 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.16.0 (2026-10-25)
+
+Which screen a business event happened on, and the owner's funnel in the roadmap's event names (VV-UX-01).
+
+- New values: `EVENT_SURFACES` (`discover`, `category`, `district`, `profile`, `card`, `directory`, `search`, `map`, `storefront`) and `FUNNEL_EVENTS` (`business_impression`, `profile_open`, `business_cta_click`, `qualified_action`).
+- `business.profile-event` **version 2**: an optional `surface`. The server drops a value it does not know.
+- `business.owner-figures` **version 2**: `funnel` (`{ version: 1, business_impression, profile_open, business_cta_click, qualified_action }`, on every plan) and `surfaces` (per screen: impressions, views, store entries and presses; Pro only). `qualified_action` counts confirmed results only: confirmed newsletter sign-ups, verified meeting and quote requests, coupon claims and verified purchases. A page view or a press of an outside link never counts.
+
 ## 0.15.0 (2026-10-20)
 
 A forgotten admin password, reset from the pages (`services/api/admin.mjs`, [backend.md](../../docs/architecture/backend.md#admin-password-reset)). New contracts, all version 1, in [`contracts/admin.js`](src/contracts/admin.js):

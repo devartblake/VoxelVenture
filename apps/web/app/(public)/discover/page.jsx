@@ -39,8 +39,8 @@ export default async function Discover({ searchParams }) {
       </section>
 
       {!q && <WeekFeature week={week} />}
-      <FeaturedList id="sponsored" title={sample ? 'Sponsored (a sample for the tour)' : 'Sponsored'} profiles={featured.sponsored} badge="Sponsored" />
-      <FeaturedList title="New this week" profiles={featured.launches} badge="New this week" />
+      <FeaturedList surface="discover" id="sponsored" title={sample ? 'Sponsored (a sample for the tour)' : 'Sponsored'} profiles={featured.sponsored} badge="Sponsored" />
+      <FeaturedList surface="discover" title="New this week" profiles={featured.launches} badge="New this week" />
 
       {!q && (
         <section aria-labelledby="cats" className="mb-8">
@@ -66,7 +66,7 @@ export default async function Discover({ searchParams }) {
 
       <section aria-labelledby="list">
         <h2 id="list" className="mb-3 text-lg font-semibold text-white">{q ? `${total} result${total === 1 ? '' : 's'} for “${q}”` : 'Newest businesses'}</h2>
-        <BusinessList profiles={profiles} empty={q ? 'Nothing matches that yet. Try another word.' : 'No businesses yet. Be the first to list yours.'} />
+        <BusinessList surface="discover" profiles={profiles} empty={q ? 'Nothing matches that yet. Try another word.' : 'No businesses yet. Be the first to list yours.'} />
       </section>
 
       <section className="mt-10 rounded-2xl border border-sx-stroke bg-gradient-to-br from-[#15104a] to-sx-panel p-6">

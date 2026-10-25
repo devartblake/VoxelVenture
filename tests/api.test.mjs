@@ -97,6 +97,16 @@ try {
   check('today has the visits, with thirty days', st.days.length === 30 && st.days[29].views === 3 && st.busiestHour !== null);
   check('the visit count on the plot is the verified visits only (no generated starting figure)', (await call('GET', `/plots/${mine.id}`)).data.visits === 3);
   check('events on an empty lot or with a bad kind are refused', (await call('POST', '/events', { body: { plotId: empties[5].id, kind: 'visit' } })).status === 400 && (await call('POST', '/events', { body: { plotId: mine.id, kind: 'hack' } })).status === 400);
+  // leaving a building: its time inside goes on the visit, once, and never more than the time since the visit began
+  await call('POST', '/presence/ping', { body: { visitor: 'leaver' } });
+  check('a leave without a visit changes nothing', (await call('POST', '/events', { body: { plotId: mine.id, kind: 'leave', seconds: 40, visitor: 'leaver' } })).data.counted === false);
+  await call('POST', '/events', { body: { plotId: mine.id, kind: 'visit', source: 'search', visitor: 'leaver' } });
+  const left = (await call('POST', '/events', { body: { plotId: mine.id, kind: 'leave', seconds: 900, visitor: 'leaver' } })).data;
+  check('a leave sets the time inside, capped by the time since the visit began', left.counted === false && left.seconds >= 0 && left.seconds <= 2, JSON.stringify(left));
+  check('a second leave does not change it again', !('seconds' in (await call('POST', '/events', { body: { plotId: mine.id, kind: 'leave', seconds: 30, visitor: 'leaver' } })).data));
+  check('a bad leave is refused', (await call('POST', '/events', { body: { plotId: mine.id, kind: 'leave', seconds: 'x', visitor: 'leaver' } })).status === 400);
+  const afterLeave = (await call('GET', `/plots/${mine.id}/stats`, { token: 'admin-secret' })).data;
+  check('the visit found by search counts in the search source', afterLeave.sources.find((x) => x.id === 'search').share > 0 && afterLeave.views === 4, JSON.stringify(afterLeave.sources));
   const ws = (await call('GET', '/world/stats')).data;
   check('world statistics', ws.buildings === built.length + 2 + 0 || ws.buildings >= built.length, JSON.stringify(ws));
 

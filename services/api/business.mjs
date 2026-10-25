@@ -180,6 +180,10 @@ export const sitemapEntries = (db) => db.prepare("SELECT slug, updated_at AS upd
 // already made `cap` of that kind for this profile today; and, for a qualified visit or a press, the same visitor viewed the profile in the
 // last day. Everything is kept for the record; a visitor repeating the same thing within a minute is one event.
 export const EVENT_KINDS = ['view', 'engaged', 'store', 'cta'];
+// The screen an event happened on, for the owner's "which screen" breakdown: the site's pages (Discover, a category, a district, the
+// profile itself), then the game's (the building card, the in-game directory, search and Places, the world map, the storefront inside).
+export const SURFACES = ['discover', 'category', 'district', 'profile', 'card', 'directory', 'search', 'map', 'storefront'];
+export const surfaceOf = (v) => (SURFACES.includes(v) ? v : null);
 const NEEDS_VIEW = ['engaged', 'cta'];
 export const ipHashOf = (ctx) => (ctx.ip ? crypto.createHash('sha256').update(`${ctx.salt ?? 'voxelventure'}|${ctx.ip}`).digest('hex').slice(0, 16) : null);
 export const visitorOf = (account, id) => (account ? `a${account.id}` : `x${/^[A-Za-z0-9_-]{4,40}$/.test(id) ? id : 'anonymous'}`);
@@ -196,6 +200,7 @@ export function recordProfileEvent(db, account, slug, input, ctx = {}) {
   const source = kind === 'store' || (kind === 'cta' && input.source === 'city') ? 'city' : ref ? 'referral' : SOURCES.includes(input.source) ? input.source : 'direct';
   const campaign = campaignOf(input.campaign);
   const clickId = kind === 'cta' && isClickId(input.clickId) ? String(input.clickId) : null;
+  const surface = surfaceOf(input.surface) ?? (kind === 'store' ? 'storefront' : null);
   const ipHash = ipHashOf(ctx);
   let verified = (account || wellFormed) && !BOT_UA.test(String(ctx.userAgent ?? '')) && !(account && account.id === row.account_id);
   // a press needs a look at the business first: its profile, or (a press in the 3D city) walking into its storefront
@@ -206,7 +211,7 @@ export function recordProfileEvent(db, account, slug, input, ctx = {}) {
     const used = db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE business_id = ? AND kind = ? AND ip_hash = ? AND verified = 1 AND at >= ?').get(row.id, kind, ipHash, now() - DAY).n;
     if (used >= cap) verified = false;
   }
-  db.prepare('INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at, campaign, click_id) VALUES (?,?,?,?,?,?,?,?,?,?)').run(row.id, kind, source, ref, visitor, ipHash, verified ? 1 : 0, now(), campaign, clickId);
+  db.prepare('INSERT INTO business_events (business_id, kind, source, ref_account, visitor, ip_hash, verified, at, campaign, click_id, surface) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(row.id, kind, source, ref, visitor, ipHash, verified ? 1 : 0, now(), campaign, clickId, surface);
   return { counted: true, verified: Boolean(verified) };
 }
 
@@ -217,10 +222,20 @@ export const campaignOf = (v) => {
 };
 
 // ---- the owner's view ---------------------------------------------------------------------------------------------------------
+// The funnel in the roadmap's event names (docs/roadmap/VoxelVenture_Mobile_UX_Commercial_Feature_Improvement_Plan.md, VV-UX-01), as the
+// versioned contract business.funnel v1. A qualified action is a confirmed result: a confirmed newsletter sign-up, a verified meeting or
+// quote request, a claimed coupon or a verified purchase. A page view or a press of an outside link never is.
+export const funnelOf = (f) => ({
+  version: 1,
+  business_impression: f.impressions,
+  profile_open: f.views,
+  business_cta_click: f.ctaClicks,
+  qualified_action: f.newsletterSignups + f.meetingRequests + f.quoteRequests + f.couponClaims + f.purchases,
+});
 // Thirty days of verified figures for one profile. Never simulated: a profile with no visitors shows zeros.
 export function profileStats(db, businessId, at = now()) {
   const since = at - 30 * DAY;
-  const ev = db.prepare('SELECT kind, source, ref_account, visitor, at, campaign, value_cents FROM business_events WHERE business_id = ? AND verified = 1 AND at >= ?').all(businessId, since);
+  const ev = db.prepare('SELECT kind, source, ref_account, visitor, at, campaign, value_cents, surface FROM business_events WHERE business_id = ? AND verified = 1 AND at >= ?').all(businessId, since);
   const of = (kind) => ev.filter((e) => e.kind === kind);
   const views = of('view');
   const cta = of('cta');
@@ -261,6 +276,10 @@ export function profileStats(db, businessId, at = now()) {
   for (const e of [...views, ...cta, ...purchases].filter((x) => x.campaign)) campaign(e.campaign)[field(e.kind)]++;
   for (const q of inquiries.filter((x) => x.campaign)) campaign(q.campaign).leads++;
   const outcomes = outcomesOf(results, spendCents);
+  // which screen the cards were seen on, the profile opened from and the button pressed on (events from before surfaces were kept: none)
+  const bySurface = Object.fromEntries(SURFACES.map((s) => [s, { id: s, impressions: 0, views: 0, storeEntries: 0, ctaClicks: 0 }]));
+  const surfaceField = { impression: 'impressions', view: 'views', store: 'storeEntries', cta: 'ctaClicks' };
+  for (const e of ev) if (e.surface && bySurface[e.surface] && surfaceField[e.kind]) bySurface[e.surface][surfaceField[e.kind]]++;
   return {
     simulated: false,
     verified: true,
@@ -280,6 +299,8 @@ export function profileStats(db, businessId, at = now()) {
     sources: Object.values(bySource),
     campaigns: [...byCampaign.values()].sort((a, b) => b.views - a.views || a.id.localeCompare(b.id)).slice(0, 10),
     days,
+    surfaces: Object.values(bySurface),
+    funnel: funnelOf({ impressions: of('impression').length, views: views.length, ctaClicks: cta.length, ...results }),
   };
 }
 
