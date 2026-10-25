@@ -497,7 +497,10 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     }
     if (m === 'GET' && p === '/plots/state') return { ...core.worldState(db), botw: community.buildingOfTheWeek(db) };
     if ((r = p.match(/^\/plots\/(\d+)$/)) && m === 'GET') return core.plotView(db, core.getPlot(db, r[1]));
-    if ((r = p.match(/^\/plots\/(\d+)\/stats$/)) && m === 'GET') return core.plotStats(db, r[1]) ?? { empty: true };
+    if ((r = p.match(/^\/plots\/(\d+)\/stats$/)) && m === 'GET') {
+      const staff = (() => { try { return Boolean(requireAdmin(req)); } catch { return false; } })(); // support sees what the owner sees
+      return core.plotStats(db, r[1], account, { full: staff }) ?? { empty: true };
+    }
     if ((r = p.match(/^\/plots\/(\d+)\/history$/)) && m === 'GET') return core.history(db, r[1]);
     // a claim and a take-over are refused while another player holds the plot, and their outcome is a step of the plot economy's data (economy.tracked)
     if ((r = p.match(/^\/plots\/(\d+)\/claim$/)) && m === 'POST') {
