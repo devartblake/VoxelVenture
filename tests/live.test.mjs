@@ -89,7 +89,7 @@ try {
   sync.sendEvent(built.id, 'click');
   store().recordBillboardView(openAd.id);
   await sleep(500);
-  const stats = await (await fetch(`http://localhost:${port}/plots/${built.id}/stats`)).json();
+  const stats = await (await fetch(`http://localhost:${port}/plots/${built.id}/stats`, { headers: { Authorization: 'Bearer admin-secret' } })).json();
   const ad = await (await fetch(`http://localhost:${port}/ads/${openAd.id}`)).json();
   check('visits, website clicks and ad views reach the server', stats.views === 1 && stats.clicks === 1 && ad.views === 1);
   await sync.refresh();

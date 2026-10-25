@@ -26,7 +26,7 @@ try {
   const empties = city.plots.filter((p) => !p.owner && p.districtId !== 'suburb');
   const visit = (plotId, visitor, ip, extra = {}) => call('POST', '/events', { ip, ua: extra.ua, body: { plotId, kind: extra.kind ?? 'visit', visitor, seconds: extra.seconds ?? 60 } });
   const ping = (visitor, ip, ua) => call('POST', '/presence/ping', { ip, ua, body: { visitor } });
-  const stats = async (id) => (await call('GET', `/plots/${id}/stats`)).data;
+  const stats = async (id) => (await call('GET', `/plots/${id}/stats`, { token: ADMIN })).data; // the full figures (an owner or an admin)
 
   // ---- proof of human traffic
   const P = built[3];
