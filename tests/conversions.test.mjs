@@ -201,6 +201,22 @@ try {
   const { pruneRefFirsts } = await import('../services/api/business.mjs');
   api.db.prepare("UPDATE ref_firsts SET first_at = first_at - 30 * 86400000 WHERE visitor = 'xfriend-of-carl'").run();
   check('the first visit is deleted after 60 days, the others kept', pruneRefFirsts(api.db) === 1 && api.db.prepare('SELECT COUNT(*) AS n FROM ref_firsts').get().n >= 1);
+
+  // ---- the scrambled network address is blanked after 90 days; the rows stay
+  const { scrubIpHashes } = await import('../services/api/core.mjs');
+  const withHash = api.db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE ip_hash IS NOT NULL').get().n;
+  const rows = api.db.prepare('SELECT COUNT(*) AS n FROM business_events').get().n;
+  check('nothing recent is blanked', scrubIpHashes(api.db) === 0);
+  check('after 90 days every scrambled address is blanked and no row is lost', withHash > 0 && scrubIpHashes(api.db, Date.now() + 91 * 86400000) >= withHash && api.db.prepare('SELECT COUNT(*) AS n FROM business_events WHERE ip_hash IS NOT NULL').get().n === 0 && api.db.prepare('SELECT COUNT(*) AS n FROM business_events').get().n === rows);
+
+  // ---- visitor numbers are removed after 180 days; rows and keys stay
+  const { scrubVisitorIds } = await import('../services/api/core.mjs');
+  const evRows = api.db.prepare('SELECT COUNT(*) AS n FROM business_events').get().n;
+  const claims = api.db.prepare('SELECT COUNT(*) AS n FROM coupon_claims').get().n;
+  check('no recent visitor number is removed', scrubVisitorIds(api.db) === 0);
+  scrubVisitorIds(api.db, Date.now() + 181 * 86400000);
+  check("after 180 days nobody's visitor number is left, and no row is lost", api.db.prepare("SELECT COUNT(*) AS n FROM business_events WHERE visitor != 'removed'").get().n === 0 && api.db.prepare('SELECT COUNT(*) AS n FROM business_events').get().n === evRows && api.db.prepare("SELECT COUNT(*) AS n FROM coupon_claims WHERE visitor NOT LIKE 'removed-%'").get().n === 0 && api.db.prepare('SELECT COUNT(*) AS n FROM coupon_claims').get().n === claims);
+  check('running it again changes nothing', scrubVisitorIds(api.db, Date.now() + 181 * 86400000) === 0);
 } catch (e) {
   fails++;
   console.log('FAIL', e.stack);

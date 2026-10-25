@@ -30,6 +30,7 @@
 //   REFERRAL_SECRET  signs referral codes (?ref= links, services/api/business.mjs). Set it in production; changing it voids every shared link
 //   PROFILE_VIEW_CAP / PROFILE_CTA_CAP   verified profile views and call-to-action presses per network per profile per day (defaults 3 and 1)
 import http from 'node:http';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.mjs';
@@ -58,6 +59,21 @@ import { createReporter } from '../../lib/net/sentry.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+// For an admin asking /health: emails waiting to go out (and how long the oldest has waited), and how old the newest backup is
+// (deploy/backup.sh, in BACKUP_DIR; null when the API cannot see the folder).
+function healthDetails(db, env, at = Date.now()) {
+  const o = db.prepare("SELECT COUNT(*) AS n, MIN(created_at) AS oldest FROM outbox WHERE status = 'pending'").get();
+  let backupHours = null;
+  try {
+    const dir = env.BACKUP_DIR || '/var/backups/voxelventure';
+    const newest = Math.max(...fs.readdirSync(dir).map((f) => fs.statSync(path.join(dir, f)).mtimeMs));
+    if (Number.isFinite(newest)) backupHours = Math.round(((at - newest) / 3600000) * 10) / 10;
+  } catch {
+    /* no folder, or not readable by the API */
+  }
+  return { outbox: { pending: o.n, oldestMinutes: o.oldest ? Math.round((at - o.oldest) / 60000) : null, failed: db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'failed'").get().n }, backupHours };
+}
+
 export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env, adminLogin = {} } = {}) {
   const db = openDb(dbFile);
   const seeded = core.seedWorld(db, seed);
@@ -77,7 +93,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
   // With the messaging service set up, messages are its business alone: this API forwards the routes and runs none of the jobs,
   // so the two never both send the same notice or prune the same data.
   const messagingService = (env.MESSAGING_SERVICE_URL || '').replace(/\/+$/, '');
-  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); business.pruneRefFirsts(db); admin.pruneSessions(db); admin.pruneTokens(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
+  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); business.pruneRefFirsts(db); core.scrubIpHashes(db); core.scrubVisitorIds(db); admin.pruneSessions(db); admin.pruneTokens(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
   pruneTimer?.unref();
   // "your inbox changed" notices go to the presence server as soon as they are written, and again every two seconds for any that failed
   const notices = () => (messagingService ? Promise.resolve() : messaging.deliverNotices(db, env)).catch(() => {});
@@ -474,7 +490,15 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
 
     if (p.startsWith('/admin/') && (r = await adminRoute(req, url, p, m, token, headers)) !== undefined) return r;
 
-    if (m === 'GET' && p === '/health') return { ok: true, now: Date.now(), plots: db.prepare('SELECT COUNT(*) AS n FROM plots').get().n, adSlots: db.prepare('SELECT COUNT(*) AS n FROM ad_slots').get().n };
+    if (m === 'GET' && p === '/health') {
+      // a database that cannot take a write fails the check (503), so a deploy rolls back and monitoring alerts; the outbox and the
+      // newest backup are only reported, to an admin (they are not the public's business), never a reason to fail
+      const writable = (() => { try { db.exec('BEGIN IMMEDIATE; ROLLBACK;'); return true; } catch { return false; } })();
+      if (!writable) throw new core.ApiError(503, 'The database cannot be written.', 'db_unwritable');
+      const out = { ok: true, now: Date.now(), plots: db.prepare('SELECT COUNT(*) AS n FROM plots').get().n, adSlots: db.prepare('SELECT COUNT(*) AS n FROM ad_slots').get().n };
+      const staff = (() => { try { return Boolean(requireAdmin(req)); } catch { return false; } })();
+      return staff ? { ...out, ...healthDetails(db, env) } : out;
+    }
     if (m === 'POST' && p === '/auth/signup') {
       const b = await body(req);
       const out = logged((o) => A.byAccount(o.account), 'account.create', (o) => ({ kind: 'account', id: o.account.id }), () => core.signup(db, b), (o) => ({ username: o.account.username }));

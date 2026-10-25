@@ -417,6 +417,29 @@ export function recordEvent(db, account, input, ctx = {}) {
   return { counted: true, verified };
 }
 
+// The scrambled network address on visits, presses and ad views is only needed for the per-network daily caps (a day back at most): after
+// 90 days it is blanked; the rows and every figure made from them are kept (the hour's job, server.mjs; lib/legal/retention.js ipHashDays).
+export const IP_HASH_DAYS = 90;
+export function scrubIpHashes(db, at = now()) {
+  const before = at - IP_HASH_DAYS * DAY;
+  let n = 0;
+  for (const table of ['events', 'business_events', 'ad_events']) n += Number(db.prepare(`UPDATE ${table} SET ip_hash = NULL WHERE ip_hash IS NOT NULL AND at < ?`).run(before).changes);
+  return n;
+}
+
+// The visitor number (or account) on visits, presses, ad views, arrivals, coupon claims and market stall visits is kept 180 days: every
+// figure that tells visitors apart looks back 30 days at most. After that it becomes "removed" (in a table where the visitor is part of the
+// key, "removed-<row>" so rows stay distinct); the rows and the counts made from them are kept. Requests (business_inquiries) are wiped on
+// their own schedule (conversions.mjs pruneInquiries). The hour's job, server.mjs; lib/legal/retention.js visitorDays.
+export const VISITOR_DAYS = 180;
+export function scrubVisitorIds(db, at = now()) {
+  const before = at - VISITOR_DAYS * DAY;
+  let n = 0;
+  for (const table of ['events', 'business_events', 'ad_events', 'arrivals']) n += Number(db.prepare(`UPDATE ${table} SET visitor = 'removed' WHERE visitor != 'removed' AND at < ?`).run(before).changes);
+  for (const table of ['coupon_claims', 'market_visits']) n += Number(db.prepare(`UPDATE ${table} SET visitor = 'removed-' || rowid WHERE visitor NOT LIKE 'removed-%' AND at < ?`).run(before).changes);
+  return n;
+}
+
 // Leaving a building: the time spent inside goes on that visitor's latest visit there, if it has none yet and was in the last
 // hour (a visit's time is set once; a leave without a visit changes nothing and is not an event of its own).
 function recordLeave(db, account, p, input) {

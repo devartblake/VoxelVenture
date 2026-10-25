@@ -65,7 +65,15 @@ export default function ManageProfiles() {
         <Link href="/business/new" className="rounded-xl bg-sx-purple px-4 py-2 font-semibold text-white hover:bg-violet-400">Add a business</Link>
       </div>
       <PaymentReturn onPaid={load} />
-      {error && <p className="mb-4 text-rose-300" role="alert">{error}</p>}
+      {error && (
+        <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200" role="alert" data-testid="figures-unavailable">
+          <p>
+            {data ? 'Your figures could not be refreshed, so the ones below may be out of date.' : 'Your profiles and figures could not be loaded from the server.'} This does not mean they are zero.
+            {/^failed to fetch|networkerror|load failed/i.test(error) ? '' : ` (${error})`}
+          </p>
+          <button type="button" onClick={load} className="mt-2 rounded-lg border border-rose-400/50 px-3 py-1 text-rose-100 hover:bg-rose-500/20">Try again</button>
+        </div>
+      )}
       {!data && !error && <p className="text-sx-muted">Loading…</p>}
       {data && !data.profiles.length && (
         <p className="rounded-2xl border border-dashed border-sx-stroke p-6 text-center text-slate-300">You have no profiles yet. <Link href="/business/new" className="text-sx-cyan underline">List your business free</Link>.</p>

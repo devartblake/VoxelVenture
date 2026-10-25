@@ -9,6 +9,8 @@
 #   bash deploy/production.sh deploy --from /srv/voxelventure/repo    the same from the git clone (after: git -C /srv/voxelventure/repo pull)
 #   bash deploy/production.sh rollback          switch back to the release before the live one
 #   bash deploy/production.sh status            the releases, which one is live, the services, the database
+#   bash deploy/production.sh restore <file> --yes   put a database copy in place of the live one (a snapshot, or a backup .db.gz); the
+#                                                live one is snapshotted first, so a restore can itself be undone the same way
 #
 # The layout, under /srv/voxelventure:
 #   releases/<date>/   the code of each release (kept: the newest three, and always the live one and the one before it)
@@ -287,10 +289,37 @@ cmd_status() {
   return 0
 }
 
+cmd_restore() {
+  need_root restore
+  local file="${1:-}" yes="${2:-}"
+  [ -f "$file" ] || die "usage: restore <a .db or .db.gz copy> --yes"
+  [ "$yes" = "--yes" ] || die "this replaces the live database (it is snapshotted first): add --yes to go ahead"
+  say "restore $file"
+  local tmp
+  tmp="$(mktemp)"
+  case "$file" in *.gz) gunzip -c "$file" > "$tmp" ;; *) cp "$file" "$tmp" ;; esac
+  # it must be a sound database that holds a world, before it replaces anything
+  [ "$(sqlite3 "$tmp" 'PRAGMA integrity_check;')" = "ok" ] || { rm -f "$tmp"; die "$file is not a sound SQLite database"; }
+  [ "$(sqlite3 "$tmp" 'SELECT COUNT(*) FROM plots;' 2>/dev/null || echo 0)" -gt 0 ] || { rm -f "$tmp"; die "$file holds no plots: not a VoxelVenture database"; }
+  echo "it holds $(sqlite3 "$tmp" 'SELECT COUNT(*) FROM plots;') plots and $(sqlite3 "$tmp" 'SELECT COUNT(*) FROM accounts;') accounts"
+  local stamp
+  stamp="restore-$(date +%Y%m%d-%H%M%S)"
+  systemctl stop voxelventure-api
+  snapshot "$stamp"
+  rm -f "$DB-wal" "$DB-shm"
+  install -o voxel -g voxel -m 640 "$tmp" "$DB"
+  rm -f "$tmp"
+  systemctl start voxelventure-api
+  systemctl restart voxelventure-presence
+  healthy || die "the API did not start on the restored database: journalctl -u voxelventure-api (the database before is $SHARED/data/snapshots/before-$stamp.db)"
+  echo "restored. To undo: bash $0 restore $SHARED/data/snapshots/before-$stamp.db --yes"
+}
+
 case "${1:-}" in
   migrate) cmd_migrate "${2:-}" ;;
+  restore) cmd_restore "$( [ -n "${2:-}" ] && abs "$2" )" "${3:-}" ;;
   deploy) cmd_deploy "${2:-}" "${3:-}" ;;
   rollback) cmd_rollback ;;
   status) cmd_status ;;
-  *) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

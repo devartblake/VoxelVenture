@@ -552,6 +552,8 @@ try {
   check('the short link /b/ID redirects to the building link', [307, 308].includes(short.status) && (short.headers.get('location') ?? '').endsWith(`/?plot=${linkId}`), `${short.status} ${short.headers.get('location')}`);
   const badShort = await fetch(`http://localhost:${webPort}/b/${encodeURIComponent('<x>')}`, { redirect: 'manual' });
   check('a bad id in the short link goes to the plain city', [307, 308].includes(badShort.status) && /\/$/.test(badShort.headers.get('location') ?? ''), `${badShort.status} ${badShort.headers.get('location')}`);
+  const missing = await fetch(`http://localhost:${webPort}/no-such-page-here`);
+  check('an address that is no page is a 404 with a way back', missing.status === 404 && /There is nothing at this address/.test(await missing.text()), String(missing.status));
   const linked = await openPage(`http://localhost:${webPort}/?plot=${linkId}&city=${DEFAULT_CITY}&diag=1&view=iso&mp=${mpPort}`, { width: 1280, height: 800 });
   const linkOpened = await waitFor(linked, `window.__vvStore && window.__vvStore.getState().selectedPlot?.id === ${linkId}`, 90);
   check('a building link opens the city on that building', linkOpened, linkOpened ? '' : JSON.stringify({ store: await linked.eval('Boolean(window.__vvStore)').catch(() => 'n/a'), canvas: await linked.eval('document.querySelectorAll("canvas").length').catch(() => 'n/a'), text: (await linked.eval('document.body.innerText').catch(() => '')).slice(0, 300), problems: linked.problems().slice(0, 3) }));

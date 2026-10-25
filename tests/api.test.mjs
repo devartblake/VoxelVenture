@@ -24,6 +24,8 @@ try {
   // ---- the world is the game's own
   const health = await call('GET', '/health');
   check('the world is seeded with every plot of the game', health.data.plots === city.plots.length && health.data.adSlots === city.billboards.length, `${health.data.plots}`);
+  const staffHealth = (await call('GET', '/health', { token: 'admin-secret' })).data;
+  check('the public health check says nothing about emails or backups; an admin sees both', !('outbox' in health.data) && !('backupHours' in health.data) && staffHealth.outbox?.pending >= 0 && 'backupHours' in staffHealth, JSON.stringify(staffHealth));
   const dir = await call('GET', '/plots');
   check('the directory lists every built plot, numbered 1 to N', dir.data.total === built.length && dir.data.entries.every((e, i) => e.number === i + 1) && dir.data.entries[0].rank === 1, `${dir.data.total}`);
   check('it is ordered by value', dir.data.entries.every((e, i) => !i || e.plot.value <= dir.data.entries[i - 1].plot.value));
