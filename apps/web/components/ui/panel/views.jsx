@@ -1,5 +1,6 @@
 "use client";
 
+import { create } from 'zustand';
 import { useCommunity } from '@/lib/state/communityStore';
 import LiveStats from './LiveStats';
 import React, { useMemo, useState } from 'react';
@@ -173,11 +174,14 @@ export function StatsView() {
   );
 }
 
+// The search, kept while the page is open, so coming back from a building finds the same results.
+const useSearchQuery = create((set) => ({ query: '', setQuery: (query) => set({ query }) }));
+
 export function SearchView() {
   const plots = useCityStore((s) => s.plots);
   const layout = useCityStore((s) => s.layout);
   const setSelectedPlot = useCityStore((s) => s.setSelectedPlot);
-  const [query, setQuery] = useState('');
+  const { query, setQuery } = useSearchQuery();
   const q = query.trim().toLowerCase();
 
   const results = useMemo(() => {

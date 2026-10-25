@@ -21,6 +21,7 @@ import { hydrateMarket } from '@/lib/state/marketStore';
 import { startPresence } from '@/lib/data/presence';
 import StatsPill from '@/components/ui/StatsPill';
 import Compass from '@/components/ui/Compass';
+import ExploreButton from '@/components/ui/ExploreButton';
 import VehicleHud from '@/components/ui/VehicleHud';
 import WorldMap from '@/components/ui/WorldMap';
 import DeepLink from '@/components/DeepLink';
@@ -74,6 +75,7 @@ export default function Home() {
       <Header />
       <CityCanvas />
       <MiniMapButton />
+      <ExploreButton />
       <StatsPill />
       <Compass />
       <Toolbar />

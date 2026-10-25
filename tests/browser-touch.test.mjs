@@ -113,8 +113,26 @@ try {
   const tapped = await phone.eval('window.__vvStore.getState().selectedPlot?.id ?? null');
   check('a tap on a lot selects it', tapped === lot.id, `tapped #${lot.id}, selected ${tapped}`);
   check('and its card opens in the panel', await waitFor(phone, `/building/i.test(document.querySelector('[data-testid="side-panel"] h2')?.textContent ?? '')`, 8));
+  check('with a card open the compact HUD steps aside: four tools, no More, no compass, no clock', await phone.eval(`document.querySelectorAll('[data-testid="toolbar"] [data-tool]').length === 4 && !document.querySelector('[data-testid="hud-more"]') && !document.querySelector('[data-testid="compass"]') && !document.querySelector('[data-testid="ambient-controls"]')`));
   await phone.eval(`window.__vvStore.getState().clearSelectedPlot(); 1`);
   await sleep(600);
+
+  // the compact HUD on a phone, and a plain way into the businesses
+  check('a phone gets the compact HUD: the main tools, the camera and More', await phone.eval(`document.querySelector('[data-testid="toolbar"]')?.dataset.compact === 'true' && document.querySelectorAll('[data-testid="toolbar"] [data-tool]').length === 4 && Boolean(document.querySelector('[data-testid="hud-more"]'))`));
+  check('the clock and sound buttons sit bottom left, clear of the joystick', await phone.eval(`(() => { const r = document.querySelector('[data-testid="ambient-controls"]').getBoundingClientRect(); return r.left < 40 && r.right < window.innerWidth / 2 - 50; })()`));
+  check('every tool bar button is at least 44 px', await phone.eval(`[...document.querySelectorAll('[data-testid="toolbar"] button')].every((b) => { const r = b.getBoundingClientRect(); return r.width >= 43.5 && r.height >= 43.5; })`));
+  await phone.eval(`document.querySelector('[data-testid="explore-businesses"]').click(); 1`);
+  check('Explore businesses opens the directory', await waitFor(phone, `Boolean(document.querySelector('[data-testid="directory-list"]'))`, 8));
+  await phone.eval(`document.querySelector('[data-testid="directory-type-restaurant"]').click(); 1`);
+  await sleep(400);
+  check('the kind filter keeps only that kind', await phone.eval(`(() => { const ids = [...document.querySelectorAll('[data-testid="directory-list"] > li')].length; return ids > 0 && window.__vvStore.getState().plots.filter((p) => p.owner && p.buildingType === 'restaurant' && p.height > 0.2).length === ids; })()`));
+  await phone.eval(`document.querySelector('[data-testid="directory-list"] > li button').click(); 1`);
+  await sleep(800);
+  await phone.eval(`window.__vvStore.getState().clearSelectedPlot(); 1`);
+  await sleep(800);
+  check('coming back from a building keeps the filter', await waitFor(phone, `document.querySelector('[data-testid="directory-type-restaurant"]')?.getAttribute('aria-pressed') === 'true'`, 6));
+  await phone.eval(`document.querySelector('[data-testid="directory-type-restaurant"]').click(); window.__vvPanel?.getState().close?.(); 1`);
+  await sleep(400);
 
   // a one-finger drag pans the map (MapControls: one finger pans) and selects nothing
   at = await aimAt(phone, lot, center, 20);
