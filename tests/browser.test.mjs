@@ -338,6 +338,10 @@ try {
   await page.eval(`window.__vvStore.getState().setSelectedPlot(window.__vvStore.getState().plots.find((p) => p.owner && p.buildingType !== 'house'))`);
   await sleep(400);
   check('selecting a plot shows it in the same panel', /building/i.test(await panelTitle()), String(await panelTitle()));
+  check('the business comes first: its name, then Visit website, then Step inside; owner actions sit below under their own heading', await page.eval(`(() => { const t = document.querySelector('[data-testid="side-panel"]').innerText; const at = (x) => t.indexOf(x); return at('Visit website') > 0 && at('Visit website') < at('Step inside') && at('Step inside') < at('Address') && (at('Lease, watch or buy') === -1 || at('Lease, watch or buy') > at('Address')); })()`));
+  check('the card takes the focus to its heading', await page.eval(`document.activeElement?.id === 'side-panel-title'`));
+  check('the figures and history start folded on a building that is not yours', await page.eval(`!document.querySelector('[data-testid="figures-fold"]').closest('details').open`));
+  await page.eval(`document.querySelector('[data-testid="figures-fold"]').closest('details').open = true`);
   const card = await page.eval(`document.querySelector('[data-testid="side-panel"]').innerText`);
   check('the building card shows Step inside, an address, the site visits and the building history', ['Step inside', 'Address', 'Site visits', 'Where visitors come from', 'Building history', 'Visit website'].every((t) => card.toLowerCase().includes(t.toLowerCase())), card.slice(0, 80));
   await page.eval(`document.querySelector('[data-testid="create-image"]').click()`);
