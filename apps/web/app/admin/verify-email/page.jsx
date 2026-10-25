@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiOn } from '@/lib/data/api';
-import { adminFetch, takeLinkToken } from '@/lib/data/admin';
+import { adminFetch, announceEmailConfirmed, takeLinkToken } from '@/lib/data/admin';
 import { AdminCard, FormError } from '@/components/admin/AdminShell';
 import { Alert, buttonClass } from '@/components/admin/ui';
 
@@ -21,7 +21,10 @@ export default function AdminVerifyEmailPage() {
     if (!api) return setState({ done: true, ok: false, email: '', error: 'The admin pages need the API: build the site with NEXT_PUBLIC_LIVE_API_URL.' });
     if (!value) return setState({ done: true, ok: false, email: '', error: 'This page needs the link from the email.' });
     adminFetch('/admin/email/verify', { method: 'POST', body: { token: value } })
-      .then((r) => setState({ done: true, ok: true, email: r.email, error: '' }))
+      .then((r) => {
+        setState({ done: true, ok: true, email: r.email, error: '' });
+        announceEmailConfirmed(); // the Account page open in another tab shows Confirmed at once
+      })
       .catch((e) => setState({ done: true, ok: false, email: '', error: e.message }));
   }, [api]);
 
