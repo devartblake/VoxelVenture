@@ -35,9 +35,9 @@
     "test:journeys": "node tests/run.mjs journeys/"
   },
   "dependencies": {
-    "@pascal-app/core": "^1.0.4",
-    "@pascal-app/editor": "^1.0.4",
-    "@pascal-app/nodes": "^1.0.4",
+    "@pascal-app/core": "^1.0.6",
+    "@pascal-app/editor": "^1.0.6",
+    "@pascal-app/nodes": "^1.0.6",
     "@pascal-app/viewer": "^1.0.4",
     "@pascal/typescript-config": "file:vendor/typescript-config",
     "@react-three/drei": "^10.7.9",
