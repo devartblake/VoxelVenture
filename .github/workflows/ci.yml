@@ -71,7 +71,7 @@ jobs:
 
       - name: Journey artifacts (sanitized logs, screenshots and the milestone report of a failed journey)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: journeys
           path: artifacts/journeys
