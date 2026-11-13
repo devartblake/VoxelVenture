@@ -49,6 +49,7 @@ import * as cart from './cart.mjs';
 import * as promo from './promo.mjs';
 import * as conversions from './conversions.mjs';
 import * as pilot from './pilot.mjs';
+import * as rollout from './rollout.mjs';
 import * as interiors from './interiors.mjs';
 import * as economy from './economy.mjs';
 import * as admin from './admin.mjs';
@@ -757,6 +758,13 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       return logged(A.byAccount(account), 'coupon.redeem', { kind: 'plot', id: r[1] }, () => conversions.redeemCoupon(db, account, r[1], b), (o) => ({ ticket: o.ticket }));
     }
     if (m === 'GET' && p === '/admin/metrics/renewals') return (adminOnly(token), conversions.renewals(db));
+    // Internal rollout backlog: admin-only reads and audited writes.
+    if (m === 'GET' && p === '/admin/rollout/items') return (adminOnly(), { items: rollout.list(db) });
+    if ((r = p.match(/^\\/admin\\/rollout\\/items\\/(VV-GFX-(?:0[1-9]|1[0-3]))$/)) && m === 'PATCH') {
+      adminOnly();
+      const b = await body(req, 12000);
+      return logged(adminOnly(), 'rollout.item.update', { kind: 'rollout', id: r[1] }, () => rollout.update(db, r[1], b));
+    }
     // the pilot (pilot.mjs, docs/monetization/pilot.md)
     if (m === 'GET' && p === '/admin/pilot') return (adminOnly(token), pilot.summary(db, { weeks: url.searchParams.get('weeks'), all: url.searchParams.get('all') === '1' }));
     if (m === 'GET' && p === '/admin/pilot.csv') return (adminOnly(token), pilot.summaryCsv(db, { weeks: url.searchParams.get('weeks'), all: url.searchParams.get('all') === '1' }));
