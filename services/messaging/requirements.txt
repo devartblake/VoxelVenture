@@ -1,5 +1,5 @@
 # pydantic-core is not listed: each pydantic release pins its exact pydantic-core, so listing it too only lets the two disagree.
-annotated-doc==0.0.5
+annotated-doc==0.0.6
 annotated-types==0.8.0
 anyio==4.15.1
 certifi==2026.10.23
