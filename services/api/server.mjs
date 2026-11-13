@@ -760,7 +760,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'GET' && p === '/admin/metrics/renewals') return (adminOnly(token), conversions.renewals(db));
     // Internal rollout backlog: admin-only reads and audited writes.
     if (m === 'GET' && p === '/admin/rollout/items') return (adminOnly(), { items: rollout.list(db) });
-    if ((r = p.match(/^\\/admin\\/rollout\\/items\\/(VV-GFX-(?:0[1-9]|1[0-3]))$/)) && m === 'PATCH') {
+    if ((r = p.match(/^\/admin\/rollout\/items\/(VV-GFX-(?:0[1-9]|1[0-3]))$/)) && m === 'PATCH') {
       adminOnly();
       const b = await body(req, 12000);
       return logged(adminOnly(), 'rollout.item.update', { kind: 'rollout', id: r[1] }, () => rollout.update(db, r[1], b));
