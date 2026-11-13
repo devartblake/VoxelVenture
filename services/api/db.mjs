@@ -68,6 +68,12 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'admin_accounts', 'email', 'TEXT'); // an admin's address for password resets (services/api/admin.mjs)
   addColumn(db, 'admin_accounts', 'email_verified_at', 'INTEGER'); // when its one-use link was opened; NULL: not confirmed
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS admin_accounts_email ON admin_accounts(email) WHERE email IS NOT NULL');
+  // Reserve the graphics backlog IDs without asserting descriptions or completion.
+  const seedRollout = db.prepare('INSERT OR IGNORE INTO rollout_items (id,title) VALUES (?,?)');
+  for (let n=1;n<=13;n++) {
+    const id = `VV-GFX-${String(n).padStart(2,'0')}`;
+    seedRollout.run(id, `Graphics backlog ${id} — definition pending`);
+  }
   return db;
 }
 
