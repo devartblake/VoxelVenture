@@ -673,3 +673,18 @@ CREATE TABLE IF NOT EXISTS admin_tokens (
   expires_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS admin_tokens_admin ON admin_tokens(admin_id, purpose);
+
+-- Graphics/pilot command center. IDs reserved; titles intentionally unverified until approved.
+CREATE TABLE IF NOT EXISTS rollout_items (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'unverified' CHECK(status IN ('unverified','in_progress','blocked','complete')),
+  maturity TEXT NOT NULL DEFAULT 'tentative' CHECK(maturity IN ('tentative','proposed','approved')),
+  owner TEXT NOT NULL DEFAULT '',
+  blocker TEXT NOT NULL DEFAULT '',
+  dependencies TEXT NOT NULL DEFAULT '[]',
+  test_result TEXT NOT NULL DEFAULT '',
+  evidence_url TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL DEFAULT 0
+);
