@@ -94,6 +94,8 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Staging** beside it ([deploy/STAGING.md](../../deploy/STAGING.md)): its own ports, database and secrets, with a release-and-switch deploy that switches back by itself if a release does not start.
     - Rehearsals: a rollback took 2.2 s, and production's first backup restored into staging.
     - The four journeys pass against it, 41 of 41.
+  - **Node 26 (LTS), 2026-11-14:** CI (`ci.yml`, #107), the development machine and the Linode run Node 26.13.1. Rehearsed on staging with a second Node beside the system one, then production: the same commit, `verify:live` passing on both. `setup.sh` installs Node 26, and `staging.sh` and `production.sh` build with the PATH's Node ([STAGING.md](../../deploy/STAGING.md) section 8). With Stripe test mode on, two journeys cannot pass on staging (a claim needs a payment).
+  - **Dependencies merged the same day:** the `pascal` group with `three` ^0.187 (needed by Pascal 1.1), Next 16.4.6, ESLint 10.14, Tailwind 4.3.4 and the Python messaging service's bumps. One bump, tailwindcss 4.3.5 (#115), still needs a rebase.
   - **Deploying from Windows:** `deploy/push.ps1` (git archive, scp and ssh, always LF).
   - **Building:** `deploy/build-web.sh` builds with `web.env` and checks the API address is in the build. `sudo -E` is ignored by sudo-rs, so the site would have built as a demo.
   - **Fixed on the way:** the API's rate limits counted every visitor behind Caddy as one (PR #30).

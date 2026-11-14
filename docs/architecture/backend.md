@@ -5,7 +5,7 @@ Written for: whoever runs or extends the server. The stack is deliberately plain
 ```
 npm run api          node --experimental-sqlite --no-warnings services/api/server.mjs  (port 3002)
 ```
-The database is Node's built-in `node:sqlite`. On Node 24 (the development machine) it works without `--experimental-sqlite`; the flag is kept for older Node 22 releases and does no harm.
+The database is Node's built-in `node:sqlite`. On Node 26 (the LTS that CI, the development machine and the server run) it works without `--experimental-sqlite`; the flag is kept for older Node 22 releases and does no harm (checked on 26.13.1).
 
 `API_PORT`, `API_HOST` (default every interface; `127.0.0.1` behind a reverse proxy), `API_DB` (file or `:memory:`; default `services/api/data/voxelventure.db`, git-ignored), `API_SEED` (the world's seed), `API_ORIGIN` (CORS: set it in production).
 
