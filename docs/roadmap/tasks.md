@@ -187,6 +187,7 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Tests:** `tests/admin-reset.test.mjs`, the pages in the browser test, and the whole flow in the live-browser test (the link read from the outbox).
   - **Needs you:** sign in, add your email on Account and open the link. For real email, `MAIL_WEBHOOK_URL` must be set on production.
 - [x] **District street names:** the Meadow Quarter's infill streets take garden-suburb names (Harrogate). The /editor suggests names from the list of the road's district. The avenues, cross streets and puns keep theirs [`docs/world/street_names.md`]
+- [x] **Voxelise a model** (2026-11-14; [voxelize.md](../world/voxelize.md)): `scripts/models/voxelize.mjs` turns a `.glb` (embedded or beside-the-file textures, vertex colours, node transforms) into a `.vox` in the game's format with a median-cut palette (or an existing model's palette), optional solid fill, and `--tile n` modular pieces with the duplicates found. `tests/voxelize.test.mjs`. Measured on Kenney's buildings: files 3x to 15x smaller, but more triangles than the low-poly originals until `voxelMesh` merges flat faces. Next: that greedy meshing, and a trial on 3 real generator outputs once a plan with a commercial licence is chosen.
 
 ## To do
 
