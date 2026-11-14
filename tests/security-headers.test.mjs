@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createApi } from '../services/api/server.mjs';
-import { root } from './helpers.mjs';
+import { root, imp } from './helpers.mjs';
 
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
@@ -32,12 +32,32 @@ for (const [file, game, api, play] of [
   check(`${file}: HSTS for a year with subdomains`, /Strict-Transport-Security\s+"max-age=31536000; includeSubDomains"/.test(sec));
   check(`${file}: nosniff, no framing, a referrer policy and a permissions policy`, /X-Content-Type-Options\s+"nosniff"/.test(sec) && /X-Frame-Options\s+"DENY"/.test(sec) && /Referrer-Policy\s+"/.test(sec) && /Permissions-Policy\s+"/.test(sec));
   for (const site of [game, api, play]) check(`${file}: ${site} imports the security headers`, /^\s*import security_headers\s*$/m.test(b[site] ?? ''));
-  const csp = snippet(text, 'csp_report_only');
-  check(`${file}: the game's CSP is report-only for now (V2: enforce after a clean session)`, /Content-Security-Policy-Report-Only/.test(csp) && !/[^-]Content-Security-Policy\s/.test(csp));
-  check(`${file}: it forbids framing, plugins and a changed base`, /frame-ancestors 'none'/.test(csp) && /object-src 'none'/.test(csp) && /base-uri 'self'/.test(csp));
-  check(`${file}: it keeps wasm, blob workers and the props bucket for the 3D loaders`, /'wasm-unsafe-eval'/.test(csp) && /worker-src 'self' blob:/.test(csp) && /img-src[^;]*blob:/.test(csp) && /connect-src[^;]*\{args\[0\]\}/.test(csp));
-  check(`${file}: the game imports it with the API and presence addresses`, /import csp_report_only (\S+) (\S+) (\S+)/.exec(b[game] ?? '')?.slice(2).join(' ') === `https://${api} wss://${play}`);
+  check(`${file}: the CSP is not set here (the web app owns it, it needs a nonce)`, !/Content-Security-Policy/.test(text.replace(/^\s*#.*$/gm, '')));
 }
+
+// ---- the policy the web app builds (lib/security/csp.js, applied by apps/web/proxy.js)
+const { buildCsp, cspHeaderName, cspSources } = await imp('security/csp.js');
+const env = { NEXT_PUBLIC_LIVE_API_URL: 'https://api.test', NEXT_PUBLIC_MP_URL: 'wss://play.test/', NEXT_PUBLIC_MP_URLS: 'wss://p1.test, wss://p2.test', NEXT_PUBLIC_PROPS_BASE_URL: 'https://bucket.test/base' };
+const csp = buildCsp({ nonce: 'N0NCE', env });
+const dir = (name) => csp.split('; ').find((d) => d.startsWith(`${name} `)) ?? '';
+check('scripts need the nonce and strict-dynamic, and nothing inline or eval', dir('script-src').includes("'nonce-N0NCE'") && dir('script-src').includes("'strict-dynamic'") && !/'unsafe-inline'|'unsafe-eval'/.test(dir('script-src')));
+check('wasm and blob workers stay (Draco, KTX2, GLTF)', dir('script-src').includes("'wasm-unsafe-eval'") && dir('worker-src') === "worker-src 'self' blob:");
+check('style elements need the nonce; style attributes are allowed', dir('style-src').includes("'nonce-N0NCE'") && !dir('style-src').includes('unsafe-inline') && dir('style-src-attr') === "style-src-attr 'unsafe-inline'");
+check('it can reach only the API, every presence server and the props bucket', dir('connect-src') === "connect-src 'self' blob: data: https://api.test wss://play.test wss://p1.test wss://p2.test https://bucket.test");
+check('images and media come from the site and the bucket', dir('img-src').includes('https://bucket.test') && dir('media-src').includes('https://bucket.test') && !dir('img-src').includes('https://api.test'));
+check('no framing, no plugins, no changed base, forms only to the site', dir('frame-ancestors') === "frame-ancestors 'none'" && dir('object-src') === "object-src 'none'" && dir('base-uri') === "base-uri 'self'" && dir('form-action') === "form-action 'self'");
+check('violations go to the API', dir('report-uri') === 'report-uri https://api.test/csp-report');
+check('a missing or broken address is left out, never "undefined"', !/undefined|null/.test(buildCsp({ nonce: 'x', env: { NEXT_PUBLIC_LIVE_API_URL: 'not a url' } })) && !buildCsp({ nonce: 'x', env: {} }).includes('report-uri'));
+check('each request gets its own nonce in its own policy', buildCsp({ nonce: 'A', env }) !== buildCsp({ nonce: 'B', env }));
+check('development alone may use eval', buildCsp({ nonce: 'x', env, dev: true }).includes("'unsafe-eval'") && !csp.includes("'unsafe-eval'"));
+check('report-only unless CSP_ENFORCE=1', cspHeaderName({}) === 'Content-Security-Policy-Report-Only' && cspHeaderName({ CSP_ENFORCE: '0' }) === 'Content-Security-Policy-Report-Only' && cspHeaderName({ CSP_ENFORCE: '1' }) === 'Content-Security-Policy');
+check('the sources are read from the settings', cspSources(env).mp.length === 3);
+
+// the proxy sends the nonce to the page and the policy to the browser, on pages only
+const proxySrc = fs.readFileSync(path.join(root, 'apps/web/proxy.js'), 'utf8');
+check('the proxy sets x-nonce and the policy on the request and the response', /set\('x-nonce'/.test(proxySrc) && /requestHeaders\.set\(name, csp\)/.test(proxySrc) && /response\.headers\.set\(name, csp\)/.test(proxySrc));
+check('the proxy skips the API, static files and prefetches', /_next\/static/.test(proxySrc) && /next-router-prefetch/.test(proxySrc));
+check('the layout renders per request (a nonce cannot be in a page built ahead of time)', /await connection\(\)/.test(fs.readFileSync(path.join(root, 'apps/web/app/layout.jsx'), 'utf8')));
 
 // the API takes a violation report from a browser (it sends application/csp-report, with no Origin), logs one line and stores nothing
 const printed = [];

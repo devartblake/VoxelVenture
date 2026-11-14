@@ -1,4 +1,5 @@
 import './globals.css';
+import { connection } from 'next/server';
 import MultiplayerClient from '@/components/MultiplayerClient';
 
 export const viewport = {
@@ -18,7 +19,9 @@ export const metadata = {
   description: 'Isometric 3D commercial city and interactive storefront directory.',
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // render per request: the Content-Security-Policy carries a fresh nonce for each page (proxy.js), which a page built ahead of time cannot have
+  await connection();
   return (
     <html lang="en">
       <body className="antialiased overflow-hidden">
