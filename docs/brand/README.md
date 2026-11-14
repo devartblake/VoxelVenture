@@ -34,6 +34,7 @@ All three are transparent PNGs (RGBA): the archival masters the guide asks to ke
 | `apps/web/app/opengraph-image.jpg`, `twitter-image.jpg` (+ `.alt.txt`) | 1200 x 630, the horizontal lockup and the primary tagline on the brand gradient, 80 KB | the picture a shared link and a search result show, on every page without its own (Discover, a category, a district and a business have theirs) |
 | `docs/brand/social/avatar-400.png` | the mark, square, for the accounts' profile picture | social accounts (not served) |
 | `docs/brand/social/banner-x-1500x500.png`, `banner-linkedin-1584x396.png` | the lockup and the tagline, off-centre so the avatar's overlap and the mobile crop do not cover them | social accounts (not served) |
+| [`docs/brand/social/profiles.md`](social/profiles.md) | the bios for X (`@VoxelVentureApp`), LinkedIn and Instagram, a pinned post, wording to keep, and two weeks of first posts | the accounts (drafts, not published; checked against the platforms' length limits) |
 
 - **Wired in:** the root layout's Open Graph and Twitter text and a site-wide `Organization` and `WebSite` block (`lib/seo/siteJsonLd.js`, `tests/seo.test.mjs`). `NEXT_PUBLIC_SOCIAL_URLS` (comma-separated https addresses, in `web.env`) lists the official accounts there once they exist; anything that is not https is ignored.
 - **Left out on purpose:** the parent company is not named in the structured data until its registered name is confirmed (below).
