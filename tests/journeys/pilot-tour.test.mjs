@@ -31,9 +31,10 @@ await runJourney(scenario, { needs: { web: true, api: true, presence: true } }, 
   const writes = [];
   const sockets = [];
   const b = await openBrowser(j, 'prospect', `/?tour=${PILOT_TOUR.id}&tourSpeed=4`);
+  // (a browser's own Content-Security-Policy violation report, POST /csp-report, is not the page changing anything)
   // every request from here on (the page is loaded again so its first requests are seen too), in the page and in the frames it opens
   b.page.on((m) => {
-    if (m.method === 'Network.requestWillBeSent' && !['GET', 'HEAD', 'OPTIONS'].includes(m.params.request.method)) writes.push(`${m.params.request.method} ${m.params.request.url}`);
+    if (m.method === 'Network.requestWillBeSent' && !['GET', 'HEAD', 'OPTIONS'].includes(m.params.request.method) && !m.params.request.url.endsWith('/csp-report')) writes.push(`${m.params.request.method} ${m.params.request.url}`);
     if (m.method === 'Network.webSocketCreated') sockets.push(m.params.url);
   });
   await b.page.cdp('Network.enable');

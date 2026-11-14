@@ -30,7 +30,7 @@ for (const [file, game, api, play] of [
   const b = blocks(text);
   const sec = snippet(text, 'security_headers');
   check(`${file}: HSTS for a year with subdomains`, /Strict-Transport-Security\s+"max-age=31536000; includeSubDomains"/.test(sec));
-  check(`${file}: nosniff, no framing, a referrer policy and a permissions policy`, /X-Content-Type-Options\s+"nosniff"/.test(sec) && /X-Frame-Options\s+"DENY"/.test(sec) && /Referrer-Policy\s+"/.test(sec) && /Permissions-Policy\s+"/.test(sec));
+  check(`${file}: nosniff, framing by the site only, a referrer policy and a permissions policy`, /X-Content-Type-Options\s+"nosniff"/.test(sec) && /X-Frame-Options\s+"SAMEORIGIN"/.test(sec) && /Referrer-Policy\s+"/.test(sec) && /Permissions-Policy\s+"/.test(sec));
   for (const site of [game, api, play]) check(`${file}: ${site} imports the security headers`, /^\s*import security_headers\s*$/m.test(b[site] ?? ''));
   check(`${file}: the CSP is not set here (the web app owns it, it needs a nonce)`, !/Content-Security-Policy/.test(text.replace(/^\s*#.*$/gm, '')));
 }
@@ -45,7 +45,7 @@ check('wasm and blob workers stay (Draco, KTX2, GLTF)', dir('script-src').includ
 check('style elements need the nonce; style attributes are allowed', dir('style-src').includes("'nonce-N0NCE'") && !dir('style-src').includes('unsafe-inline') && dir('style-src-attr') === "style-src-attr 'unsafe-inline'");
 check('it can reach only the API, every presence server and the props bucket', dir('connect-src') === "connect-src 'self' blob: data: https://api.test wss://play.test wss://p1.test wss://p2.test https://bucket.test");
 check('images and media come from the site and the bucket', dir('img-src').includes('https://bucket.test') && dir('media-src').includes('https://bucket.test') && !dir('img-src').includes('https://api.test'));
-check('no framing, no plugins, no changed base, forms only to the site', dir('frame-ancestors') === "frame-ancestors 'none'" && dir('object-src') === "object-src 'none'" && dir('base-uri') === "base-uri 'self'" && dir('form-action') === "form-action 'self'");
+check('framed by the site only (the pilot tour), no plugins, no changed base, forms only to the site', dir('frame-ancestors') === "frame-ancestors 'self'" && dir('object-src') === "object-src 'none'" && dir('base-uri') === "base-uri 'self'" && dir('form-action') === "form-action 'self'");
 check('violations go to the API', dir('report-uri') === 'report-uri https://api.test/csp-report');
 check('a missing or broken address is left out, never "undefined"', !/undefined|null/.test(buildCsp({ nonce: 'x', env: { NEXT_PUBLIC_LIVE_API_URL: 'not a url' } })) && !buildCsp({ nonce: 'x', env: {} }).includes('report-uri'));
 check('each request gets its own nonce in its own policy', buildCsp({ nonce: 'A', env }) !== buildCsp({ nonce: 'B', env }));
