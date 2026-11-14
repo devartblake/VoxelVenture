@@ -197,6 +197,7 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Known report:** one library probes `Function("")` inside a try/catch, so every page load files a harmless `script-src 'eval'` report.
   - **Tests:** `tests/security-headers.test.mjs`; the `pilot-tour` journey no longer counts a violation report as a write.
   - **Before enforcing:** a full session on staging (walk, claim, listing, wardrobe, checkout) with no violations. Next in the plan: V3, the player token in an HttpOnly cookie.
+- [x] **Icons, share images and search-engine data** (2026-11-14; [docs/brand/README.md](../brand/README.md)): `scripts/brand/make-brand-images.mjs` makes the favicon (16/32/48), the 192 tab icon, the 180 Apple touch icon, the 192, 512 and maskable 512 manifest icons, a 1200 x 630 share image (the lockup and the primary tagline, 80 KB) and the social avatar and banners, all from the logo masters (which stay untouched). The layout sets the Open Graph and Twitter text and a site-wide `Organization` and `WebSite` block with the logo; `app/manifest.js` is the web manifest; `NEXT_PUBLIC_SOCIAL_URLS` lists the official accounts once they exist. `tests/seo.test.mjs`. Not done: the header, Credits and About screens, the trademark search, the ownership record and the endorsement wording, which the brand README still lists.
 
 ## To do
 
