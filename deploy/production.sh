@@ -95,7 +95,7 @@ build_release() {
   chown -R voxel:voxel "$rel"
   (
     cd "$rel"
-    sudo -u voxel npm ci --no-audit --no-fund
+    sudo -u voxel env "PATH=$PATH" npm ci --no-audit --no-fund
     bash deploy/build-web.sh "$ETC/web.env"
   )
   mkdir -p "$rel/apps/web/.next/cache"
