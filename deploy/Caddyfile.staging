@@ -4,9 +4,24 @@
 # from /etc/caddy/Caddyfile.
 # DNS: A records for staging, api.staging and play.staging under voxelventure.app, pointing at the Linode (deploy/STAGING.md).
 
+# Security headers on every address (docs/operations/voxelventure_security_action_plan.md, V1; the same as production). Browsers only honour HSTS over HTTPS, which Caddy serves.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self)"
+		-Server
+	}
+}
+
+# The game's Content-Security-Policy is not here: it needs a nonce per request, so the web app sets it (apps/web/proxy.js, lib/security/csp.js; report-only
+# until CSP_ENFORCE=1 in web.env). Reports go to the API's /csp-report.
 # The game (Next.js, port 3100).
 staging.voxelventure.app {
 	encode zstd gzip
+	import security_headers
 	header X-Robots-Tag "noindex, nofollow"
 
 	handle /robots.txt {
@@ -28,6 +43,7 @@ staging.voxelventure.app {
 # The API (port 3102).
 api.staging.voxelventure.app {
 	encode zstd gzip
+	import security_headers
 	header X-Robots-Tag "noindex, nofollow"
 	@internal path /internal /internal/*
 	respond @internal 404
@@ -36,6 +52,7 @@ api.staging.voxelventure.app {
 
 # Presence (WebSockets, port 3101). As in production, only the game's connection and the health check are public.
 play.staging.voxelventure.app {
+	import security_headers
 	@private path /status /status/* /notify /notify/* /notify-accounts /notify-accounts/*
 	respond @private 404
 	reverse_proxy 127.0.0.1:3101

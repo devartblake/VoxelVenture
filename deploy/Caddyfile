@@ -3,9 +3,24 @@
 # under both voxelventure.app and voxelventure.net plus @ under voxelventure.net for the redirects at the end.
 # Caddy gets and renews the certificates by itself. .app is HTTPS-only in every browser, which Caddy handles.
 
+# Security headers on every address (docs/operations/voxelventure_security_action_plan.md, V1). Browsers only honour HSTS over HTTPS, which Caddy serves.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self)"
+		-Server
+	}
+}
+
+# The game's Content-Security-Policy is not here: it needs a nonce per request, so the web app sets it (apps/web/proxy.js, lib/security/csp.js; report-only
+# until CSP_ENFORCE=1 in web.env). Reports go to the API's /csp-report.
 # The game (Next.js).
 voxelventure.app {
 	encode zstd gzip
+	import security_headers
 
 	# The admin pages (/admin, /admin/*) have their own sign-in (/admin/login, accounts in the API's database: deploy/README.md), so Caddy
 	# puts no password on them. Their data comes from the API, which checks the admin's session on every call.
@@ -23,6 +38,7 @@ voxelventure.app {
 # The API.
 api.voxelventure.app {
 	encode zstd gzip
+	import security_headers
 	# The API reads the visitor's address from X-Forwarded-For (TRUST_PROXY=1 in api.env), which Caddy sets.
 	# /internal/* is for the other processes on this machine (the presence server, the messaging service): never from outside.
 	@internal path /internal /internal/*
@@ -33,6 +49,7 @@ api.voxelventure.app {
 # Presence (WebSockets). Only the game's connection and the health check are public: /status lists every
 # connected player, and /notify and /notify-accounts are for the API on this machine, so none is reachable from outside.
 play.voxelventure.app {
+	import security_headers
 	@private path /status /status/* /notify /notify/* /notify-accounts /notify-accounts/*
 	respond @private 404
 

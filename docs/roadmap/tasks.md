@@ -190,6 +190,13 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **Needs you:** sign in, add your email on Account and open the link. For real email, `MAIL_WEBHOOK_URL` must be set on production.
 - [x] **District street names:** the Meadow Quarter's infill streets take garden-suburb names (Harrogate). The /editor suggests names from the list of the road's district. The avenues, cross streets and puns keep theirs [`docs/world/street_names.md`]
 - [x] **Voxelise a model** (2026-11-14; [voxelize.md](../world/voxelize.md)): `scripts/models/voxelize.mjs` turns a `.glb` (embedded or beside-the-file textures, vertex colours, node transforms) into a `.vox` in the game's format with a median-cut palette (or an existing model's palette), optional solid fill, and `--tile n` modular pieces with the duplicates found. `tests/voxelize.test.mjs`. Measured on Kenney's buildings: files 3x to 15x smaller, but more triangles than the low-poly originals until `voxelMesh` merges flat faces. Next: that greedy meshing, and a trial on 3 real generator outputs once a plan with a commercial licence is chosen.
+- [x] **Security headers and a report-only Content-Security-Policy** (2026-11-14; V1 and V2 of [voxelventure_security_action_plan.md](../operations/voxelventure_security_action_plan.md)):
+  - **Headers:** `deploy/Caddyfile` and `Caddyfile.staging` send HSTS (a year, with subdomains), `nosniff`, `X-Frame-Options: SAMEORIGIN`, a Referrer-Policy and a Permissions-Policy on the game, the API and presence. Same-origin framing is allowed because the pilot tour shows each stop's page in an iframe.
+  - **CSP:** `apps/web/proxy.js` sets a Content-Security-Policy with a fresh nonce for every page (`lib/security/csp.js`; no `'unsafe-inline'` for scripts). It is **report-only** until `CSP_ENFORCE=1` in `web.env`. The pages render per request (`app/layout.jsx`), because a nonce cannot be in a page built ahead of time.
+  - **Reports:** the API's `POST /csp-report` logs one short line (`csp: ...`) and stores nothing.
+  - **Known report:** one library probes `Function("")` inside a try/catch, so every page load files a harmless `script-src 'eval'` report.
+  - **Tests:** `tests/security-headers.test.mjs`; the `pilot-tour` journey no longer counts a violation report as a write.
+  - **Before enforcing:** a full session on staging (walk, claim, listing, wardrobe, checkout) with no violations. Next in the plan: V3, the player token in an HttpOnly cookie.
 
 ## To do
 

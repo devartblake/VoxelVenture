@@ -20,6 +20,12 @@ The economy core is stronger than the guide assumed. These need no work beyond t
 
 Note: the "Gold" the guide mentions is the Credits wallet. Real money goes through Stripe orders.
 
+## Status (2026-11-14)
+
+- **V1 done** (PR #116): the headers are in both Caddyfiles. `X-Frame-Options` is `SAMEORIGIN` and CSP `frame-ancestors` is `'self'`, not `DENY`/`'none'`: the pilot tour shows each stop's page in an iframe of the same site, and found this in CI.
+- **V2 in progress** (PR #116): the nonce-based CSP is built in `apps/web/proxy.js` and is **report-only** until `CSP_ENFORCE=1`. Pages now render per request. A `script-src 'eval'` report on every page load is a library's `Function("")` probe (it falls back when blocked), not a break.
+- **Open:** V2 enforcement (needs a clean full session on staging), V3 to V13.
+
 ## Gaps and tasks
 
 ### Phase 1 (P0): headers and tokens (about 1 week)

@@ -5,7 +5,7 @@ A runbook for one server running everything: the web app, the API and the presen
 | File | What it is |
 | :--- | :--- |
 | `setup.sh` | First-time setup of a fresh Ubuntu server (24.04 or newer): Node 26, Caddy, SQLite tools, Python with the messaging service's environment, the `voxel` user, the services, the firewall, nightly backups |
-| `Caddyfile` | HTTPS and the reverse proxy for the three addresses |
+| `Caddyfile` | HTTPS, the reverse proxy for the three addresses, and the security headers (the Content-Security-Policy is the web app's own: `apps/web/proxy.js`) |
 | `systemd/*.service` | The three processes, restarted automatically, and the messaging service (installed, not enabled until the switch-over below) |
 | `env/*.env.example` | The settings for each process (copied to `/etc/voxelventure/`) |
 | `backup.sh` | A consistent copy of the database (and the messaging service's, once it has one), kept for 14 days, optionally uploaded with rclone, with a Healthchecks.io ping |
