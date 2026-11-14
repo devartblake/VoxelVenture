@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # First-time setup of a fresh Ubuntu server (24.04 or newer) (a Linode): run as root, from the project folder you copied to /srv/voxelventure.
 #   sudo bash deploy/setup.sh
-# It installs Node 22, Caddy, Python (for the messaging service) and the SQLite tools, makes the `voxel` user, installs the systemd units
+# It installs Node 26, Caddy, Python (for the messaging service) and the SQLite tools, makes the `voxel` user, installs the systemd units
 # and the firewall rules.
 # It does not start anything: fill in /etc/voxelventure/*.env and the Caddyfile first (see deploy/README.md).
 set -euo pipefail
@@ -13,9 +13,9 @@ if [ ! -f "$APP/package.json" ]; then echo "Copy the project to $APP first"; exi
 apt-get update
 apt-get install -y curl ca-certificates gnupg ufw sqlite3 debian-keyring debian-archive-keyring apt-transport-https python3 python3-venv
 
-# Node 22 (LTS)
-if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 22 ]; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+# Node 26 (LTS)
+if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 26 ]; then
+  curl -fsSL https://deb.nodesource.com/setup_26.x | bash -
   apt-get install -y nodejs
 fi
 

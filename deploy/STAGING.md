@@ -150,6 +150,7 @@ npm run test:journeys
 - **Reading the result:** each journey ends `passed`, `PRODUCT REGRESSION`, `RENDERING FAILURE` or `SKIPPED (environment)`, with the reports in `artifacts/journeys/` ([how to read them](../tests/journeys/README.md#reading-a-result)).
 - **Discover is cached:** Discover and the category pages are rebuilt at most once a minute, so the visitor journey reloads them while it waits, as a visitor would.
 - **Never against production.** The journeys create accounts and businesses wherever they run.
+- **With Stripe test mode on (section 7), two journeys cannot pass.** A claim then returns a payment checkout and the lot is claimed only after the payment, so `merchant-onboarding` stops at `claim-building` and `visitor-discovery-to-storefront` at linking the building (403, the lot is not yet theirs). They assume payments are off. Run them with the Stripe lines out of staging's `api.env` (or locally, which has none), and use `npm run verify:stripe` for the paid flow.
 
 ## 5. Rehearse a rollback
 
@@ -209,6 +210,19 @@ Staging is where payments are tried before production takes a live key.
 
    It refuses a live key and production's API. It leaves two test businesses behind; `reset --yes` clears them.
 
+## 8. Upgrade Node on staging first
+
+Staging and production share the machine, and every service starts `/usr/bin/node`, so upgrading the system Node moves both. Rehearse it with a second Node beside the system one, used by staging only:
+
+1. **Install it beside the system Node**, from nodejs.org, checking the published checksum: unpack `node-vX.Y.Z-linux-x64.tar.xz` into `/opt` and link `/opt/node-26` to it. Production is untouched.
+2. **Point staging at it:** for each of `voxelventure-staging-api`, `-presence` and `-web`, a drop-in `/etc/systemd/system/<unit>.d/node26.conf` with an empty `ExecStart=` line and then the same `ExecStart=` as the unit, with `/opt/node-26/bin/node` in place of `/usr/bin/node`. Then `systemctl daemon-reload`.
+3. **Deploy staging with that Node first on the PATH:** `PATH=/opt/node-26/bin:$PATH bash /srv/voxelventure-staging/incoming/deploy/staging.sh deploy` (the script builds with the PATH's `node` and `npm`, also as the `voxel` user).
+4. **Check:** each service's `/proc/<pid>/exe` is the new Node, `journalctl` has no warnings except the stop's `status=143`, `npm run verify:live` passes (section 3), a WebSocket to presence answers, and the journeys pass (section 4, mind its Stripe note).
+5. **Then production:** switch the NodeSource repository (`setup_26.x`), `apt-get install -y nodejs`, deploy the same commit with `deploy/production.sh deploy` (it builds with the new Node, backs up, switches and switches back by itself), and run `verify:live` against it. To go back: install the earlier `nodejs` version from NodeSource and `production.sh rollback`.
+6. **Clean up:** once the system Node matches, delete the staging drop-ins (and `/opt/node-26`) and restart the staging services.
+
+**`production.sh deploy` really deploys.** It has no `--check`: only `migrate --check` is read-only. Read the whole command before running it, even to look.
+
 ## Commands
 
 | | |
@@ -235,3 +249,5 @@ Staging is where payments are tried before production takes a live key.
 | 2026-10-17 | Journeys against staging (section 4) | 41 of 41 milestones, all four journeys, in strict mode. The first run stopped at `malformed-input`: it read presence's `/status`, which Caddy rightly hides. It now checks what a watching player sees | |
 | 2026-10-19 | Staging on `main` with the props bucket | `eb5797e` (the plot economy's data, #54, with sign-in before setting a plot up), built with `NEXT_PUBLIC_PROPS_BASE_URL` pointing at `vv-asset-prod`: the bucket's address is in the build, CORS answers `https://staging.voxelventure.app`, and `verify:live` passes. Production stays on `ba55a22` (#52) until the cart ships with #54 | |
 | 2026-10-19 | Limited access keys for Object Storage | The backups (`[linode]`) and the props (`[props]`) each have their own key in `/etc/voxelventure/rclone.conf`. Each was refused on every other bucket, a backup uploaded to `voxelventure-backups`, and the props upload wrote to `vv-asset-prod`. A comment after `[props]` had made the file unreadable; removed | |
+| 2026-11-14 | Node 26.13.1 (LTS) on staging, beside the system Node 22.23.3 (section 8) | `/opt/node-26` with its checksum verified, staging's three services on it by drop-ins, staging rebuilt with it (Next 16.4.6, three 0.187). `verify:live` passed all 20 checks, presence answered over a WebSocket, nothing restarted. Journeys: 3 of 5 passed; `merchant-onboarding` and `visitor-discovery-to-storefront` could not (Stripe test mode is on, so a claim needs a payment) and pass locally on Node 26. | Remove the drop-ins |
+| 2026-11-14 | Node 26.13.1 on production, release `20261114-201244` (same commit as staging, `217ab8e`) | NodeSource switched to `setup_26.x` and `nodejs` installed while the old processes kept serving; the deploy then built with it, backed up (and uploaded), switched and restarted the three services onto Node 26 with no restarts since. `verify:live` passed. The deploy ran by mistake from `deploy --check` (there is no such flag), through the same safe path. | `production.sh rollback` |
