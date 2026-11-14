@@ -24,6 +24,11 @@ Outside music (task 39) was explicitly requested by the user on 2026-10-16 and a
 - **What it reuses:** it adds no new models and no simulation beyond the visitor's own avatar. It uses the city's avatar model, its Wardrobe colours and its walk planner.
 - **Where it lives:** `lib/content/interiorWalk.js` and `apps/web/components/interior/RoomWalker.jsx`, tested by `tests/interior-walk.test.mjs` and the browser test.
 
+**The voxeliser** was explicitly requested by the user on 2026-11-14, to try voxelising two TRELLIS models. It is a scoped exception, kept to a developer tool:
+- **What it is:** `scripts/models/voxelize.mjs` (logic in `lib/content/voxelize.js`) turns a `.glb` into a `.vox` file and writes it where the developer says, never into the game.
+- **What it does not do:** it adds no model, building, vehicle or other world content, and nothing it makes is used by the city. Using a result is a separate change that the freeze still governs, and a model's licence still has to be recorded ([voxelize.md](../world/voxelize.md)).
+- **Tested by:** `tests/voxelize.test.mjs`.
+
 ## What continues
 
 - **Stability:** crash fixes, saved-game and data-loss fixes, console errors (tasks 29, 30, 32, 37).
