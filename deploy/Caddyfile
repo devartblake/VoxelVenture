@@ -3,9 +3,31 @@
 # under both voxelventure.app and voxelventure.net plus @ under voxelventure.net for the redirects at the end.
 # Caddy gets and renews the certificates by itself. .app is HTTPS-only in every browser, which Caddy handles.
 
+# Security headers on every address (docs/operations/voxelventure_security_action_plan.md, V1). Browsers only honour HSTS over HTTPS, which Caddy serves.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self)"
+		-Server
+	}
+}
+
+# The game's Content-Security-Policy, REPORT-ONLY first (V2): nothing is blocked, violations are posted to the API's /csp-report (logged). Read the log across
+# a full session (walk, claim a plot, open a listing, wardrobe, checkout), then move to an enforcing policy built on a per-request nonce
+# (script-src 'unsafe-inline' here is only because Next.js injects inline bootstrap scripts; it must go before the policy is enforced).
+# 'wasm-unsafe-eval' and blob: are for the Draco/KTX2/GLTF loaders and workers; the props bucket is the Object Storage host in web.env.
+(csp_report_only) {
+	header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: {args[0]}; media-src 'self' blob: {args[0]}; font-src 'self' data:; connect-src 'self' blob: data: {args[1]} {args[2]} {args[0]}; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri {args[1]}/csp-report"
+}
+
 # The game (Next.js).
 voxelventure.app {
 	encode zstd gzip
+	import security_headers
+	import csp_report_only https://vv-asset-prod.us-east-1.linodeobjects.com https://api.voxelventure.app wss://play.voxelventure.app
 
 	# The admin pages (/admin, /admin/*) have their own sign-in (/admin/login, accounts in the API's database: deploy/README.md), so Caddy
 	# puts no password on them. Their data comes from the API, which checks the admin's session on every call.
@@ -23,6 +45,7 @@ voxelventure.app {
 # The API.
 api.voxelventure.app {
 	encode zstd gzip
+	import security_headers
 	# The API reads the visitor's address from X-Forwarded-For (TRUST_PROXY=1 in api.env), which Caddy sets.
 	# /internal/* is for the other processes on this machine (the presence server, the messaging service): never from outside.
 	@internal path /internal /internal/*
@@ -33,6 +56,7 @@ api.voxelventure.app {
 # Presence (WebSockets). Only the game's connection and the health check are public: /status lists every
 # connected player, and /notify and /notify-accounts are for the API on this machine, so none is reachable from outside.
 play.voxelventure.app {
+	import security_headers
 	@private path /status /status/* /notify /notify/* /notify-accounts /notify-accounts/*
 	respond @private 404
 
