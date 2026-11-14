@@ -9,6 +9,8 @@
 //   --res <n>            voxels along the longest side (default 48; at most 250)
 //   --colors <n>         palette size (default 16; at most 255)
 //   --palette-from <f>   snap every colour to the palette of this .vox file instead (e.g. apps/web/public/models/vox/mall.vox, so it matches the city)
+//   --clean <n>          n passes (0 to 3) that give each voxel the colour most common around it: removes the speckle a texture's fine detail leaves,
+//                        and leaves flat patches of colour (default 0: off)
 //   --solid              fill the inside too (watertight; the nearest surface colour)
 //   --tile <n>           also cut it into <n>-voxel tiles that fit together, written once each, with tiles.json
 //   --no-preview         do not write the quick-look picture
@@ -17,12 +19,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseVox, writeVox } from '../../lib/content/vox.js';
-import { buildVox, collectPrimitives, parseGlb, previewRaster, splitTiles, voxelize } from '../../lib/content/voxelize.js';
+import { buildVox, cleanColors, collectPrimitives, parseGlb, previewRaster, splitTiles, voxelize } from '../../lib/content/voxelize.js';
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
 const value = (name, fallback = null) => { const i = args.indexOf(`--${name}`); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : fallback; };
-const VALUE_OPTIONS = ['--out', '--name', '--res', '--colors', '--palette-from', '--tile'];
+const VALUE_OPTIONS = ['--out', '--name', '--res', '--colors', '--palette-from', '--tile', '--clean'];
 const input = args.find((a, i) => !a.startsWith('--') && !VALUE_OPTIONS.includes(args[i - 1]));
 if (!input) {
   console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').filter((l) => l.startsWith('//')).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
@@ -57,7 +59,9 @@ if (value('palette-from')) {
   palette = parseVox(fs.readFileSync(value('palette-from'))).palette;
   if (!palette?.length) { console.error('That .vox file has no palette.'); process.exit(2); }
 }
-const vox = buildVox(grid, { colors, palette });
+const cleanPasses = number('clean', 0, 0, 3);
+const built = buildVox(grid, { colors, palette });
+const vox = cleanPasses ? cleanColors(built, cleanPasses) : built;
 
 fs.mkdirSync(outDir, { recursive: true });
 const written = [];
@@ -80,6 +84,6 @@ console.log(`${input}`);
 console.log(`  mesh:     ${report.triangles} triangles in ${report.primitives} parts${report.skipped ? `, ${report.skipped} skipped (not triangle lists)` : ''}`);
 console.log(`  colours:  ${report.textured ? `${report.textured} textured part(s)` : report.vertexColored ? 'vertex colours' : 'material colours'}${report.untextured ? `; ${report.untextured} textured part(s) fell back to the material colour${sharp ? ' (the image could not be read)' : ' (sharp is not installed)'}` : ''}`);
 console.log(`  voxels:   ${vox.voxels.length} in ${vox.size.join(' x ')} (${grid.surface} on the surface${flag('solid') ? `, ${vox.voxels.length - grid.surface} filled inside` : ''}), one voxel = ${grid.unit.toPrecision(3)} model units`);
-console.log(`  palette:  ${vox.palette.length} colours${palette ? ` (snapped to ${path.basename(value('palette-from'))})` : ''}`);
+console.log(`  palette:  ${vox.palette.length} colours${cleanPasses ? ` after ${cleanPasses} clean pass(es)` : ''}${palette ? ` (snapped to ${path.basename(value('palette-from'))})` : ''}`);
 if (tiles) console.log(`  tiles:    ${tiles.placements.length} pieces of ${tile}^3 on a ${tiles.grid.join(' x ')} grid, ${tiles.tiles.length} unique (${Math.round(100 * (1 - tiles.tiles.length / Math.max(1, tiles.placements.length)))}% reused)`);
 console.log(`  wrote:    ${written.length} file(s) to ${outDir}`);

@@ -1,7 +1,7 @@
 // The voxeliser (lib/content/voxelize.js, scripts/models/voxelize.mjs, docs/world/voxelize.md): a mesh becomes voxels with the model's own colours, a small
 // palette, the game's .vox format, and modular tiles with the duplicates found. The models here are built in memory, so no file is needed.
 import { parseVox, voxelMesh, writeVox } from '../lib/content/vox.js';
-import { buildVox, collectPrimitives, parseGlb, previewRaster, quantize, snapToPalette, splitTiles, voxelize } from '../lib/content/voxelize.js';
+import { buildVox, cleanColors, collectPrimitives, parseGlb, previewRaster, quantize, snapToPalette, splitTiles, voxelize } from '../lib/content/voxelize.js';
 
 let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
@@ -104,6 +104,16 @@ const back = parseVox(bytes);
 check('the .vox file round-trips through the game\'s loader', back.voxels.length === vox.voxels.length && back.size.join() === vox.size.join());
 const mesh = voxelMesh(back);
 check('and the game builds a mesh from it', mesh.indices.length > 0 && mesh.indices.length % 3 === 0, `${mesh.indices.length / 3} triangles`);
+
+// ---- speckle
+const speck = { size: [5, 5, 5], palette: [[200, 0, 0], [0, 0, 200]], voxels: [] };
+for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) for (let z = 0; z < 5; z++) speck.voxels.push([x, y, z, x === 2 && y === 2 && z === 2 ? 2 : 1]);
+const cleaned = cleanColors(speck, 1);
+check('a lone odd voxel among the others takes their colour, and the unused colour leaves the palette', cleaned.voxels.every((v) => v[3] === 1) && cleaned.palette.length === 1 && cleaned.voxels.length === 125);
+const halves = { size: [6, 2, 2], palette: [[200, 0, 0], [0, 0, 200]], voxels: [] };
+for (let x = 0; x < 6; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) halves.voxels.push([x, y, z, x < 3 ? 1 : 2]);
+const kept = cleanColors(halves, 1);
+check('two solid patches stay two patches (a boundary is not blurred away)', kept.palette.length === 2 && kept.voxels.find((v) => v[0] === 0)[3] === 1 && kept.voxels.find((v) => v[0] === 5)[3] === 2);
 
 // ---- tiles
 const flat = { size: [8, 8, 2], palette: [[200, 0, 0]], voxels: [] };
