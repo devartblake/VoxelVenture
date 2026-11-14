@@ -491,6 +491,14 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
 
     if (p.startsWith('/admin/') && (r = await adminRoute(req, url, p, m, token, headers)) !== undefined) return r;
 
+    // Content-Security-Policy violation reports (deploy/Caddyfile, V2): a browser posts them, nobody signs in. One short line each, never stored.
+    if (m === 'POST' && p === '/csp-report') {
+      const b = await body(req, 8000);
+      const r0 = b?.['csp-report'] ?? b;
+      console.warn(`csp: ${JSON.stringify({ directive: r0?.['violated-directive'] ?? r0?.effectiveDirective, blocked: r0?.['blocked-uri'] ?? r0?.blockedURL, page: r0?.['document-uri'] ?? r0?.documentURL }).slice(0, 400)}`);
+      return { ok: true };
+    }
+
     if (m === 'GET' && p === '/health') {
       // a database that cannot take a write fails the check (503), so a deploy rolls back and monitoring alerts; the outbox and the
       // newest backup are only reported, to an admin (they are not the public's business), never a reason to fail
