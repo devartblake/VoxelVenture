@@ -96,6 +96,7 @@ The 3D city's systems: roads and land, street names, sound and light, models, th
 | :--- | :--- |
 | [road_design_reference.md](world/road_design_reference.md) | Road-network research (New York, San Francisco, Washington DC) behind the diagonal avenue and circles |
 | [kenney_assets.md](world/kenney_assets.md) | The Kenney (CC0) boats, pier decks and amusement-park pieces: what was found, what is used, what is still built in code |
+| [voxelize.md](world/voxelize.md) | Turning a `.glb` model into a voxel `.vox` with a small palette and modular tiles: the options, the axes, what it gains and what it does not (measured), and the licence note |
 | [infill_and_land.md](world/infill_and_land.md) | Free land, new streets (inside the county road and outer blocks), the amusement park, how many lots and what it costs |
 | [city_editor.md](world/city_editor.md) | The `/editor` page: add, move and remove roads, streets, lots and parks, validate, save and open in the game |
 | [street_names.md](world/street_names.md) | The offline OpenStreetMap street-name script, the city name sets, and each district's own list (the Meadow Quarter's streets use theirs; the editor suggests by district) |

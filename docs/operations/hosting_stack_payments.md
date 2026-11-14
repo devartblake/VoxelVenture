@@ -37,7 +37,7 @@ Avoid Python in the live game loop (accounts, claims, presence): that is where t
 
 ### Two facts about the current server
 - **SQLite is a single-writer design.** `services/api/db.mjs` uses `node:sqlite` with synchronous calls and `BEGIN IMMEDIATE` transactions, which is what makes a claim atomic. Run **one** API process on **one** machine.
-- **`node:sqlite` is still marked experimental.** `deploy/setup.sh` installs Node 22, and the API's service file (like `npm run api`) passes `--experimental-sqlite --no-warnings`; older Node 22 releases need the flag, and Node 24 (the development machine) runs it without one. `better-sqlite3` has the same synchronous style, so a move would be a small change, but it was tried and dropped (see Deployment files below).
+- **`node:sqlite` is still marked experimental.** `deploy/setup.sh` installs Node 26, and the API's service file (like `npm run api`) passes `--experimental-sqlite --no-warnings`; Node 26 (the LTS CI, the development machine and the server run, from 2026-11-14) accepts the flag and does not need it; Node 22 releases before 22.13 needed it. `better-sqlite3` has the same synchronous style, so a move would be a small change, but it was tried and dropped (see Deployment files below).
 
 Moving to Postgres is a later step and not a one-line change: the schema is portable, but the code is synchronous, so the API would have to become async. Do it only when you need more than one API machine.
 
