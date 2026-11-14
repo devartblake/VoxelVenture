@@ -22,18 +22,23 @@ const snippet = (text, name) => {
   return text.slice(start, end < 0 ? undefined : end);
 };
 
-for (const [file, game, api, play] of [
-  ['deploy/Caddyfile', 'voxelventure.app', 'api.voxelventure.app', 'play.voxelventure.app'],
-  ['deploy/Caddyfile.staging', 'staging.voxelventure.app', 'api.staging.voxelventure.app', 'play.staging.voxelventure.app'],
+for (const [file, snip, game, api, play] of [
+  ['deploy/Caddyfile', 'security_headers', 'voxelventure.app', 'api.voxelventure.app', 'play.voxelventure.app'],
+  ['deploy/Caddyfile.staging', 'staging_security_headers', 'staging.voxelventure.app', 'api.staging.voxelventure.app', 'play.staging.voxelventure.app'],
 ]) {
   const text = fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
   const b = blocks(text);
-  const sec = snippet(text, 'security_headers');
+  const sec = snippet(text, snip);
   check(`${file}: HSTS for a year with subdomains`, /Strict-Transport-Security\s+"max-age=31536000; includeSubDomains"/.test(sec));
   check(`${file}: nosniff, framing by the site only, a referrer policy and a permissions policy`, /X-Content-Type-Options\s+"nosniff"/.test(sec) && /X-Frame-Options\s+"SAMEORIGIN"/.test(sec) && /Referrer-Policy\s+"/.test(sec) && /Permissions-Policy\s+"/.test(sec));
-  for (const site of [game, api, play]) check(`${file}: ${site} imports the security headers`, /^\s*import security_headers\s*$/m.test(b[site] ?? ''));
+  for (const site of [game, api, play]) check(`${file}: ${site} imports the security headers (${snip})`, new RegExp(String.raw`^\s*import ${snip}\s*$`, 'm').test(b[site] ?? ''));
   check(`${file}: the CSP is not set here (the web app owns it, it needs a nonce)`, !/Content-Security-Policy/.test(text.replace(/^\s*#.*$/gm, '')));
 }
+
+// production's and staging's Caddyfiles end up in one Caddy config (staging.sh imports staging's from /etc/caddy/Caddyfile), where a snippet name may be declared only once
+const declared = (file) => [...fs.readFileSync(path.join(root, file), 'utf8').matchAll(/^\((\w+)\) \{/gm)].map((m) => m[1]);
+const prodSnippets = declared('deploy/Caddyfile'), stagingSnippets = declared('deploy/Caddyfile.staging');
+check('no snippet name is declared in both Caddyfiles (they are loaded into one config)', prodSnippets.length > 0 && stagingSnippets.length > 0 && !prodSnippets.some((n) => stagingSnippets.includes(n)), `${prodSnippets} / ${stagingSnippets}`);
 
 // ---- the policy the web app builds (lib/security/csp.js, applied by apps/web/proxy.js)
 const { buildCsp, cspHeaderName, cspSources } = await imp('security/csp.js');
