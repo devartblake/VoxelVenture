@@ -96,6 +96,7 @@ The 3D city's systems: roads and land, street names, sound and light, models, th
 | :--- | :--- |
 | [road_design_reference.md](world/road_design_reference.md) | Road-network research (New York, San Francisco, Washington DC) behind the diagonal avenue and circles |
 | [world_recipe.md](world/world_recipe.md) | More plots in the first town (155 added after the generator, none of the first 855 changed), the world recipe, global plot ids, a procedural island coast, a second town on Harbor Isle, the `/world` map, and what is not done (the island is not in the game yet) |
+| [player_flight.md](world/player_flight.md) | An idea on the roadmap (task 18), not built: a plane the player flies, airport-to-airport routes and flights to Harbor Isle, what exists, what would be new, what it unlocks (air tasks) and the open questions |
 | [kenney_assets.md](world/kenney_assets.md) | The Kenney (CC0) boats, pier decks and amusement-park pieces: what was found, what is used, what is still built in code |
 | [voxelize.md](world/voxelize.md) | Turning a `.glb` model into a voxel `.vox` with a small palette and modular tiles: the options, the axes, what it gains and what it does not (measured), and the licence note |
 | [player_tasks.md](product/player_tasks.md) | Player tasks as built: the server verifies every task from its own records and pays through the Gold wallet; the panel and the profile; what is offered (1,259 of 2,061 today), what is held back and why, and the limits |
