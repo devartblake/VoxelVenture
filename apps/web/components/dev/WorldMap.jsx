@@ -71,7 +71,7 @@ export default function WorldMap() {
       if (show.features) {
         const f = m.features ?? {};
         // mountain ranges (a template coast has them): a broad dark band along the line, a lighter ridge on top, and the name; the taller, the darker
-        for (const rg of f.ranges ?? []) {
+        for (const [ri, rg] of (f.ranges ?? []).entries()) {
           const line = () => { ctx.beginPath(); rg.points.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z)))); };
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
@@ -88,7 +88,8 @@ export default function WorldMap() {
           ctx.fillStyle = '#e2e8f0';
           ctx.font = '11px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(`${rg.name} (${rg.height})`, X(mid.x), Z(mid.z) - Math.max(8, (rg.width * s) / 2 + 6));
+          // the labels of neighbouring ranges go one above and one below, so they do not run into each other
+          ctx.fillText(`${rg.name} (${rg.height})`, X(mid.x), ri % 2 ? Z(mid.z) + (rg.width * s) / 2 + 14 : Z(mid.z) - Math.max(8, (rg.width * s) / 2 + 6));
           ctx.textAlign = 'left';
         }
         for (const h of f.hills ?? []) { ctx.beginPath(); ctx.arc(X(h.x), Z(h.z), h.radius * s, 0, Math.PI * 2); ctx.fillStyle = '#2f5a35'; ctx.fill(); }
