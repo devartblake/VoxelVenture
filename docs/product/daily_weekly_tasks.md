@@ -83,15 +83,15 @@ A sample for a signed-in newcomer, with no items and no listing (Gold in bracket
 
 | Day | Easy | Medium | Hard |
 | :--- | :--- | :--- | :--- |
-| Mon 16 Nov | Walk into the Offices sound zone (5) | Listen to Market for a minute (10) | Walk Pixel Heights Airport Rd and Delamere Crescent (20) |
-| Tue 17 | Pay Harvest Boutique a visit in Countryside (plot 748) (5) | Be in Riverside at night (10) | Step inside 4 businesses in Arcade Alley (20) |
-| Wed 18 | Pay Meadow Shop a visit in Meadow Quarter (plot 299) (5) | Be in Outskirts at night (10) | Visit Voxel Park and Mirror Lake (20) |
-| Thu 19 | Visit a shop in Meadow Quarter (5) | Walk the length of Harrison Grove (10) | Visit Voxel Park and Westgate Mega Mall (20) |
-| Fri 20 | Pay Barn Boutique a visit in Countryside (5) | Walk the length of Concannon Lane (10) | Visit Voxel Park and Voxel Fun Park (20) |
-| Sat 21 | Pay Hazel Pizzeria a visit in Meadow Quarter (5) | Drive along Kingsley Road (10) | Walk Creator Commons and Delamere Crescent (20) |
-| Sun 22 | Visit a prime-site business (5) | Step inside 2 businesses in Lakeside (10) | Walk from one end of the city to the other (20) |
+| Mon 16 Nov | Walk into the Market sound zone (5) | Listen to Market for a minute (10) | Walk Voxel Lake Loop and Wayside Close (20) |
+| Tue 17 | Pay Fern Diner a visit in Meadow Quarter (plot 459) (5) | Be in Old Town at night (10) | Step inside 4 businesses in The Bazaar (20) |
+| Wed 18 | Pay Meadow Diner a visit in Meadow Quarter (plot 328) (5) | Be in Creator Commons at night (10) | Catch a pike and an eel (20) |
+| Thu 19 | Visit a shop in Creator Commons (5) | Drive along Queen Parade (10) | Catch a perch and a pike (20) |
+| Fri 20 | Pay Trade Labs a visit in The Bazaar (5) | Drive along Voxel International Rd (10) | Walk East County Rd and Harrison Grove (20) |
+| Sat 21 | Pay Maple Shop a visit in Meadow Quarter (plot 303) (5) | Drive along The Bazaar (10) | Visit Mirror Lake and Westgate Mega Mall (20) |
+| Sun 22 | Visit a prime-site business (5) | Walk from Meadow Quarter to Outskirts (10) | Walk Pixel Heights Airport Rd and Delamere Crescent (20) |
 
-Weeks: 16 Nov, *Drive 5 km this week* (30), *Finish 5 daily tasks this week* (30), *Both parks and both lakes* (60), *Visit 3 shops in Countryside* (60), *Finish all 3 daily tasks on 7 days* (120). 23 Nov, *Vote for a business in Countryside* (30), *Browse Online stores on Discover* (30), *Catch 4 kinds of fish* (60), *Finish all 3 daily tasks on 3 days* (60), *Stars in three different kinds of place* (120).
+Weeks: 16 Nov, *Drive 5 km this week* (30), *Earn 100 Gold from tasks* (30), *Both parks and both lakes* (60), *Visit 3 offices in Creator Commons* (60), *Earn 400 Gold from tasks* (120). 23 Nov, *Vote for a business in Meadow Quarter* (30), *Vote for a business in Arcade Alley* (30), *Catch 3 eels* (60), *Keep a 7-day streak* (60), *Cross all 5 bridges* (120).
 
 ## 4. Rewards: a proposal
 
