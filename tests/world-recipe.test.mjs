@@ -68,6 +68,22 @@ check('and a beach, headlands and hills (the hills on the island but not on the 
 check('the mainland has the features its recipe lists, and no harbour (it asks for none)', mainland.features.beaches && mainland.features.headlands && !mainland.features.harbour && !mainland.features.hills);
 check('features are deterministic', JSON.stringify(coastFeatures(isle.outline, { seed: 2202, facing: { x: -1, z: 0 }, landRect: isle.land })) === JSON.stringify(coastFeatures(isle.outline, { seed: 2202, facing: { x: -1, z: 0 }, landRect: isle.land })));
 
+// ---- the island's airstrip: a destination for flights (docs/world/player_flight.md)
+{
+  const a = f.airstrip;
+  check('the island has an airstrip, named for it; the mainland has none (it has its real airports)', Boolean(a) && a.name === 'Harbor Isle Airstrip' && !mainland.features.airstrip);
+  const [tx, tz] = a.frame.t;
+  const [nx, nz] = a.frame.n;
+  const footprint = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([i, j]) => ({ x: a.at.x + tx * i * a.frame.runwayHalf - nx * j * 22, z: a.at.z + tz * i * a.frame.runwayHalf - nz * j * 22 }));
+  const distToCoast = (p) => Math.min(...isle.outline.points.map((q, i) => { const r = isle.outline.points[(i + 1) % isle.outline.points.length]; const dx = r.x - q.x, dz = r.z - q.z; const t = Math.max(0, Math.min(1, ((p.x - q.x) * dx + (p.z - q.z) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(p.x - q.x - t * dx, p.z - q.z - t * dz); }));
+  check('its whole footprint (runway and room round it) is on the island and at least 14 units from the water', footprint.every((p) => pointInPolygon(p.x, p.z, isle.outline.points) && distToCoast(p) >= 14));
+  check('and off the town\'s land, clear of every hill, and away from the harbour', !(a.at.x > isle.land.x0 && a.at.x < isle.land.x1 && a.at.z > isle.land.z0 && a.at.z < isle.land.z1) && f.hills.every((h) => Math.hypot(h.x - a.at.x, h.z - a.at.z) > h.radius + a.frame.runwayHalf) && Math.hypot(f.harbour.at.x - a.at.x, f.harbour.at.z - a.at.z) > 70);
+  check('its frame is the shape the city\'s airports use: origin, unit t and n at right angles, runwayN 0, and a runway shorter than the international\'s 116', a.frame.origin.x === a.at.x && Math.abs(Math.hypot(tx, tz) - 1) < 1e-9 && Math.abs(Math.hypot(nx, nz) - 1) < 1e-9 && Math.abs(tx * nx + tz * nz) < 1e-9 && a.frame.runwayN === 0 && a.frame.runwayHalf * 2 === a.length && a.length < 116);
+  check('n points towards the town and the apron lies on that side of the runway', (isle.land.x0 + isle.land.x1) / 2 * nx + (isle.land.z0 + isle.land.z1) / 2 * nz - (a.at.x * nx + a.at.z * nz) > 0 && (a.apron.x - a.at.x) * nx + (a.apron.z - a.at.z) * nz > 0);
+  check('the airstrip is deterministic, and changes nothing else: the island\'s plots, roads and coast are what they were', JSON.stringify(buildWorld().landmasses.find((l) => l.id === 'harbor-isle').features.airstrip) === JSON.stringify(a) && isle.outline.points.length > 0 && buildWorld().towns.find((t) => t.id === 'harbor').plots.length === 1070);
+  check('with no land rectangle there is no airstrip (nothing to place it beside)', coastFeatures(isle.outline, { seed: 2202, facing: { x: -1, z: 0 } }).airstrip === null);
+}
+
 // ---- the server: the island's lots go in only when asked, closed, and as empty land
 {
   const db = openDb(':memory:');

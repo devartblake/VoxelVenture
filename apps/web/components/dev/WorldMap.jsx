@@ -57,6 +57,31 @@ export default function WorldMap() {
       if (show.features) {
         const f = m.features ?? {};
         for (const h of f.hills ?? []) { ctx.beginPath(); ctx.arc(X(h.x), Z(h.z), h.radius * s, 0, Math.PI * 2); ctx.fillStyle = '#2f5a35'; ctx.fill(); }
+        if (f.airstrip) {
+          // the apron (a grey strip on the town's side), the runway (a wider grey line along its heading) and its white centreline, with the name beside it
+          const a = f.airstrip;
+          const [tx, tz] = a.frame.t;
+          const half = a.frame.runwayHalf;
+          ctx.lineCap = 'butt';
+          ctx.strokeStyle = '#6b7280';
+          ctx.lineWidth = Math.max(3, a.apron.across * s);
+          ctx.beginPath(); ctx.moveTo(X(a.apron.x - tx * a.apron.along / 2), Z(a.apron.z - tz * a.apron.along / 2)); ctx.lineTo(X(a.apron.x + tx * a.apron.along / 2), Z(a.apron.z + tz * a.apron.along / 2)); ctx.stroke();
+          ctx.strokeStyle = '#9aa3b2';
+          ctx.lineWidth = Math.max(3, a.width * s);
+          ctx.beginPath(); ctx.moveTo(X(a.at.x - tx * half), Z(a.at.z - tz * half)); ctx.lineTo(X(a.at.x + tx * half), Z(a.at.z + tz * half)); ctx.stroke();
+          ctx.strokeStyle = '#f8fafc';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.moveTo(X(a.at.x - tx * half), Z(a.at.z - tz * half)); ctx.lineTo(X(a.at.x + tx * half), Z(a.at.z + tz * half)); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#e2e8f0';
+          ctx.font = '11px sans-serif';
+          // the name goes on the town's side of the apron, where the land is dark, not on the beach
+          const [nx, nz] = a.frame.n;
+          ctx.textAlign = nx < -0.3 ? 'right' : 'left';
+          ctx.fillText(a.name ?? 'Airstrip', X(a.apron.x + nx * (a.apron.across / 2 + 6)), Z(a.apron.z + nz * (a.apron.across / 2 + 6)) + 4);
+          ctx.textAlign = 'left';
+        }
         if (f.harbour) {
           ctx.strokeStyle = '#f8fafc';
           ctx.lineWidth = 3;
