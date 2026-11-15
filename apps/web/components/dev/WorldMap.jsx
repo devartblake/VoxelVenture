@@ -112,10 +112,10 @@ export default function WorldMap() {
           ctx.setLineDash([]);
           ctx.fillStyle = '#e2e8f0';
           ctx.font = '11px sans-serif';
-          // the name goes on the town's side of the apron, where the land is dark, not on the beach
-          const [nx, nz] = a.frame.n;
-          ctx.textAlign = nx < -0.3 ? 'right' : 'left';
-          ctx.fillText(a.name ?? 'Airstrip', X(a.apron.x + nx * (a.apron.across / 2 + 6)), Z(a.apron.z + nz * (a.apron.across / 2 + 6)) + 4);
+          // the name goes just above the runway's upper end: that is empty dark land, not the beach and not the town's streets
+          const end = tz >= 0 ? { x: a.at.x - tx * half, z: a.at.z - tz * half } : { x: a.at.x + tx * half, z: a.at.z + tz * half };
+          ctx.textAlign = 'right'; // ending at the runway, so the words run inland and not out over the beach
+          ctx.fillText(a.name ?? 'Airstrip', X(end.x) + 6, Z(end.z) - 10);
           ctx.textAlign = 'left';
         }
         if (f.harbour) {
