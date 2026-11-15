@@ -78,6 +78,7 @@ function healthDetails(db, env, at = Date.now()) {
 export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env, adminLogin = {} } = {}) {
   const db = openDb(dbFile);
   const seeded = core.seedWorld(db, seed);
+  const townsSeeded = core.seedTowns(db, { towns: String(env.WORLD_TOWNS ?? '').split(',').map((x) => x.trim()).filter(Boolean) }); // the world recipe's other towns: none unless WORLD_TOWNS asks (docs/world/world_recipe.md)
   const adsSeeded = core.seedAds(db, seed);
   const brandsSeeded = engage.seedBrands(db, seed);
   const mail = transport ?? engage.createTransport(env);
@@ -952,7 +953,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
       send(500, { error: 'Something went wrong.', code: 'server_error' });
     }
   });
-  return { server, db, seeded, adsSeeded, brandsSeeded, deliver, postSocial, reporter, traffic, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), clearInterval(billingTimer), clearInterval(economyTimer), economy.safeFlush(traffic, db), db.close(), r()))) };
+  return { server, db, seeded, townsSeeded, adsSeeded, brandsSeeded, deliver, postSocial, reporter, traffic, close: () => new Promise((r) => server.close(() => (clearInterval(mailTimer), clearInterval(noticeTimer2), clearInterval(socialTimer), clearInterval(billingTimer), clearInterval(economyTimer), economy.safeFlush(traffic, db), db.close(), r()))) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {

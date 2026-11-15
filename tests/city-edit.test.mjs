@@ -2,6 +2,7 @@
 import { imp, problemTally } from './helpers.mjs';
 const ce = await imp('city/cityEdit.js');
 const { generateCity } = await imp('city/cityGenerator.js');
+const { generateTown } = await imp('city/townExtension.js'); // generateWorld returns the town: the generator's city plus the extra lots
 const { createTraffic } = await imp('sim/traffic.js');
 const { buildCollisionMap } = await imp('sim/collision.js');
 const world = await imp('city/editedWorld.js');
@@ -187,7 +188,7 @@ for (const seed of [1, 2, 3]) {
   const s = ce.summarizeEdits([...ops, { t: 'road-', id: 'x' }, { t: 'park+', park: {} }]);
   if (s.roadsAdded !== 1 || s.roadsRemoved !== 1 || s.lotsAdded !== ops.length - 1 || s.parks !== 1) bad('the edits are summarised', JSON.stringify(s));
   // without a browser there are no saved edits: the world is the generated city
-  if (JSON.stringify(world.generateWorld(7, { infill: false, amusement: false }).plots.length) !== JSON.stringify(generateCity(7, { infill: false, amusement: false }).plots.length) || world.loadEdits() !== null) bad('with no saved edits the world is the generated city', '');
+  if (JSON.stringify(world.generateWorld(7, { infill: false, amusement: false }).plots.length) !== JSON.stringify(generateTown(7, { infill: false, amusement: false }).plots.length) || world.loadEdits() !== null) bad('with no saved edits the world is the generated city', '');
 }
 
 console.log(`edit engine: ${base.plots.length} lots, ${base.layout.roads.length} roads in the city it edits`);
