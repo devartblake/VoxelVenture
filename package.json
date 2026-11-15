@@ -22,6 +22,7 @@
     "start": "next start apps/web",
     "lint": "eslint .",
     "check:freeze": "node scripts/check-world-freeze.mjs",
+    "bake:world": "node scripts/bake-world.mjs",
     "audit:currency": "node --experimental-sqlite --no-warnings scripts/audit-currency.mjs",
     "check:env": "node scripts/check-env.mjs",
     "check:assets": "node scripts/assets/admission.mjs",

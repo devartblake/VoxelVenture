@@ -229,7 +229,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | # | Task | Size | Depends on |
 | :-: | :--- | :-: | :--- |
 | 9 | 🟡 World recipe (cities, coast, highways, port) and a preview page: **recipe, coast and `/world` preview done** (2026-11-14, [world_recipe.md](../world/world_recipe.md)); highways and the port are not | 3 | **Needs you** (layout) |
-| 10 | 🟡 World format and bake step; global plot ids: **global plot ids and the recipe format done** (town index x 1,000,000 + the town's own id; the first town unchanged); the bake step is not | 3-4 | 9 |
+| 10 | 🟡 World format and bake step; global plot ids: **global plot ids, the recipe format and (2026-11-15) the first bake are done** (`npm run bake:world`: a manifest and 273 chunk files of plots, roads, bridges, land and heights, checked by a test; [world_bake.md](../world/world_bake.md)) (town index x 1,000,000 + the town's own id; the first town unchanged); merged geometry and the game's loader are not (task 11) | 3-4 | 9 |
 | 11 | ⏸ Streaming runtime: chunk manager, baked chunk geometry, overview pictures, spatial collision, shadows following the camera | 4-5 | 10 |
 | 12 | 🟡 Several cities placed on one map; highways: **a coastal ring road and four spurs on each landmass are generated** (2026-11-15, [world_recipe.md](../world/world_recipe.md) 4c); **two causeways (bridges over the water) join the two landmasses**; a train, ferries and a fast-road class for traffic are not | 5-6 | 9 |
 | 13 | Street-name script (offline, OpenStreetMap; check the licence) — **script done** (`scripts/streets/road_generator.py`, see [street_names.md](../world/street_names.md)); names load in the generator and /editor | 1 | |

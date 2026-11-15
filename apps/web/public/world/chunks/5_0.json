@@ -1,0 +1,1 @@
+{"cx":5,"cz":0,"size":128,"bounds":{"x0":640,"z0":0,"x1":768,"z1":128},"land":1,"plots":[],"roads":[],"highways":[{"id":"mainland-ring:spur-east","kind":"spur","class":"highway","width":6,"a":{"x":640,"z":4.6},"b":{"x":768,"z":4.6}}],"heights":{"n":5,"v":[0,0,0,0,0.56,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}
