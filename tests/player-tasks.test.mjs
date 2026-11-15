@@ -68,6 +68,14 @@ const ana = await signup('Ana');
 const ben = await signup('Ben');
 const mine = await call('GET', '/tasks', { token: ana.token });
 check('an account sees the same schedule, with progress, and what it was shown is recorded', mine.data.signedIn === true && mine.data.daily.map((t) => t.id).join() === guest.data.daily.map((t) => t.id).join() && db.prepare('SELECT COUNT(*) AS n FROM task_offers WHERE account_id = ?').get(idOf('Ana')).n === 8);
+check('"Finish N tasks of one kind" is offered only for a kind that has enough verifiable tasks to be finished (none for air, whose tasks all wait for a position or an event)', (() => {
+  const real = loadCatalogue(); // the real catalogue: the one above is a small made-up one
+  const t = createTasks({ seed: SEED, catalogue: real });
+  const kinds = new Set(t.live.filter((x) => x.category !== 'STR').map((x) => x.category));
+  const meta = t.live.filter((x) => x.goal.type === 'tasks-complete' && x.goal.category);
+  const dead = real.tasks.filter((x) => x.goal.type === 'tasks-complete' && x.goal.category && !kinds.has(x.goal.category));
+  return meta.every((x) => kinds.has(x.goal.category)) && dead.length > 0 && dead.every((x) => !t.live.includes(x)) && !meta.some((x) => x.goal.category === 'AIR');
+})());
 check('no task the server cannot verify is ever offered, over a year of days', (() => { const t = createTasks({ seed: SEED, catalogue }); const eligible = () => true; for (let i = 0; i < 400; i++) { const d = utcDay(Date.now() + i * 86400000); if (tasksForDay({ tasks: t.live }, SEED, d, { eligible }).some((x) => !supports(x.goal))) return false; } return !t.live.some((x) => x.id === 'D-TST-walk0001'); })());
 
 // ---- the page cannot say a task is done, or what it pays

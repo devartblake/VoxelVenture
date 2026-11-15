@@ -39,7 +39,13 @@ export function createTasks({ seed, catalogue = loadCatalogue() }) {
   // The tasks the server can verify AND that take some effort. A "wear" task whose items are all free ones (the outfit everyone starts in) is done from nothing: it would pay for doing nothing,
   // so it is never offered (a test checks that no verifiable task is done by an account with no records).
   const trivial = (t) => t.goal.type === 'wear' && goalItems(t.goal).every((i) => DEFAULT_OWNED[i]);
-  const live = catalogue.tasks.filter((t) => supports(t.goal) && !trivial(t));
+  const verifiable = catalogue.tasks.filter((t) => supports(t.goal) && !trivial(t));
+  // "Finish 6 air tasks" can only be finished if air tasks turn up often enough among what a week offers (21 daily tasks and 5 weekly ones). A kind whose own tasks are all still waiting
+  // for a position or an event never turns up, so its "finish N" tasks would be offered and could never be done. They stay in the catalogue and come alive when the kind has enough
+  // verifiable tasks: a week has to offer about 1.6 times N of them on average.
+  const kindShare = (cadence, code) => { const pool = verifiable.filter((t) => t.cadence === cadence && t.category !== 'STR'); return pool.length ? pool.filter((t) => t.category === code).length / pool.length : 0; };
+  const finishable = (t) => t.goal.type !== 'tasks-complete' || t.goal.category === undefined || 21 * kindShare('daily', t.goal.category) + 5 * kindShare('weekly', t.goal.category) >= 1.6 * t.goal.count;
+  const live = verifiable.filter(finishable);
   const plots = new Map(city.plots.map((p) => [p.id, plotFacts(p)]));
   const businesses = city.plots.filter((p) => p.generated && p.title && !/^Empty/.test(p.title) && p.buildingType).map(plotFacts); // the city's own businesses ("the tallest building in a district")
   const spots = new Map();
