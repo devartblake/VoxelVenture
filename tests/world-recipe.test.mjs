@@ -12,6 +12,7 @@ const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok
 const { WORLD_RECIPE, TOWN_ID_STRIDE, toGlobalId, fromGlobalId, validateRecipe } = await imp('world/worldRecipe.js');
 const { buildWorld } = await imp('world/buildWorld.js');
 const { coastOutline, coastFeatures, pointInPolygon, polygonDistance, selfIntersects, polygonArea } = await imp('world/island.js');
+const { elevationAt, templateOutline, chaikin, JAMAICA } = await imp('world/shapes.js');
 const { generateCity } = await imp('city/cityGenerator.js');
 const { generateTown } = await imp('city/townExtension.js');
 
@@ -67,6 +68,54 @@ check('the island has a harbour on the side that faces the mainland, with piers 
 check('and a beach, headlands and hills (the hills on the island but not on the town, and away from the harbour)', f.beaches.length >= 1 && f.headlands.length === 3 && f.hills.length >= 1 && f.hills.every((h) => pointInPolygon(h.x, h.z, isle.outline.points) && h.x >= isle.centre.x - 1));
 check('the mainland has the features its recipe lists, and no harbour (it asks for none)', mainland.features.beaches && mainland.features.headlands && !mainland.features.harbour && !mainland.features.hills);
 check('features are deterministic', JSON.stringify(coastFeatures(isle.outline, { seed: 2202, facing: { x: -1, z: 0 }, landRect: isle.land })) === JSON.stringify(coastFeatures(isle.outline, { seed: 2202, facing: { x: -1, z: 0 }, landRect: isle.land })));
+
+// ---- the mainland is a variation of Jamaica, not a rounded square (lib/world/shapes.js)
+{
+  const o = mainland.outline;
+  const w = mainland.bounds.x1 - mainland.bounds.x0, h = mainland.bounds.z1 - mainland.bounds.z0;
+  check('the mainland\'s coast comes from the Jamaica template, smooth and simple (it never crosses itself)', o.kind === 'template' && o.template === 'jamaica' && o.points.length > 150 && !selfIntersects(o.points));
+  check('it is long, not square: its reach east to west is well over its reach north to south', w / h > 1.4, `${w.toFixed(0)} x ${h.toFixed(0)}`);
+  check('and it has bays and peninsulas: its area is well under its bounding box (a rounded square fills about 85% of it, this is about 55%)', mainland.area / (w * h) < 0.72, `${(mainland.area / (w * h) * 100).toFixed(0)}%`);
+  const rect = generateTown(20260101).layout.land;
+  const edge = []; for (let x = rect.x0; x <= rect.x1; x += 20) edge.push([x, rect.z0], [x, rect.z1]); for (let z = rect.z0; z <= rect.z1; z += 20) edge.push([rect.x0, z], [rect.x1, z]);
+  const clear = (x, z) => Math.min(...o.points.map((q, i) => { const r = o.points[(i + 1) % o.points.length]; const dx = r.x - q.x, dz = r.z - q.z; const t = Math.max(0, Math.min(1, ((x - q.x) * dx + (z - q.z) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - q.x - t * dx, z - q.z - t * dz); }));
+  check('the first town\'s land is on the island with at least the recipe\'s 70 units of beach all round it, and its own coordinates are what they always were', edge.every(([x, z]) => pointInPolygon(x, z, o.points) && clear(x, z) >= 70) && world.towns[0].origin.x === 0 && world.towns[0].origin.z === 0, `${Math.min(...edge.map(([x, z]) => clear(x, z))).toFixed(0)} units at the tightest`);
+  const spec = WORLD_RECIPE.landmasses[0].coast;
+  const a = templateOutline({ template: 'jamaica', rect, seed: spec.seed, margin: spec.margin, length: spec.length, anchor: spec.anchor, stretch: spec.stretch, rotate: spec.rotate, variation: spec.variation });
+  const b = templateOutline({ template: 'jamaica', rect, seed: spec.seed + 1, margin: spec.margin, length: spec.length, anchor: spec.anchor, stretch: spec.stretch, rotate: spec.rotate, variation: spec.variation });
+  check('the same seed gives the same coast every time', JSON.stringify(a.points) === JSON.stringify(templateOutline({ template: 'jamaica', rect, seed: spec.seed, margin: spec.margin, length: spec.length, anchor: spec.anchor, stretch: spec.stretch, rotate: spec.rotate, variation: spec.variation }).points));
+  check('another seed really is another coast, and no variation at all would be Jamaica itself: the variation changes it', JSON.stringify(a.points) !== JSON.stringify(b.points) && JSON.stringify(a.points) !== JSON.stringify(templateOutline({ template: 'jamaica', rect, seed: spec.seed, margin: spec.margin, length: spec.length, anchor: spec.anchor, stretch: spec.stretch, rotate: 0, variation: 0 }).points));
+  check('the template is a real outline: about 50 points, closed, and after two rounds of corner-cutting four times as many', JAMAICA.length >= 45 && chaikin(JAMAICA.map(([x, z]) => ({ x, z }))).length === JAMAICA.length * 4);
+  check('a coast whose town cannot fit asks for nothing impossible: a land far bigger than the island is an error, not a coast that leaves the town in the sea', (() => { try { templateOutline({ template: 'jamaica', rect: { x0: -3000, x1: 3000, z0: -3000, z1: 3000 }, seed: 1, margin: 70, length: 400, anchor: { lon: -77.28, lat: 18.02 } }); return false; } catch (e) { return /does not fit/.test(e.message); } })());
+  check('the recipe checks its coast: an unknown shape, or mountain ranges on a plain coast, are refused', bad((r) => { r.landmasses[0].coast.shape = 'atlantis'; return r; }) && bad((r) => { r.landmasses[1].features.push('ranges'); return r; }) && bad((r) => { delete r.landmasses[0].coast.anchor; return r; }));
+}
+
+// ---- its mountains: ranges with a height function
+{
+  const ranges = mainland.features.ranges;
+  const rect = world.towns[0].land;
+  check('the mainland has its mountain ranges: the Blue Mountains in the east, Cockpit Country and Dolphin Head in the west', ranges.length >= 3 && ['Blue Mountains', 'Cockpit Country', 'Dolphin Head'].every((n) => ranges.some((r) => r.name === n)) && ranges.find((r) => r.name === 'Blue Mountains').points[0].x > mainland.centre.x && ranges.find((r) => r.name === 'Cockpit Country').points[0].x < mainland.centre.x);
+  check('every range is on the land (inside the coast) and none touches the first town: the town stays on the plains', ranges.every((r) => r.points.every((p) => pointInPolygon(p.x, p.z, mainland.outline.points) && !(p.x > rect.x0 - 40 && p.x < rect.x1 + 40 && p.z > rect.z0 - 40 && p.z < rect.z1 + 40))));
+  let town = 0;
+  for (let x = rect.x0; x <= rect.x1; x += 8) for (let z = rect.z0; z <= rect.z1; z += 8) town = Math.max(town, elevationAt(ranges, x, z, 7));
+  check('the ground is flat (0) over all of the first town\'s land', town === 0, String(town));
+  const blue = ranges.find((r) => r.name === 'Blue Mountains');
+  let peak = 0, jump = 0, prev = null;
+  for (let i = 0; i <= 600; i++) {
+    const t = i / 600, a = blue.points[0], b = blue.points[blue.points.length - 1];
+    const hh = elevationAt(ranges, a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, 7);
+    peak = Math.max(peak, hh);
+    if (prev !== null) jump = Math.max(jump, Math.abs(hh - prev));
+    prev = hh;
+  }
+  check('the Blue Mountains rise to near their height (14) and never past it', peak > 0.8 * blue.height && peak <= blue.height, peak.toFixed(2));
+  check('the ground is continuous: no step of more than a unit between points a unit apart, and it falls to nothing at the foot of the range', jump < 1 && elevationAt(ranges, blue.points[0].x, blue.points[0].z - blue.width, 7) === 0, `${jump.toFixed(2)}`);
+  check('the same ground every time for the same seed (a mesh and a collision map can both read it), and the seed changes the lumps', elevationAt(ranges, blue.points[1].x, blue.points[1].z, 7) === elevationAt(ranges, blue.points[1].x, blue.points[1].z, 7) && elevationAt(ranges, blue.points[1].x + 5, blue.points[1].z + 3, 7) !== elevationAt(ranges, blue.points[1].x + 5, blue.points[1].z + 3, 99));
+  check('far from every range the ground is 0, and the old low hills (at most 2.2) are not these mountains', elevationAt(ranges, rect.x0, rect.z0, 7) === 0 && blue.height > 2.2 * 4);
+}
+
+// ---- the island is still placed at exactly its gap, now that the mainland is so much bigger
+check('Harbor Isle is still 380 units of open water from the mainland, and does not touch it', Math.abs(polygonDistance(mainland.outline.points, isle.outline.points) - 380) < 0.5, polygonDistance(mainland.outline.points, isle.outline.points).toFixed(2));
 
 // ---- the island's airstrip: a destination for flights (docs/world/player_flight.md)
 {

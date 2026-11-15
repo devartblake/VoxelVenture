@@ -48,14 +48,49 @@ export default function WorldMap() {
       ctx.stroke();
       // then the grass inside the beach band
       ctx.save();
-      ctx.beginPath();
-      m.outline.points.forEach((p, i) => { const q = { x: m.centre.x + (p.x - m.centre.x) * 0.93, z: m.centre.z + (p.z - m.centre.z) * 0.93 }; if (i) ctx.lineTo(X(q.x), Z(q.z)); else ctx.moveTo(X(q.x), Z(q.z)); });
-      ctx.closePath();
-      ctx.fillStyle = '#1c3d24';
-      ctx.fill();
+      if (m.outline.kind === 'template') {
+        // a coast with a real shape (a variation of an island: lib/world/shapes.js): a beach band of the same width all round, which a shrunk copy of the outline would not give (thick at the
+        // tips, thin along the sides)
+        path();
+        ctx.clip();
+        path();
+        ctx.fillStyle = '#1c3d24';
+        ctx.fill();
+        path();
+        ctx.lineWidth = 2 * 16 * s;
+        ctx.strokeStyle = '#e8d9a8';
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        m.outline.points.forEach((p, i) => { const q = { x: m.centre.x + (p.x - m.centre.x) * 0.93, z: m.centre.z + (p.z - m.centre.z) * 0.93 }; if (i) ctx.lineTo(X(q.x), Z(q.z)); else ctx.moveTo(X(q.x), Z(q.z)); });
+        ctx.closePath();
+        ctx.fillStyle = '#1c3d24';
+        ctx.fill();
+      }
       ctx.restore();
       if (show.features) {
         const f = m.features ?? {};
+        // mountain ranges (a template coast has them): a broad dark band along the line, a lighter ridge on top, and the name; the taller, the darker
+        for (const rg of f.ranges ?? []) {
+          const line = () => { ctx.beginPath(); rg.points.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z)))); };
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          line();
+          ctx.lineWidth = Math.max(4, rg.width * s);
+          ctx.strokeStyle = rg.height >= 12 ? '#2c4a30' : '#336a3d';
+          ctx.stroke();
+          line();
+          ctx.lineWidth = Math.max(2, rg.width * s * 0.35);
+          ctx.strokeStyle = rg.height >= 12 ? '#6b8f64' : '#5f9a5c';
+          ctx.stroke();
+          ctx.lineCap = 'butt';
+          const mid = rg.points[Math.floor(rg.points.length / 2)];
+          ctx.fillStyle = '#e2e8f0';
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${rg.name} (${rg.height})`, X(mid.x), Z(mid.z) - Math.max(8, (rg.width * s) / 2 + 6));
+          ctx.textAlign = 'left';
+        }
         for (const h of f.hills ?? []) { ctx.beginPath(); ctx.arc(X(h.x), Z(h.z), h.radius * s, 0, Math.PI * 2); ctx.fillStyle = '#2f5a35'; ctx.fill(); }
         if (f.airstrip) {
           // the apron (a grey strip on the town's side), the runway (a wider grey line along its heading) and its white centreline, with the name beside it

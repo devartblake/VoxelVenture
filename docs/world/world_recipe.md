@@ -53,7 +53,7 @@ The same steps for staging are in [deploy/STAGING.md](../../deploy/STAGING.md) (
 
 | Landmass | Town | Seed | Placed | Coast | Features |
 | :--- | :--- | ---: | :--- | :--- | :--- |
-| The Mainland | Voxel Town (index 0, live) | 20260101 | the origin | seed 1101, 70 beyond the land | beaches, headlands |
+| The Mainland | Voxel Town (index 0, live) | 20260101 | the origin | **a variation of Jamaica** (section 4a), seed 1101, 70 of beach round the town | beaches, headlands, **ranges** |
 | Harbor Isle | Harbor Town (index 1, **not live**) | 8675309 | east of the mainland, bearing 8 degrees, **380 units of open water** | seed 2202, 80 beyond the land | harbour, beaches, headlands, hills, **airstrip** |
 
 - **The first town never moves.** Its origin is (0, 0), so its coordinates and ids are what the game has always used.
@@ -80,12 +80,34 @@ These are *positions and data*. Nothing draws water, sand or hills in the game y
 
 `/world` (a development tool, like `/land` and `/curves`: it exists only outside release builds, and robots.txt keeps search engines away) draws both landmasses on one map: the sea, the coasts with their beach band, the harbour piers, hills and headlands, each town's roads and every plot as a dot in its district's colour (the lots added after the generator in lime), the land outline, and a table of towns, plot counts, id ranges, origins, and the open water between. [apps/web/components/dev/WorldMap.jsx](../../apps/web/components/dev/WorldMap.jsx).
 
+## 4a. The mainland is a variation of Jamaica (2026-11-15)
+
+The first landmass was a lumpy ring round the town's land, which on the map was a rounded square. It is now shaped like an island: [lib/world/shapes.js](../../lib/world/shapes.js) draws the mainland's coast from a hand-made outline of **Jamaica** (about 50 points: Negril's western tip, the long north coast past Montego Bay, Ocho Rios and Port Antonio, Morant Point in the east, the Kingston harbour inlet, the great bay of Portland Bight with Portland Ridge on its seaward side, the Black River bulge). It is a **variation**, not a copy:
+
+| Setting (`coast` in the recipe) | Mainland | What it does |
+| :--- | ---: | :--- |
+| `shape` | `jamaica` | which template |
+| `length` | 2000 | the island's reach east to west, in game units, before the town is fitted in (it is scaled up from the town until the land is inside; it ends at about 2,425 x 1,383) |
+| `stretch` | 1.35 | widens it north to south: real Jamaica is thin, and the town's land is 346 x 392 |
+| `rotate`, `variation` | 4 degrees, 0.06 | a small turn, and a few per cent of seeded change in the radius, so it is Jamaica's kind of shape and another seed gives another coast |
+| `anchor` | -77.28, 18.02 | the place on the template where the town stands: the central plains. The town's land is put in the middle of that spot and the shape is scaled up from there until the land is inside with `margin` (70) units of beach |
+
+The coast is made smooth by two rounds of corner-cutting, checked never to cross itself, and checked to leave the town's land inside it with the beach to spare (a land that cannot fit is an error, not a town in the sea). The result is about 2,425 x 1,383 units, 1.8 million square units (the old mainland was 0.3 million), and about 53% of its bounding box (a rounded square fills 85%).
+
+**Mountains and hills.** Jamaica's are in the recipe as `features.ranges`: the **Blue Mountains** in the east (height 14), **Cockpit Country** in the north-west (8) and **Dolphin Head** at the western tip (7). The central hills are left out because they would touch the town. Each range is a line with a width at its foot and a height, and `elevationAt(ranges, x, z, seed)` is the ground's height anywhere: 0 away from every range, rising smoothly along its line, lumpy like real peaks, continuous, the same every time for a seed, and **0 over all of the first town's land** (it stays on the plains). The game's own hills near the first town are low (at most 2.2 units: a tall building is about 1.5); these are mountains, with a peak of about 13 units.
+
+They are data and a height function, **not terrain in the game yet**: a terrain mesh, the ground height under a car or an avatar, and the collision for a slope all need the streaming runtime and real terrain (roadmap tasks 11 and 17). The function is there for them to read.
+
+**Harbor Isle moved.** The island is placed by its gap from the mainland's coast (380 units), and the mainland is now much bigger, so the island's town is at (1922.9, 78.1) and not (977.5, 161.4). Its lots that a staging server may already hold (`WORLD_TOWNS=harbor`) have the old coordinates. They are empty, not for sale and not shown anywhere, so nothing is wrong, but when the island is made final they have to be **re-seeded**: delete the rows with ids from 1,000,000 up (none is owned) and restart the API with `WORLD_TOWNS=harbor`. The island's own design is still to be changed (it is still a rounded square), so that is best done once, after both landmasses are final.
+
 ## 5. What is not done, and why
 
 - **The island is not in the game.** Walking or driving to it needs the streaming runtime (roadmap task 11): chunked geometry, collision and traffic that work on a map this size. The main game keeps loading the first town only and does not regress.
 - **No water, sand or hills are drawn in the game**, and boats and fishing do not work at sea yet (the rest of task 14).
 - **The island's lots are not for sale.** `WORLD_TOWNS=harbor` in `api.env` (the default is none) adds them to the server's database under their global ids, but as **empty land that is not claimable**: no owner, no business, so none of it appears in the directory, the market, the sitemap or the public pages. Opening them is a separate decision, once the game can show the island. The switch has been exercised on a file database: 1,070 rows added, none claimable, none owned, and a second start adds nothing.
 - **No way across the water yet** except a boat once the sea is drawn. A plane the player flies, and flights to the island, are on the roadmap as task 18 ([player_flight.md](player_flight.md)).
+- **The mountains are not terrain in the game**, and the mainland's Jamaica coast is not drawn in it: the game's mainland is still the rectangle it has always been (roadmap tasks 11, 14 and 17).
+- **Harbor Isle is still a rounded square.** Its own shape is the next step.
 - **No highways** between towns (roadmap task 12): the recipe has a slot (`highways: []`).
 - **No streets or buildings are shared** between the towns, and the preview is 2D.
 - **The land of the first town is still a rectangle** in the game; its coast in the recipe is drawn *round* it for the map.
