@@ -11,6 +11,7 @@
 //   PRESENCE_TRACK        0 switches all of this off (default: on when accounts are set up, off otherwise: there is nobody to credit)
 //   PRESENCE_ENFORCE      1 clamps the relayed position of a connection that moved impossibly to its last verified one (default 0: only record)
 //   PRESENCE_REWARD_SEED  the city seed that counts (default API_SEED, or 20260101): only players in that city feed rewards
+//   PRESENCE_FLUSH_MS, PRESENCE_SUMMARY_MS   how often the events (default 5000) and the flags (default 30000) go to the API; only the tests change them
 import { imp } from '../../scripts/lib-loader.mjs';
 
 const { generateTown } = await imp('city/townExtension.js');
@@ -22,8 +23,8 @@ const { SPEED_CAP } = await imp('world/movement.js');
 const { phaseAt } = await imp('game/taskRules.js');
 
 export const SAMPLE_MS = 500;
-export const FLUSH_MS = 5000;
-export const SUMMARY_MS = 30000;
+export const FLUSH_MS = Math.max(500, Number(process.env.PRESENCE_FLUSH_MS || 5000)); // how often events go to the API (PRESENCE_FLUSH_MS: the tests shorten it)
+export const SUMMARY_MS = Math.max(1000, Number(process.env.PRESENCE_SUMMARY_MS || 30000)); // and the flags (PRESENCE_SUMMARY_MS)
 export const ALIVE_MS = 30000; // a connection that has said nothing for this long is not credited
 const MAX_BUFFER = 5000;
 const MAX_BATCH = 500;
