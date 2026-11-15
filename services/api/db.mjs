@@ -86,6 +86,39 @@ export function openDb(file = ':memory:') {
   db.exec('CREATE TABLE IF NOT EXISTS game_inventory (account_id INTEGER NOT NULL REFERENCES accounts(id), item_id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (account_id, item_id))');
   db.exec("CREATE TABLE IF NOT EXISTS game_profile (account_id INTEGER PRIMARY KEY REFERENCES accounts(id), appearance TEXT NOT NULL DEFAULT '{}')");
   db.exec('CREATE TABLE IF NOT EXISTS game_timers (account_id INTEGER NOT NULL REFERENCES accounts(id), key TEXT NOT NULL, started_at INTEGER NOT NULL, PRIMARY KEY (account_id, key))');
+  // Presence-verified positions (services/api/presence.mjs; docs/architecture/presence_positions.md). DERIVED events about where an account was, sent by the presence server after it checked
+  // the movement was plausible: never a track. Kept RETENTION.presenceEventDays days. The unique key makes a repeated batch store once; an 'in' event keeps one row per place, phase and
+  // ten minutes (`bucket`), a distance one row per event (its `bucket` is its own time). And the anti-bot flags the presence server reports: a score at or over the review score holds
+  // an account's task rewards back until it clears, expires, or an admin clears it for a day.
+  db.exec(`CREATE TABLE IF NOT EXISTS presence_events (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    kind TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    phase TEXT NOT NULL DEFAULT '',
+    bucket INTEGER NOT NULL,
+    mode TEXT NOT NULL DEFAULT '',
+    district TEXT NOT NULL DEFAULT '',
+    first_at INTEGER NOT NULL,
+    last_at INTEGER NOT NULL,
+    n INTEGER NOT NULL DEFAULT 1,
+    dwell INTEGER NOT NULL DEFAULT 0,
+    metres INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (account_id, kind, ref, phase, bucket, mode, district)
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS presence_events_account ON presence_events(account_id, last_at)');
+  db.exec('CREATE INDEX IF NOT EXISTS presence_events_age ON presence_events(last_at)');
+  db.exec(`CREATE TABLE IF NOT EXISTS presence_flags (
+    account_id INTEGER PRIMARY KEY REFERENCES accounts(id),
+    score INTEGER NOT NULL,
+    flags TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    first_flagged_at INTEGER NOT NULL,
+    held_at INTEGER,
+    cleared_by TEXT,
+    cleared_at INTEGER,
+    cleared_until INTEGER
+  )`);
   // Player tasks (services/api/tasks.mjs; docs/product/daily_weekly_tasks.md): what an account collected (once per task and period, which the unique key enforces), and which
   // tasks were shown to which account (so an admin can see how many were offered as well as collected). Progress is never stored: it is worked out again from the
   // server's own records each time.

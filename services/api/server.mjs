@@ -42,6 +42,7 @@ import * as stats from './stats.mjs';
 import * as community from './community.mjs';
 import * as gold from './gold.mjs';
 import { createTasks } from './tasks.mjs';
+import * as presence from './presence.mjs';
 import * as messaging from './messaging.mjs';
 import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
@@ -79,7 +80,7 @@ function healthDetails(db, env, at = Date.now()) {
 
 export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue = undefined, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env, adminLogin = {} } = {}) {
   const db = openDb(dbFile);
-  const tasks = createTasks({ seed, catalogue: taskCatalogue }); // (taskCatalogue: tests only; the game loads lib/game/taskCatalogue.json)
+  const tasks = createTasks({ seed, catalogue: taskCatalogue, onHold: (account, hold) => A.audit(db, A.SYSTEM, 'presence.hold', { kind: 'account', id: account.id }, JSON.stringify({ score: hold.score, flags: hold.flags.map((f) => f.name) })) }); // (taskCatalogue: tests only; the game loads lib/game/taskCatalogue.json)
   const seeded = core.seedWorld(db, seed);
   const townsSeeded = core.seedTowns(db, { towns: String(env.WORLD_TOWNS ?? '').split(',').map((x) => x.trim()).filter(Boolean) }); // the world recipe's other towns: none unless WORLD_TOWNS asks (docs/world/world_recipe.md)
   const adsSeeded = core.seedAds(db, seed);
@@ -98,7 +99,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue 
   // With the messaging service set up, messages are its business alone: this API forwards the routes and runs none of the jobs,
   // so the two never both send the same notice or prune the same data.
   const messagingService = (env.MESSAGING_SERVICE_URL || '').replace(/\/+$/, '');
-  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); business.pruneRefFirsts(db); core.scrubIpHashes(db); core.scrubVisitorIds(db); business.sendOwnerSummaries(db, env); admin.pruneSessions(db); admin.pruneTokens(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
+  const pruneTimer = deliverEveryMs > 0 ? setInterval(() => { try { stats.prunePresence(db); conversions.pruneInquiries(db, env.INQUIRY_DAYS); economy.pruneEconomy(db); business.pruneRefFirsts(db); core.scrubIpHashes(db); core.scrubVisitorIds(db); business.sendOwnerSummaries(db, env); admin.pruneSessions(db); admin.pruneTokens(db); presence.purge(db); if (!messagingService) messaging.prune(db, chat); } catch { /* the next hour tries again */ } }, 3600000) : null;
   pruneTimer?.unref();
   // "your inbox changed" notices go to the presence server as soon as they are written, and again every two seconds for any that failed
   const notices = () => (messagingService ? Promise.resolve() : messaging.deliverNotices(db, env)).catch(() => {});
@@ -705,6 +706,13 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue 
     if (m === 'GET' && p === '/tasks') return tasks.view(db, account);
     if ((r = p.match(/^\/tasks\/([DW]-[A-Z]{3}-[0-9a-z]{8})\/claim$/)) && m === 'POST') return tasks.claim(db, account, r[1]);
     if (m === 'GET' && p === '/me/tasks') return tasks.history(db, account, { limit: url.searchParams.get('limit'), before: url.searchParams.get('before') });
+    if (m === 'GET' && p === '/admin/presence/flags') return (adminOnly(token), { flags: presence.listFlags(db), summary: presence.summary(db) });
+    if ((r = p.match(/^\/admin\/presence\/flags\/(\d+)\/clear$/)) && m === 'POST') {
+      adminOnly(token);
+      const out = logged(adminOnly(), 'presence.flag.clear', { kind: 'account', id: Number(r[1]) }, () => ({ cleared: presence.clearFlag(db, Number(r[1]), 'admin') }), (o) => ({ cleared: o.cleared, forHours: presence.CLEAR_MS / 3600000 }));
+      if (!out.cleared) throw new core.ApiError(404, 'That account has no flag.', 'no_flag');
+      return out;
+    }
     if (m === 'GET' && p === '/admin/tasks') return (adminOnly(token), tasks.adminReport(db));
     if (m === 'POST' && p === '/vote') return community.castVote(db, account, (await body(req)).plotId);
     // presence and analytics
@@ -899,6 +907,9 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue 
     }
     // chat and messages (services/api/messaging.mjs)
     if (m === 'POST' && p === '/messaging/ticket') return messaging.issueTicket(db, account, token);
+    // the presence server's derived position events and anti-bot flags (presence.mjs; docs/architecture/presence_positions.md): only with the shared secret, never public
+    if (m === 'POST' && p === '/internal/presence/events') return (internalOnly(req), presence.ingest(db, (await body(req, 400000)).events));
+    if (m === 'POST' && p === '/internal/presence/summary') return (internalOnly(req), presence.summarize(db, await body(req, 400000)));
     if (m === 'POST' && p === '/internal/messaging/redeem') return (internalOnly(req), messaging.redeemTicket(db, (await body(req)).ticket));
     if (m === 'POST' && p === '/internal/messaging/bindings') return (internalOnly(req), messaging.checkBindings(db, (await body(req)).bindings));
     if (m === 'POST' && p === '/internal/messaging/nearby') return (internalOnly(req), await messaging.acceptNearby(db, await body(req), chat, env));

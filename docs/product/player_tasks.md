@@ -36,18 +36,18 @@ A period is a UTC day, or a Monday-to-Sunday UTC week (as Building of the Week's
 
 ## What is held back (dormant), and why
 
-**802 of the 2,061 tasks are not offered today**, because the server cannot verify them from its own records and will not take a page's word:
+**186 of the 2,061 tasks are not offered today**, because the server cannot verify them from its own records and will not take a page's word. Position tasks are no longer among them: since presence-verified positions ([the design](../architecture/presence_positions.md)) the presence server checks that avatars move plausibly and tells the API what they did (which district, place, sound zone or road, how far) as events, and the API verifies those tasks from the events alone. 616 of the 621 position-type tasks are on offer.
 
 | Count | Needs | Examples |
 | ---: | :--- | :--- |
-| 571 | **the avatar's position**: the server cannot see where an avatar is, only what a page reports | walk a road, reach a park, be in a district at dusk, a distance |
-| 198 | **an event nobody records**: an emote, a chat message, time in a car, a boat or a plane, an owner's action, fishing on a particular lake | wave at someone, say hello in Nearby chat, land at an airport |
-| 1 | a task done from nothing | "Blue tee with navy pants": the free default outfit |
-| 32 | **"finish N tasks of one kind" that could not be finished**: a week offers 21 daily and 5 weekly tasks, so a kind has to turn up about 1.6 times N on average to be finishable. Kinds whose own tasks are still waiting (air, roads, places, sound zones, the fun park) never do. Found on staging: a weekly task "Finish 6 air tasks" was on offer and could never be done | "Finish 6 air tasks", "Finish 3 exploring tasks". Only the business-visit ones are offered; the rest come alive by themselves as their kind gets verifiable tasks |
+| 32 | **"finish N tasks of one kind" that could not be finished**: a week offers 21 daily and 5 weekly tasks, so a kind has to turn up about 1.6 times N on average to be finishable | "Finish 6 air tasks", "Finish 3 exploring tasks" |
+| 56 | **fishing at a lake or a pier**: the position at the moment of the catch is not recorded | "Catch 3 fish at the pier", "Catch a fish at the lake" |
+| 24 + 4 | **wearing items in the park**, and emotes in the park: needs the wear or emote event together with the place | "Wear the red hat in the park" |
+| about 70 | **an event nobody records yet**: an emote, a chat or private message, meeting players, an owner's action, browsing a category, rides, watching or taking off in a plane, docking, landing | "wave at someone", "say hello in Nearby chat" |
 
-So **1,259 tasks (823 daily, 436 weekly) are on offer today.** Each daily tier has its own pool (593 easy, 168 medium, 62 hard), so each hard daily task comes round once every 62 days; weekly: 74, 317 and 45.
+So **1,875 tasks (1,338 daily, 537 weekly) are on offer today.** Each daily tier has its own pool (733 easy, 486 medium, 119 hard), weekly: 76, 384 and 77.
 
-**The way to unlock the 571:** the presence server (`services/multiplayer`) already sees every signed-in avatar's position. The API can ask it over the internal channel for the last observed position and for a short history, and verify "be here now" and walked-the-road tasks from that. That is phase 2 of [the currency work](../architecture/backend.md#currency-servicesapigoldmjs), and until it exists those tasks stay off.
+**Position tasks are presence-verified, not proved.** The server checks that the movement was possible (speed for walking, driving and sailing, no teleports, inside the land) and scores accounts that move like a program; an account over the review score has its rewards held (`under_review`) until an admin looks. A program that moves legally, in real time, still earns the same small capped rewards a person would. See the honest limits in [presence_positions.md](../architecture/presence_positions.md#honest-limits).
 
 ## Limits to know about
 

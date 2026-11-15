@@ -30,6 +30,7 @@ import { WebSocketServer } from 'ws';
 import { checkText, cleanMessage } from '../api/textcheck.mjs';
 import { createReporter } from '../../lib/net/sentry.mjs';
 import { PRESENCE_CLIENT, PRESENCE_PROTOCOL, check } from '@voxelventure/shared-types';
+import { createPositions } from './positions.mjs';
 
 // Settings (all optional environment variables):
 //   MP_PORT          port to listen on                      (default 3001)
@@ -212,6 +213,11 @@ async function callApi(route, body) {
   }
 }
 
+// Presence-verified positions (positions.mjs, docs/architecture/presence_positions.md): every position is checked for plausible movement, and what signed-in accounts do in the reward city becomes
+// derived events for the API. Settings: PRESENCE_TRACK (0 = off), PRESENCE_ENFORCE (1 = clamp what is relayed), PRESENCE_REWARD_SEED (the city that counts).
+const REWARD_ROOM = String(process.env.PRESENCE_REWARD_SEED || process.env.API_SEED || 20260101);
+const positions = createPositions({ callApi, clients: () => clients.values(), enabled: ACCOUNTS && process.env.PRESENCE_TRACK !== '0', enforce: process.env.PRESENCE_ENFORCE === '1', rewardRoom: REWARD_ROOM, log: (text) => log(c.cyan, '~ pos  ', text) });
+
 // The players who can see `p` hear about its new name (and whether it is a verified account).
 function announceProfile(p) {
   for (const o of inRoom(p.room)) if (o !== p && o.known.has(p.id)) send(o, { type: 'profile', player: publicPlayer(p) });
@@ -220,11 +226,13 @@ function bindAccount(p, account) {
   p.account = account;
   p.name = account.username; // a signed-in player's name is their account's: it cannot be set to look like someone else
   send(p, { type: 'auth.ok', account: { id: account.id, username: account.username } });
+  positions.onBind(p);
   if (p.hello) announceProfile(p);
   log(c.cyan, '~ auth ', `#${p.id} is ${account.username}`);
 }
 function unbindAccount(p, reason) {
   if (!p.account) return;
+  positions.onClose(p); // this connection is no longer that account's
   p.account = null;
   p.name = p.guestName ?? `Player ${p.id}`;
   send(p, { type: 'auth.revoked', reason });
@@ -422,7 +430,7 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ uptime: Math.round((Date.now() - startedAt) / 1000), now: Date.now(), players: [...clients.values()].filter((p) => p.hello).map(summary), recentErrors, load: loadSummary() }));
+    res.end(JSON.stringify({ uptime: Math.round((Date.now() - startedAt) / 1000), now: Date.now(), players: [...clients.values()].filter((p) => p.hello).map(summary), recentErrors, load: loadSummary(), positions: positions.status() }));
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -514,6 +522,7 @@ wss.on('connection', (ws, req) => {
       p.x = num(m.x);
       p.z = num(m.z);
       p.device = { ua: str(m.device?.ua, 200), screen: str(m.device?.screen, 30), touch: Boolean(m.device?.touch), url: str(m.device?.url, 200) };
+      positions.onHello(p, now);
       touch(p);
       dirtyRooms.add(p.room);
       // who is near comes with the first ticks. `features` says what this server can do (an older client ignores it)
@@ -531,6 +540,7 @@ wss.on('connection', (ws, req) => {
       p.moving = Boolean(m.moving);
       p.emote = m.emote ? str(m.emote, 12) : null;
       p.veh = cleanVeh(m.veh);
+      positions.onState(p, now); // plausible movement? (in enforce mode this puts the last verified position back)
       touch(p);
     } else if (m.type === 'parked') {
       // the cars this player left standing: the players who can see them are told (the others get them when they come near)
@@ -576,6 +586,7 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
+    positions.onClose(p);
     clients.delete(id);
     if (p.hello) {
       dirtyRooms.add(p.room);
@@ -796,6 +807,7 @@ server.on('error', (error) => {
 server.listen(PORT, HOST, () => {
   log(c.cyan, 'server', `VoxelVenture multiplayer on ${HOST}:${PORT} (protocol ${PROTOCOL}, up to ${MAX_CLIENTS} clients)`);
   log(c.cyan, 'server', `status:  http://localhost:${PORT}/status   health: /health   error log: services/multiplayer/logs/client-errors.jsonl`);
+  positions.start(); // (a no-op without accounts, or with PRESENCE_TRACK=0)
 });
 
 // Ctrl+C / kill: tell everyone goodbye, then stop.

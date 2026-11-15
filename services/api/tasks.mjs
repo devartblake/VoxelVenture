@@ -6,7 +6,9 @@
 //     account's earlier claims) inside the period.
 //   - a CLAIM re-evaluates the goal on the server, checks the task is one of this account's tasks for this period, and pays the tier's Gold through the Gold wallet (gold.mjs, reason 'task').
 //     The unique key (account, task, period) means it happens once. A page never says a task is done and never says how much it pays.
-//   - a task whose goal the server cannot verify yet (it needs the avatar's position, or an event nobody records) is simply not offered (supports() in taskRules.js).
+//   - a task whose goal the server cannot verify yet is simply not offered (supports() in taskRules.js). Where the avatar WAS is verified from the presence server's events (presence.mjs:
+//     it checked the movement was plausible), never from the page. An account whose anti-bot score is at or over the review score has its rewards held (claim answers 'under_review'); the task stays
+//     collectable if the flag clears.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,8 +17,10 @@ import { ApiError, requireAccount } from './core.mjs';
 import { transaction } from './db.mjs';
 import * as gold from './gold.mjs';
 import { votesView } from './community.mjs';
+import * as presence from './presence.mjs';
 
 const { generateTown } = await imp('city/townExtension.js'); // the city the game builds (see gold.mjs): the stars and the plots must be the player's own
+const { buildPlaceGeometry } = await imp('world/placeGeometry.js'); // where the places are, by the ids the catalogue uses (for "all the bridges")
 const { scavengerHunt } = await imp('game/daily.js');
 const { tasksForDay, tasksForWeek } = await imp('game/taskSchedule.js');
 const { bestStreak, dayOf, plotFacts, progressOf, streakAt, supports, windowOf } = await imp('game/taskRules.js');
@@ -33,8 +37,9 @@ const goalItems = (goal) => (goal.type === 'wear' ? goal.items ?? [goal.item] : 
 /**
  * @param {{ seed: number, catalogue?: { tasks: object[] } }} options
  */
-export function createTasks({ seed, catalogue = loadCatalogue() }) {
+export function createTasks({ seed, catalogue = loadCatalogue(), onHold = null }) {
   const city = generateTown(seed);
+  const geometry = buildPlaceGeometry(city);
   const byId = new Map(catalogue.tasks.map((t) => [t.id, t]));
   // The tasks the server can verify AND that take some effort. A "wear" task whose items are all free ones (the outfit everyone starts in) is done from nothing: it would pay for doing nothing,
   // so it is never offered (a test checks that no verifiable task is done by an account with no records).
@@ -86,6 +91,8 @@ export function createTasks({ seed, catalogue = loadCatalogue() }) {
       winner: vote.winner?.plotId ?? null,
       claims: db.prepare('SELECT task_id AS taskId, cadence, tier, category, gold, claimed_at AS at, day FROM task_claims WHERE account_id = ? AND claimed_at >= ? AND claimed_at < ?').all(a, win.start, win.end),
       claimDays: db.prepare("SELECT DISTINCT day FROM task_claims WHERE account_id = ? AND cadence = 'daily'").all(a).map((r) => r.day),
+      presence: presence.eventsFor(db, a, win.start, win.end), // where the presence server saw the account, as derived events
+      placeIds: (kind) => geometry.placeIds(kind),
       today: utcDay(at),
       task,
     };
@@ -103,7 +110,7 @@ export function createTasks({ seed, catalogue = loadCatalogue() }) {
       const claim = db.prepare('SELECT claimed_at AS at, gold FROM task_claims WHERE account_id = ? AND task_id = ? AND period_key = ?').get(account.id, t.id, win.key);
       return { ...base, progress: progressOf(t.goal, gatherFacts(db, account, t, win, at)), collected: claim ?? null };
     };
-    const out = { signedIn: Boolean(account), day, week: weekWin.key, daily: daily.map((t) => shape(t, dayWin)), weekly: weekly.map((t) => shape(t, weekWin)) };
+    const out = { signedIn: Boolean(account), day, week: weekWin.key, underReview: Boolean(account && presence.holdFor(db, account.id, at)), daily: daily.map((t) => shape(t, dayWin)), weekly: weekly.map((t) => shape(t, weekWin)) };
     const collected = [...out.daily, ...out.weekly].filter((t) => t.collected);
     return { ...out, summary: { collected: collected.length, offered: out.daily.length + out.weekly.length, gold: collected.reduce((n, t) => n + t.collected.gold, 0) } };
   }
@@ -116,6 +123,12 @@ export function createTasks({ seed, catalogue = loadCatalogue() }) {
     const day = utcDay(at);
     const win = windowOf(task.cadence, day);
     if (!offeredFor(db, account, day)[task.cadence].some((t) => t.id === task.id)) fail(409, 'That is not one of your tasks for this period.', 'not_offered');
+    const hold = presence.holdFor(db, account.id, at);
+    if (hold) {
+      // rewards are held while the anti-bot score is at or over the review score: one audit entry in six hours, never the score or the signals to the player
+      if (presence.noteHold(db, account.id, at) && onHold) onHold(account, hold);
+      fail(409, 'Your account is being reviewed, so task rewards are paused. This task stays yours to collect once the review is done.', 'under_review');
+    }
     return transaction(db, () => {
       if (db.prepare('SELECT 1 FROM task_claims WHERE account_id = ? AND task_id = ? AND period_key = ?').get(account.id, task.id, win.key)) fail(409, 'You collected that already.', 'already_done');
       const progress = progressOf(task.goal, gatherFacts(db, account, task, win, at));
@@ -153,5 +166,5 @@ export function createTasks({ seed, catalogue = loadCatalogue() }) {
     };
   }
 
-  return { view, claim, history, adminReport, live, byId, offeredFor, gatherFacts };
+  return { view, claim, history, adminReport, live, byId, offeredFor, gatherFacts, geometry };
 }
