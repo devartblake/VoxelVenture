@@ -48,7 +48,7 @@ If you meant the project's development roadmap instead, that is [docs/roadmap/ta
 | EST | prime sites, luxury and grand estates, by district | 21 | 2 | Visit a grand estate in Meadow Quarter |
 | SOC | other players | 15 | 3 | Meet 4 other players |
 | OWN | for people with a listing | 0 | 15 | Read your 30-day figures |
-| AIR | the airports and flying | 7 | 1 | Land at Voxel International |
+| AIR | the airports and flying (needs a plane the player flies: [player_flight.md](../world/player_flight.md), roadmap task 18) | 7 | 1 | Land at Voxel International |
 | FUN | the fun park's rides and the malls | 6 | 1 | Walk up to the ferris wheel |
 
 **Difficulty.** Easy, medium and hard, from the effort: one business visit is easy, a road's length or a loop is medium, a combination or a rare catch is hard.

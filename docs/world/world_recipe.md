@@ -85,6 +85,7 @@ These are *positions and data*. Nothing draws water, sand or hills in the game y
 - **The island is not in the game.** Walking or driving to it needs the streaming runtime (roadmap task 11): chunked geometry, collision and traffic that work on a map this size. The main game keeps loading the first town only and does not regress.
 - **No water, sand or hills are drawn in the game**, and boats and fishing do not work at sea yet (the rest of task 14).
 - **The island's lots are not for sale.** `WORLD_TOWNS=harbor` in `api.env` (the default is none) adds them to the server's database under their global ids, but as **empty land that is not claimable**: no owner, no business, so none of it appears in the directory, the market, the sitemap or the public pages. Opening them is a separate decision, once the game can show the island. The switch has been exercised on a file database: 1,070 rows added, none claimable, none owned, and a second start adds nothing.
+- **No way across the water yet** except a boat once the sea is drawn. A plane the player flies, and flights to the island, are on the roadmap as task 18 ([player_flight.md](player_flight.md)).
 - **No highways** between towns (roadmap task 12): the recipe has a slot (`highways: []`).
 - **No streets or buildings are shared** between the towns, and the preview is 2D.
 - **The land of the first town is still a rectangle** in the game; its coast in the recipe is drawn *round* it for the map.
