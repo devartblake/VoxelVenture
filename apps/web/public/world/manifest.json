@@ -6,7 +6,7 @@
  },
  "chunk": {
   "size": 128,
-  "count": 273,
+  "count": 288,
   "files": "chunks/<cx>_<cz>.json"
  },
  "ocean": {
@@ -8111,6 +8111,8 @@
    "seed": 20260101,
    "landmass": "mainland",
    "live": true,
+   "vacant": false,
+   "built": 489,
    "origin": {
     "x": 0,
     "z": 0
@@ -8134,6 +8136,8 @@
    "seed": 8675309,
    "landmass": "harbor-isle",
    "live": false,
+   "vacant": true,
+   "built": 2,
    "origin": {
     "x": 1948.17,
     "z": 133.64
@@ -8201,6 +8205,15 @@
  ],
  "chunks": [
   {
+   "key": "-10_-5",
+   "cx": -10,
+   "cz": -5,
+   "land": 0.02,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "-10_-4",
    "cx": -10,
    "cz": -4,
@@ -8213,7 +8226,7 @@
    "key": "-9_-6",
    "cx": -9,
    "cz": -6,
-   "land": 0.12,
+   "land": 0.08,
    "plots": 0,
    "roads": 0,
    "highways": 1,
@@ -8262,7 +8275,7 @@
    "key": "-8_-4",
    "cx": -8,
    "cz": -4,
-   "land": 0.84,
+   "land": 0.88,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -8271,7 +8284,7 @@
    "key": "-8_-3",
    "cx": -8,
    "cz": -3,
-   "land": 0.08,
+   "land": 0.09,
    "plots": 0,
    "roads": 0,
    "highways": 2
@@ -8280,7 +8293,7 @@
    "key": "-7_-7",
    "cx": -7,
    "cz": -7,
-   "land": 0.08,
+   "land": 0.07,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -8316,7 +8329,7 @@
    "key": "-7_-3",
    "cx": -7,
    "cz": -3,
-   "land": 0.96,
+   "land": 0.94,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -8329,6 +8342,15 @@
    "plots": 0,
    "roads": 0,
    "highways": 6
+  },
+  {
+   "key": "-7_-1",
+   "cx": -7,
+   "cz": -1,
+   "land": 0.01,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
   },
   {
    "key": "-6_-7",
@@ -8388,16 +8410,25 @@
    "key": "-6_-1",
    "cx": -6,
    "cz": -1,
-   "land": 0.6,
+   "land": 0.57,
    "plots": 0,
    "roads": 0,
    "highways": 6
   },
   {
+   "key": "-6_0",
+   "cx": -6,
+   "cz": 0,
+   "land": 0.01,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "-5_-7",
    "cx": -5,
    "cz": -7,
-   "land": 0.4,
+   "land": 0.41,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -8470,7 +8501,7 @@
    "key": "-5_1",
    "cx": -5,
    "cz": 1,
-   "land": 0.2,
+   "land": 0.22,
    "plots": 0,
    "roads": 0,
    "highways": 4
@@ -8479,7 +8510,7 @@
    "key": "-4_-7",
    "cx": -4,
    "cz": -7,
-   "land": 0.4,
+   "land": 0.47,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -8553,7 +8584,7 @@
    "key": "-4_1",
    "cx": -4,
    "cz": 1,
-   "land": 0.76,
+   "land": 0.73,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -8562,7 +8593,7 @@
    "key": "-3_-7",
    "cx": -3,
    "cz": -7,
-   "land": 0.32,
+   "land": 0.29,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -8637,16 +8668,25 @@
    "key": "-3_1",
    "cx": -3,
    "cz": 1,
-   "land": 0.84,
+   "land": 0.86,
    "plots": 0,
    "roads": 0,
    "highways": 6
   },
   {
+   "key": "-2_-7",
+   "cx": -2,
+   "cz": -7,
+   "land": 0.02,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "-2_-6",
    "cx": -2,
    "cz": -6,
-   "land": 0.92,
+   "land": 0.94,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -8720,7 +8760,7 @@
    "key": "-2_2",
    "cx": -2,
    "cz": 2,
-   "land": 0.16,
+   "land": 0.17,
    "plots": 0,
    "roads": 0,
    "highways": 3
@@ -8810,7 +8850,7 @@
    "key": "-1_3",
    "cx": -1,
    "cz": 3,
-   "land": 0.08,
+   "land": 0.13,
    "plots": 0,
    "roads": 0,
    "highways": 1
@@ -8819,7 +8859,7 @@
    "key": "0_-6",
    "cx": 0,
    "cz": -6,
-   "land": 0.56,
+   "land": 0.57,
    "plots": 0,
    "roads": 0,
    "highways": 7
@@ -8891,7 +8931,7 @@
    "key": "0_2",
    "cx": 0,
    "cz": 2,
-   "land": 1,
+   "land": 0.98,
    "plots": 0,
    "roads": 0,
    "highways": 3
@@ -8909,7 +8949,7 @@
    "key": "0_4",
    "cx": 0,
    "cz": 4,
-   "land": 0.2,
+   "land": 0.19,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -8918,7 +8958,7 @@
    "key": "1_-6",
    "cx": 1,
    "cz": -6,
-   "land": 0.28,
+   "land": 0.29,
    "plots": 0,
    "roads": 0,
    "highways": 4
@@ -8990,16 +9030,25 @@
    "key": "1_2",
    "cx": 1,
    "cz": 2,
-   "land": 0.48,
+   "land": 0.52,
    "plots": 0,
    "roads": 0,
    "highways": 5
   },
   {
+   "key": "2_-6",
+   "cx": 2,
+   "cz": -6,
+   "land": 0.02,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "2_-5",
    "cx": 2,
    "cz": -5,
-   "land": 0.92,
+   "land": 0.93,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9062,7 +9111,7 @@
    "key": "2_2",
    "cx": 2,
    "cz": 2,
-   "land": 0.36,
+   "land": 0.34,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9071,7 +9120,7 @@
    "key": "3_-5",
    "cx": 3,
    "cz": -5,
-   "land": 0.52,
+   "land": 0.54,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9134,7 +9183,7 @@
    "key": "4_-5",
    "cx": 4,
    "cz": -5,
-   "land": 0.04,
+   "land": 0.02,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -9143,7 +9192,7 @@
    "key": "4_-4",
    "cx": 4,
    "cz": -4,
-   "land": 0.6,
+   "land": 0.58,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9190,7 +9239,7 @@
    "key": "4_1",
    "cx": 4,
    "cz": 1,
-   "land": 0.6,
+   "land": 0.59,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9199,7 +9248,7 @@
    "key": "5_-3",
    "cx": 5,
    "cz": -3,
-   "land": 0.64,
+   "land": 0.62,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9238,7 +9287,7 @@
    "key": "5_1",
    "cx": 5,
    "cz": 1,
-   "land": 1,
+   "land": 0.98,
    "plots": 0,
    "roads": 0,
    "highways": 4
@@ -9247,7 +9296,7 @@
    "key": "5_2",
    "cx": 5,
    "cz": 2,
-   "land": 0.16,
+   "land": 0.19,
    "plots": 0,
    "roads": 0,
    "highways": 3
@@ -9256,7 +9305,7 @@
    "key": "6_-3",
    "cx": 6,
    "cz": -3,
-   "land": 0.08,
+   "land": 0.07,
    "plots": 0,
    "roads": 0,
    "highways": 1
@@ -9265,7 +9314,7 @@
    "key": "6_-2",
    "cx": 6,
    "cz": -2,
-   "land": 0.92,
+   "land": 0.93,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9303,7 +9352,7 @@
    "key": "6_2",
    "cx": 6,
    "cz": 2,
-   "land": 0.4,
+   "land": 0.43,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9312,7 +9361,7 @@
    "key": "7_-2",
    "cx": 7,
    "cz": -2,
-   "land": 0.52,
+   "land": 0.55,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9351,7 +9400,7 @@
    "key": "7_2",
    "cx": 7,
    "cz": 2,
-   "land": 0.4,
+   "land": 0.44,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9360,7 +9409,7 @@
    "key": "8_-2",
    "cx": 8,
    "cz": -2,
-   "land": 0.12,
+   "land": 0.1,
    "plots": 0,
    "roads": 0,
    "highways": 2
@@ -9369,7 +9418,7 @@
    "key": "8_-1",
    "cx": 8,
    "cz": -1,
-   "land": 0.76,
+   "land": 0.79,
    "plots": 0,
    "roads": 0,
    "highways": 9,
@@ -9398,7 +9447,7 @@
    "key": "8_2",
    "cx": 8,
    "cz": 2,
-   "land": 0.56,
+   "land": 0.54,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9425,7 +9474,7 @@
    "key": "9_0",
    "cx": 9,
    "cz": 0,
-   "land": 0.24,
+   "land": 0.25,
    "plots": 0,
    "roads": 0,
    "highways": 3
@@ -9434,7 +9483,7 @@
    "key": "9_1",
    "cx": 9,
    "cz": 1,
-   "land": 0.68,
+   "land": 0.66,
    "plots": 0,
    "roads": 0,
    "highways": 7
@@ -9443,7 +9492,7 @@
    "key": "9_2",
    "cx": 9,
    "cz": 2,
-   "land": 0.32,
+   "land": 0.34,
    "plots": 0,
    "roads": 0,
    "highways": 7
@@ -9497,7 +9546,7 @@
    "key": "12_-1",
    "cx": 12,
    "cz": -1,
-   "land": 0.16,
+   "land": 0.13,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -9506,7 +9555,7 @@
    "key": "12_0",
    "cx": 12,
    "cz": 0,
-   "land": 0.2,
+   "land": 0.27,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9515,7 +9564,7 @@
    "key": "12_1",
    "cx": 12,
    "cz": 1,
-   "land": 0.2,
+   "land": 0.26,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9524,7 +9573,7 @@
    "key": "12_2",
    "cx": 12,
    "cz": 2,
-   "land": 0.12,
+   "land": 0.1,
    "plots": 0,
    "roads": 0,
    "highways": 2
@@ -9533,7 +9582,7 @@
    "key": "13_-4",
    "cx": 13,
    "cz": -4,
-   "land": 0.04,
+   "land": 0.02,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -9542,7 +9591,7 @@
    "key": "13_-3",
    "cx": 13,
    "cz": -3,
-   "land": 0.44,
+   "land": 0.45,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9551,7 +9600,7 @@
    "key": "13_-2",
    "cx": 13,
    "cz": -2,
-   "land": 0.84,
+   "land": 0.85,
    "plots": 0,
    "roads": 0,
    "highways": 8
@@ -9596,7 +9645,7 @@
    "key": "13_3",
    "cx": 13,
    "cz": 3,
-   "land": 0.8,
+   "land": 0.79,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9605,7 +9654,7 @@
    "key": "13_4",
    "cx": 13,
    "cz": 4,
-   "land": 0.44,
+   "land": 0.41,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -9614,7 +9663,7 @@
    "key": "14_-4",
    "cx": 14,
    "cz": -4,
-   "land": 0.36,
+   "land": 0.38,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -9695,7 +9744,7 @@
    "key": "14_5",
    "cx": 14,
    "cz": 5,
-   "land": 0.24,
+   "land": 0.22,
    "plots": 0,
    "roads": 0,
    "highways": 4
@@ -9704,7 +9753,7 @@
    "key": "15_-4",
    "cx": 15,
    "cz": -4,
-   "land": 0.6,
+   "land": 0.63,
    "plots": 0,
    "roads": 0,
    "highways": 8
@@ -9785,7 +9834,7 @@
    "key": "15_5",
    "cx": 15,
    "cz": 5,
-   "land": 0.36,
+   "land": 0.42,
    "plots": 0,
    "roads": 0,
    "highways": 7
@@ -9794,7 +9843,7 @@
    "key": "16_-7",
    "cx": 16,
    "cz": -7,
-   "land": 0.52,
+   "land": 0.54,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -9803,7 +9852,7 @@
    "key": "16_-6",
    "cx": 16,
    "cz": -6,
-   "land": 0.12,
+   "land": 0.13,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -9812,7 +9861,7 @@
    "key": "16_-4",
    "cx": 16,
    "cz": -4,
-   "land": 0.16,
+   "land": 0.15,
    "plots": 0,
    "roads": 0,
    "highways": 2
@@ -9821,7 +9870,7 @@
    "key": "16_-3",
    "cx": 16,
    "cz": -3,
-   "land": 1,
+   "land": 0.98,
    "plots": 0,
    "roads": 0,
    "highways": 7
@@ -9884,7 +9933,7 @@
    "key": "16_4",
    "cx": 16,
    "cz": 4,
-   "land": 1,
+   "land": 0.98,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -9893,7 +9942,7 @@
    "key": "16_5",
    "cx": 16,
    "cz": 5,
-   "land": 0.08,
+   "land": 0.07,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -9911,7 +9960,7 @@
    "key": "17_-6",
    "cx": 17,
    "cz": -6,
-   "land": 0.4,
+   "land": 0.39,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -9920,7 +9969,7 @@
    "key": "17_-3",
    "cx": 17,
    "cz": -3,
-   "land": 0.12,
+   "land": 0.14,
    "plots": 0,
    "roads": 0,
    "highways": 3
@@ -9929,7 +9978,7 @@
    "key": "17_-2",
    "cx": 17,
    "cz": -2,
-   "land": 0.56,
+   "land": 0.54,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -9983,7 +10032,7 @@
    "key": "17_4",
    "cx": 17,
    "cz": 4,
-   "land": 0.56,
+   "land": 0.61,
    "plots": 0,
    "roads": 0,
    "highways": 7
@@ -10001,7 +10050,7 @@
    "key": "18_-6",
    "cx": 18,
    "cz": -6,
-   "land": 0.2,
+   "land": 0.21,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10010,7 +10059,7 @@
    "key": "18_-1",
    "cx": 18,
    "cz": -1,
-   "land": 0.28,
+   "land": 0.3,
    "plots": 0,
    "roads": 0,
    "highways": 4
@@ -10019,7 +10068,7 @@
    "key": "18_0",
    "cx": 18,
    "cz": 0,
-   "land": 1,
+   "land": 0.99,
    "plots": 0,
    "roads": 0,
    "highways": 4
@@ -10046,16 +10095,43 @@
    "key": "18_3",
    "cx": 18,
    "cz": 3,
-   "land": 0.84,
+   "land": 0.82,
    "plots": 0,
    "roads": 0,
    "highways": 6
   },
   {
+   "key": "18_4",
+   "cx": 18,
+   "cz": 4,
+   "land": 0.01,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
+   "key": "19_-8",
+   "cx": 19,
+   "cz": -8,
+   "land": 0.01,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "19_-7",
    "cx": 19,
    "cz": -7,
-   "land": 0.88,
+   "land": 0.89,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
+   "key": "19_-6",
+   "cx": 19,
+   "cz": -6,
+   "land": 0.01,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10064,7 +10140,7 @@
    "key": "19_0",
    "cx": 19,
    "cz": 0,
-   "land": 0.84,
+   "land": 0.82,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -10091,7 +10167,7 @@
    "key": "19_3",
    "cx": 19,
    "cz": 3,
-   "land": 0.44,
+   "land": 0.48,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -10100,7 +10176,7 @@
    "key": "20_-8",
    "cx": 20,
    "cz": -8,
-   "land": 0.16,
+   "land": 0.15,
    "plots": 0,
    "roads": 0,
    "highways": 0,
@@ -10110,7 +10186,7 @@
    "key": "20_-7",
    "cx": 20,
    "cz": -7,
-   "land": 0.76,
+   "land": 0.73,
    "plots": 0,
    "roads": 0,
    "highways": 0,
@@ -10120,7 +10196,7 @@
    "key": "20_-1",
    "cx": 20,
    "cz": -1,
-   "land": 0.2,
+   "land": 0.22,
    "plots": 0,
    "roads": 0,
    "highways": 3
@@ -10129,7 +10205,7 @@
    "key": "20_0",
    "cx": 20,
    "cz": 0,
-   "land": 0.96,
+   "land": 0.97,
    "plots": 0,
    "roads": 0,
    "highways": 4
@@ -10156,7 +10232,7 @@
    "key": "20_3",
    "cx": 20,
    "cz": 3,
-   "land": 0.04,
+   "land": 0.03,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10165,7 +10241,7 @@
    "key": "21_-8",
    "cx": 21,
    "cz": -8,
-   "land": 0.36,
+   "land": 0.35,
    "plots": 0,
    "roads": 0,
    "highways": 0,
@@ -10175,11 +10251,20 @@
    "key": "21_-7",
    "cx": 21,
    "cz": -7,
-   "land": 0.6,
+   "land": 0.59,
    "plots": 0,
    "roads": 0,
    "highways": 0,
    "heights": true
+  },
+  {
+   "key": "21_-2",
+   "cx": 21,
+   "cz": -2,
+   "land": 0.05,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
   },
   {
    "key": "21_-1",
@@ -10212,7 +10297,7 @@
    "key": "21_2",
    "cx": 21,
    "cz": 2,
-   "land": 0.44,
+   "land": 0.41,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -10221,7 +10306,7 @@
    "key": "22_-8",
    "cx": 22,
    "cz": -8,
-   "land": 0.52,
+   "land": 0.5,
    "plots": 0,
    "roads": 0,
    "highways": 0,
@@ -10241,7 +10326,7 @@
    "key": "22_-5",
    "cx": 22,
    "cz": -5,
-   "land": 0.08,
+   "land": 0.06,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10250,7 +10335,25 @@
    "key": "22_-4",
    "cx": 22,
    "cz": -4,
-   "land": 0.24,
+   "land": 0.26,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
+   "key": "22_-3",
+   "cx": 22,
+   "cz": -3,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
+   "key": "22_-2",
+   "cx": 22,
+   "cz": -2,
+   "land": 0.02,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10259,7 +10362,7 @@
    "key": "22_-1",
    "cx": 22,
    "cz": -1,
-   "land": 0.8,
+   "land": 0.75,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -10288,7 +10391,7 @@
    "key": "22_2",
    "cx": 22,
    "cz": 2,
-   "land": 0.28,
+   "land": 0.27,
    "plots": 0,
    "roads": 0,
    "highways": 5
@@ -10297,7 +10400,17 @@
    "key": "23_-8",
    "cx": 23,
    "cz": -8,
-   "land": 0.48,
+   "land": 0.47,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0,
+   "heights": true
+  },
+  {
+   "key": "23_-7",
+   "cx": 23,
+   "cz": -7,
+   "land": 0.02,
    "plots": 0,
    "roads": 0,
    "highways": 0,
@@ -10307,7 +10420,7 @@
    "key": "23_-5",
    "cx": 23,
    "cz": -5,
-   "land": 0.68,
+   "land": 0.65,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10325,7 +10438,7 @@
    "key": "23_-3",
    "cx": 23,
    "cz": -3,
-   "land": 0.28,
+   "land": 0.32,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10334,7 +10447,7 @@
    "key": "23_-1",
    "cx": 23,
    "cz": -1,
-   "land": 0.36,
+   "land": 0.38,
    "plots": 0,
    "roads": 0,
    "highways": 6
@@ -10373,7 +10486,7 @@
    "key": "24_-8",
    "cx": 24,
    "cz": -8,
-   "land": 0.04,
+   "land": 0.05,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10382,7 +10495,7 @@
    "key": "24_-5",
    "cx": 24,
    "cz": -5,
-   "land": 0.64,
+   "land": 0.66,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10400,7 +10513,7 @@
    "key": "24_-3",
    "cx": 24,
    "cz": -3,
-   "land": 0.2,
+   "land": 0.19,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10409,7 +10522,7 @@
    "key": "24_-1",
    "cx": 24,
    "cz": -1,
-   "land": 0.2,
+   "land": 0.24,
    "plots": 0,
    "roads": 0,
    "highways": 3
@@ -10435,10 +10548,20 @@
    "heights": true
   },
   {
+   "key": "24_2",
+   "cx": 24,
+   "cz": 2,
+   "land": 0.01,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0,
+   "heights": true
+  },
+  {
    "key": "25_-5",
    "cx": 25,
    "cz": -5,
-   "land": 0.48,
+   "land": 0.46,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10447,7 +10570,7 @@
    "key": "25_-4",
    "cx": 25,
    "cz": -4,
-   "land": 0.72,
+   "land": 0.66,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10456,7 +10579,7 @@
    "key": "25_-1",
    "cx": 25,
    "cz": -1,
-   "land": 0.2,
+   "land": 0.16,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10475,7 +10598,7 @@
    "key": "25_1",
    "cx": 25,
    "cz": 1,
-   "land": 0.96,
+   "land": 0.93,
    "plots": 0,
    "roads": 0,
    "highways": 7,
@@ -10485,7 +10608,7 @@
    "key": "26_-5",
    "cx": 26,
    "cz": -5,
-   "land": 0.52,
+   "land": 0.51,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10503,7 +10626,7 @@
    "key": "26_-1",
    "cx": 26,
    "cz": -1,
-   "land": 0.04,
+   "land": 0.08,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10522,7 +10645,7 @@
    "key": "26_1",
    "cx": 26,
    "cz": 1,
-   "land": 0.8,
+   "land": 0.82,
    "plots": 0,
    "roads": 0,
    "highways": 5,
@@ -10532,7 +10655,7 @@
    "key": "27_-5",
    "cx": 27,
    "cz": -5,
-   "land": 0.6,
+   "land": 0.64,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10550,7 +10673,16 @@
    "key": "27_-3",
    "cx": 27,
    "cz": -3,
-   "land": 0.08,
+   "land": 0.09,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
+   "key": "27_-1",
+   "cx": 27,
+   "cz": -1,
+   "land": 0.06,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10569,7 +10701,7 @@
    "key": "27_1",
    "cx": 27,
    "cz": 1,
-   "land": 0.8,
+   "land": 0.74,
    "plots": 0,
    "roads": 0,
    "highways": 6,
@@ -10579,7 +10711,7 @@
    "key": "28_-5",
    "cx": 28,
    "cz": -5,
-   "land": 0.4,
+   "land": 0.42,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10588,7 +10720,7 @@
    "key": "28_-4",
    "cx": 28,
    "cz": -4,
-   "land": 0.92,
+   "land": 0.94,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10598,6 +10730,15 @@
    "cx": 28,
    "cz": -3,
    "land": 0.08,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
+   "key": "28_-1",
+   "cx": 28,
+   "cz": -1,
+   "land": 0.02,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10616,7 +10757,7 @@
    "key": "28_1",
    "cx": 28,
    "cz": 1,
-   "land": 0.6,
+   "land": 0.63,
    "plots": 0,
    "roads": 0,
    "highways": 5,
@@ -10626,7 +10767,7 @@
    "key": "29_-5",
    "cx": 29,
    "cz": -5,
-   "land": 0.04,
+   "land": 0.03,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10635,7 +10776,7 @@
    "key": "29_-4",
    "cx": 29,
    "cz": -4,
-   "land": 0.4,
+   "land": 0.39,
    "plots": 0,
    "roads": 0,
    "highways": 0
@@ -10662,7 +10803,7 @@
    "key": "30_0",
    "cx": 30,
    "cz": 0,
-   "land": 0.84,
+   "land": 0.85,
    "plots": 0,
    "roads": 0,
    "highways": 8
@@ -10680,7 +10821,7 @@
    "key": "31_0",
    "cx": 31,
    "cz": 0,
-   "land": 0.64,
+   "land": 0.62,
    "plots": 0,
    "roads": 0,
    "highways": 9
@@ -10708,5 +10849,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "d01dfd5f7b3fc656"
+ "hash": "bb906aa86b72dd31"
 }

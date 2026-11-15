@@ -4,7 +4,7 @@
 
 ```
 manifest.json            the world: landmasses (coast, harbour, airstrip, ranges), towns (origin, land, plot id range), highways, causeways, links, ocean, the chunk index, a hash
-chunks/<cx>_<cz>.json    one square of the map: plots (id, place, size, facing, district), roads and highways cut at the chunk's edges, the land share, and the ground heights on a 5 x 5 grid
+chunks/<cx>_<cz>.json    one square of the map: plots (id, place, size, facing, district), roads and highways cut at the chunk's edges, the land share, and the ground grid (16 x 16 cells of land, beach or sea, with the height at each corner)
 ```
 
 The first run baked 273 chunks and 274 files, 473 KB, for the mainland, Harbor Isle and the two Lesser Caymans (open sea is not baked). The code is `lib/world/bake.js` (pure) and `lib/world/bakedWorld.js` (a loader: `loadBakedWorld(load)` gives `chunk(cx, cz)`, `near(x, z, radius)` and `plot(id)`).
@@ -28,3 +28,15 @@ Adding roads, towns or landmasses is **not a problem**, because the bake is rege
 So the rule is: **append, never renumber, never move what is live.** Re-bake after every change and commit the files. The staging database's island lots (ids from 1,000,000) were seeded from an older shape and must be re-seeded once, before Harbor Isle opens.
 
 Not yet there: a **world hash check** between the client and the server (the manifest carries one), the **merged chunk geometry** and the **streaming runtime** (task 11), and a **save that holds only the player's changes**.
+
+## Plots that have builds on them, and letting players claim them
+
+The bake holds where a plot is, not what stands on it, so there is nothing in the bake to remove. What stands on a plot comes from the generator (a seeded building and a made-up owner such as "ChefLuigi") and from the server's `plots` table. Today, of Voxel Town's 1,010 plots, 489 are built by the generator (the city's own businesses, with no player account behind them) and 521 are empty lots; Harbor Town has 566 built and 504 empty. A player claims an empty lot directly, and can already take over a city business for 1.25 times its land price (`takeOverPlot`), so a build is not a block, only an extra cost.
+
+Making them claimable as empty lots is two changes that must agree: the **generator** has to stop drawing the building, and the **server** has to clear the owner (`owner_name` null, `claimable` 1) for plots with no player account, which never touches a plot a player holds. It affects the daily features that name the city's businesses (the 2,061 catalogue tasks, Plot of the Day, the chest): tasks whose target no longer exists are already dropped by the server's `finishable()` filter, but the numbers change. So: do it for **Harbor Isle first** (a recipe option, since it is not live and has no owners), and for Voxel Town decide how many city businesses to keep as the city's own landmarks.
+
+**Done for Harbor Isle (2026-11-15).** The recipe's `vacant: true` on Harbor Town (lib/world/vacant.js) takes every business of the city's own off its 1,070 lots, so all but the two admin headquarters are empty lots (Empty Lot, Prime Lot, Luxury Estate or Grand Estate #n, valued 50 to 100 a cell, from the lot's id so every machine agrees). Ids, places, sizes, facings and districts are exactly the generator's, so the bake and the ids did not move (a test compares them); the bake's plot records now say `built`, and the manifest counts each town's built lots (Voxel Town 489 and the two HQs' two, Harbor Town 2). A live town, or the first, cannot be vacant: the recipe refuses it.
+
+**Opening it for claims** is a separate switch: `WORLD_OPEN=harbor` in `api.env` (default none) makes the lots claimable (`openTowns` in `services/api/core.mjs`). It only opens a vacant, seeded town (`WORLD_TOWNS=harbor` first), only lots with no owner and not already claimable, and never the admin headquarters; a lot a player holds is untouched, and running it again opens nothing (all tested: 1,067 lots open, one held and the two HQs left closed). Leave it unset until players can reach the island (task 11): an open lot shows in the directory and the market.
+
+**Voxel Town** is not changed: its businesses are in the live database. Letting players claim some of those is a policy decision (how many to keep as the city's own landmarks); the mechanics for it, a vacate list for the first town's non-admin, unowned plots applied to both the generator and the server, can follow the same way once you pick the number.
