@@ -10,6 +10,7 @@ import { isBlocked } from '@/lib/sim/collision';
 import { FISHING, VEHICLES, inWater, pullLine, stepVehicle, tickLine, waterRects } from '@/lib/sim/vehicles';
 import { autopilot, hitsPier } from '@/lib/sim/docking';
 import { carSurfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
+import { SEA_LEVEL, activeTerrain } from '@/lib/world/terrain';
 import { boatModel } from '@/lib/content/boatModels';
 import { PropModel } from './PropModels';
 import { fleetRefs, useFleet } from '@/lib/state/fleetStore';
@@ -243,10 +244,12 @@ export default function Vehicles() {
     }
     // ---- drive
     const map = fleetRefs.collision;
+    // with the baked world mounted (?world=baked) the baked ground decides outside the town: a car stays on land and bridges and off steep ground, a boat on the sea; inside the town the old rules
+    const terrain = activeTerrain();
     const canMove =
       v.kind === 'car'
-        ? (x, z, r) => !map || (!isBlocked(x, z, map.rects, r) && x > map.bounds.x0 && x < map.bounds.x1 && z > map.bounds.z0 && z < map.bounds.z1)
-        : (x, z, r) => inWater(x, z, water, r * 0.6) && !hitsPier(x, z, r * 0.8, piers); // (a boat sails round a pier, not through it)
+        ? (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'car') : !map || (!isBlocked(x, z, map.rects, r) && x > map.bounds.x0 && x < map.bounds.x1 && z > map.bounds.z0 && z < map.bounds.z1))
+        : (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'boat') : inWater(x, z, water, r * 0.6) && !hitsPier(x, z, r * 0.8, piers)); // (a boat sails round a pier, not through it)
     stepVehicle(v, { throttle, steer }, dt, canMove);
     avatarState.x = v.x;
     avatarState.z = v.z;
@@ -283,7 +286,8 @@ export default function Vehicles() {
     const g = driven.current;
     if (g) {
       g.visible = true;
-      g.position.set(v.x, v.kind === 'boat' ? WATER_Y : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
+      const baked = activeTerrain()?.decides(v.x, v.z) ? activeTerrain() : null; // outside the town, the baked ground
+      g.position.set(v.x, v.kind === 'boat' ? (baked ? SEA_LEVEL + 0.04 : WATER_Y) : baked ? baked.groundY(v.x, v.z) : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
       g.rotation.set(0, v.yaw, 0);
     }
     if (v.kind === 'boat' && l.phase !== 'idle' && rod && bobber && string) {

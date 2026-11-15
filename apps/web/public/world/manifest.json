@@ -6,7 +6,7 @@
  },
  "chunk": {
   "size": 128,
-  "count": 289,
+  "count": 299,
   "files": "chunks/<cx>_<cz>.json"
  },
  "ocean": {
@@ -8179,14 +8179,54 @@
    "name": "Harbor Causeway",
    "length": 455.79,
    "bridge": 391.82,
-   "clearance": 9
+   "clearance": 9,
+   "points": [
+    {
+     "x": 1220.76,
+     "z": 266.78
+    },
+    {
+     "x": 1675.66,
+     "z": 295.27
+    }
+   ],
+   "span": {
+    "from": {
+     "x": 1252.68,
+     "z": 268.78
+    },
+    "to": {
+     "x": 1643.74,
+     "z": 293.27
+    }
+   }
   },
   {
    "id": "north-causeway",
    "name": "North Causeway",
    "length": 676.25,
    "bridge": 606.43,
-   "clearance": 9
+   "clearance": 9,
+   "points": [
+    {
+     "x": 1063.12,
+     "z": -109.96
+    },
+    {
+     "x": 1729.32,
+     "z": -226.12
+    }
+   ],
+   "span": {
+    "from": {
+     "x": 1096.53,
+     "z": -115.79
+    },
+    "to": {
+     "x": 1693.95,
+     "z": -219.95
+    }
+   }
   }
  ],
  "links": [
@@ -8250,6 +8290,15 @@
    "plots": 0,
    "roads": 0,
    "highways": 8
+  },
+  {
+   "key": "-8_-7",
+   "cx": -8,
+   "cz": -7,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
   },
   {
    "key": "-8_-6",
@@ -8672,6 +8721,15 @@
    "plots": 0,
    "roads": 0,
    "highways": 6
+  },
+  {
+   "key": "-3_2",
+   "cx": -3,
+   "cz": 2,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
   },
   {
    "key": "-2_-7",
@@ -9248,6 +9306,15 @@
    "heights": true
   },
   {
+   "key": "5_-4",
+   "cx": 5,
+   "cz": -4,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "5_-3",
    "cx": 5,
    "cz": -3,
@@ -9593,6 +9660,15 @@
    "highways": 2
   },
   {
+   "key": "12_3",
+   "cx": 12,
+   "cz": 3,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "13_-4",
    "cx": 13,
    "cz": -4,
@@ -9672,6 +9748,15 @@
    "plots": 0,
    "roads": 0,
    "highways": 5
+  },
+  {
+   "key": "13_5",
+   "cx": 13,
+   "cz": 5,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
   },
   {
    "key": "14_-4",
@@ -10059,6 +10144,15 @@
    "plots": 0,
    "roads": 0,
    "highways": 7
+  },
+  {
+   "key": "18_-8",
+   "cx": 18,
+   "cz": -8,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
   },
   {
    "key": "18_-7",
@@ -10599,6 +10693,15 @@
    "highways": 0
   },
   {
+   "key": "25_-3",
+   "cx": 25,
+   "cz": -3,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "25_-1",
    "cx": 25,
    "cz": -1,
@@ -10625,6 +10728,16 @@
    "plots": 0,
    "roads": 0,
    "highways": 7,
+   "heights": true
+  },
+  {
+   "key": "25_2",
+   "cx": 25,
+   "cz": 2,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0,
    "heights": true
   },
   {
@@ -10805,6 +10918,15 @@
    "highways": 0
   },
   {
+   "key": "29_-1",
+   "cx": 29,
+   "cz": -1,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
+  },
+  {
    "key": "29_0",
    "cx": 29,
    "cz": 0,
@@ -10821,6 +10943,15 @@
    "plots": 0,
    "roads": 0,
    "highways": 6
+  },
+  {
+   "key": "30_-1",
+   "cx": 30,
+   "cz": -1,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0
   },
   {
    "key": "30_0",
@@ -10872,5 +11003,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "b39dd8a2503a1fce"
+ "hash": "f7db6d78f4a01e71"
 }

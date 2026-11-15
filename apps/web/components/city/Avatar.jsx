@@ -10,6 +10,7 @@ import { avatarState } from '@/lib/sim/avatarState';
 import { surfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
 import { buildingHalf, buildCollisionMap, findSpawn, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
+import { activeTerrain } from '@/lib/world/terrain';
 import { startSpot } from '@/lib/game/spawn';
 import { CORNER_REACHED, findWalkPath, prepareWalkMap } from '@/lib/sim/pathfind';
 import { graphFor } from '@/lib/city/routing';
@@ -318,7 +319,10 @@ export default function Avatar() {
     if (len > 0) {
       const dx = (ix / len) * speed * dt;
       const dz = (iz / len) * speed * dt;
-      const next = moveAvatar(avatarState.x, avatarState.z, dx, dz, collisionRef.current);
+      // with the baked world mounted (?world=baked) the avatar may leave the town's land: the baked ground decides where it can stand outside the town (the coast, steep ground), the town's own rules inside
+      const terrain = activeTerrain();
+      const next = moveAvatar(avatarState.x, avatarState.z, dx, dz, terrain ? { ...collisionRef.current, bounds: terrain.bounds } : collisionRef.current);
+      if (terrain) Object.assign(next, terrain.constrain(avatarState.x, avatarState.z, next.x, next.z, 'walk'));
       moved = Math.hypot(next.x - avatarState.x, next.z - avatarState.z);
       avatarState.x = next.x;
       avatarState.z = next.z;
@@ -375,7 +379,9 @@ export default function Avatar() {
     }
     if (moved > 0) avatarState.emote = null; // walking cancels an emote
 
-    root.current.position.set(avatarState.x, surfaceHeight(layout, avatarState.x, avatarState.z, plots) + lift, avatarState.z);
+    const terrainNow = activeTerrain();
+    const ground = terrainNow?.decides(avatarState.x, avatarState.z) ? terrainNow.groundY(avatarState.x, avatarState.z) : surfaceHeight(layout, avatarState.x, avatarState.z, plots); // the baked ground (a mountain, a bridge deck) outside the town
+    root.current.position.set(avatarState.x, ground + lift, avatarState.z);
     root.current.rotation.y = avatarState.yaw + spin;
     legL.current.rotation.x = swing;
     legR.current.rotation.x = -swing;

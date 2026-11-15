@@ -7,6 +7,7 @@ The game today loads one town and builds all of it at once. The streaming runtim
 | 1 | **The chunk manager** ([lib/world/chunkManager.js](../../lib/world/chunkManager.js)): which chunks are wanted around the player, loaded nearest first one per frame, let go of with hysteresis, capped, with a look-ahead in the direction of travel | done (2026-11-15), `tests/world-streaming.test.mjs` |
 | 2 | **Merged chunk geometry** ([lib/world/chunkMesh.js](../../lib/world/chunkMesh.js)): each chunk becomes three meshes, however much is in it: the ground, the town roads and the highways (rings, spurs, links, causeways and the bridges' raised decks). Done (2026-11-15), `tests/world-chunk-mesh.test.mjs` | done |
 | 3 | **A React layer** (`apps/web/components/world/StreamedWorld.jsx`, `lib/world/chunkObject.js`) that mounts and disposes what the manager says: a dev page `/world/stream` and, in the game, `?world=baked` (the game is unchanged without it). Done (2026-11-15), `tests/world-chunk-object.test.mjs` and a browser check | done |
+| 3b | **A smooth coast, water and the ground under things**: the shore cut from a baked signed distance, a sea plane, and `lib/world/terrain.js` (height, surface, slope and where a person, car or boat can be), used by the avatar, cars and boats outside the town with `?world=baked`. Done (2026-11-15), `tests/world-terrain.test.mjs` | done |
 | 4 | **Overview pictures**: a baked flat picture of each chunk, for the Overview and Top-down cameras and the mini-map | |
 | 5 | **A spatial collision index** in place of one list for the whole town | |
 | 6 | **Shadows and far planes that follow the camera** (the shadow box is 300 x 300 today) | |
@@ -44,3 +45,21 @@ What these meshes do not draw: plots and buildings (still made from the town's s
 
 - **`/world/stream`** (development page): the baked world with an orbit camera and jump buttons (Voxel Town, Harbor Town, Blue Mountains). Checked in a real browser: it mounts 25 chunks at the start and keeps swapping as the camera moves (49 mounts and 20 unmounts after one jump).
 - **`?world=baked` in the game:** mounts the chunks round the player that are not on the first town's land (the town is still drawn by the generator's code), so the coast, mountains, coastal roads and causeways appear beyond it. `?profile=phone|desktop|overview` picks the ring. Without the flag nothing is mounted (the browser test checks both).
+
+## A smooth coast and the sea (slice 3b)
+
+The staircase of 4-unit cells at the coast is gone. The bake writes, for each chunk with a coast near it, the **signed distance to the coast** at every corner (decimetres, positive on land, clamped to 40 units). The mesh cuts the ground along that field with marching squares: the edge of the ground follows the true coast to within 0.05 of a unit (a test measures it on 158 cut vertices), the beach is a band of sand that fades into the land colour (all sand within 10 units of the shore, gone by 16), and beyond the coast the ground slopes down to 1.5 under the sea over 6 units (the shallows). One **sea plane** at -0.3 (`StreamedWorld.jsx`) covers the whole ocean, so the shore appears where the slope meets it. The shore chunks cost up to about 2,100 triangles (the ring round the town is now about 14,000).
+
+## Collision and the ground under things (slice 3c)
+
+`lib/world/terrain.js` reads the mounted chunks and answers, at any point: the **height** (the baked ground, or a bridge deck), the **surface** (`land`, `beach`, `sea`, `bridge`, or `town` where the caller draws the ground itself), and the **slope**. From that: `canStand(x, z, mode)`, `move(x, z, dx, dz, mode)` (one axis at a time, so a body slides along a coast or a slope instead of sticking) and `constrain(...)` for the game, which leaves the first town to its own rules.
+
+| Mode | Where it can be |
+| :-- | :-- |
+| walk | land, beach and bridges, on ground up to 45 degrees (slope 1.0); a body needs its whole footprint (a 0.3 radius) on the ground, so the coast stops you 0.3 units short of the water |
+| car | land, beach and bridges, on ground up to about 24 degrees (0.45); a 0.5 radius |
+| boat | the sea at least 2.5 units out from the shore, and under a bridge (the deck is overhead) |
+
+A chunk that exists but has not loaded yet is `known: false` and nothing may move into it, so a fast walker waits a moment for the ground instead of falling into the void; open sea has no chunk and is sea. Tested on the real bake: walking west from the town across the land and the beach to the sea (1,383 steps) stops on the beach, a car drives the whole 392-unit bridge without being refused once, the deck is a smooth climb to 9 and back (no step over 0.22), a boat sails the gap and cannot land, and 100,000 samples take 15 ms.
+
+**In the game** (`?world=baked`): `StreamedWorld` registers the terrain (`setActiveTerrain`); the avatar (`Avatar.jsx`), cars and boats (`Vehicles.jsx`) ask it outside the town. The avatar may now leave the town's land (the bounds widen to the world's), walks onto the beach and stops at the sea, stands on mountains and bridge decks at their height, and the town's own collision still applies inside it. Not yet: click-to-walk routes across the baked ground (the path-finder knows only the town), and traffic.

@@ -40,7 +40,7 @@ const valid = (m, c) => {
   const faceUp = (m) => { for (let t = 0; t < m.indices.length; t += 3) { const [a, b, c] = [m.indices[t], m.indices[t + 1], m.indices[t + 2]].map((i) => [m.positions[i * 3], m.positions[i * 3 + 1], m.positions[i * 3 + 2]]); const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]; if (uz * vx - ux * vz <= 0 && !(uz * vx - ux * vz === 0 && uy * vz - uz * vy === 0)) return false; } return true; };
   const land = meshed.filter(({ c }) => c.ground);
   check('the ground faces up (every triangle is counter-clockwise from above)', land.every(({ m }) => faceUp(m.ground)));
-  check('ground is only where there is land: a chunk of open sea has none, a chunk with relief is two triangles for each land or beach cell, and a flat chunk merges runs of cells into quads (far fewer)', meshed.filter(({ c }) => !c.ground).every(({ m }) => m.ground.triangles === 0) && land.filter(({ c }) => c.ground.h).every(({ c, m }) => m.ground.triangles === 2 * [...c.ground.mask].filter((v) => v !== '0').length) && land.filter(({ c }) => !c.ground.h).every(({ c, m }) => m.ground.triangles <= 2 * [...c.ground.mask].filter((v) => v !== '0').length && m.ground.triangles < 400));
+  check('ground is only where there is land or shallows: a chunk of open sea has none; a chunk with relief and no shore is two triangles for each land or beach cell; a flat one merges runs of cells into quads (far fewer)', meshed.filter(({ c }) => !c.ground).every(({ m }) => m.ground.triangles === 0) && land.filter(({ c }) => c.ground.h && !c.ground.sd).every(({ c, m }) => m.ground.triangles === 2 * [...c.ground.mask].filter((v) => v !== '0').length) && land.filter(({ c }) => !c.ground.h && !c.ground.sd).every(({ c, m }) => m.ground.triangles <= 2 * [...c.ground.mask].filter((v) => v !== '0').length && m.ground.triangles < 400));
   check('every ground vertex is inside its chunk', land.every(({ c, m }) => { for (let v = 0; v < m.ground.positions.length; v += 3) { const x = m.ground.positions[v], z = m.ground.positions[v + 2]; if (x < c.bounds.x0 - 1e-6 || x > c.bounds.x1 + 1e-6 || z < c.bounds.z0 - 1e-6 || z > c.bounds.z1 + 1e-6) return false; } return true; }));
   const mt = land.filter(({ c }) => c.ground.h && Math.max(...c.ground.h) > 1400);
   const top = Math.max(...mt.map(({ m }) => { let y = 0; for (let v = 1; v < m.ground.positions.length; v += 3) y = Math.max(y, m.ground.positions[v]); return y; }));
@@ -60,6 +60,26 @@ const valid = (m, c) => {
   const beaches = land.filter(({ m }) => has(m, 226));
   const mountain = land.filter(({ c }) => c.ground.h && Math.max(...c.ground.h) > 1400);
   check('the coast has its beach (sand-coloured vertices), and the Blue Mountains are coloured by height and slope: grass below, bare rock above, pale at the peaks', beaches.length > 30 && mountain.some(({ m }) => { let rock = 0, pale = 0, green = 0; for (let v = 0; v < m.ground.colors.length; v += 3) { const [r, g, b] = [m.ground.colors[v], m.ground.colors[v + 1], m.ground.colors[v + 2]]; if (Math.abs(r - 118) < 14 && Math.abs(g - 110) < 14) rock++; else if (r > 185) pale++; else if (g > r + 20 && g > b + 20) green++; } return rock > 20 && green > 20 && pale >= 0; }));
+}
+
+// ---- the shore: cut smooth from the signed distance, and the shallows beyond it
+{
+  const { pointInPolygon } = await imp('world/island.js');
+  const { SKIRT } = await imp('world/bake.js');
+  const lms = baked.manifest.landmasses;
+  const signed = (x, z) => { let inside = false; let best = Infinity; for (const m of lms) { const pts = m.coast.points; if (pointInPolygon(x, z, pts)) inside = true; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; const dx = b.x - a.x, dz = b.z - a.z; const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1))); best = Math.min(best, Math.hypot(x - a.x - t * dx, z - a.z - t * dz)); } } return inside ? best : -best; };
+  const shore = meshed.filter(({ c }) => c.ground?.sd);
+  check('chunks with a coast near carry the signed distance at every corner (33 x 33), positive on land and negative at sea', shore.length > 100 && shore.every(({ c }) => c.ground.sd.length === 33 * 33) && shore.some(({ c }) => c.ground.sd.some((v) => v > 0) && c.ground.sd.some((v) => v < 0)), `${shore.length} chunks`);
+  // the cut: vertices at the bottom of the shallows (y -1.5) lie 6 units out to sea, to within a unit
+  let cut = 0, worst = 0;
+  for (const { m } of shore.slice(0, 60)) for (let v = 0; v < m.ground.positions.length; v += 3) if (Math.abs(m.ground.positions[v + 1] + 1.5) < 1e-3) { cut++; worst = Math.max(worst, Math.abs(signed(m.ground.positions[v], m.ground.positions[v + 2]) + SKIRT)); }
+  check('the edge of the ground follows the real coast: every vertex cut at the bottom of the shallows is 6 units out to sea, within 1 unit (a staircase of 4-unit cells would be off by up to 3)', cut > 100 && worst < 1.0, `${cut} vertices, worst ${worst.toFixed(2)}`);
+  const lowest = Math.min(...shore.map(({ m }) => { let y = 0; for (let v = 1; v < m.ground.positions.length; v += 3) y = Math.min(y, m.ground.positions[v]); return y; }));
+  check('under the sea the ground slopes down to 1.5 units and no lower, and every vertex is within 6 units of the coast or on land', lowest >= -1.5 - 1e-6 && lowest <= -1.4 && shore.every(({ m }) => { for (let v = 0; v < m.ground.positions.length; v += 3) if (signed(m.ground.positions[v], m.ground.positions[v + 2]) < -SKIRT - 1) return false; return true; }));
+  const sandy = shore.filter(({ m }) => { let sand = 0, grass = 0; for (let v = 0; v < m.ground.colors.length; v += 3) { const [r, g, b] = [m.ground.colors[v], m.ground.colors[v + 1], m.ground.colors[v + 2]]; if (r > 200 && g > 180) sand++; if (g > r + 20 && g > b + 20) grass++; } return sand > 4 && grass > 4; });
+  check('the beach is a band that fades from sand into the land colour (not a hard edge): coast chunks have both', sandy.length > 30, `${sandy.length} chunks`);
+  const faceUpShore = shore.every(({ m }) => { for (let t = 0; t < m.ground.indices.length; t += 3) { const [a, b, c] = [m.ground.indices[t], m.ground.indices[t + 1], m.ground.indices[t + 2]].map((i) => [m.ground.positions[i * 3], m.ground.positions[i * 3 + 2]]); if ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 1e-9) return false; } return true; });
+  check('the shore triangles all face up (counter-clockwise from above), clipped ones too', faceUpShore);
 }
 
 // ---- roads and highways
