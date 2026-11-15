@@ -54,7 +54,7 @@ The same steps for staging are in [deploy/STAGING.md](../../deploy/STAGING.md) (
 | Landmass | Town | Seed | Placed | Coast | Features |
 | :--- | :--- | ---: | :--- | :--- | :--- |
 | The Mainland | Voxel Town (index 0, live) | 20260101 | the origin | seed 1101, 70 beyond the land | beaches, headlands |
-| Harbor Isle | Harbor Town (index 1, **not live**) | 8675309 | east of the mainland, bearing 8 degrees, **380 units of open water** | seed 2202, 80 beyond the land | harbour, beaches, headlands, hills |
+| Harbor Isle | Harbor Town (index 1, **not live**) | 8675309 | east of the mainland, bearing 8 degrees, **380 units of open water** | seed 2202, 80 beyond the land | harbour, beaches, headlands, hills, **airstrip** |
 
 - **The first town never moves.** Its origin is (0, 0), so its coordinates and ids are what the game has always used.
 - **The island is placed by its gap, not by a guess.** Its land centre is moved out along the bearing until the open water between the two coasts is exactly the recipe's gap (found by bisection; the test allows 10 units either way). At 380 units and a boat speed of 3.6 a second, the crossing is about 100 seconds.
@@ -72,6 +72,7 @@ The same steps for staging are in [deploy/STAGING.md](../../deploy/STAGING.md) (
 - A smooth closed shape round a town's land, star-shaped about its centre, so it can **never cross itself**. For 72 directions the radius is what the land rectangle needs plus a margin for the beach, made lumpy by four seeded waves and smoothed; a last pass guarantees the town is inside whatever the waves did. The test tries six seeds on three differently shaped lands.
 - **Harbour**: the coast point that faces the nearest other landmass, with a quay and three piers that point out to sea.
 - **Beaches**: stretches where the coast turns slowly. **Headlands**: the three farthest points (a lookout or a lighthouse could stand there). **Hills**: up to three places between the town's land and the coast, away from the harbour.
+- **Airstrip** (2026-11-15): a short field for flights ([player_flight.md](player_flight.md)): a 92-unit runway (the mainland's international airport has 116) with an apron on the town's side, in the free band between the town's land and the coast, on the side farthest from the harbour, at least 14 units from the water and clear of the hills. For Harbor Isle it comes out on the east side, running north to south, called "Harbor Isle Airstrip". `features.airstrip` holds its position, heading, apron and a `frame` (origin, `t` along the runway, `n` towards the town, `runwayN`, `runwayHalf`) in the shape the city's airports use ([lib/sim/flight.js](../../lib/sim/flight.js)), so the flight code can use it as it is. A landmass that lists `airstrip` in its `features` gets one when it is generated, so Harbor Town has an airport whenever the island is rebuilt; if no side of the land has room, it gets none. The mainland lists none: it has its real airports. The island's plots, roads and coast are unchanged by it, and nothing draws it in the game yet.
 
 These are *positions and data*. Nothing draws water, sand or hills in the game yet.
 
