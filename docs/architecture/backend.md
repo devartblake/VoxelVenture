@@ -187,6 +187,40 @@ The admin pages (`apps/web/app/admin/`) sign in with accounts of their own, not 
 - Tests: `tests/admin-login.test.mjs` (setup, hash, sign-in, cookie flags, CORS, CSRF, expiry, sign-out, lockouts, password change, admins, the presence proxy, the command line, no password anywhere); the sign-in page in `tests/browser.test.mjs`; setting up, signing in and out in a real browser against a real API in `tests/live-browser.test.mjs`.
 - **The pages' look:** a sidebar (a drawer on phones), a top bar with the live indicator and Sign out, and shared components (`components/admin/ui.jsx`) in the SynaptixPlay palette. See [docs/brand/admin_dashboard.md](../brand/admin_dashboard.md).
 
+## Currency (`services/api/gold.mjs`)
+
+**The rule: the server has authoritative control over every kind of currency, so nobody can create their own value.** There are two wallets, and both live only on the server:
+
+| Wallet | What it is | Held in |
+| :--- | :--- | :--- |
+| **Gold** | the game's money: the daily chest, the Plot of the Day, the hunt stars, fishing, ad quests (and tasks); spent in the wardrobe and the raffle | `accounts.game_gold`, moved only through `game_gold_ledger` |
+| **Credits** | the server's money for visit quests: visitors earn them, owners fund quest budgets | `accounts.gold` (a name from before there were two) and `gold_ledger` |
+
+Until this change Gold was a number in the browser's saved game, so anyone could type themselves any amount. Now:
+
+- **No request carries an amount.** A page says what happened ("I reached the chest", "a fish bit", "buy this item") and the server works the amount out from the shared rules: the chest and hunt formulas in [lib/game/daily.js](../../lib/game/daily.js), the fish table, the cosmetics' prices, the fixed ad-quest reward ([lib/game/goldRules.js](../../lib/game/goldRules.js)). The contracts in `packages/shared-types` (`game.*`) have no amount, price or prize field, and a test says so.
+- **A claim happens once.** Every Gold movement is a row in `game_gold_ledger` with a `key` that is unique per account (`chest:<day>`, `star:<day>:<n>`, `fish:<cast>`, `buy:<item>` ...), written in the same transaction (`BEGIN IMMEDIATE`) as the balance it changes. Asking twice is a 409 and moves nothing.
+- **The server rolls the dice.** The fish and the raffle prize are drawn on the server (`crypto.randomInt`); the page's line only shows a picture. Fishing is capped at 120 Gold a day from the ledger, with a gap between fish; raffle tickets are one a second.
+- **Spending is the server's.** A purchase is checked against the server's balance and price, and what you own and wear is kept by the server (`game_inventory`, `game_profile`).
+- **The day is the server's** (UTC, `GET /game/state` `day`), so a clock set wrong cannot move the chest, the stars or the Plot of the Day.
+- **Guests earn nothing** when a game server is configured: the page says "Sign in to keep your Gold". Without a server (the static demo) the local behaviour stays and says it is a demo. **A Gold balance saved in the browser is never imported** on sign-in or restored when a server holds the Gold: that would be the mint.
+- **The hunt win is the server's.** `POST /hunt/complete` used to take the page's word that all three stars were found, which earns the extra Building of the Week vote. It now only reports what the server saw: the third star paid by `POST /game/star` writes the win.
+- **A ledger invariant.** Every balance equals the sum of its ledger, for both wallets. `GET /admin/currency/audit` and `npm run audit:currency [database]` check it (and that no balance is negative); a test changes a balance by hand and watches it get caught.
+
+**What "reported" evidence does and does not prove.** The server cannot see where an avatar is, so for the chest, a star and the Plot of the Day the page reports a position. The server accepts it only if it is within a few units of the real spot (which the server works out itself) and the avatar could have moved there from the last place it reported (`MAX_SPEED`). That stops casual forgery and bounds the harm: a claim is once a day, for a fixed amount, and a forger with a script can still collect today's chest without being near it. The ledger stores this as `evidence: { kind: 'reported', x, z, at }`. **Phase 2:** the presence server (`services/multiplayer`) sees each signed-in avatar's position; the API can ask it over the internal channel (`INTERNAL_SECRET`) for the last observed position and require it near the spot at claim time. That is not built yet.
+
+| Route | What it does |
+| :--- | :--- |
+| `GET /game/state` | the server's whole view of the account: both balances, what is owned and worn, today's progress; a guest gets `{ signedIn: false, day }` |
+| `GET /game/ledger` | the newest Gold movements |
+| `POST /game/chest`, `/game/potd`, `/game/star` | the daily finds (a position; `plotId` or `index`) |
+| `POST /game/fish` | a cast id; the server rolls the fish |
+| `POST /game/billboard/start`, `/complete` | an ad quest; the server keeps the clock |
+| `POST /game/shop/buy`, `/game/appearance`, `/game/raffle` | spending, and what is worn |
+| `GET /admin/currency/audit` | every wallet against its ledger (admin) |
+
+Tests: `tests/currency.test.mjs` (the server's rules), `tests/currency-client.test.mjs` (the page owns nothing and saves nothing of value). Migration and staging rehearsal: [currency_migration.md](../operations/currency_migration.md).
+
 ## What it does not do yet
 - **Payments and Gold on the server** (task 6): with Stripe set up, claims, take-overs, renewals and market stalls are paid through Stripe Checkout ([billing.md](../monetization/billing.md)), one by one or together through the cart. Without Stripe, a claim records its price in the ledger but charges nothing. The server's Credits move only through visit quests and their budgets; nothing is bought with money, and the game's own Gold stays local.
 - **Realtime:** done for ownership and ad changes (push from the API through the presence server). With a server, the building card's statistics and history come from `/plots/<id>/stats` and `/plots/<id>/history` (`lib/data/liveStats.js`); the simulated provider is used only without one.
