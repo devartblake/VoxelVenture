@@ -95,6 +95,7 @@ The 3D city's systems: roads and land, street names, sound and light, models, th
 | Document | Read it for |
 | :--- | :--- |
 | [road_design_reference.md](world/road_design_reference.md) | Road-network research (New York, San Francisco, Washington DC) behind the diagonal avenue and circles |
+| [world_recipe.md](world/world_recipe.md) | More plots in the first town (155 added after the generator, none of the first 855 changed), the world recipe, global plot ids, a procedural island coast, a second town on Harbor Isle, the `/world` map, and what is not done (the island is not in the game yet) |
 | [kenney_assets.md](world/kenney_assets.md) | The Kenney (CC0) boats, pier decks and amusement-park pieces: what was found, what is used, what is still built in code |
 | [voxelize.md](world/voxelize.md) | Turning a `.glb` model into a voxel `.vox` with a small palette and modular tiles: the options, the axes, what it gains and what it does not (measured), and the licence note |
 | [daily_weekly_tasks.md](product/daily_weekly_tasks.md) | What players can do each day and week today, and a catalogue of 898 daily and weekly tasks made from the city's own places, with a schedule, a Gold proposal, what it leaves out (anything that would pad owners' verified figures) and what the game would need to record |

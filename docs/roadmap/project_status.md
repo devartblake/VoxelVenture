@@ -585,6 +585,16 @@ Their item-by-item status is in [alignment_status.md](alignment_status.md). This
   - **Speed:** a bucket index over the solids, built when the collision map changes, keeps a click at about 1 ms (20 ms for a walk across the whole map).
   - **Tests:** `tests/pathfind.test.mjs` walks 180 random clicks on three cities with the game's own `moveAvatar`. Every one arrives without touching a wall. A headless-browser check in the running game also walked round six buildings.
 
+## 5zd. More plots and a second town on an island (2026-11-14)
+
+Asked for by the user ([world_freeze.md](world_freeze.md), a scoped exception; roadmap tasks 9, 10 and 14, first slices; details in [world_recipe.md](../world/world_recipe.md)).
+
+- **155 more plots in the first town**, ids 881 to 1035, added after the generator has finished (`lib/city/townExtension.js`): 90 on two new loops and 65 in free places on existing roads. The generator's 855 plots are untouched, field for field (a fingerprint in the tests). `generateTown` is what the game, the server and the public pages load.
+- **The server tops an older database up** by id on start and changes no existing row (rehearsed on a file database: 0 of 855 rows changed, 155 added, 0 on a second start). Deploy the API before the web app.
+- **A world recipe** (`lib/world/worldRecipe.js`), **global plot ids** (town index x 1,000,000 + the town's own), a **procedural coast** with a harbour, beaches, headlands and hills (`lib/world/island.js`), and **Harbor Isle**: a second town (seed 8675309, 1,070 plots) 380 units of open water east of the mainland. `/world` (development only) shows both on one map.
+- **Not done:** the island is not in the game (the streaming runtime, task 11, first), nothing is drawn at sea, its lots are not for sale (`WORLD_TOWNS`, off by default, adds empty unclaimable land), no highways.
+- **Tests:** `tests/town-extension.test.mjs`, `tests/world-recipe.test.mjs`; `tests/api.test.mjs` and `tests/lease-price.test.mjs` now compare with the seeded town.
+
 ## 6. Progress against `../product/voxelventure_blueprint.md`
 
 Legend: ✅ done · 🟡 partly done · ❌ not started
