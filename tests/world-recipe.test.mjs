@@ -41,7 +41,7 @@ check('and the first 855 plots of it are still exactly the generator\'s (fingerp
 check('global ids are unique across the whole world', new Set(world.plots.map((p) => p.id)).size === world.plots.length);
 check('the island\'s plots are numbered from 1,000,000, each the town\'s own id plus the stride', island.plots.every((p) => p.id === TOWN_ID_STRIDE + p.localId && p.town === 'harbor') && Math.min(...island.plots.map((p) => p.id)) >= TOWN_ID_STRIDE);
 const reference = generateTown(island.seed).plots;
-check('the island\'s town is the generator\'s town for its seed, moved and renumbered (nothing else changed)', island.plots.length === reference.length && island.plots.every((p, i) => p.localId === reference[i].id && Math.abs(p.x - island.origin.x - reference[i].x) < 0.02 && p.title === reference[i].title));
+check('the island\'s town is the generator\'s town for its seed, moved and renumbered (nothing else changed, but that the vacant town has no business of the city on its lots)', island.plots.length === reference.length && island.plots.every((p, i) => p.localId === reference[i].id && Math.abs(p.x - island.origin.x - reference[i].x) < 0.02 && (p.title === reference[i].title || (island.vacant && reference[i].generated))));
 check('the island holds well over a thousand lots, as the first town does', island.plots.length > 1000 && first.plots.length > 1000, `${first.plots.length} and ${island.plots.length}`);
 
 // ---- the coasts
@@ -213,6 +213,29 @@ check('Harbor Isle is still 380 units of open water from the mainland, and does 
   check('their facts carry world coordinates and say which town they are in', (() => { const x = JSON.parse(rows[0].facts); const p = island.plots.find((q) => q.id === rows[0].id); return x.town === 'harbor' && x.localId === p.localId && Math.abs(x.x - p.x) < 0.01; })());
   check('the first town\'s rows did not change', db.prepare('SELECT COUNT(*) AS n FROM plots WHERE id < 1000000').get().n === before);
   check('switching it on again adds nothing, and an unknown or live town adds nothing', core.seedTowns(db, { towns: ['harbor'] }).added === 0 && core.seedTowns(db, { towns: ['nowhere', 'voxel'] }).added === 0);
+
+  // opening the vacant town for claiming
+  check('by default nothing is opened, and opening a town that is not vacant (the first one) or not seeded opens nothing', core.openTowns(db, { towns: [] }).opened === 0 && core.openTowns(db, { towns: ['voxel'] }).opened === 0 && core.openTowns(db, { towns: ['nowhere'] }).opened === 0 && db.prepare('SELECT COUNT(*) AS n FROM plots WHERE claimable = 1 AND id >= 1000000').get().n === 0);
+  // a player who already holds one lot of the island (as if it had been opened for them): it must not be touched
+  db.prepare("UPDATE plots SET owner_name = 'someone', claimable = 1 WHERE id = ?").run(island.plots[7].id);
+  const o = core.openTowns(db, { towns: ['harbor'] });
+  const adminIds = new Set(island.plots.filter((p) => p.admin).map((p) => p.id));
+  const open = db.prepare('SELECT COUNT(*) AS n FROM plots WHERE claimable = 1 AND id >= 1000000 AND owner_name IS NULL').get().n;
+  check('opening the vacant town makes every empty lot claimable (1,067 of 1,070: one is held, and the admin headquarters stay closed)', o.opened === island.plots.length - 1 - adminIds.size && open === o.opened && adminIds.size === 2 && [...adminIds].every((id) => db.prepare('SELECT claimable FROM plots WHERE id = ?').get(id).claimable === 0), `${o.opened} opened`);
+  check('the held lot is exactly as it was, and opening again opens nothing', db.prepare('SELECT owner_name, claimable FROM plots WHERE id = ?').get(island.plots[7].id).owner_name === 'someone' && core.openTowns(db, { towns: ['harbor'] }).opened === 0);
+  check('and the first town rows are still untouched', db.prepare('SELECT COUNT(*) AS n FROM plots WHERE id < 1000000').get().n === before);
+}
+
+// ---- Harbor Town is vacant: no business of the city's own on any lot
+{
+  const orig = generateTown(8675309);
+  const t1 = world.towns[1];
+  const vac = t1.plots;
+  check('the recipe marks Harbor Town vacant and refuses a live or first town to be', WORLD_RECIPE.towns[1].vacant === true && !WORLD_RECIPE.towns[0].vacant && validateRecipe({ ...WORLD_RECIPE, towns: WORLD_RECIPE.towns.map((t) => (t.id === 'voxel' ? { ...t, vacant: true } : t)) }).some((p) => p.includes('cannot be vacant')));
+  check('Harbor Town has no business, owner or brand on any lot but the two admin headquarters', vac.filter((p) => p.buildingType || p.owner || p.brand || p.generated).every((p) => p.admin) && vac.filter((p) => p.admin).length === 2 && orig.plots.filter((p) => p.generated && !p.admin).length > 400, `${orig.plots.filter((p) => p.generated && !p.admin).length} businesses cleared`);
+  check('but its ids, places, sizes, facings and districts are exactly the generator own, so the bake and the ids did not move', vac.length === orig.plots.length && vac.every((p) => { const q = orig.plots.find((x) => x.id === p.localId); return q && q.x === p.x - t1.origin.x + 0 || Math.abs(q.x + t1.origin.x - p.x) < 0.011; }) && vac.every((p, i) => p.localId === orig.plots[i].id && p.w === orig.plots[i].w && p.d === orig.plots[i].d && p.facing === orig.plots[i].facing && p.districtId === orig.plots[i].districtId));
+  check('an emptied lot is an ordinary empty one: a title like "Prime Lot #n", a value of 50 to 100 a cell, no interior, and the same each time', vac.filter((p, i) => !p.admin && orig.plots[i].generated).every((p) => /^(Empty Lot|Prime Lot|Luxury Estate|Grand Estate) #\d+$/.test(p.title) && p.value >= 50 && p.interiorData === null) && JSON.stringify(buildWorld(JSON.parse(JSON.stringify(WORLD_RECIPE))).towns[1].plots.map((p) => p.value)) === JSON.stringify(vac.map((p) => p.value)));
+  check('the first town is untouched: its businesses are still there', world.towns[0].plots.filter((p) => p.generated).length > 400);
 }
 
 console.log(fails ? `${fails} FAILED` : 'ALL OK');

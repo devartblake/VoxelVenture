@@ -8111,6 +8111,8 @@
    "seed": 20260101,
    "landmass": "mainland",
    "live": true,
+   "vacant": false,
+   "built": 489,
    "origin": {
     "x": 0,
     "z": 0
@@ -8134,6 +8136,8 @@
    "seed": 8675309,
    "landmass": "harbor-isle",
    "live": false,
+   "vacant": true,
+   "built": 2,
    "origin": {
     "x": 1948.17,
     "z": 133.64
@@ -10708,5 +10712,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "d01dfd5f7b3fc656"
+ "hash": "8d43e33a2a9f2903"
 }

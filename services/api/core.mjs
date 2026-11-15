@@ -108,6 +108,25 @@ export function seedTowns(db, { towns = [] } = {}) {
   return { added };
 }
 
+// Opens a vacant town's lots for claiming (WORLD_OPEN=harbor in api.env; the default is none). Only a town the recipe marks `vacant` (lib/world/vacant.js: no business of the city's own on any
+// lot) can be opened, and only its lots that are still unowned and not claimable: a lot a player holds is never touched, and the admin companies' headquarters stay unclaimable. The lots must
+// already be seeded (WORLD_TOWNS). Do this only when players can reach the town (the streaming runtime, roadmap task 11), since a claimable lot appears in the directory and the market.
+// Returns how many lots were opened.
+export function openTowns(db, { towns = [] } = {}) {
+  const wanted = new Set(towns);
+  if (!wanted.size) return { opened: 0 };
+  const world = buildWorld();
+  const open = db.prepare('UPDATE plots SET claimable = 1 WHERE id = ? AND claimable = 0 AND owner_account IS NULL AND owner_name IS NULL');
+  let opened = 0;
+  transaction(db, () => {
+    for (const t of world.towns) {
+      if (t.index === 0 || !t.vacant || !wanted.has(t.id)) continue;
+      for (const p of t.plots) if (!p.admin) opened += open.run(p.id).changes;
+    }
+  });
+  return { opened };
+}
+
 // Writes the generator's pricing attributes into the facts of every plot whose stored ones differ (the generator works them out from the city's layout:
 // lib/dev/locationAttrs.js). Returns how many plots changed.
 function refreshLand(db, city) {
