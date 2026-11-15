@@ -596,6 +596,18 @@ Asked for by the user ([world_freeze.md](world_freeze.md), a scoped exception; r
 - **Not done:** the island is not in the game (the streaming runtime, task 11, first), nothing is drawn at sea, its lots are not for sale (`WORLD_TOWNS`, off by default, adds empty unclaimable land), no highways.
 - **Tests:** `tests/town-extension.test.mjs`, `tests/world-recipe.test.mjs`; `tests/api.test.mjs` and `tests/lease-price.test.mjs` now compare with the seeded town.
 
+## 5ze. The world: Jamaica, the Caymans, roads, the bake and the streaming runtime (2026-11-15)
+
+Asked for by the user in a run of requests (roadmap tasks 9, 10, 11, 12 and 14, first slices; details in [world_recipe.md](../world/world_recipe.md), [world_bake.md](../world/world_bake.md) and [streaming_runtime.md](../world/streaming_runtime.md)). PRs #131 (airstrip label), #132 (landmasses and roads), #133 (vacant Harbor Town, chunk manager, merged chunk geometry) are merged; the React layer is the next PR.
+
+- **Two landmasses that look like islands.** The mainland is a variation of **Jamaica** (a template coast in `lib/world/shapes.js`, about 2,425 x 1,383 units), Harbor Isle a variation of **Grand Cayman** (a broad west end where the town stands, the North Sound, a long tapering east arm), and **Little Isle** and **The Brac** (the Lesser Caymans, no town) sit 260 and 300 units from Harbor Isle. Drawn from a spine and a width profile so they cannot cross themselves.
+- **Real mountains.** `scripts/world/dem_ridges.mjs` reads open elevation tiles and writes `lib/world/data/jamaicaDem.js`; the **Blue Mountains are the real terrain** (a grid of real heights in 4-unit cells, the summit 18 units), read by `elevationAt`. Credited in CREDITS.md.
+- **Roads.** A coastal ring road on each landmass (about 6,100 units, off steep ground and the airstrip), four spurs from each town's county road (a spur bends round a mountain rather than climb more than 0.12), link roads from Harbor Isle's harbour and airstrip, and **two causeways** (456 and 676 units, 392 and 606 of them bridge 9 units above the water) between the landmasses (`lib/world/highways.js`).
+- **The bake** (`npm run bake:world`): a manifest and 289 chunk files of 128 units in `apps/web/public/world/` (about 1 MB): plots, roads and highways cut at the chunk edges, the bridges, the land, beach and the ground heights. A test checks it is a fresh bake and that the world can grow (a third town, a new road) without moving anything that is there.
+- **Harbor Town is vacant.** No city business on any of its 1,070 lots (the two admin headquarters stay); `WORLD_OPEN=harbor` (off by default) opens its 1,067 lots for claims. Voxel Town is unchanged: letting players claim its 489 city businesses is a policy decision still to be made.
+- **The streaming runtime, slices 1 to 3.** A chunk manager (which chunks are mounted around the player, nearest first, with hysteresis, a cap and a look-ahead), merged chunk geometry (three meshes a chunk) and a React layer: `/world/stream` and, in the game, `?world=baked`.
+- **Not done:** the island is not in the game as a place to go (collision, the ground under cars and avatars, traffic and the other region-aware systems), no water is drawn, the coast is a 4-unit staircase, no train or fast-road class, task 17's terrain collision.
+
 ## 6. Progress against `../product/voxelventure_blueprint.md`
 
 Legend: ✅ done · 🟡 partly done · ❌ not started

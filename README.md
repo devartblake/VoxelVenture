@@ -46,7 +46,10 @@ npm run api          # the API server on :3002; set NEXT_PUBLIC_LIVE_API_URL=htt
 npm run mp           # the presence server (avatars, chat, instant updates) on :3001
 npm test             # the test suites (npm run test:browser for the real-browser test, which needs a GPU)
 npm run lint
+npm run bake:world   # re-bake the world (apps/web/public/world) after any change to the world recipe or the generators; CI fails if it is stale
 ```
+
+The bigger world (2026-11-15; development tools, off in the game unless asked): `/world` is the map of the landmasses, towns and roads, `/world/stream` flies over the baked world as it streams in, and `/?world=baked` draws the coast, mountains and coastal roads round the town in the game. See [docs/world/world_recipe.md](docs/world/world_recipe.md), [docs/world/world_bake.md](docs/world/world_bake.md) and [docs/world/streaming_runtime.md](docs/world/streaming_runtime.md).
 
 Payments switch on with Stripe keys: see [docs/monetization/billing.md](docs/monetization/billing.md). Deployment is described in [deploy/README.md](deploy/README.md).
 
@@ -54,8 +57,8 @@ Payments switch on with Stripe keys: see [docs/monetization/billing.md](docs/mon
 
 | Folder | What is in it |
 | --- | --- |
-| `apps/web/` | The Next.js app: `app/` (the 3D city at `/`, and the public business pages in `app/(public)`: Discover, business, category and district pages, `/legal`), `components/`, `public/` and its config |
-| `lib/` | Rules shared by the game, the pages and the server, loaded by the server through `scripts/lib-loader.mjs` |
+| `apps/web/` | The Next.js app: `app/` (the 3D city at `/`, the world map at `/world` and the streamed world at `/world/stream`, and the public business pages in `app/(public)`: Discover, business, category and district pages, `/legal`), `components/`, `public/` and its config |
+| `lib/` | Rules shared by the game, the pages and the server, loaded by the server through `scripts/lib-loader.mjs` (`lib/world/` is the world: recipe, coasts, roads, the bake, the chunk manager and meshes) |
 | `packages/` | Pure shared packages with versioned contracts ([packages/README.md](packages/README.md)) |
 | `services/api/` | The Node API (SQLite; its data in `services/api/data/`) |
 | `services/multiplayer/` | The presence server (avatars, chat, instant updates) |

@@ -31,7 +31,7 @@ Outside music (task 39) was explicitly requested by the user on 2026-10-16 and a
 
 **More plots in the first town, and a second town on an island** were explicitly requested by the user on 2026-11-14 (roadmap tasks 9, 10 and 14, first slices). It is a scoped exception:
 - **What it adds:** 155 plots after the generator has finished (`lib/city/townExtension.js`), a world recipe with global plot ids and a procedural island coast (`lib/world/`), and a development map page (`/world`). Details, counts and what is not done: [world_recipe.md](../world/world_recipe.md).
-- **What it does not do:** it changes none of the first 855 plots (a stored fingerprint proves it), and the game does not load the island: walking or sailing there needs the streaming runtime (task 11), still deferred. The island's lots are not for sale (`WORLD_TOWNS` is off by default and adds empty, unclaimable land).
+- **What it does not do:** it changes none of the first 855 plots (a stored fingerprint proves it), and the game does not load the island: walking or sailing there needs the streaming runtime (task 11), still deferred. The island's lots are not for sale (`WORLD_TOWNS` is off by default and adds empty, unclaimable land; since 2026-11-15 Harbor Town is vacant and `WORLD_OPEN=harbor`, also off by default, opens its lots: [world_bake.md](../world/world_bake.md)).
 - **Tested by:** `tests/town-extension.test.mjs` and `tests/world-recipe.test.mjs`.
 
 ## What continues

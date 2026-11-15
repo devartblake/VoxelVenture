@@ -15,5 +15,9 @@ These moved here from `architecture/` on 2026-10-18, which now holds the system 
 | [kenney_assets.md](kenney_assets.md) | The Kenney (CC0) boats, pier decks and amusement-park pieces: what is used and what is still built in code |
 | [city_editor.md](city_editor.md) | The `/editor` page: roads, streets, lots and parks; validate, save and open in the game |
 | [study_world_streaming.md](study_world_streaming.md) | Feasibility study: how big the map can get, streaming several cities, an island with an ocean and a shipping yard |
+| [world_recipe.md](world_recipe.md) | The world recipe: the landmasses (a Jamaica mainland, Harbor Isle as Grand Cayman, the Lesser Caymans), the real mountains, the coastal roads, spurs and causeways, global plot ids |
+| [world_bake.md](world_bake.md) | The baked world (`npm run bake:world`), how to grow it safely, the vacant Harbor Town and `WORLD_OPEN` |
+| [streaming_runtime.md](streaming_runtime.md) | The chunk manager, merged chunk geometry and the React layer (`/world/stream`, `?world=baked`) |
+| [player_flight.md](player_flight.md) | A plane the player flies, and flights to Harbor Isle (roadmap task 18) |
 
 The world features players see (boats and piers, the world map, what can go behind a building, interiors) are in [product/](../product/README.md).

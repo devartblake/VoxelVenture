@@ -95,7 +95,7 @@ The 3D city's systems: roads and land, street names, sound and light, models, th
 | Document | Read it for |
 | :--- | :--- |
 | [road_design_reference.md](world/road_design_reference.md) | Road-network research (New York, San Francisco, Washington DC) behind the diagonal avenue and circles |
-| [world_recipe.md](world/world_recipe.md) | More plots in the first town (155 added after the generator, none of the first 855 changed), the world recipe, global plot ids, a procedural island coast, a second town on Harbor Isle, the `/world` map, and what is not done (the island is not in the game yet) |
+| [world_recipe.md](world/world_recipe.md) | More plots in the first town (155 added after the generator, none of the first 855 changed), the world recipe, global plot ids, a procedural island coast, a second town on Harbor Isle, the Jamaica mainland and the Grand Cayman island, the real mountains, the coastal roads and causeways, the `/world` map, and what is not done (the island is not in the game yet) |
 | [player_flight.md](world/player_flight.md) | An idea on the roadmap (task 18), not built: a plane the player flies, airport-to-airport routes and flights to Harbor Isle, what exists, what would be new, what it unlocks (air tasks) and the open questions |
 | [kenney_assets.md](world/kenney_assets.md) | The Kenney (CC0) boats, pier decks and amusement-park pieces: what was found, what is used, what is still built in code |
 | [voxelize.md](world/voxelize.md) | Turning a `.glb` model into a voxel `.vox` with a small palette and modular tiles: the options, the axes, what it gains and what it does not (measured), and the licence note |
@@ -106,6 +106,8 @@ The 3D city's systems: roads and land, street names, sound and light, models, th
 | [street_names.md](world/street_names.md) | The offline OpenStreetMap street-name script, the city name sets, and each district's own list (the Meadow Quarter's streets use theirs; the editor suggests by district) |
 | [day_night_sound.md](world/day_night_sound.md) | The shared day and night, street and window lights, the ambience of the places round you, and the soundtrack (the music director: playlists by driving, place and time of day, never by the zoom) |
 | [study_world_streaming.md](world/study_world_streaming.md) | Feasibility study: how big the map can get, streaming a world of several cities, an island with an ocean and a shipping yard (measurements, prototype, plan) |
+| [world_bake.md](world/world_bake.md) | The baked world: a manifest and chunk files of plots, roads, bridges, land and heights, how it is checked, how the world can grow without moving what is there, the vacant Harbor Town and opening it for claims |
+| [streaming_runtime.md](world/streaming_runtime.md) | The streaming runtime (roadmap task 11): the chunk manager, merged chunk geometry (three meshes a chunk) and the React layer (`/world/stream`, `?world=baked`), slice by slice |
 
 ### Operations
 

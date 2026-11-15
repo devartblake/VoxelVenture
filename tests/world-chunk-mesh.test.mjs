@@ -40,11 +40,11 @@ const valid = (m, c) => {
   const faceUp = (m) => { for (let t = 0; t < m.indices.length; t += 3) { const [a, b, c] = [m.indices[t], m.indices[t + 1], m.indices[t + 2]].map((i) => [m.positions[i * 3], m.positions[i * 3 + 1], m.positions[i * 3 + 2]]); const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]; if (uz * vx - ux * vz <= 0 && !(uz * vx - ux * vz === 0 && uy * vz - uz * vy === 0)) return false; } return true; };
   const land = meshed.filter(({ c }) => c.ground);
   check('the ground faces up (every triangle is counter-clockwise from above)', land.every(({ m }) => faceUp(m.ground)));
-  check('ground is only where there is land: a chunk of open sea has none, and a chunk\'s ground triangles are two for each land or beach cell', meshed.filter(({ c }) => !c.ground).every(({ m }) => m.ground.triangles === 0) && land.every(({ c, m }) => m.ground.triangles === 2 * [...c.ground.mask].filter((v) => v !== '0').length));
+  check('ground is only where there is land: a chunk of open sea has none, a chunk with relief is two triangles for each land or beach cell, and a flat chunk merges runs of cells into quads (far fewer)', meshed.filter(({ c }) => !c.ground).every(({ m }) => m.ground.triangles === 0) && land.filter(({ c }) => c.ground.h).every(({ c, m }) => m.ground.triangles === 2 * [...c.ground.mask].filter((v) => v !== '0').length) && land.filter(({ c }) => !c.ground.h).every(({ c, m }) => m.ground.triangles <= 2 * [...c.ground.mask].filter((v) => v !== '0').length && m.ground.triangles < 400));
   check('every ground vertex is inside its chunk', land.every(({ c, m }) => { for (let v = 0; v < m.ground.positions.length; v += 3) { const x = m.ground.positions[v], z = m.ground.positions[v + 2]; if (x < c.bounds.x0 - 1e-6 || x > c.bounds.x1 + 1e-6 || z < c.bounds.z0 - 1e-6 || z > c.bounds.z1 + 1e-6) return false; } return true; }));
-  const mt = land.filter(({ c }) => c.ground.h && Math.max(...c.ground.h) > 1000);
+  const mt = land.filter(({ c }) => c.ground.h && Math.max(...c.ground.h) > 1400);
   const top = Math.max(...mt.map(({ m }) => { let y = 0; for (let v = 1; v < m.ground.positions.length; v += 3) y = Math.max(y, m.ground.positions[v]); return y; }));
-  check('the mountains are risen in the mesh: the Blue Mountains reach near 14, and the town ground is flat', top > 9 && top <= 14 && Math.max(...Array.from(homeChunk.ground.h ?? [0])) === 0, `${top.toFixed(1)} at the top`);
+  check('the mountains are risen in the mesh: the Blue Mountains reach near 18, and the town ground is flat', top > 15 && top <= 18.1 && Math.max(...Array.from(homeChunk.ground.h ?? [0])) === 0, `${top.toFixed(1)} at the top`);
   // continuity: the vertices on the shared edge of two neighbouring chunks are the same points, at the same height
   let seamOk = true;
   let pairs = 0;
@@ -56,14 +56,16 @@ const valid = (m, c) => {
     for (const [z, y] of a) if (b.has(z)) { pairs++; if (Math.abs(b.get(z) - y) > 1e-4) seamOk = false; }
   }
   check('neighbouring chunks meet: the shared edge points sit at the same height (no cracks in the mountains)', seamOk && pairs > 100, `${pairs} shared points`);
-  const beaches = land.filter(({ m }) => { for (let v = 0; v < m.ground.colors.length; v += 3) if (m.ground.colors[v] === 232) return true; return false; });
-  check('the coast has its beach (sand-coloured vertices), the middle of the land is grass, and the high ground is rock', beaches.length > 30 && homeChunk.ground && meshed.some(({ m }) => { for (let v = 0; v < m.ground.colors.length; v += 3) if (m.ground.colors[v] === 112) return true; return false; }));
+  const has = (m, r) => { for (let v = 0; v < m.ground.colors.length; v += 3) if (Math.abs(m.ground.colors[v] - r) <= 6) return true; return false; };
+  const beaches = land.filter(({ m }) => has(m, 226));
+  const mountain = land.filter(({ c }) => c.ground.h && Math.max(...c.ground.h) > 1400);
+  check('the coast has its beach (sand-coloured vertices), and the Blue Mountains are coloured by height and slope: grass below, bare rock above, pale at the peaks', beaches.length > 30 && mountain.some(({ m }) => { let rock = 0, pale = 0, green = 0; for (let v = 0; v < m.ground.colors.length; v += 3) { const [r, g, b] = [m.ground.colors[v], m.ground.colors[v + 1], m.ground.colors[v + 2]]; if (Math.abs(r - 118) < 14 && Math.abs(g - 110) < 14) rock++; else if (r > 185) pale++; else if (g > r + 20 && g > b + 20) green++; } return rock > 20 && green > 20 && pale >= 0; }));
 }
 
 // ---- roads and highways
 {
   const hm = chunkMeshes(homeChunk);
-  check('the town\'s roads are ribbons: 2 triangles for each road piece, laid a hair above the ground', hm.roads.triangles === 2 * homeChunk.roads.length && homeChunk.roads.length > 10 && Math.min(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) > 0 && Math.max(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) < 0.2);
+  check('the town\'s roads are ribbons: at least 2 triangles for each road piece (a long piece is cut every 6 units to follow the ground), laid a hair above the ground', hm.roads.triangles >= 2 * homeChunk.roads.length && hm.roads.triangles <= 2 * homeChunk.roads.reduce((n, r) => n + Math.ceil(Math.hypot(r.b.x - r.a.x, r.b.z - r.a.z) / 6), 0) && homeChunk.roads.length > 10 && Math.min(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) > 0 && Math.max(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) < 0.2);
   check('an arterial is wider than a local street', ROAD_WIDTH.arterial > ROAD_WIDTH.local);
   const withHw = meshed.filter(({ c }) => c.highways.length);
   check('every chunk the highways pass through has a highway mesh', withHw.every(({ m }) => m.highways.triangles > 0) && withHw.length > 60, `${withHw.length} chunks`);
@@ -75,6 +77,18 @@ const valid = (m, c) => {
   const seaHw = meshed.filter(({ c }) => !c.ground && c.highways.length);
   check('a chunk that is only sea with a bridge over it still has its deck (and no ground)', seaHw.length > 3 && seaHw.every(({ m }) => m.highways.triangles > 0 && m.ground.triangles === 0));
   check('the ground height under a road in a mountain chunk follows the ground', (() => { const c = chunks.find((x) => x.ground?.h && x.highways.length); if (!c) return true; const h = c.highways[0]; return groundHeight(c, h.a.x, h.a.z) >= 0; })());
+}
+
+// ---- a road over rising ground follows it (a long road is cut every 6 units and each piece laid at the ground height)
+{
+  const n = 32;
+  const h = [];
+  for (let j = -1; j <= n + 1; j++) for (let i = -1; i <= n + 1; i++) h.push(Math.round(i * 40)); // a slope rising 0.4 units for every 4 across (x), with the ring beyond the chunk
+  const tilted = { cx: 0, cz: 0, size: 128, bounds: { x0: 0, z0: 0, x1: 128, z1: 128 }, land: 1, plots: [], roads: [{ id: 'r', town: 't', class: 'local', kind: 'street', a: { x: 4, z: 64 }, b: { x: 124, z: 64 } }], highways: [], ground: { n, mask: '1'.repeat(n * n), h } };
+  const m = chunkMeshes(tilted);
+  let worst = 0;
+  for (let v = 0; v < m.roads.positions.length; v += 3) worst = Math.max(worst, Math.abs(m.roads.positions[v + 1] - (groundHeight(tilted, m.roads.positions[v], m.roads.positions[v + 2]) + 0.06)));
+  check('a road over a slope lies on the ground all along it (cut every 6 units): never more than a hair from the surface', m.roads.triangles >= 2 * 20 && worst < 0.001 && Math.max(...Array.from(m.roads.positions).filter((_, i) => i % 3 === 1)) > 11, `${m.roads.triangles} triangles, ${worst.toFixed(4)} off`);
 }
 
 // ---- mounting a chunk through the manager costs three meshes

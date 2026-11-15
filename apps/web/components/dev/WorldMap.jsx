@@ -138,7 +138,7 @@ export default function WorldMap() {
         ctx.strokeStyle = '#fbbf24';
         ctx.lineWidth = Math.max(1.5, h.width * s);
         ctx.beginPath(); h.ring.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z)))); ctx.closePath(); ctx.stroke();
-        for (const sp of h.spurs) { ctx.beginPath(); ctx.moveTo(X(sp.from.x), Z(sp.from.z)); ctx.lineTo(X(sp.to.x), Z(sp.to.z)); ctx.stroke(); }
+        for (const sp of h.spurs) { ctx.beginPath(); ctx.moveTo(X(sp.from.x), Z(sp.from.z)); if (sp.via) ctx.lineTo(X(sp.via.x), Z(sp.via.z)); ctx.lineTo(X(sp.to.x), Z(sp.to.z)); ctx.stroke(); }
       }
       // link roads: from the harbour's quay and from an airstrip's apron to the nearest spur
       for (const l of world.links ?? []) { ctx.strokeStyle = '#fb923c'; ctx.lineWidth = Math.max(1.5, l.width * s); ctx.beginPath(); ctx.moveTo(X(l.from.x), Z(l.from.z)); ctx.lineTo(X(l.to.x), Z(l.to.z)); ctx.stroke(); }
