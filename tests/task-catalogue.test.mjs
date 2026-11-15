@@ -19,7 +19,7 @@ check('more than 800 tasks', tasks.length > 800, String(tasks.length));
 check('both cadences, each with a pool big enough to rotate for months', cat.counts.daily >= 500 && cat.counts.weekly >= 150, `${cat.counts.daily} daily, ${cat.counts.weekly} weekly`);
 check('every id is unique and every title is unique within its cadence', new Set(tasks.map((t) => t.id)).size === tasks.length && new Set(tasks.map((t) => `${t.cadence}|${t.title}`)).size === tasks.length);
 const TIERS = ['easy', 'medium', 'hard'], SIGNALS = ['tracked-today', 'needs-position', 'needs-new-event'], REQUIRES = ['signed-in', 'owns-item', 'owns-listing'];
-const shape = (t) => ['daily', 'weekly'].includes(t.cadence) && t.category && t.family && t.title && t.text && TIERS.includes(t.tier) && Number.isInteger(t.gold) && t.goal?.type && SIGNALS.includes(t.signal) && t.requires.every((r) => REQUIRES.includes(r)) && typeof t.seedBound === 'boolean' && /^[DW]-[A-Z]{3}-\d{3}$/.test(t.id);
+const shape = (t) => ['daily', 'weekly'].includes(t.cadence) && t.category && t.family && t.title && t.text && TIERS.includes(t.tier) && Number.isInteger(t.gold) && t.goal?.type && SIGNALS.includes(t.signal) && t.requires.every((r) => REQUIRES.includes(r)) && typeof t.seedBound === 'boolean' && /^[DW]-[A-Z]{3}-[0-9a-z]{8}$/.test(t.id);
 check('every task has an id, cadence, category, title, text, tier, Gold, a machine-readable goal and a tracking signal', tasks.every(shape), tasks.find((t) => !shape(t))?.id ?? '');
 check('the id says the cadence', tasks.every((t) => t.id[0] === (t.cadence === 'daily' ? 'D' : 'W')));
 const perTier = (cadence, tier) => tasks.filter((t) => t.cadence === cadence && t.tier === tier).length;

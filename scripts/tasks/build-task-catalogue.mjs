@@ -4,6 +4,7 @@
 //
 //   node scripts/tasks/build-task-catalogue.mjs            writes docs/product/task_catalogue.json and task_catalogue.csv
 //   node scripts/tasks/build-task-catalogue.mjs --seed N   for another city seed (default: the live city's, 20260101)
+//   (ids are stable: D-BIZ-3k9x0a1q is made from the task's cadence, family and goal, so a catalogue can grow without renumbering)
 //
 // A task: { id, cadence: daily|weekly, category, family, title, text, tier: easy|medium|hard, gold, goal, signal, requires, seedBound }
 //   signal   tracked-today       the game already records what the task needs (a visit, a star, the chest, a vote, a fish, an owned or worn item)
@@ -23,6 +24,8 @@ export const GOLD = { daily: { easy: 5, medium: 10, hard: 20 }, weekly: { easy: 
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const hash = (text) => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+// cyrb53: a 53-bit string hash, written in base 36 and cut to 8 characters (the task ids)
+const taskHash = (str) => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36).padStart(8, '0').slice(-8); };
 
 /** The names the tasks use, from the city generator for `seed` (the same city every player of that seed sees). */
 export async function worldFacts(seed) {
@@ -57,11 +60,14 @@ export async function buildCatalogue(seed = 20260101) {
   const { FISH } = await imp('sim/vehicles.js');
   const { ZONES } = await imp('game/soundZones.js');
   const tasks = [];
-  const counters = {};
+  // The id comes from what the task IS (its cadence, family and goal), not from its place in the list: adding tasks, or rewording one, never changes an id, so
+  // what a player has collected (docs/product/daily_weekly_tasks.md) keeps pointing at the same task. Eight base-36 characters of a 53-bit hash.
+  const taken = new Set();
   const add = (cadence, category, family, title, text, tier, goal, signal, { requires = [], gold = null, seedBound = false } = {}) => {
-    const key = `${cadence[0].toUpperCase()}-${category}`;
-    counters[key] = (counters[key] ?? 0) + 1;
-    tasks.push({ id: `${key}-${String(counters[key]).padStart(3, '0')}`, cadence, category, family, title, text, tier, gold: gold ?? GOLD[cadence][tier], goal, signal, requires, seedBound });
+    const id = `${cadence[0].toUpperCase()}-${category}-${taskHash(`${cadence}|${family}|${JSON.stringify(goal)}`)}`;
+    if (taken.has(id)) throw new Error(`two tasks are the same task (${id}): ${title}`);
+    taken.add(id);
+    tasks.push({ id, cadence, category, family, title, text, tier, gold: gold ?? GOLD[cadence][tier], goal, signal, requires, seedBound });
   };
   const D = (...a) => add('daily', ...a);
   const Wk = (...a) => add('weekly', ...a);
