@@ -45,6 +45,10 @@ Outside music (task 39) was explicitly requested by the user on 2026-10-16 and a
 
 When in doubt: if the change helps a business get found, convert a visitor, measure a result or pay, it continues. If it makes the world bigger or prettier, it waits.
 
+## Exception: presence-verified positions
+
+`lib/world/placeGeometry.js` reads the city and adds nothing to it: no plots, roads or props change. It is the scoped exception under which the check is run for the presence-tracker branch.
+
 ## The check
 
 `npm run check:freeze` compares the branch with `origin/main` (or `--base <ref>`) and fails when a **new file** is added under a frozen folder:

@@ -156,5 +156,9 @@ Per client the stream is bounded (about 10 KB/s in a packed crowd) whatever the 
 - Caddy forwards WebSockets without extra settings (`deploy/Caddyfile`).
 - Re-run the load test after any change to `services/multiplayer/server.mjs`. It prints a verdict against its budgets and needs no setup (it starts its own API and server): `npm run load:presence -- --full`. `--mp`/`--api` test a running stack: staging, never the live one (see above).
 
+## Cost of presence-verified positions
+
+Checking movement and detecting events adds about 0.3 / 1.7 / 5.0% of a core for 100 / 500 / 1,500 signed-in players all moving, and about 27 MB of memory. `node scripts/bench-presence-positions.mjs` measures it; see [presence_positions.md](presence_positions.md#cost).
+
 ## Not done
 Binary messages instead of JSON (another 2 to 3 times smaller); region sharding of one world (step 3 above); a compressed first-sight `enter` (it is the one large message when someone arrives in a crowd); a bandwidth budget per client that adapts to a slow link.

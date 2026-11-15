@@ -239,6 +239,16 @@ The town now has 155 more plots (ids 881 to 1035, [docs/world/world_recipe.md](.
 
 **The island** (`WORLD_TOWNS=harbor` in `api.env`) adds 1,070 empty, unclaimable lots under ids from 1,000,001. Leave it unset on staging and production until the game can show the island.
 
+## 10. Rehearse presence-verified positions
+
+Before production, on staging only ([presence_positions.md](../docs/architecture/presence_positions.md)):
+
+1. Deploy the release to staging. The API adds the `presence_events` and `presence_flags` tables by itself. In `/etc/voxelventure/staging/presence.env` leave `PRESENCE_TRACK` unset (on when accounts are set up) and `PRESENCE_ENFORCE=0`; restart the presence service. `/status` (through the server, not Caddy) shows `positions.ready: true`.
+2. With two **throwaway** accounts: one walks from a spawn to the park and to a district, stays there a minute; the other sends an impossible jump (a modified client, or the test harness). Check in the database that the first has `presence_events` rows (`in`, `place:park:park`), the second has none for the park and `positions.violations` rose in `/status`.
+3. Claim a park task as the first account: paid once. Make the second account jump repeatedly (the flag needs about a dozen): `GET /admin/presence/flags` lists it, its claim answers 409 `under_review`; clear it with `POST /admin/presence/flags/:id/clear` and the claim is paid.
+4. Watch the flags for a few days with real testers before anyone considers `PRESENCE_ENFORCE=1` or production. Look for false positives (a person flagged), and tune `lib/world/antibot.js`.
+5. **Rollback:** `PRESENCE_TRACK=0` in presence.env and restart; for the API, `staging.sh rollback`. The tables are additive and can stay.
+
 ## Commands
 
 | | |
