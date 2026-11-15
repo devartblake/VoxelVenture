@@ -23,6 +23,31 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 export const GOLD = { daily: { easy: 5, medium: 10, hard: 20 }, weekly: { easy: 30, medium: 60, hard: 120 } };
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// A building's colour in a word, from the hex the generator gives it (21 hexes in the live city, 14 words)
+export function colourName(hex) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (d < 0.12) return 'grey';
+  const s = d / (1 - Math.abs(2 * l - 1));
+  if (s < 0.14) return 'grey';
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  if (h < 15 || h >= 350) return 'red';
+  if (h < 50 && l < 0.4) return 'brown';
+  if (h < 40) return 'orange';
+  if (h < 62) return 'yellow';
+  if (h < 100) return 'lime';
+  if (h < 165) return 'green';
+  if (h < 195) return 'teal';
+  if (h < 215) return 'sky blue';
+  if (h < 235) return 'blue';
+  if (h < 270) return 'violet';
+  if (h < 305) return 'purple';
+  if (h < 330) return 'magenta';
+  return 'pink';
+}
 const hash = (text) => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 // cyrb53: a 53-bit string hash, written in base 36 and cut to 8 characters (the task ids)
 const taskHash = (str) => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36).padStart(8, '0').slice(-8); };
@@ -37,7 +62,7 @@ export async function worldFacts(seed) {
   const bridgeName = (id) => { const p = id.split('-'); return p[1] === 'avenue' ? `the ${label[p[3]] ?? cap(p[3])} avenue bridge` : `the ${cap(p[2])} County bridge`; };
   const businesses = city.plots
     .filter((p) => p.generated && p.title && !/^Empty/.test(p.title) && p.buildingType)
-    .map((p) => ({ id: p.id, title: p.title, district: p.districtId, type: p.buildingType, prime: Boolean(p.prime), luxury: Boolean(p.luxury), grand: Boolean(p.grand) }));
+    .map((p) => ({ id: p.id, title: p.title, district: p.districtId, type: p.buildingType, category: p.category, colour: colourName(p.color), value: p.value, height: p.height, prime: Boolean(p.prime), luxury: Boolean(p.luxury), grand: Boolean(p.grand) }));
   return {
     districts,
     label,
@@ -175,8 +200,8 @@ export async function buildCatalogue(seed = 20260101) {
   for (const d of W.districts.filter((x) => W.businesses.some((b) => b.district === x.id))) Wk('VOT', 'vote-district', `Vote for a business in ${d.name}`, `Give this week's vote to a business in ${d.name}.`, 'easy', { type: 'vote', district: d.id }, T, { requires: ['signed-in'] });
   for (const c of ['Food & drink', 'Shops & retail', 'Software & SaaS', 'Games & play', 'Creators & studios', 'Online stores', 'Local services']) Wk('VOT', 'discover', `Browse ${c} on Discover`, `Open Discover and look through the ${c} category.`, 'easy', { type: 'browse-category', category: c }, E);
 
-  // ---- named businesses: 200 of the city's own, chosen once and spread across the districts
-  const picked = [...W.businesses].sort((a, b) => hash(`${seed}|biz|${a.id}`) - hash(`${seed}|biz|${b.id}`)).slice(0, 200).sort((a, b) => a.id - b.id);
+  // ---- named businesses: every one of the city's own (the city reuses some names, so the plot number tells two apart)
+  const picked = [...W.businesses].sort((a, b) => a.id - b.id);
   const seen = {};
   for (const b of picked) { const k = `${b.title}|${b.district}`; seen[k] = (seen[k] ?? 0) + 1; }
   for (const b of picked) {
@@ -227,7 +252,7 @@ export async function buildCatalogue(seed = 20260101) {
   const outfits = [];
   for (const s of shirts) for (const p of pants) for (const h of hats) outfits.push([s, p, h]);
   outfits.sort((a, b) => hash(`${seed}|outfit|${a.map((x) => x.id)}`) - hash(`${seed}|outfit|${b.map((x) => x.id)}`));
-  for (const [s, p, h] of outfits.slice(0, 30)) Wk('WRD', 'outfit-hat', `${h.name}, ${s.name.toLowerCase()} and ${p.name.toLowerCase()}`, `Wear the ${h.name.toLowerCase()}, the ${s.name.toLowerCase()} and the ${p.name.toLowerCase()} together.`, 'medium', { type: 'wear', items: [s.id, p.id, h.id] }, T, { requires: ['owns-item'] });
+  for (const [s, p, h] of outfits) Wk('WRD', 'outfit-hat', `${h.name}, ${s.name.toLowerCase()} and ${p.name.toLowerCase()}`, `Wear the ${h.name.toLowerCase()}, the ${s.name.toLowerCase()} and the ${p.name.toLowerCase()} together.`, 'medium', { type: 'wear', items: [s.id, p.id, h.id] }, T, { requires: ['owns-item'] });
   for (const e of COSMETICS.filter((c) => c.slot === 'emote')) for (const n of [3, 10]) D('WRD', 'emote', `${e.name} ${n} times`, `Play the ${e.name.toLowerCase()} emote ${n} times today (key ${e.key}).`, n < 5 ? 'easy' : 'medium', { type: 'emote', emote: e.id, count: n }, E, { requires: ['owns-item'] });
   for (const park of W.parks) D('WRD', 'emote-place', `Dance in ${park.name}`, `Play the dance emote in ${park.name}.`, 'easy', { type: 'emote', emote: 'emote-dance', place: 'park', id: park.id }, E, { requires: ['owns-item'], seedBound: true });
   Wk('WRD', 'emote-week', 'Play every emote', 'Play each emote you own at least five times this week.', 'medium', { type: 'emote', all: true, count: 5 }, E, { requires: ['owns-item'] });
@@ -286,6 +311,103 @@ export async function buildCatalogue(seed = 20260101) {
   for (const phase of ['dawn', 'dusk', 'night']) D('CHL', 'phases', `Three districts ${phase === 'dawn' ? 'at dawn' : phase === 'dusk' ? 'at dusk' : 'after dark'}`, `Be in three different districts ${phase === 'dawn' ? 'at dawn' : phase === 'dusk' ? 'at dusk' : 'after dark'} in one day.`, 'hard', { type: 'be-in', phase, districts: 3 }, P);
   D('CHL', 'walk-far', 'Walk from one end of the city to the other', 'Walk from the far west of the city to the far east in one day.', 'hard', { type: 'cross-city', axis: 'x' }, P);
   D('CHL', 'walk-far', 'Walk from north to south', 'Walk from the far north of the city to the far south in one day.', 'hard', { type: 'cross-city', axis: 'z' }, P);
+
+  // ---- growing the catalogue: what the businesses are, how they look, and when you see them
+  const phases = { dawn: 'at dawn', day: 'in daylight', dusk: 'at dusk', night: 'at night' };
+  const phaseKeys = Object.keys(phases);
+  const article = (w) => (/^[aeiou]/i.test(w) ? 'an' : 'a');
+  const bizIn = (d) => picked.filter((b) => b.district === d);
+  const typePlural = { shop: 'shops', restaurant: 'restaurants', office: 'offices' };
+  const cats = [...new Set(picked.map((b) => b.category))].sort();
+  const catCount = Object.fromEntries(cats.map((c) => [c, picked.filter((b) => b.category === c).length]));
+  const colours = [...new Set(picked.map((b) => b.colour))].sort();
+  const withBiz = W.districts.filter((d) => bizIn(d.id).length);
+
+  // what a business is: its category
+  for (const c of cats) {
+    D('BIZ', 'category', `Visit ${article(c)} ${c} business`, `Step inside any business in the ${c} category.`, 'easy', { type: 'visit-businesses', category: c, count: 1 }, T);
+    if (catCount[c] > 3) Wk('BIZ', 'category-week', `Visit 3 ${c} businesses`, `Step inside three different ${c} businesses this week.`, 'medium', { type: 'visit-businesses', category: c, count: 3, distinct: true }, T);
+    if (catCount[c] <= 7) Wk('BIZ', 'category-all', `Visit every ${c} business`, `Step inside all ${catCount[c]} ${c} businesses in the city this week.`, 'hard', { type: 'visit-businesses', category: c, count: catCount[c], distinct: true }, T);
+    for (const d of withBiz) if (bizIn(d.id).some((b) => b.category === c)) D('BIZ', 'category-district', `Visit ${article(c)} ${c} business in ${d.name}`, `Find ${article(c)} ${c} business in ${d.name} and step inside.`, 'easy', { type: 'visit-businesses', category: c, district: d.id, count: 1 }, T);
+  }
+
+  // how a business looks: the colour of its building, how tall, how much it is worth, how its name begins and ends
+  for (const col of colours) {
+    D('BIZ', 'colour', `Find ${article(col)} ${col} building`, `Step inside a business in ${article(col)} ${col} building.`, 'easy', { type: 'visit-businesses', colour: col, count: 1 }, T);
+    if (picked.filter((b) => b.colour === col).length >= 3) Wk('BIZ', 'colour-week', `Visit 3 ${col} buildings`, `Step inside three different ${col} buildings this week.`, 'medium', { type: 'visit-businesses', colour: col, count: 3, distinct: true }, T);
+    for (const d of withBiz) if (bizIn(d.id).some((b) => b.colour === col)) D('BIZ', 'colour-district', `Find ${article(col)} ${col} building in ${d.name}`, `Step inside a business in ${article(col)} ${col} building in ${d.name}.`, 'easy', { type: 'visit-businesses', colour: col, district: d.id, count: 1 }, T);
+  }
+  for (const n of [500, 1000, 2500, 5000, 10000]) if (picked.some((b) => b.value >= n)) D('BIZ', 'value', `Visit a business valued over ${n.toLocaleString('en-US')}`, `Step inside a business whose plot is valued above ${n.toLocaleString('en-US')}.`, n < 2500 ? 'medium' : 'hard', { type: 'visit-businesses', minValue: n, count: 1 }, T);
+  for (const d of withBiz) {
+    if (bizIn(d.id).some((b) => b.value >= 1000)) D('BIZ', 'value-district', `Visit a business valued over 1,000 in ${d.name}`, `Step inside a business in ${d.name} whose plot is valued above 1,000.`, 'medium', { type: 'visit-businesses', minValue: 1000, district: d.id, count: 1 }, T);
+    if (bizIn(d.id).length >= 3) {
+      D('BIZ', 'tallest', `Visit the tallest building in ${d.name}`, `Find the tallest building in ${d.name} and step inside.`, 'hard', { type: 'visit-extreme', district: d.id, by: 'height', pick: 'max' }, T);
+      D('BIZ', 'smallest', `Visit the smallest building in ${d.name}`, `Find the smallest building in ${d.name} and step inside.`, 'medium', { type: 'visit-extreme', district: d.id, by: 'height', pick: 'min' }, T);
+      D('BIZ', 'priciest', `Visit the most valuable business in ${d.name}`, `Find the business on the most valuable plot in ${d.name} and step inside.`, 'hard', { type: 'visit-extreme', district: d.id, by: 'value', pick: 'max' }, T);
+    }
+  }
+  const endWords = {};
+  for (const b of picked) { const w = b.title.split(/\s+/).pop(); endWords[w] = (endWords[w] ?? 0) + 1; }
+  for (const [w, n] of Object.entries(endWords).sort()) if (n >= 3) {
+    D('BIZ', 'name-end', `Find a business ending in "${w}"`, `Step inside any business whose name ends in "${w}".`, 'easy', { type: 'visit-businesses', nameEndsWith: w, count: 1 }, T);
+    Wk('BIZ', 'name-end-week', `Visit 3 businesses ending in "${w}"`, `Step inside three different businesses whose names end in "${w}".`, 'medium', { type: 'visit-businesses', nameEndsWith: w, count: 3, distinct: true }, T);
+  }
+  for (const letter of [...new Set(picked.map((b) => b.title[0].toUpperCase()))].sort()) D('BIZ', 'initial', `Find a business starting with ${letter}`, `Step inside any business whose name starts with ${letter}.`, 'easy', { type: 'visit-businesses', initial: letter, count: 1 }, T);
+  for (const ty of types) for (const n of [4, 6]) D('EXP', 'type-count', `Visit ${n} ${typePlural[ty]} in a day`, `Step inside ${n} different ${typePlural[ty]} today.`, 'hard', { type: 'visit-businesses', buildingType: ty, count: n, distinct: true }, T);
+  for (let i = 0; i < withBiz.length; i++) for (let j = i + 1; j < withBiz.length; j++) Wk('COL', 'district-pair', `Do business in ${withBiz[i].name} and ${withBiz[j].name}`, `Step inside a business in ${withBiz[i].name} and one in ${withBiz[j].name} this week.`, 'medium', { type: 'districts', ids: [withBiz[i].id, withBiz[j].id] }, T);
+  for (const d of withBiz) {
+    if (bizIn(d.id).some((b) => b.grand)) D('EST', 'grand-district', `Visit a grand estate in ${d.name}`, `Walk up to a grand estate in ${d.name} and step inside.`, 'hard', { type: 'visit-businesses', flag: 'grand', district: d.id, count: 1 }, T);
+    if (bizIn(d.id).some((b) => b.luxury)) D('EST', 'luxury-district', `Visit a luxury estate in ${d.name}`, `Step inside a luxury plot's business in ${d.name}.`, 'medium', { type: 'visit-businesses', flag: 'luxury', district: d.id, count: 1 }, T);
+    if (bizIn(d.id).length >= 5 && bizIn(d.id).length <= 30) Wk('EXP', 'district-all', `Visit every business in ${d.name}`, `Step inside all ${bizIn(d.id).length} businesses in ${d.name} this week.`, 'hard', { type: 'visit-businesses', district: d.id, count: bizIn(d.id).length, distinct: true }, T);
+  }
+
+  // when you see it: the time of day, which the server reads from the shared world clock
+  for (const ph of phaseKeys) for (const d of withBiz) D('TIM', 'visit-phase', `Visit a business in ${d.name} ${phases[ph]}`, `Step inside a business in ${d.name} ${phases[ph]}.`, ph === 'night' ? 'medium' : 'easy', { type: 'visit-businesses', district: d.id, phase: ph, count: 1 }, T);
+  for (const ph of ['dusk', 'night']) for (const d of withBiz) for (const ty of types) if (bizIn(d.id).some((b) => b.type === ty)) D('TIM', 'visit-type-phase', `Visit ${article(ty === 'office' ? 'office' : ty)} ${ty} in ${d.name} ${phases[ph]}`, `Step inside ${article(ty === 'office' ? 'office' : ty)} ${ty} in ${d.name} ${phases[ph]}.`, 'medium', { type: 'visit-businesses', district: d.id, buildingType: ty, phase: ph, count: 1 }, T);
+  for (const d of withBiz) Wk('TIM', 'district-all-day', `See ${d.name} at all four times of day`, `Be in ${d.name} at dawn, in daylight, at dusk and at night this week.`, 'hard', { type: 'be-in', district: d.id, phases: 4 }, P);
+  Wk('TIM', 'visit-all-day', 'Visit a business at every time of day', 'Step inside a business at dawn, in daylight, at dusk and at night this week.', 'medium', { type: 'visit-businesses', phases: 4 }, T);
+  for (const p of places) {
+    for (const ph of ['dawn', 'day']) D('PLC', `place-${ph}`, `See ${p.name} ${phases[ph]}`, `Be at ${p.name} ${phases[ph]}.`, 'easy', { type: 'reach', place: p.kind, id: p.id, phase: ph }, P, { seedBound: true });
+    Wk('PLC', 'place-dusk-week', `See ${p.name} at dusk on 3 days`, `Be at ${p.name} at dusk on three different days this week.`, 'hard', { type: 'reach', place: p.kind, id: p.id, phase: 'dusk', days: 3 }, P, { seedBound: true });
+  }
+  for (const road of W.roads) {
+    for (const ph of ['dusk', 'night']) D('RDS', `road-${ph}`, `Walk ${road} ${phases[ph]}`, `Walk the length of ${road} ${phases[ph]}.`, 'medium', { type: 'road', road, mode: 'walk', phase: ph }, P, { seedBound: true });
+    Wk('RDS', 'road-week', `Walk ${road} on 3 days`, `Walk the length of ${road} on three different days this week.`, 'medium', { type: 'road', road, mode: 'walk', days: 3 }, P, { seedBound: true });
+  }
+  for (const [id, z] of Object.entries(ZONES)) for (const ph of ['dusk', 'night']) D('SND', 'zone-phase', `Hear ${z.label} ${phases[ph]}`, `Be in the ${z.label} sound zone ${phases[ph]}.`, 'medium', { type: 'zone', zone: id, phase: ph }, P);
+  for (const d of W.districts) for (const m of [300, 800, 1500]) D('DST', 'district-distance', `Walk ${m === 1500 ? '1.5 km' : `${m} m`} inside ${d.name}`, `Cover ${m === 1500 ? '1.5 km' : `${m} metres`} on foot without leaving ${d.name}.`, m < 800 ? 'easy' : 'medium', { type: 'distance', mode: 'walk', metres: m, district: d.id }, P);
+
+  // the hunt, the water and the wardrobe, in more detail
+  const starKinds = [['park', 'a park fountain'], ['circle', 'a roundabout'], ['bridge', 'a bridge'], ['lake', 'a lake shore'], ['estate', 'a grand estate']];
+  for (const [kind, label] of starKinds) {
+    D('HNT', 'star-kind', `Find the star at ${label}`, `Today's hunt: find the gold star at ${label}, if it is there.`, 'medium', { type: 'stars', kind, count: 1 }, T);
+    Wk('HNT', 'star-kind-week', `Find a star at ${label} on 3 days`, `Find a gold star at ${label} on three different days this week.`, 'hard', { type: 'stars', kind, days: 3 }, T);
+  }
+  for (const f of fish) {
+    const name = f.name.toLowerCase();
+    for (const lake of W.lakes) {
+      D('FSH', 'fish-kind-lake', `Catch ${an(name)} on ${lake.name}`, `Reel in ${an(name)} on ${lake.name}.`, 'medium', { type: 'catch', fish: f.id, place: 'lake', id: lake.id, count: 1 }, E, { seedBound: true });
+      Wk('FSH', 'fish-kind-lake-week', `Catch 3 ${plural[f.id]} on ${lake.name}`, `Reel in three ${plural[f.id]} on ${lake.name} this week.`, 'hard', { type: 'catch', fish: f.id, place: 'lake', id: lake.id, count: 3 }, E, { seedBound: true });
+    }
+    for (const pier of W.piers) D('FSH', 'fish-kind-pier', `Catch ${an(name)} from ${pier.name}`, `Reel in ${an(name)} while fishing from ${pier.name}.`, 'medium', { type: 'catch', fish: f.id, place: 'pier', id: pier.id, count: 1 }, E, { seedBound: true });
+    for (const ph of ['dusk', 'night']) D('FSH', 'fish-kind-phase', `Catch ${an(name)} ${phases[ph]}`, `Reel in ${an(name)} ${phases[ph]}.`, 'medium', { type: 'catch', fish: f.id, phase: ph, count: 1 }, T);
+  }
+  for (const c of wear.filter((x) => x.price > 0)) for (const park of W.parks) Wk('WRD', 'wear-place', `Wear the ${c.name.toLowerCase()} in ${park.name}`, `Walk through ${park.name} wearing the ${c.name.toLowerCase()}.`, 'medium', { type: 'wear', item: c.id, place: 'park', id: park.id }, E, { requires: ['owns-item'], seedBound: true });
+  for (const n of [45, 60, 100, 180, 365]) Wk('STR', 'login-streak-long', `Keep a ${n}-day streak`, `Finish at least one daily task on ${n} days in a row.`, 'hard', { type: 'streak', days: n }, T);
+
+  // the vote, the meta tasks (counted from the server's own claim records)
+  for (const c of cats) Wk('VOT', 'vote-category', `Vote for ${article(c)} ${c} business`, `Give this week's vote to ${article(c)} ${c} business.`, 'easy', { type: 'vote', category: c }, T, { requires: ['signed-in'] });
+  for (const ty of types) Wk('VOT', 'vote-type', `Vote for ${article(ty === 'office' ? 'office' : ty)} ${ty}`, `Give this week's vote to ${article(ty === 'office' ? 'office' : ty)} ${ty}.`, 'easy', { type: 'vote', buildingType: ty }, T, { requires: ['signed-in'] });
+  for (const col of colours) Wk('VOT', 'vote-colour', `Vote for ${article(col)} ${col} building`, `Give this week's vote to a business in ${article(col)} ${col} building.`, 'easy', { type: 'vote', colour: col }, T, { requires: ['signed-in'] });
+  const metaNames = { BIZ: 'business-visit', EXP: 'exploring', PLC: 'places', RDS: 'roads', CHL: 'challenge', WRD: 'wardrobe', TIM: 'time-of-day', FSH: 'fishing', VOT: 'community', SND: 'sound-zone', SOC: 'social', DST: 'distance', HNT: 'daily-find', EST: 'estate', COL: 'collection', AIR: 'air', FUN: 'fun-park and mall' };
+  for (const [code, name] of Object.entries(metaNames)) for (const n of [3, 6]) Wk('STR', 'category-count', `Finish ${n} ${name} tasks`, `Complete ${n} ${name} tasks (daily or weekly) over the week.`, n === 3 ? 'medium' : 'hard', { type: 'tasks-complete', category: code, count: n }, T);
+  for (const n of [1, 3, 5]) Wk('STR', 'hard-count', `Finish ${n === 1 ? 'a hard daily task' : `${n} hard daily tasks`}`, `Complete ${n === 1 ? 'a hard daily task' : `${n} hard daily tasks`} this week.`, n === 1 ? 'easy' : n === 3 ? 'medium' : 'hard', { type: 'tasks-complete', cadence: 'daily', tier: 'hard', count: n }, T);
+  Wk('STR', 'weekly-count', 'Finish 4 of this week\'s other tasks', 'Complete four of the week\'s other tasks.', 'hard', { type: 'tasks-complete', cadence: 'weekly', count: 4, others: true }, T);
+
+  // two kinds of business in one week, a kind of business at dusk or at night, a colour at night
+  for (let i = 0; i < cats.length; i++) for (let j = i + 1; j < cats.length; j++) Wk('BIZ', 'category-pair', `Visit ${article(cats[i])} ${cats[i]} and ${article(cats[j])} ${cats[j]} business`, `Step inside ${article(cats[i])} ${cats[i]} business and ${article(cats[j])} ${cats[j]} business this week.`, 'medium', { type: 'visit-businesses', categories: [cats[i], cats[j]] }, T);
+  for (const c of cats) for (const ph of ['dusk', 'night']) D('TIM', 'category-phase', `Visit ${article(c)} ${c} business ${phases[ph]}`, `Step inside ${article(c)} ${c} business ${phases[ph]}.`, 'medium', { type: 'visit-businesses', category: c, phase: ph, count: 1 }, T);
+  for (const col of colours) D('TIM', 'colour-night', `Find ${article(col)} ${col} building at night`, `Step inside a business in ${article(col)} ${col} building after dark.`, 'medium', { type: 'visit-businesses', colour: col, phase: 'night', count: 1 }, T);
 
   const counts = {};
   for (const t of tasks) { counts.total = (counts.total ?? 0) + 1; counts[t.cadence] = (counts[t.cadence] ?? 0) + 1; }
