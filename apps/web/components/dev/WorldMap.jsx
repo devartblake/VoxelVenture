@@ -48,14 +48,50 @@ export default function WorldMap() {
       ctx.stroke();
       // then the grass inside the beach band
       ctx.save();
-      ctx.beginPath();
-      m.outline.points.forEach((p, i) => { const q = { x: m.centre.x + (p.x - m.centre.x) * 0.93, z: m.centre.z + (p.z - m.centre.z) * 0.93 }; if (i) ctx.lineTo(X(q.x), Z(q.z)); else ctx.moveTo(X(q.x), Z(q.z)); });
-      ctx.closePath();
-      ctx.fillStyle = '#1c3d24';
-      ctx.fill();
+      if (m.outline.kind === 'template') {
+        // a coast with a real shape (a variation of an island: lib/world/shapes.js): a beach band of the same width all round, which a shrunk copy of the outline would not give (thick at the
+        // tips, thin along the sides)
+        path();
+        ctx.clip();
+        path();
+        ctx.fillStyle = '#1c3d24';
+        ctx.fill();
+        path();
+        ctx.lineWidth = 2 * 16 * s;
+        ctx.strokeStyle = '#e8d9a8';
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        m.outline.points.forEach((p, i) => { const q = { x: m.centre.x + (p.x - m.centre.x) * 0.93, z: m.centre.z + (p.z - m.centre.z) * 0.93 }; if (i) ctx.lineTo(X(q.x), Z(q.z)); else ctx.moveTo(X(q.x), Z(q.z)); });
+        ctx.closePath();
+        ctx.fillStyle = '#1c3d24';
+        ctx.fill();
+      }
       ctx.restore();
       if (show.features) {
         const f = m.features ?? {};
+        // mountain ranges (a template coast has them): a broad dark band along the line, a lighter ridge on top, and the name; the taller, the darker
+        for (const [ri, rg] of (f.ranges ?? []).entries()) {
+          const line = () => { ctx.beginPath(); rg.points.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z)))); };
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          line();
+          ctx.lineWidth = Math.max(4, rg.width * s);
+          ctx.strokeStyle = rg.height >= 12 ? '#2c4a30' : '#336a3d';
+          ctx.stroke();
+          line();
+          ctx.lineWidth = Math.max(2, rg.width * s * 0.35);
+          ctx.strokeStyle = rg.height >= 12 ? '#6b8f64' : '#5f9a5c';
+          ctx.stroke();
+          ctx.lineCap = 'butt';
+          const mid = rg.points[Math.floor(rg.points.length / 2)];
+          ctx.fillStyle = '#e2e8f0';
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'center';
+          // the labels of neighbouring ranges go one above and one below, so they do not run into each other
+          ctx.fillText(`${rg.name} (${rg.height})`, X(mid.x), ri % 2 ? Z(mid.z) + (rg.width * s) / 2 + 14 : Z(mid.z) - Math.max(8, (rg.width * s) / 2 + 6));
+          ctx.textAlign = 'left';
+        }
         for (const h of f.hills ?? []) { ctx.beginPath(); ctx.arc(X(h.x), Z(h.z), h.radius * s, 0, Math.PI * 2); ctx.fillStyle = '#2f5a35'; ctx.fill(); }
         if (f.airstrip) {
           // the apron (a grey strip on the town's side), the runway (a wider grey line along its heading) and its white centreline, with the name beside it
@@ -94,6 +130,31 @@ export default function WorldMap() {
       ctx.fillStyle = '#e2e8f0';
       ctx.font = '600 22px sans-serif';
       ctx.fillText(m.name, X(m.centre.x) - ctx.measureText(m.name).width / 2, Z(m.bounds.z0) - 10);
+    }
+    // the highways (lib/world/highways.js): the coastal ring road and a spur from each side of the town's county road to it
+    if (show.roads) {
+      for (const h of world.highways ?? []) {
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = Math.max(1.5, h.width * s);
+        ctx.beginPath(); h.ring.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z)))); ctx.closePath(); ctx.stroke();
+        for (const sp of h.spurs) { ctx.beginPath(); ctx.moveTo(X(sp.from.x), Z(sp.from.z)); ctx.lineTo(X(sp.to.x), Z(sp.to.z)); ctx.stroke(); }
+      }
+      // link roads: from the harbour's quay and from an airstrip's apron to the nearest spur
+      for (const l of world.links ?? []) { ctx.strokeStyle = '#fb923c'; ctx.lineWidth = Math.max(1.5, l.width * s); ctx.beginPath(); ctx.moveTo(X(l.from.x), Z(l.from.z)); ctx.lineTo(X(l.to.x), Z(l.to.z)); ctx.stroke(); }
+      // the causeways: the road is on land (amber), and the bridge over the water is lighter with dark edges
+      for (const c of world.causeways ?? []) {
+        ctx.lineCap = 'butt';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = Math.max(1.5, c.width * s);
+        ctx.beginPath(); ctx.moveTo(X(c.points[0].x), Z(c.points[0].z)); ctx.lineTo(X(c.points[1].x), Z(c.points[1].z)); ctx.stroke();
+        ctx.strokeStyle = '#fef3c7';
+        ctx.lineWidth = Math.max(1, (c.width - 3) * s);
+        ctx.beginPath(); ctx.moveTo(X(c.bridge.from.x), Z(c.bridge.from.z)); ctx.lineTo(X(c.bridge.to.x), Z(c.bridge.to.z)); ctx.stroke();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '11px sans-serif';
+        ctx.fillText(c.name, X((c.bridge.from.x + c.bridge.to.x) / 2) - 30, Z((c.bridge.from.z + c.bridge.to.z) / 2) - 8);
+      }
     }
     for (const t of world.towns) {
       if (show.land) { ctx.strokeStyle = 'rgba(148,163,184,0.45)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1; ctx.strokeRect(X(t.land.x0), Z(t.land.z0), (t.land.x1 - t.land.x0) * s, (t.land.z1 - t.land.z0) * s); ctx.setLineDash([]); }

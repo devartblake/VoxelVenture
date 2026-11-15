@@ -1,0 +1,1 @@
+{"cx":3,"cz":-4,"size":128,"bounds":{"x0":384,"z0":-512,"x1":512,"z1":-384},"land":1,"plots":[],"roads":[],"highways":[{"id":"mainland-ring","kind":"ring","class":"highway","width":6,"a":{"x":495.5,"z":-512},"b":{"x":502.79,"z":-504.57}},{"id":"mainland-ring","kind":"ring","class":"highway","width":6,"a":{"x":502.79,"z":-504.57},"b":{"x":512,"z":-494.06}}]}

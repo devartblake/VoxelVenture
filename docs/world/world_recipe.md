@@ -53,7 +53,7 @@ The same steps for staging are in [deploy/STAGING.md](../../deploy/STAGING.md) (
 
 | Landmass | Town | Seed | Placed | Coast | Features |
 | :--- | :--- | ---: | :--- | :--- | :--- |
-| The Mainland | Voxel Town (index 0, live) | 20260101 | the origin | seed 1101, 70 beyond the land | beaches, headlands |
+| The Mainland | Voxel Town (index 0, live) | 20260101 | the origin | **a variation of Jamaica** (section 4a), seed 1101, 70 of beach round the town | beaches, headlands, **ranges** |
 | Harbor Isle | Harbor Town (index 1, **not live**) | 8675309 | east of the mainland, bearing 8 degrees, **380 units of open water** | seed 2202, 80 beyond the land | harbour, beaches, headlands, hills, **airstrip** |
 
 - **The first town never moves.** Its origin is (0, 0), so its coordinates and ids are what the game has always used.
@@ -80,13 +80,59 @@ These are *positions and data*. Nothing draws water, sand or hills in the game y
 
 `/world` (a development tool, like `/land` and `/curves`: it exists only outside release builds, and robots.txt keeps search engines away) draws both landmasses on one map: the sea, the coasts with their beach band, the harbour piers, hills and headlands, each town's roads and every plot as a dot in its district's colour (the lots added after the generator in lime), the land outline, and a table of towns, plot counts, id ranges, origins, and the open water between. [apps/web/components/dev/WorldMap.jsx](../../apps/web/components/dev/WorldMap.jsx).
 
+## 4a. The mainland is a variation of Jamaica (2026-11-15)
+
+The first landmass was a lumpy ring round the town's land, which on the map was a rounded square. It is now shaped like an island: [lib/world/shapes.js](../../lib/world/shapes.js) draws the mainland's coast from a hand-made outline of **Jamaica** (about 50 points: Negril's western tip, the long north coast past Montego Bay, Ocho Rios and Port Antonio, Morant Point in the east, the Kingston harbour inlet, the great bay of Portland Bight with Portland Ridge on its seaward side, the Black River bulge). It is a **variation**, not a copy:
+
+| Setting (`coast` in the recipe) | Mainland | What it does |
+| :--- | ---: | :--- |
+| `shape` | `jamaica` | which template |
+| `length` | 2000 | the island's reach east to west, in game units, before the town is fitted in (it is scaled up from the town until the land is inside; it ends at about 2,425 x 1,383) |
+| `stretch` | 1.35 | widens it north to south: real Jamaica is thin, and the town's land is 346 x 392 |
+| `rotate`, `variation` | 4 degrees, 0.06 | a small turn, and a few per cent of seeded change in the radius, so it is Jamaica's kind of shape and another seed gives another coast |
+| `anchor` | -77.28, 18.02 | the place on the template where the town stands: the central plains. The town's land is put in the middle of that spot and the shape is scaled up from there until the land is inside with `margin` (70) units of beach |
+
+The coast is made smooth by two rounds of corner-cutting, checked never to cross itself, and checked to leave the town's land inside it with the beach to spare (a land that cannot fit is an error, not a town in the sea). The result is about 2,425 x 1,383 units, 1.8 million square units (the old mainland was 0.3 million), and about 53% of its bounding box (a rounded square fills 85%).
+
+**Mountains and hills.** Jamaica's are in the recipe as `features.ranges`: the **Blue Mountains** in the east (height 14), **Cockpit Country** in the north-west (8) and **Dolphin Head** at the western tip (7). The central hills are left out because they would touch the town. Each range is a line with a width at its foot and a height, and `elevationAt(ranges, x, z, seed)` is the ground's height anywhere: 0 away from every range, rising smoothly along its line, lumpy like real peaks, continuous, the same every time for a seed, and **0 over all of the first town's land** (it stays on the plains). The game's own hills near the first town are low (at most 2.2 units: a tall building is about 1.5); these are mountains, with a peak of about 13 units.
+
+They are data and a height function, **not terrain in the game yet**: a terrain mesh, the ground height under a car or an avatar, and the collision for a slope all need the streaming runtime and real terrain (roadmap tasks 11 and 17). The function is there for them to read.
+
+**Harbor Isle moved.** The island is placed by its gap from the mainland's coast (380 units), and the mainland is now much bigger, so the island's town is at (1922.9, 78.1) and not (977.5, 161.4). Its lots that a staging server may already hold (`WORLD_TOWNS=harbor`) have the old coordinates. They are empty, not for sale and not shown anywhere, so nothing is wrong, but when the island is made final they have to be **re-seeded**: delete the rows with ids from 1,000,000 up (none is owned) and restart the API with `WORLD_TOWNS=harbor`. The island's own design is still to be changed (it is still a rounded square), so that is best done once, after both landmasses are final.
+
+## 4b. Harbor Isle is a variation of Grand Cayman, with the Lesser Caymans beside it (2026-11-15)
+
+Harbor Isle and two new town-less islands are drawn from a **spine and a width profile** ([shapes.js](../../lib/world/shapes.js), `spineIsland`): a line along the island and, for each side, how far the coast is from it along the way. That gives broad ends, waists, bays and tapering tips that cannot cross themselves (the hand-placed corner lists looked wrong).
+
+| Landmass | Template | Look | Placed |
+|---|---|---|---|
+| Harbor Isle | `grand-cayman` | broad west end where Harbor Town stands, the North Sound biting into the north side, a long arm tapering east; stretch 0.7, about 2.1 to 1; a low Eastern Bluff (height 4) | 380 units of water from the mainland (bearing 8) |
+| Little Isle | `little-cayman` | stocky, about 4 to 1, pinched in the middle by Preston Bay | 260 from Harbor Isle (bearing -35) |
+| The Brac | `cayman-brac` | slimmer and curved, about 4 to 1 overall but varying in width, bow-like east tip, with the Bluff (height 9) | 300 from Harbor Isle (bearing -85) |
+
+The Lesser Caymans are about 275 units apart and have no town, no plots and no database rows. The harbour faces the landmass the island is placed from (the mainland).
+
+## 4c. Roads round both landmasses, and where the heights come from (2026-11-15)
+
+**Coastal ring roads** ([lib/world/highways.js](../../lib/world/highways.js), the recipe's `highways`): one on the mainland and one on Harbor Isle, about 6,100 units each. Each is walked round the coast at 28-unit steps and set about 30 units inland, so it clears the beach. Where the ground is above 2.5 (the ranges) the road moves nearer the coast; it keeps 34 units off the airstrip's runway; where an island is too thin for the road (the east tip of Harbor Isle) the road cuts across the tip; and any loop is cut out, so a ring never crosses itself. The Lesser Caymans have no town and no road.
+
+**Spurs:** one from each side (north, south, east, west) of the town's county road out to the ring, 200 to 1,200 units long. A spur starts at a gap between lots along the county road, or goes on in line past a road's corner, and is used only if it clears every lot and the airstrip. The causeway between the landmasses is below.
+
+**Link roads** (`world.links`, 2026-11-15): Harbor Isle's harbour quay and its airstrip's apron had no road to them. Each now has a short road (about 126 and 100 units) to the nearest of the island's spurs, joining it at least 50 units in from the coast road, by a straight line that clears every lot. The mainland has no harbour or airstrip, so no links.
+
+**The causeways** (the recipe's `causeways`): there are two. `Harbor Causeway` (below) is the short one; the **North Causeway** (added 2026-11-15) is a second route between the same two rings, at least 400 units from the first at both ends and not crossing it: about 676 units long, 606 of them bridge, from the mainland's north-east coast to the north of Harbor Isle. `Harbor Causeway` joins the two rings by the straight line between the two ring points nearest each other, about 456 units long. About 392 of it is a bridge over the water, 9 units above the sea so boats pass under (the rest is road on land). A pair of points is skipped if the line would pass within 60 units of the harbour's quay or piers, near the airstrip, or across a Lesser Cayman. The map draws it in a lighter colour on the bridge.
+
+**Heights from real elevation data.** `scripts/world/dem_ridges.mjs` downloads the open Terrain Tiles (zoom 10, about 145 m a pixel), decodes them to metres and writes [lib/world/data/jamaicaDem.js](../../lib/world/data/jamaicaDem.js): the crest of each range and its peak (credited in CREDITS.md). The data's highest point is Blue Mountain Peak, 2,196 m at 18.044 N, 76.576 W (the published height is 2,256 m: the tiles are averaged over 145 m). A metre is 14 / 2196 of a game unit, so the summit is 14. The **Blue Mountains** and the **John Crow Mountains** follow the crest, with the real height at each point (the range falls from 2,196 m at the summit to about 1,100 m at its east end), and `elevationAt` reads it. Cockpit Country (6.2), Dolphin Head (3.3) and the Central Hills keep a hand-drawn line with the height the data gives (Cockpit Country is a maze of hills with no single crest; the Central Hills are too near the town and are dropped). Run the script again only to change a range.
+
 ## 5. What is not done, and why
 
 - **The island is not in the game.** Walking or driving to it needs the streaming runtime (roadmap task 11): chunked geometry, collision and traffic that work on a map this size. The main game keeps loading the first town only and does not regress.
 - **No water, sand or hills are drawn in the game**, and boats and fishing do not work at sea yet (the rest of task 14).
 - **The island's lots are not for sale.** `WORLD_TOWNS=harbor` in `api.env` (the default is none) adds them to the server's database under their global ids, but as **empty land that is not claimable**: no owner, no business, so none of it appears in the directory, the market, the sitemap or the public pages. Opening them is a separate decision, once the game can show the island. The switch has been exercised on a file database: 1,070 rows added, none claimable, none owned, and a second start adds nothing.
 - **No way across the water yet** except a boat once the sea is drawn. A plane the player flies, and flights to the island, are on the roadmap as task 18 ([player_flight.md](player_flight.md)).
-- **No highways** between towns (roadmap task 12): the recipe has a slot (`highways: []`).
+- **The mountains are not terrain in the game**, and the mainland's Jamaica coast is not drawn in it: the game's mainland is still the rectangle it has always been (roadmap tasks 11, 14 and 17).
+- **Harbor Isle is still a rounded square.** Its own shape is the next step.
+- **Rail, ferries and a fast-road class** (roadmap task 12): each landmass has its coastal ring and spurs and one causeway joins them (section 4c), but there is no train, no ferry and no faster road class for traffic yet.
 - **No streets or buildings are shared** between the towns, and the preview is 2D.
 - **The land of the first town is still a rectangle** in the game; its coast in the recipe is drawn *round* it for the map.
 - The island's other systems (traffic, daily finds, search, multiplayer rooms: task 16) do not know it exists.

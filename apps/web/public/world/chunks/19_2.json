@@ -1,0 +1,1 @@
+{"cx":19,"cz":2,"size":128,"bounds":{"x0":2432,"z0":256,"x1":2560,"z1":384},"land":1,"plots":[],"roads":[],"highways":[{"id":"harbor-ring","kind":"ring","class":"highway","width":6,"a":{"x":2558.25,"z":374.92},"b":{"x":2544.42,"z":384}},{"id":"harbor-ring","kind":"ring","class":"highway","width":6,"a":{"x":2560,"z":373.74},"b":{"x":2558.25,"z":374.92}}]}
