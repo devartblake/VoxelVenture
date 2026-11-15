@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
-import { Gift, LayoutDashboard, List, Map as MapIcon, MapPin, MessageCircle, Minus, MoreHorizontal, Plus, Search, Shirt, Trophy, Users, X } from 'lucide-react';
+import { Gift, LayoutDashboard, List, ListChecks, Map as MapIcon, MapPin, MessageCircle, Minus, MoreHorizontal, Plus, Search, Shirt, Trophy, Users, X } from 'lucide-react';
 import CameraMenu from './CameraMenu';
 import { usePanel } from '@/lib/state/panelStore';
 import { useWorld } from '@/lib/state/worldStore';
@@ -18,6 +18,7 @@ const BUTTONS = [
   { view: 'search', label: 'Search', Icon: Search },
   { view: 'places', label: 'Places', Icon: MapPin },
   { view: 'play', label: 'Today and quests', Icon: Gift },
+  { view: 'tasks', label: 'Tasks', Icon: ListChecks },
   { view: 'online', label: 'Online', Icon: Users },
   { view: 'chat', label: 'Chat and messages', Icon: MessageCircle },
   { view: 'wardrobe', label: 'Wardrobe', Icon: Shirt },
