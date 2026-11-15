@@ -1,5 +1,13 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.17.0 (2026-11-15)
+
+The game's Gold is held by the server (`services/api/gold.mjs`, [backend.md](../../docs/architecture/backend.md#currency)). New contracts, all version 1, in [`contracts/game.js`](src/contracts/game.js). **No request carries an amount**: a page says what happened and the server decides what it pays.
+
+- Requests: `game.reach` (the chest, the Plot of the Day: where the avatar says it is), `game.star`, `game.fish` (a cast id), `game.billboard`, `game.buy` (an item id).
+- Answers: `game.paid` (what a payment paid and the Gold after it), `game.state` (the server's whole view of one account's Gold, its inventory and its daily progress; a guest gets `{ signedIn: false, day }`), `game.ledger`, and `admin.currency-audit` (every wallet against its ledger).
+- The day a page uses for the chest, the stars and the Plot of the Day is the server's (`game.state.day`, UTC), not the clock of the device.
+
 ## 0.16.0 (2026-10-25)
 
 Which screen a business event happened on, and the owner's funnel in the roadmap's event names (VV-UX-01).

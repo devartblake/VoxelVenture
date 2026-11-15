@@ -8,7 +8,6 @@ import { imp } from '../../scripts/lib-loader.mjs';
 const { DAY_MS, GRACE_DAYS, leaseState, renewalWindowDays, termFor, termOf, extendedEnd } = await imp('game/leases.js');
 const { renewalQuote } = await imp('game/claimPrice.js');
 const { weekStartOf, addWeeks } = await imp('market/weeks.js');
-const { HUNT_COUNT } = await imp('game/daily.js');
 const { votesAllowed, votingClosesAt, LEADERS_SHOWN } = await imp('game/buildingOfWeek.js');
 const now = () => Date.now();
 
@@ -78,9 +77,8 @@ export function completeHunt(db, account, input = {}) {
   requireAccount(account);
   const ms = dayMs(input.day);
   if (!Number.isFinite(ms) || Math.abs(ms - now()) > 2 * DAY_MS) fail(400, 'That is not today.', 'bad_day');
-  const found = new Set((Array.isArray(input.found) ? input.found : []).map(Number));
-  if (!Array.from({ length: HUNT_COUNT }, (_, i) => i).every((i) => found.has(i))) fail(400, 'Find all three first.', 'incomplete');
-  db.prepare('INSERT OR IGNORE INTO hunt_wins (account_id, day, at) VALUES (?,?,?)').run(account.id, input.day, now());
+  // The page's word is not enough (it would print votes): the hunt counts once the SERVER has itself paid all the stars (services/api/gold.mjs collectStar, which writes hunt_wins).
+  if (!db.prepare('SELECT 1 FROM hunt_wins WHERE account_id = ? AND day = ?').get(account.id, String(input.day))) fail(409, 'The server has not seen all three stars yet.', 'incomplete');
   return { ok: true, ...votingStatus(db, account) };
 }
 

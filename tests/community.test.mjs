@@ -110,7 +110,16 @@ try {
   const noMore = (await call('POST', '/vote', { token: cat.token, body: { plotId: built[2].id } })).data;
   check('with the one vote used, a second needs the stars (and says so)', noMore.code === 'no_votes_left' && /gold stars/.test(noMore.error), JSON.stringify(noMore));
   check('the stars must all be found, and it must be today', (await call('POST', '/hunt/complete', { token: cat.token, body: { day: today, found: [0, 1] } })).data.code === 'incomplete' && (await call('POST', '/hunt/complete', { token: cat.token, body: { day: '2020-01-01', found: [0, 1, 2] } })).data.code === 'bad_day' && (await call('POST', '/hunt/complete', { body: { day: today, found: [0, 1, 2] } })).status === 401);
-  const hunt = await call('POST', '/hunt/complete', { token: cat.token, body: { day: today, found: [0, 1, 2] } });
+  // the hunt is won by the SERVER seeing all three stars (services/api/gold.mjs), not by the page saying so; the claims are spaced so the avatar could have walked between them
+  const { scavengerHunt } = await imp('game/daily.js');
+  let prev = null;
+  for (const spot of scavengerHunt(city.layout, city.plots, 20260101, today)) {
+    if (prev) await sleep(Math.ceil((Math.hypot(spot.x - prev.x, spot.z - prev.z) / 60) * 1000) + 400);
+    const star = await call('POST', '/game/star', { token: cat.token, body: { index: spot.index, x: spot.x, z: spot.z } });
+    check(`star ${spot.index + 1} is collected through the server`, star.status === 200, JSON.stringify(star.data));
+    prev = spot;
+  }
+  const hunt = await call('POST', '/hunt/complete', { token: cat.token, body: { day: today, found: [] } });
   check('finding all three stars earns a second vote this week', hunt.status === 200 && hunt.data.huntWon === true && hunt.data.allowed === 2 && hunt.data.votesLeft === 1 && hunt.data.canVote === true, JSON.stringify(hunt.data));
   check('but not for the same building twice', (await call('POST', '/vote', { token: cat.token, body: { plotId: built[1].id } })).data.code === 'already_voted');
   const second = await call('POST', '/vote', { token: cat.token, body: { plotId: built[2].id } });
