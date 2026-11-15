@@ -36,15 +36,16 @@ A period is a UTC day, or a Monday-to-Sunday UTC week (as Building of the Week's
 
 ## What is held back (dormant), and why
 
-**770 of the 2,061 tasks are not offered today**, because the server cannot verify them from its own records and will not take a page's word:
+**802 of the 2,061 tasks are not offered today**, because the server cannot verify them from its own records and will not take a page's word:
 
 | Count | Needs | Examples |
 | ---: | :--- | :--- |
 | 571 | **the avatar's position**: the server cannot see where an avatar is, only what a page reports | walk a road, reach a park, be in a district at dusk, a distance |
 | 198 | **an event nobody records**: an emote, a chat message, time in a car, a boat or a plane, an owner's action, fishing on a particular lake | wave at someone, say hello in Nearby chat, land at an airport |
 | 1 | a task done from nothing | "Blue tee with navy pants": the free default outfit |
+| 32 | **"finish N tasks of one kind" that could not be finished**: a week offers 21 daily and 5 weekly tasks, so a kind has to turn up about 1.6 times N on average to be finishable. Kinds whose own tasks are still waiting (air, roads, places, sound zones, the fun park) never do. Found on staging: a weekly task "Finish 6 air tasks" was on offer and could never be done | "Finish 6 air tasks", "Finish 3 exploring tasks". Only the business-visit ones are offered; the rest come alive by themselves as their kind gets verifiable tasks |
 
-So **1,291 tasks (823 daily, 468 weekly) are on offer today.** Each daily tier has its own pool (593 easy, 168 medium, 62 hard), so each hard daily task comes round once every 62 days; weekly: 74, 333 and 61.
+So **1,259 tasks (823 daily, 436 weekly) are on offer today.** Each daily tier has its own pool (593 easy, 168 medium, 62 hard), so each hard daily task comes round once every 62 days; weekly: 74, 317 and 45.
 
 **The way to unlock the 571:** the presence server (`services/multiplayer`) already sees every signed-in avatar's position. The API can ask it over the internal channel for the last observed position and for a short history, and verify "be here now" and walked-the-road tasks from that. That is phase 2 of [the currency work](../architecture/backend.md#currency-servicesapigoldmjs), and until it exists those tasks stay off.
 
