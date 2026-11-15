@@ -36,9 +36,9 @@ const catalogue = {
     T('W-TST-potd0001', 'weekly', 'medium', { type: 'potd' }),
     T('W-TST-fish0001', 'weekly', 'medium', { type: 'catch-kinds', kinds: 99 }),
     T('W-TST-meta0001', 'weekly', 'hard', { type: 'tasks-complete', cadence: 'daily', count: 2 }),
-    // never offered to an account without a listing, and one the server cannot verify (a position)
+    // never offered to an account without a listing, and one the server cannot verify (an emote: nobody records it)
     T('D-TST-owner001', 'daily', 'easy', { type: 'visit-business', plotId: saas[0].id }, { requires: ['owns-listing'] }),
-    T('D-TST-walk0001', 'daily', 'medium', { type: 'reach', place: 'park', id: 'x' }, { signal: 'needs-position' }),
+    T('D-TST-walk0001', 'daily', 'medium', { type: 'emote', emote: 'emote-wave', count: 3 }, { signal: 'needs-new-event' }),
   ],
 };
 
