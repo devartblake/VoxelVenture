@@ -138,6 +138,28 @@ check('Harbor Isle is still 380 units of open water from the mainland, and does 
   check('only the two towns have plots: nothing was added to the database\'s world by the Lesser Caymans', world.plots.length === 2080 && world.stats.towns.length === 2);
 }
 
+// ---- highways: a coastal ring road round each landmass with a town, and a spur from each side of the town's county road (roadmap task 12, first slice)
+{
+  const dist = (p, pts) => Math.min(...pts.map((q, i) => { const r = pts[(i + 1) % pts.length]; const dx = r.x - q.x, dz = r.z - q.z; const t = Math.max(0, Math.min(1, ((p.x - q.x) * dx + (p.z - q.z) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(p.x - q.x - t * dx, p.z - q.z - t * dz); }));
+  check('the recipe lists a highway for each landmass with a town, and the world builds them', world.highways.length === 2 && world.highways.map((h) => h.landmass).join() === 'mainland,harbor-isle');
+  for (const h of world.highways) {
+    const m = world.landmasses.find((l) => l.id === h.landmass);
+    const t = world.towns.find((x) => x.landmass === m.id);
+    const coast = m.outline.points;
+    check(`${h.id}: a simple closed ring, 150 points or more, on land and never nearer the coast than 10 units`, h.simple && h.ring.length >= 150 && h.ring.every((p) => pointInPolygon(p.x, p.z, coast) && dist(p, coast) >= 10), `${h.ring.length} points, ${h.length.toFixed(0)} units long`);
+    check(`${h.id}: it keeps off steep ground (never above 3 high, and its slope under 0.1)`, h.maxGround <= 3 && h.maxGrade < 0.1 && h.spurGround <= 3, `highest ${h.maxGround}, steepest ${h.maxGrade}`);
+    check(`${h.id}: a spur out of each side of the county ring, each starting on the town's land and ending on the ring`, h.spurs.map((s) => s.side).sort().join() === 'east,north,south,west' && h.spurs.every((s) => s.from.x >= t.land.x0 && s.from.x <= t.land.x1 && s.from.z >= t.land.z0 && s.from.z <= t.land.z1 && dist(s.to, h.ring) < 0.5));
+    check(`${h.id}: no spur runs through a lot`, h.spurs.every((s) => t.plots.every((p) => { for (let k = 0; k <= 40; k++) { const x = s.from.x + ((s.to.x - s.from.x) * k) / 40, z = s.from.z + ((s.to.z - s.from.z) * k) / 40; if (Math.hypot(x - s.from.x, z - s.from.z) > 9 && Math.abs(x - p.x) < p.w / 2 + 3 && Math.abs(z - p.z) < p.d / 2 + 3) return false; } return true; })));
+    const a = m.features.airstrip;
+    if (a) check(`${h.id}: it keeps 30 units or more clear of the airstrip's runway`, h.ring.every((p) => { const ax = a.frame.t[0] * a.frame.runwayHalf, az = a.frame.t[1] * a.frame.runwayHalf; const px = p.x - a.at.x, pz = p.z - a.at.z; const tt = Math.max(-1, Math.min(1, (px * ax + pz * az) / (ax * ax + az * az))); return Math.hypot(px - tt * ax, pz - tt * az) >= 30; }));
+  }
+  check('the Lesser Caymans have no highway: no town to join (the recipe refuses one)', validateRecipe({ ...WORLD_RECIPE, highways: [{ id: 'x', landmass: 'little-isle' }] }).some((p) => p.includes('no town')));
+  check('the world is the same each time: the highways are deterministic', JSON.stringify(buildWorld().highways) === JSON.stringify(world.highways));
+  const mm = world.landmasses[0].features.ranges;
+  const blue = mm.find((r) => r.name === 'Blue Mountains');
+  check('the Blue Mountains follow the real ridge: Catherine Peak down through Blue Mountain Peak to the south-east, with the John Crow Mountains beyond', blue.points.length === 5 && blue.points[0].z < blue.points[4].z && blue.points[0].x < blue.points[4].x && mm.some((r) => r.name === 'John Crow Mountains' && r.points[0].x > blue.points[4].x - 30));
+}
+
 // ---- the island's airstrip: a destination for flights (docs/world/player_flight.md)
 {
   const a = f.airstrip;

@@ -130,6 +130,16 @@ export default function WorldMap() {
       ctx.font = '600 22px sans-serif';
       ctx.fillText(m.name, X(m.centre.x) - ctx.measureText(m.name).width / 2, Z(m.bounds.z0) - 10);
     }
+    // the highways (lib/world/highways.js): the coastal ring road and a spur from each side of the town's county road to it
+    if (show.roads) {
+      for (const h of world.highways ?? []) {
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = Math.max(1.5, h.width * s);
+        ctx.beginPath(); h.ring.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z)))); ctx.closePath(); ctx.stroke();
+        for (const sp of h.spurs) { ctx.beginPath(); ctx.moveTo(X(sp.from.x), Z(sp.from.z)); ctx.lineTo(X(sp.to.x), Z(sp.to.z)); ctx.stroke(); }
+      }
+    }
     for (const t of world.towns) {
       if (show.land) { ctx.strokeStyle = 'rgba(148,163,184,0.45)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1; ctx.strokeRect(X(t.land.x0), Z(t.land.z0), (t.land.x1 - t.land.x0) * s, (t.land.z1 - t.land.z0) * s); ctx.setLineDash([]); }
       if (show.roads) {

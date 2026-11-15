@@ -112,6 +112,14 @@ Harbor Isle and two new town-less islands are drawn from a **spine and a width p
 
 The Lesser Caymans are about 275 units apart and have no town, no plots and no database rows. The harbour faces the landmass the island is placed from (the mainland).
 
+## 4c. Roads round both landmasses, and where the heights come from (2026-11-15)
+
+**Coastal ring roads** ([lib/world/highways.js](../../lib/world/highways.js), the recipe's `highways`): one on the mainland and one on Harbor Isle, about 6,100 units each. Each is walked round the coast at 28-unit steps and set about 30 units inland, so it clears the beach. Where the ground is above 2.5 (the ranges) the road moves nearer the coast; it keeps 34 units off the airstrip's runway; where an island is too thin for the road (the east tip of Harbor Isle) the road cuts across the tip; and any loop is cut out, so a ring never crosses itself. The Lesser Caymans have no town and no road.
+
+**Spurs:** one from each side (north, south, east, west) of the town's county road out to the ring, 200 to 1,200 units long. A spur starts at a gap between lots along the county road, or goes on in line past a road's corner, and is used only if it clears every lot and the airstrip. Roads between landmasses (a causeway or ferry) are still to do.
+
+**Heights (option 1 plus a correction from option 2).** The ranges stay hand-authored lines with a width and a height, read through `elevationAt` (0 over the first town). The **Blue Mountains** now follow the real main ridge, from Catherine's Peak above Kingston south-east through Blue Mountain Peak (18.045 N, 76.58 W) and Sir John Peak, with the **John Crow Mountains** beyond to the north-east. Those positions are the published peak coordinates, not a downloaded elevation grid: a real DEM (SRTM or Copernicus, credited in CREDITS.md, baked to a coarse grid) is the next step if the map should be surveyed rather than faithful.
+
 ## 5. What is not done, and why
 
 - **The island is not in the game.** Walking or driving to it needs the streaming runtime (roadmap task 11): chunked geometry, collision and traffic that work on a map this size. The main game keeps loading the first town only and does not regress.
@@ -120,7 +128,7 @@ The Lesser Caymans are about 275 units apart and have no town, no plots and no d
 - **No way across the water yet** except a boat once the sea is drawn. A plane the player flies, and flights to the island, are on the roadmap as task 18 ([player_flight.md](player_flight.md)).
 - **The mountains are not terrain in the game**, and the mainland's Jamaica coast is not drawn in it: the game's mainland is still the rectangle it has always been (roadmap tasks 11, 14 and 17).
 - **Harbor Isle is still a rounded square.** Its own shape is the next step.
-- **No highways** between towns (roadmap task 12): the recipe has a slot (`highways: []`).
+- **No roads between landmasses** (roadmap task 12): each landmass has its coastal ring and spurs (section 4c), but nothing crosses the sea yet.
 - **No streets or buildings are shared** between the towns, and the preview is 2D.
 - **The land of the first town is still a rectangle** in the game; its coast in the recipe is drawn *round* it for the map.
 - The island's other systems (traffic, daily finds, search, multiplayer rooms: task 16) do not know it exists.
