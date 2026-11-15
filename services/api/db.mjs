@@ -68,6 +68,24 @@ export function openDb(file = ':memory:') {
   addColumn(db, 'admin_accounts', 'email', 'TEXT'); // an admin's address for password resets (services/api/admin.mjs)
   addColumn(db, 'admin_accounts', 'email_verified_at', 'INTEGER'); // when its one-use link was opened; NULL: not confirmed
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS admin_accounts_email ON admin_accounts(email) WHERE email IS NOT NULL');
+  // The game's Gold, held by the server (services/api/gold.mjs; docs/architecture/backend.md, "Currency"). accounts.gold is the CREDITS wallet (its name is from before
+  // there were two); the Gold is accounts.game_gold, moved only through game_gold_ledger. Every row's `key` is unique per account, which is what makes a claim happen once.
+  addColumn(db, 'accounts', 'game_gold', 'INTEGER NOT NULL DEFAULT 0');
+  db.exec(`CREATE TABLE IF NOT EXISTS game_gold_ledger (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    delta INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    ref TEXT,
+    key TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    evidence TEXT,
+    UNIQUE (account_id, key)
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS game_gold_ledger_account ON game_gold_ledger(account_id, id)');
+  db.exec('CREATE TABLE IF NOT EXISTS game_inventory (account_id INTEGER NOT NULL REFERENCES accounts(id), item_id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (account_id, item_id))');
+  db.exec("CREATE TABLE IF NOT EXISTS game_profile (account_id INTEGER PRIMARY KEY REFERENCES accounts(id), appearance TEXT NOT NULL DEFAULT '{}')");
+  db.exec('CREATE TABLE IF NOT EXISTS game_timers (account_id INTEGER NOT NULL REFERENCES accounts(id), key TEXT NOT NULL, started_at INTEGER NOT NULL, PRIMARY KEY (account_id, key))');
   // Reserve the graphics backlog IDs without asserting descriptions or completion.
   const seedRollout = db.prepare('INSERT OR IGNORE INTO rollout_items (id,title) VALUES (?,?)');
   for (let n=1;n<=13;n++) {

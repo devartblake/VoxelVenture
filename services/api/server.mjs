@@ -40,6 +40,7 @@ import * as mod from './moderation.mjs';
 import * as market from './market.mjs';
 import * as stats from './stats.mjs';
 import * as community from './community.mjs';
+import * as gold from './gold.mjs';
 import * as messaging from './messaging.mjs';
 import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
@@ -684,6 +685,19 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/admin/leases/notices') return (adminOnly(token), community.sendLeaseNotices(db, Number((await body(req)).now) || Date.now()));
     if (m === 'GET' && p === '/votes') return community.votesView(db, account);
     if (m === 'POST' && p === '/hunt/complete') return community.completeHunt(db, account, await body(req));
+    // the game's Gold (gold.mjs; docs/architecture/backend.md, "Currency"): the server holds every balance and works out every amount; a request says what happened, never how much
+    if (m === 'GET' && p === '/game/state') return gold.gameState(db, seed, account);
+    if (m === 'GET' && p === '/game/ledger') return gold.ledger(db, account, url.searchParams.get('limit'));
+    if (m === 'POST' && p === '/game/chest') return gold.openChest(db, seed, account, await body(req));
+    if (m === 'POST' && p === '/game/potd') return gold.visitPlotOfTheDay(db, seed, account, await body(req));
+    if (m === 'POST' && p === '/game/star') return gold.collectStar(db, seed, account, await body(req));
+    if (m === 'POST' && p === '/game/fish') return gold.catchFish(db, account, await body(req));
+    if (m === 'POST' && p === '/game/billboard/start') return gold.startBillboard(db, seed, account, await body(req));
+    if (m === 'POST' && p === '/game/billboard/complete') return gold.completeBillboard(db, seed, account, await body(req));
+    if (m === 'POST' && p === '/game/shop/buy') return gold.buy(db, account, await body(req));
+    if (m === 'POST' && p === '/game/appearance') return gold.equip(db, account, await body(req));
+    if (m === 'POST' && p === '/game/raffle') return gold.enterRaffle(db, account);
+    if (m === 'GET' && p === '/admin/currency/audit') return (adminOnly(token), gold.auditCurrency(db));
     if (m === 'POST' && p === '/vote') return community.castVote(db, account, (await body(req)).plotId);
     // presence and analytics
     if (m === 'POST' && p === '/presence/ping') {

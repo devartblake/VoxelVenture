@@ -69,7 +69,7 @@ function Raffle() {
         ))}
       </ul>
       <button
-        onClick={() => setResult(enterRaffle())}
+        onClick={() => Promise.resolve(enterRaffle()).then((prize) => setResult(prize ?? null))}
         disabled={gold < RAFFLE_COST}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sx-purple to-sx-blue py-2 font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:bg-sx-stroke disabled:text-slate-500"
       >
@@ -87,6 +87,8 @@ function Raffle() {
 // Opens from the header. Gold is earned from billboard quests, the daily chest and the Plot of the Day.
 export default function Wardrobe() {
   const gold = useCityStore((s) => s.gold);
+  const live = useCityStore((s) => s.gameLive);
+  const signedIn = useCityStore((s) => s.gameSignedIn);
   const [tab, setTab] = useState('outfit');
   const current = TABS.find((t) => t.id === tab);
 
@@ -99,6 +101,10 @@ export default function Wardrobe() {
             <span className="flex items-center gap-1.5 font-mono text-sm font-bold text-amber-400"><Coins className="h-4 w-4" /> {gold.toLocaleString()}</span>
           </div>
         </div>
+
+        <p className="mb-3 text-[11px] text-slate-400">
+          {!live ? 'Demo: with no game server, this Gold is kept only in this browser and is worth nothing elsewhere.' : signedIn ? 'Your Gold is kept by the game server, so it follows your account.' : 'Sign in to keep your Gold: guests earn nothing here.'}
+        </p>
 
         <div className="mb-4 flex gap-1 rounded-lg bg-sx-alt p-1">
           {TABS.map((t) => (
