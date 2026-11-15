@@ -7,7 +7,9 @@ import { imp } from '../../scripts/lib-loader.mjs';
 import { ApiError, requireAccount } from './core.mjs';
 import { transaction } from './db.mjs';
 
-const { generateCity } = await imp('city/cityGenerator.js');
+// The same city the game builds (lib/state/store.js: generateTown, the generator's city plus the extra lots), so the chest, the stars and the Plot of the Day the server
+// checks are exactly the ones the player sees. generateCity alone gives different intersections and plots, and every claim would be refused (tests/daily-city.test.mjs).
+const { generateTown } = await imp('city/townExtension.js');
 const { COSMETIC_BY_ID, DEFAULT_APPEARANCE, DEFAULT_OWNED, RAFFLE_COST, drawRafflePrize } = await imp('game/cosmetics.js');
 const { HUNT_BONUS, HUNT_COUNT, HUNT_GOLD, POTD_VISIT_GOLD, dailyChest, plotOfTheDay, scavengerHunt } = await imp('game/daily.js');
 const { FISH_BY_ID, FISH_DAILY_CAP, pickFish } = await imp('sim/vehicles.js');
@@ -16,7 +18,7 @@ const { BILLBOARD_QUEST_GOLD, BILLBOARD_QUEST_SECONDS, CLAIM_RADIUS, FISH_MIN_GA
 const fail = (status, message, code) => { throw new ApiError(status, message, code); };
 const now = () => Date.now();
 const cities = new Map();
-const cityOf = (seed) => { if (!cities.has(seed)) cities.set(seed, generateCity(seed)); return cities.get(seed); };
+const cityOf = (seed) => { if (!cities.has(seed)) cities.set(seed, generateTown(seed)); return cities.get(seed); };
 const random = () => crypto.randomInt(0, 1_000_000_000) / 1_000_000_000; // the server's dice (fishing, the raffle)
 
 /** Writes one Gold movement. Returns false when this key was already written (the claim already happened). Call inside a transaction. */

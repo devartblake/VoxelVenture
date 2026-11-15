@@ -8,10 +8,10 @@ let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
 
 const R = await imp('game/taskRules.js');
-const { generateCity } = await imp('city/cityGenerator.js');
+const { generateTown } = await imp('city/townExtension.js'); // the city the game builds, as the server does (tests/daily-city.test.mjs)
 const { hourAt } = await imp('game/dayCycle.js');
 const catalogue = JSON.parse(fs.readFileSync(path.join(root, 'lib/game/taskCatalogue.json'), 'utf8'));
-const city = generateCity(20260101);
+const city = generateTown(20260101);
 
 // ---- which goals can be verified
 const supported = catalogue.tasks.filter((t) => R.supports(t.goal));
