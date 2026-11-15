@@ -157,7 +157,13 @@ check('Harbor Isle is still 380 units of open water from the mainland, and does 
   check('the world is the same each time: the highways are deterministic', JSON.stringify(buildWorld().highways) === JSON.stringify(world.highways));
   const mm = world.landmasses[0].features.ranges;
   const blue = mm.find((r) => r.name === 'Blue Mountains');
-  check('the Blue Mountains follow the real ridge: Catherine Peak down through Blue Mountain Peak to the south-east, with the John Crow Mountains beyond', blue.points.length === 5 && blue.points[0].z < blue.points[4].z && blue.points[0].x < blue.points[4].x && mm.some((r) => r.name === 'John Crow Mountains' && r.points[0].x > blue.points[4].x - 30));
+  const hs = blue.points.map((p) => p.h);
+  const top = hs.indexOf(Math.max(...hs));
+  const jc = mm.find((r) => r.name === 'John Crow Mountains');
+  check('the Blue Mountains follow the real crest from elevation data: heights at every point, the summit (2196 m) inside the range and not at an end, falling away to the east', blue.points.length >= 8 && hs.every((h) => h > 900) && Math.max(...hs) === 2196 && top > 0 && top < hs.length - 1 && hs[hs.length - 1] < 0.7 * 2196, `${blue.points.length} points, summit at ${top}`);
+  check('their height is 14 at the summit, and the other ranges are in proportion to the real ones (Cockpit Country about 6, Dolphin Head about 3, the John Crow Mountains about 8)', blue.height === 14 && Math.abs(mm.find((r) => r.name === 'Cockpit Country').height - 6.2) < 0.3 && jc && jc.height > 7 && jc.height < 9 && jc.points.every((p) => p.h), `Cockpit ${mm.find((r) => r.name === 'Cockpit Country').height}`);
+  const summit = blue.points[top];
+  check('the height function reads the data: 14 (or just under) at the summit and about half of it 1,000 m up the ridge', elevationAt(mm, summit.x, summit.z, 1101) > 9.5 && elevationAt(mm, blue.points[blue.points.length - 1].x, blue.points[blue.points.length - 1].z, 1101) < 9, `${elevationAt(mm, summit.x, summit.z, 1101)} at the summit`);
 }
 
 // ---- the island's airstrip: a destination for flights (docs/world/player_flight.md)

@@ -40,6 +40,8 @@ The recordings are served locally from `apps/web/public/audio/music/`; Sideways 
 
 **Real street names** (off unless the game is built with `NEXT_PUBLIC_STREET_NAMES`): © OpenStreetMap contributors, **ODbL 1.0**, https://www.openstreetmap.org/copyright. The `/reference` page's street maps are drawn from the same data.
 
+**Elevation** (the heights of Jamaica's mountains, in `lib/world/data/jamaicaDem.js`): derived from the open Terrain Tiles dataset (https://registry.opendata.aws/terrain-tiles/), which is assembled from SRTM, the Shuttle Radar Topography Mission (NASA / USGS, public domain), and other open elevation sources, each with its own attribution requirements listed on that page. Only ridge lines and peak heights are kept, made by `scripts/world/dem_ridges.mjs`.
+
 ## Built with
 
 Next.js, React, three.js, React Three Fiber and drei, Tailwind CSS, zustand and Lucide icons, by their open-source contributors, under the **MIT** or **ISC** licence. The full list of packages and licences is in `package-lock.json` (`npx license-checker --summary` prints it).
