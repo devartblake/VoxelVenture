@@ -16,8 +16,8 @@ const call = async (method, p, { token, body } = {}) => {
 };
 try {
   for (let i = 0; i < 60; i++) { try { if ((await fetch(base + '/health')).ok) break; } catch { /* starting */ } await sleep(250); }
-  const { generateCity } = await imp('city/cityGenerator.js');
-  const city = generateCity(20260101);
+  const { generateTown } = await imp('city/townExtension.js'); // the server seeds the town: the generator's city plus the extra lots (lib/city/townExtension.js)
+  const city = generateTown(20260101);
   const built = city.plots.filter((p) => p.owner && p.buildingType !== 'house' && p.height > 0.2);
   const empties = city.plots.filter((p) => !p.owner && p.districtId !== 'suburb');
 

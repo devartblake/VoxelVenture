@@ -6,6 +6,8 @@ import { planOf } from '@voxelventure/business-core';
 // The rules of the world, with no HTTP in them: seeding the plots, accounts, claiming and taking over (atomic), events and statistics.
 // The game's own modules (generator, logo rules) are loaded from lib/, so the server and the game cannot disagree.
 const { generateCity, SUBURB_ID, TAKEOVER_MULTIPLIER } = await imp('city/cityGenerator.js');
+const { generateTown } = await imp('city/townExtension.js'); // the generator's city plus the extra lots (lib/city/townExtension.js)
+const { buildWorld } = await imp('world/buildWorld.js'); // the world recipe's other towns (lib/world/), used only when WORLD_TOWNS asks for them
 const { cleanLogo } = await imp('game/logos.js');
 const { toEmbedUrl } = await imp('content/embeds.js');
 const { DEFAULT_TERM, TERMS, takeoverAllowed, termOf, termFor, leaseState, DAY_MS: LEASE_DAY, describeLease } = await imp('game/leases.js');
@@ -44,23 +46,68 @@ export const text = (v, max) => [...String(v ?? '')].filter((c) => c.charCodeAt(
 // Each plot's facts carry its pricing attributes (`land`, lib/game/landPrice.js), so the server prices a lease from them as the claim form does. A database
 // seeded before that (or by an older generator) is brought up to date every time the server starts.
 export function seedWorld(db, seed = 20260101) {
-  const city = generateCity(seed);
+  const city = generateTown(seed);
   if (db.prepare('SELECT COUNT(*) AS n FROM plots').get().n > 0) {
+    const toppedUp = topUpPlots(db, city); // the plots the generator has that this database does not (new ids only; no existing row is touched)
     const land = refreshLand(db, city);
-    return { seeded: false, land, repriced: repriceToPeriods(db) };
+    return { seeded: false, land, repriced: repriceToPeriods(db), toppedUp };
   }
-  const ins = db.prepare('INSERT INTO plots (id, district, building_type, owner_name, title, website, variant, value, base_visits, claimable, facts, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
-  const led = db.prepare("INSERT INTO ledger (plot_id, kind, owner_name, title, price, at) VALUES (?, 'open', ?, ?, ?, ?)");
+  const { ins, led } = plotInserts(db);
   transaction(db, () => {
-    for (const p of city.plots) {
-      const { owner, title, website, buildingType, value, visits, interiorData } = p;
-      ins.run(p.id, p.districtId, buildingType ?? null, owner ?? null, title, website ?? null, interiorData?.variant ?? null, Math.round(value), Math.round(visits ?? 0), p.districtId === SUBURB_ID || p.admin ? 0 : 1, JSON.stringify({ x: p.x, z: p.z, w: p.w, d: p.d, yaw: p.yaw ?? 0, prime: Boolean(p.prime), luxury: Boolean(p.luxury), grand: Boolean(p.grand), admin: Boolean(p.admin), height: p.height, floors: interiorData?.floors ?? 1, district: p.district, color: p.color, land: p.land }), now());
-      led.run(p.id, `Building #${p.id}`, `Building #${p.id}`, Math.max(1, Math.round(value * 0.8)), now() - (10 + (p.id % 40)) * DAY);
-    }
+    for (const p of city.plots) insertPlot(ins, led, p);
   });
   db.exec(`PRAGMA user_version = ${PERIOD_PRICES}`); // a new database is priced per 30 days from the start
   return { seeded: true, plots: city.plots.length };
 }
+
+const plotInserts = (db) => ({
+  ins: db.prepare('INSERT INTO plots (id, district, building_type, owner_name, title, website, variant, value, base_visits, claimable, facts, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'),
+  led: db.prepare("INSERT INTO ledger (plot_id, kind, owner_name, title, price, at) VALUES (?, 'open', ?, ?, ?, ?)"),
+});
+function insertPlot(ins, led, p) {
+  const { owner, title, website, buildingType, value, visits, interiorData } = p;
+  ins.run(p.id, p.districtId, buildingType ?? null, owner ?? null, title, website ?? null, interiorData?.variant ?? null, Math.round(value), Math.round(visits ?? 0), p.districtId === SUBURB_ID || p.admin ? 0 : 1, JSON.stringify({ x: p.x, z: p.z, w: p.w, d: p.d, yaw: p.yaw ?? 0, prime: Boolean(p.prime), luxury: Boolean(p.luxury), grand: Boolean(p.grand), admin: Boolean(p.admin), height: p.height, floors: interiorData?.floors ?? 1, district: p.district, color: p.color, land: p.land }), now());
+  led.run(p.id, `Building #${p.id}`, `Building #${p.id}`, Math.max(1, Math.round(value * 0.8)), now() - (10 + (p.id % 40)) * DAY);
+}
+// A database made before the town was extended (docs/world/world_recipe.md) lacks the new lots: add them, by id, and leave every plot it already has exactly as it is
+// (those may be claimed, leased or changed). Only the first town's own plots, never a design or editor lot (their ids are 100000 and up). Returns how many were added.
+function topUpPlots(db, city) {
+  const has = db.prepare('SELECT 1 FROM plots WHERE id = ?');
+  const { ins, led } = plotInserts(db);
+  let added = 0;
+  transaction(db, () => {
+    for (const p of city.plots) {
+      if (p.id >= 100000 || has.get(p.id)) continue;
+      insertPlot(ins, led, p);
+      added++;
+    }
+  });
+  return added;
+}
+// The other towns of the world recipe (lib/world/worldRecipe.js, docs/world/world_recipe.md), only when asked for (WORLD_TOWNS=harbor in api.env; the default is none, so
+// nothing changes in production by accident). Their lots go in under their global ids (1,000,000 and up) as EMPTY LAND that is NOT FOR SALE: no owner, no business, not
+// claimable, so none of it shows in the directory, the market or the public pages, until the game can show the island (the streaming runtime, roadmap task 11) and the
+// lots are opened on purpose. Existing rows are never touched. Returns how many were added.
+export function seedTowns(db, { towns = [] } = {}) {
+  const wanted = new Set(towns);
+  if (!wanted.size) return { added: 0 };
+  const world = buildWorld();
+  const has = db.prepare('SELECT 1 FROM plots WHERE id = ?');
+  const { ins } = plotInserts(db);
+  let added = 0;
+  transaction(db, () => {
+    for (const t of world.towns) {
+      if (t.index === 0 || !wanted.has(t.id)) continue;
+      for (const p of t.plots) {
+        if (has.get(p.id)) continue;
+        ins.run(p.id, p.districtId, null, null, `${t.name} lot #${p.localId}`, null, null, Math.round(p.value), 0, 0, JSON.stringify({ x: p.x, z: p.z, w: p.w, d: p.d, yaw: p.yaw ?? 0, prime: Boolean(p.prime), luxury: Boolean(p.luxury), grand: Boolean(p.grand), admin: false, height: p.height, floors: 1, district: p.district, color: p.color, land: p.land, town: t.id, localId: p.localId }), now());
+        added++;
+      }
+    }
+  });
+  return { added };
+}
+
 // Writes the generator's pricing attributes into the facts of every plot whose stored ones differ (the generator works them out from the city's layout:
 // lib/dev/locationAttrs.js). Returns how many plots changed.
 function refreshLand(db, city) {
