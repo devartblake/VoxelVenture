@@ -40,7 +40,7 @@ The recordings are served locally from `apps/web/public/audio/music/`; Sideways 
 
 **Real street names** (off unless the game is built with `NEXT_PUBLIC_STREET_NAMES`): © OpenStreetMap contributors, **ODbL 1.0**, https://www.openstreetmap.org/copyright. The `/reference` page's street maps are drawn from the same data.
 
-**Elevation** (the heights of Jamaica's mountains, in `lib/world/data/jamaicaDem.js`): derived from the open Terrain Tiles dataset (https://registry.opendata.aws/terrain-tiles/), which is assembled from SRTM, the Shuttle Radar Topography Mission (NASA / USGS, public domain), and other open elevation sources, each with its own attribution requirements listed on that page. Only ridge lines and peak heights are kept, made by `scripts/world/dem_ridges.mjs`.
+**Elevation** (the heights of Jamaica's mountains, in `lib/world/data/jamaicaDem.js`): derived from the open Terrain Tiles dataset (https://registry.opendata.aws/terrain-tiles/), which is assembled from SRTM, the Shuttle Radar Topography Mission (NASA / USGS, public domain), and other open elevation sources, each with its own attribution requirements listed on that page. Kept: ridge lines and peak heights, and the Blue Mountains' terrain as a 251 x 131 grid of heights (about 220 m between points, in base64), made by `scripts/world/dem_ridges.mjs`; the baked chunk files in `apps/web/public/world/` carry heights derived from it.
 
 ## Built with
 

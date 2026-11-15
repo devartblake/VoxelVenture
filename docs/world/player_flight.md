@@ -43,7 +43,7 @@ Take off from, or land at, a named airport; fly for N minutes; fly over a distri
 ## Order and size
 
 1. The presence position tracker (in progress), then watch-a-plane tasks from the banner planes' timetable.
-2. Roadmap tasks 10, 11 and 14 (the baked world format, the streaming runtime, coast and sea) before the island can be reached by anything.
+2. Roadmap tasks 10, 11 and 14 (the baked world format, the streaming runtime, coast and sea) before the island can be reached by anything. **Progress (2026-11-15):** the baked world, the chunk manager, merged chunk geometry and a React layer exist ([streaming_runtime.md](streaming_runtime.md)); the island, its airstrip, harbour and two causeways are in the world data. Collision, the ground under the plane, water and the region-aware systems are what is left.
 3. **Passenger flights** to Harbor Isle Airstrip (3 to 4 working days).
 4. Later, the plane the player flies: about 8 to 10 working days, plus models and their licence records.
 

@@ -108,9 +108,15 @@ check('features are deterministic', JSON.stringify(coastFeatures(isle.outline, {
     if (prev !== null) jump = Math.max(jump, Math.abs(hh - prev));
     prev = hh;
   }
-  check('the Blue Mountains rise to near their height (14) and never past it', peak > 0.8 * blue.height && peak <= blue.height, peak.toFixed(2));
-  check('the ground is continuous: no step of more than a unit between points a unit apart, and it falls to nothing at the foot of the range', jump < 1 && elevationAt(ranges, blue.points[0].x, blue.points[0].z - blue.width, 7) === 0, `${jump.toFixed(2)}`);
-  check('the same ground every time for the same seed (a mesh and a collision map can both read it), and the seed changes the lumps', elevationAt(ranges, blue.points[1].x, blue.points[1].z, 7) === elevationAt(ranges, blue.points[1].x, blue.points[1].z, 7) && elevationAt(ranges, blue.points[1].x + 5, blue.points[1].z + 3, 7) !== elevationAt(ranges, blue.points[1].x + 5, blue.points[1].z + 3, 99));
+  // the Blue Mountains are real terrain: a grid of real heights laid on the map (shapes.js, `terrain`)
+  const field = blue.field;
+  let fieldTop = 0;
+  for (const v of field.data) fieldTop = Math.max(fieldTop, v);
+  let steepest = 0;
+  for (let k = 0; k < 4000; k++) { const x = field.x0 + 30 + ((k * 7919) % 5000) / 5000 * (field.w * field.cell - 60), z = field.z0 + 30 + ((k * 104729) % 5000) / 5000 * (field.h * field.cell - 60); const a = elevationAt(ranges, x, z, 7), b = elevationAt(ranges, x + 1, z, 7), c = elevationAt(ranges, x, z + 1, 7); steepest = Math.max(steepest, Math.abs(a - b), Math.abs(a - c)); }
+  check('the Blue Mountains are real terrain: a grid of 4-unit cells of the real heights, the summit about 18 units (Blue Mountain Peak), and the height function reads it', field.cell === 4 && field.w > 100 && field.h > 80 && fieldTop > 17 && fieldTop <= 18.01 && blue.height === 18 && ranges.every((r) => elevationAt(ranges, field.x0 + 4, field.z0 + 4, 7) === 0), `grid ${field.w} x ${field.h}, summit ${fieldTop}`);
+  check('the ground is continuous: no step of more than 1.2 units between points a unit apart anywhere in the grid, and it falls to nothing at the grid edge (it meets the plain without a cliff)', steepest < 1.2 && elevationAt(ranges, field.x0 + 1, field.z0 + 1, 7) < 0.05 && elevationAt(ranges, field.x0 - 5, field.z0 + 100, 7) === 0, `steepest ${steepest.toFixed(2)} a unit`);
+  check('the same ground every time (a mesh and a collision map can both read it), whatever the seed: real relief is not random, but the hand-drawn ranges are lumpy by seed', elevationAt(ranges, 700, 0, 7) === elevationAt(ranges, 700, 0, 99) && (() => { const c = ranges.find((r) => r.name === 'Cockpit Country'); const p = c.points[1]; return elevationAt(ranges, p.x, p.z, 7) === elevationAt(ranges, p.x, p.z, 7) && elevationAt(ranges, p.x + 5, p.z + 3, 7) !== elevationAt(ranges, p.x + 5, p.z + 3, 8); })());
   check('far from every range the ground is 0, and the old low hills (at most 2.2) are not these mountains', elevationAt(ranges, rect.x0, rect.z0, 7) === 0 && blue.height > 2.2 * 4);
 }
 
@@ -149,7 +155,8 @@ check('Harbor Isle is still 380 units of open water from the mainland, and does 
     check(`${h.id}: a simple closed ring, 150 points or more, on land and never nearer the coast than 10 units`, h.simple && h.ring.length >= 150 && h.ring.every((p) => pointInPolygon(p.x, p.z, coast) && dist(p, coast) >= 10), `${h.ring.length} points, ${h.length.toFixed(0)} units long`);
     check(`${h.id}: it keeps off steep ground (never above 3 high, and its slope under 0.1)`, h.maxGround <= 3 && h.maxGrade < 0.1 && h.spurGround <= 3, `highest ${h.maxGround}, steepest ${h.maxGrade}`);
     check(`${h.id}: a spur out of each side of the county ring, each starting on the town's land and ending on the ring`, h.spurs.map((s) => s.side).sort().join() === 'east,north,south,west' && h.spurs.every((s) => s.from.x >= t.land.x0 && s.from.x <= t.land.x1 && s.from.z >= t.land.z0 && s.from.z <= t.land.z1 && dist(s.to, h.ring) < 0.5));
-    check(`${h.id}: no spur runs through a lot`, h.spurs.every((s) => t.plots.every((p) => { for (let k = 0; k <= 40; k++) { const x = s.from.x + ((s.to.x - s.from.x) * k) / 40, z = s.from.z + ((s.to.z - s.from.z) * k) / 40; if (Math.hypot(x - s.from.x, z - s.from.z) > 9 && Math.abs(x - p.x) < p.w / 2 + 3 && Math.abs(z - p.z) < p.d / 2 + 3) return false; } return true; })));
+    check(`${h.id}: no spur runs through a lot (each leg, when a spur bends round a mountain)`, h.spurs.every((s) => { const way = s.via ? [s.from, s.via, s.to] : [s.from, s.to]; return t.plots.every((p) => way.slice(0, -1).every((u, w) => { const v = way[w + 1]; for (let k = 0; k <= 40; k++) { const x = u.x + ((v.x - u.x) * k) / 40, z = u.z + ((v.z - u.z) * k) / 40; if (Math.hypot(x - u.x, z - u.z) > 9 && Math.abs(x - p.x) < p.w / 2 + 3 && Math.abs(z - p.z) < p.d / 2 + 3) return false; } return true; })); }));
+    check(`${h.id}: no spur climbs more than 0.12 anywhere (it bends round a mountain rather than go over a wall)`, h.spurs.every((s) => s.maxGrade <= 0.12) && h.spurGrade <= 0.12);
     const a = m.features.airstrip;
     if (a) check(`${h.id}: it keeps 30 units or more clear of the airstrip's runway`, h.ring.every((p) => { const ax = a.frame.t[0] * a.frame.runwayHalf, az = a.frame.t[1] * a.frame.runwayHalf; const px = p.x - a.at.x, pz = p.z - a.at.z; const tt = Math.max(-1, Math.min(1, (px * ax + pz * az) / (ax * ax + az * az))); return Math.hypot(px - tt * ax, pz - tt * az) >= 30; }));
   }
@@ -179,7 +186,7 @@ check('Harbor Isle is still 380 units of open water from the mainland, and does 
   const top = hs.indexOf(Math.max(...hs));
   const jc = mm.find((r) => r.name === 'John Crow Mountains');
   check('the Blue Mountains follow the real crest from elevation data: heights at every point, the summit (2196 m) inside the range and not at an end, falling away to the east', blue.points.length >= 8 && hs.every((h) => h > 900) && Math.max(...hs) === 2196 && top > 0 && top < hs.length - 1 && hs[hs.length - 1] < 0.7 * 2196, `${blue.points.length} points, summit at ${top}`);
-  check('their height is 14 at the summit, and the other ranges are in proportion to the real ones (Cockpit Country about 6, Dolphin Head about 3, the John Crow Mountains about 8)', blue.height === 14 && Math.abs(mm.find((r) => r.name === 'Cockpit Country').height - 6.2) < 0.3 && jc && jc.height > 7 && jc.height < 9 && jc.points.every((p) => p.h), `Cockpit ${mm.find((r) => r.name === 'Cockpit Country').height}`);
+  check('their height is 18 at the summit, and the other ranges are in proportion to the real ones (Cockpit Country about 8, Dolphin Head about 4, the John Crow Mountains about 11)', blue.height === 18 && Math.abs(mm.find((r) => r.name === 'Cockpit Country').height - 8.1) < 0.3 && jc && jc.height > 10 && jc.height < 11.5 && jc.inTerrain === true, `Cockpit ${mm.find((r) => r.name === 'Cockpit Country').height}`);
   const summit = blue.points[top];
   check('the height function reads the data: 14 (or just under) at the summit and about half of it 1,000 m up the ridge', elevationAt(mm, summit.x, summit.z, 1101) > 9.5 && elevationAt(mm, blue.points[blue.points.length - 1].x, blue.points[blue.points.length - 1].z, 1101) < 9, `${elevationAt(mm, summit.x, summit.z, 1101)} at the summit`);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera, MapControls } from '@react-three/drei';
 import GroundGrid from './GroundGrid';
@@ -25,6 +25,7 @@ import Promenade from './Promenade';
 import DayNight from './DayNight';
 import DraftBuilding from './DraftBuilding';
 import StreamedNetwork from './StreamedNetwork';
+import StreamedWorld from '@/components/world/StreamedWorld';
 import Traffic from './Traffic';
 import CurvedRoad from './CurvedRoad';
 import ReservedArea from './ReservedArea';
@@ -95,6 +96,14 @@ export default function CityCanvas() {
     const q = new URLSearchParams(window.location.search);
     return q.has('stream') ? { size: Number(q.get('stream')) || 64, radius: Number(q.get('radius')) || 2 } : null;
   });
+  // ?world=baked mounts the baked world (public/world, docs/world/streaming_runtime.md) round the town: the coast, the mountains, the coastal roads and the causeways, a few chunks at a time as you move.
+  // The town itself is still drawn by the code above, so the chunks that touch its land are left out. Off by default: the game is unchanged without the flag.
+  const [bakedWorld] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const q = new URLSearchParams(window.location.search);
+    return q.get('world') === 'baked' ? { profile: q.get('profile') || 'desktop' } : null;
+  });
+  const skipTownChunks = useCallback((c) => { const { land } = layout; const x0 = c.cx * 128, z0 = c.cz * 128; return x0 < land.x1 && x0 + 128 > land.x0 && z0 < land.z1 && z0 + 128 > land.z0; }, [layout]);
   const view = useView((s) => (PRESETS[s.view].iso ? 'iso' : 'follow'));
   // the lower tiers draw a fixed share of the countryside's trees and shrubs (decoration only: nothing collides with them)
   const density = load.decorationDensity;
@@ -138,6 +147,7 @@ export default function CityCanvas() {
         <GroundGrid />
         <group name="city" position={[-layout.center.x, 0, -layout.center.z]}>
           <Land land={layout.land} urban={layout.urban} lawns={layout.lawns} />
+          {bakedWorld && <StreamedWorld profile={bakedWorld.profile} skip={skipTownChunks} />}
           <GroundPatches patches={layout.landscape.patches} />
           <Hills hills={layout.hills} />
           <Animals layout={layout} />

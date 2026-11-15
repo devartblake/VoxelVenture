@@ -59,17 +59,18 @@ const len = (s) => Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z);
   check('the manifest lists exactly the chunks that were baked', manifest.chunks.length === all.length && manifest.chunk.count === all.length && manifest.chunks.every((m) => chunks[m.key]));
   const heights = all.filter((c) => c.ground?.h);
   const top = Math.max(...heights.flatMap((c) => c.ground.h)) / 100;
-  check('the mountains are in the ground: the Blue Mountains chunks carry heights up to near 14, and flat chunks have none', heights.length >= 10 && top > 9 && top <= 14 && all.some((c) => c.land > 0.5 && !c.ground.h), `${heights.length} chunks with heights, highest ${top}`);
+  check('the mountains are in the ground: the Blue Mountains chunks carry heights up to near 18, and flat chunks have none', heights.length >= 30 && top > 15 && top <= 18.1 && all.some((c) => c.land > 0.5 && !c.ground.h), `${heights.length} chunks with heights, highest ${top}`);
   const bm = world.landmasses[0];
-  const some = heights.find((c) => c.ground.h.some((h) => h > 500));
-  const i = some.ground.h.findIndex((h) => h > 500);
+  const some = heights.find((c) => c.bounds.x1 < 1300 && c.ground.h.some((h) => h > 800)); // on the mainland
+  const i = some.ground.h.findIndex((h) => h > 800);
   const n = some.ground.n;
-  const px = some.bounds.x0 + (CHUNK_SIZE * (i % (n + 1))) / n, pz = some.bounds.z0 + (CHUNK_SIZE * Math.floor(i / (n + 1))) / n;
+  const W = n + 3; // the grid has a ring beyond the chunk: index (i, j) from -1 to n + 1 is at (j + 1) * W + (i + 1)
+  const px = some.bounds.x0 + (CHUNK_SIZE * ((i % W) - 1)) / n, pz = some.bounds.z0 + (CHUNK_SIZE * (Math.floor(i / W) - 1)) / n;
   check('a baked height is the height function own number: the same at the same place (to the centimetre)', Math.abs(some.ground.h[i] / 100 - elevationAt(bm.features.ranges, px, pz, bm.spec.coast.seed)) < 0.011);
   let shared = true;
-  for (const c of heights) { const r = chunks[chunkKey(c.cx + 1, c.cz)]; if (r?.ground?.h) for (let j = 0; j <= n; j++) if (c.ground.h[j * (n + 1) + n] !== r.ground.h[j * (n + 1)]) shared = false; }
+  for (const c of heights) { const r = chunks[chunkKey(c.cx + 1, c.cz)]; if (r?.ground?.h) for (let j = -1; j <= n + 1; j++) if (c.ground.h[(j + 1) * W + (n + 1)] !== r.ground.h[(j + 1) * W + 1] || c.ground.h[(j + 1) * W + (n + 2)] !== r.ground.h[(j + 1) * W + 2]) shared = false; } // (the edge column, and the ring beyond it, are the neighbour own numbers)
   check('neighbouring chunks agree along their shared edge (no seam in the ground)', shared);
-  check('the ground grid is 16 x 16 cells of sea (0), land (1) or beach (2), and a chunk land share is the share of cells that are not sea', all.filter((c) => c.ground).every((c) => c.ground.mask.length === 256 && /^[012]+$/.test(c.ground.mask) && Math.abs(c.land - [...c.ground.mask].filter((v) => v !== '0').length / 256) < 0.006) && all.some((c) => c.ground?.mask.includes('2')));
+  check('the ground grid is 32 x 32 cells of sea (0), land (1) or beach (2), and a chunk land share is the share of cells that are not sea', all.filter((c) => c.ground).every((c) => c.ground.mask.length === 1024 && /^[012]+$/.test(c.ground.mask) && Math.abs(c.land - [...c.ground.mask].filter((v) => v !== '0').length / 1024) < 0.006) && all.some((c) => c.ground?.mask.includes('2')));
   check('the harbour, airstrip and ranges are in the manifest, and the first landmass\'s coast is its template', manifest.landmasses.length === 4 && manifest.landmasses[1].features.airstrip.name === 'Harbor Isle Airstrip' && manifest.landmasses[1].features.harbour.quay && manifest.landmasses[0].features.ranges.length >= 4 && manifest.landmasses[0].coast.template === 'jamaica');
   check('the land share is real: a chunk in the middle of the mainland is all land, one out to sea is not baked', chunks[chunkKey(...Object.values(chunkAt(world.towns[0].plots[0].x, world.towns[0].plots[0].z)))].land === 1 && !chunks[chunkKey(0, 20)] && land.length > 100);
 }

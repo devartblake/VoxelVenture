@@ -773,6 +773,16 @@ try {
   check('tour: no console errors or uncaught exceptions', tourPage.problems().length === 0, tourPage.problems().slice(0, 3).join(' | '));
   await tourPage.close();
 
+  // the baked world, streamed (roadmap task 11, docs/world/streaming_runtime.md): off by default, and with ?world=baked a few chunks outside the town's land are mounted and drawn
+  const plainWorld = await page.eval(`JSON.stringify(window.__vvStreamedWorld ?? null)`);
+  check('streaming: without ?world=baked nothing is mounted (the game is unchanged)', !plainWorld || JSON.parse(plainWorld).mounted === 0);
+  const baked = await openPage(`http://localhost:${webPort}/?world=baked&diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1000, height: 700 });
+  const bakedReady = await waitFor(baked, `window.__vvStreamedWorld?.ready === true && window.__vvStreamedWorld.mounted >= 4`, 60);
+  const bakedStats = JSON.parse(await baked.eval(`JSON.stringify(window.__vvStreamedWorld ?? null)`) ?? 'null');
+  check('streaming: with ?world=baked the chunks round the town mount (outside its land), in three draw calls a chunk at most', bakedReady && bakedStats.mounted >= 4 && bakedStats.drawCalls <= bakedStats.mounted * 3 && bakedStats.triangles > 0, JSON.stringify(bakedStats));
+  check('streaming: no console errors or uncaught exceptions', baked.problems().length === 0, baked.problems().slice(0, 3).join(' | '));
+  await baked.close();
+
   await page.close();
   await phone.close();
 } catch (error) {
