@@ -235,6 +235,7 @@ Sizes are working-day estimates. "Needs you" means a decision or an account is r
 | 15 | ⏸ Shipping yard: quay, cranes, containers, moving ships | 4-5 | 14 |
 | 16 | ⏸ Region-aware traffic, planes, daily features, search, multiplayer rooms | 4 | 11 |
 | 17 | ⏸ (Optional) real terrain and mountains | 4-6 | 11 |
+| 18 | 💡 **A plane the player flies, and flights to Harbor Isle** (added 2026-11-15 at the user's request; see [player_flight.md](../world/player_flight.md)): a new vehicle (a flight model, take-off and landing at the airports, collision with buildings, the plane in multiplayer, touch and keyboard controls), airport-to-airport routes, and the way to cross the open water to the island (about 990 units east, 380 of water) alongside boats. Its air tasks (take off from an airport, land at one, fly for two minutes, fly to the island) are verified by the presence position tracker | 8-10 | 11, 14, the presence position tracker (in progress) |
 
 ### 3. Content and polish
 | # | Task | Size |
