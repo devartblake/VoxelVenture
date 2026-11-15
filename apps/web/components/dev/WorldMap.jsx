@@ -139,6 +139,19 @@ export default function WorldMap() {
         ctx.beginPath(); h.ring.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Z(p.z)) : ctx.moveTo(X(p.x), Z(p.z)))); ctx.closePath(); ctx.stroke();
         for (const sp of h.spurs) { ctx.beginPath(); ctx.moveTo(X(sp.from.x), Z(sp.from.z)); ctx.lineTo(X(sp.to.x), Z(sp.to.z)); ctx.stroke(); }
       }
+      // the causeways: the road is on land (amber), and the bridge over the water is lighter with dark edges
+      for (const c of world.causeways ?? []) {
+        ctx.lineCap = 'butt';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = Math.max(1.5, c.width * s);
+        ctx.beginPath(); ctx.moveTo(X(c.points[0].x), Z(c.points[0].z)); ctx.lineTo(X(c.points[1].x), Z(c.points[1].z)); ctx.stroke();
+        ctx.strokeStyle = '#fef3c7';
+        ctx.lineWidth = Math.max(1, (c.width - 3) * s);
+        ctx.beginPath(); ctx.moveTo(X(c.bridge.from.x), Z(c.bridge.from.z)); ctx.lineTo(X(c.bridge.to.x), Z(c.bridge.to.z)); ctx.stroke();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '11px sans-serif';
+        ctx.fillText(c.name, X((c.bridge.from.x + c.bridge.to.x) / 2) - 30, Z((c.bridge.from.z + c.bridge.to.z) / 2) - 8);
+      }
     }
     for (const t of world.towns) {
       if (show.land) { ctx.strokeStyle = 'rgba(148,163,184,0.45)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1; ctx.strokeRect(X(t.land.x0), Z(t.land.z0), (t.land.x1 - t.land.x0) * s, (t.land.z1 - t.land.z0) * s); ctx.setLineDash([]); }

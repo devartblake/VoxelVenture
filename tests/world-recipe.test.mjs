@@ -155,6 +155,16 @@ check('Harbor Isle is still 380 units of open water from the mainland, and does 
   }
   check('the Lesser Caymans have no highway: no town to join (the recipe refuses one)', validateRecipe({ ...WORLD_RECIPE, highways: [{ id: 'x', landmass: 'little-isle' }] }).some((p) => p.includes('no town')));
   check('the world is the same each time: the highways are deterministic', JSON.stringify(buildWorld().highways) === JSON.stringify(world.highways));
+  const cw = world.causeways;
+  const [mainRing, isleRing] = world.highways;
+  check('one causeway joins the two rings, an end of it on each', cw.length === 1 && cw[0].from === 'mainland-ring' && cw[0].to === 'harbor-ring' && dist(cw[0].points[0], mainRing.ring) < 0.5 && dist(cw[0].points[1], isleRing.ring) < 0.5);
+  const c0 = cw[0];
+  check('it is short and straight: under 500 units (about 2 minutes by car at 4 a second), over the water for the 380 of the gap and a bit more, as a bridge 9 units above the sea', c0.length < 500 && c0.bridge.length >= 380 && c0.bridge.length < 450 && c0.bridge.clearance === 9, `${c0.length} long, ${c0.bridge.length} of it bridge`);
+  const [lm, li] = [world.landmasses[0], world.landmasses[1]];
+  check('the bridge starts on the mainland coast and ends on the island coast, and the rest of the road is on land', Math.abs(dist(c0.bridge.from, lm.outline.points)) < 4 && Math.abs(dist(c0.bridge.to, li.outline.points)) < 4 && pointInPolygon(c0.points[0].x, c0.points[0].z, lm.outline.points) && pointInPolygon(c0.points[1].x, c0.points[1].z, li.outline.points));
+  const hb = li.features.harbour;
+  check('it keeps 60 units or more from the harbour quay and piers, and clear of both Lesser Caymans', [hb.quay, ...hb.piers.flatMap((p) => [p, { x: p.x + p.out.x * p.length, z: p.z + p.out.z * p.length }])].every((q) => { let best = Infinity; for (let k = 0; k <= 80; k++) best = Math.min(best, Math.hypot(c0.points[0].x + ((c0.points[1].x - c0.points[0].x) * k) / 80 - q.x, c0.points[0].z + ((c0.points[1].z - c0.points[0].z) * k) / 80 - q.z)); return best >= 55; }) && world.landmasses.slice(2).every((o) => polygonDistance([c0.points[0], c0.points[1]], o.outline.points) > 100));
+  check('the recipe refuses a causeway between a highway and itself, or one that does not exist', validateRecipe({ ...WORLD_RECIPE, causeways: [{ id: 'x', from: 'mainland-ring', to: 'mainland-ring' }] }).length > 0 && validateRecipe({ ...WORLD_RECIPE, causeways: [{ id: 'x', from: 'mainland-ring', to: 'nope' }] }).length > 0);
   const mm = world.landmasses[0].features.ranges;
   const blue = mm.find((r) => r.name === 'Blue Mountains');
   const hs = blue.points.map((p) => p.h);
