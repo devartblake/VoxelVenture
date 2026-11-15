@@ -121,8 +121,9 @@ const C = await connect(presencePort, 'Cyrus', pc.x - 60, pc.z, cy);
 await walkTo(C, pc.x, pc.z, 4);
 for (let i = 0; i < 20; i++) { C.state(pc.x, pc.z, false); await sleep(200); }
 await waitFor(() => eventsOf(cy.account.id, 'place:park:park') > 0, 15000);
-for (let i = 0; i < 16; i++) { C.state(i % 2 ? pc.x + 150 : pc.x - 150, pc.z + (i % 2 ? 100 : -100)); await sleep(100); } // sixteen impossible jumps in under two seconds
-const flagged = await waitFor(() => Boolean(db.prepare('SELECT 1 FROM presence_flags WHERE account_id = ?').get(cy.account.id)), 15000);
+const farX = pc.x < (geo.land.x0 + geo.land.x1) / 2 ? geo.land.x1 - 5 : geo.land.x0 + 5; // the far side of the land: inside it, so each jump is a teleport and not out of bounds
+for (let i = 0; i < 16; i++) { C.state(farX, pc.z); await sleep(100); } // sixteen impossible jumps in under two seconds
+const flagged = await waitFor(() => Boolean(db.prepare('SELECT 1 FROM presence_flags WHERE account_id = ? AND score >= 60').get(cy.account.id)), 15000);
 check('sixteen impossible moves in two seconds is flagged: the presence server told the API', flagged);
 const flag = db.prepare('SELECT score, flags FROM presence_flags WHERE account_id = ?').get(cy.account.id);
 check('the flag names what it saw (teleports) and is at or over the review score', flag && flag.score >= 60 && JSON.parse(flag.flags).some((f) => f.name === 'teleports'), JSON.stringify(flag));
