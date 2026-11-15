@@ -2,7 +2,7 @@
 // sound zone and wardrobe item a task mentions is read from the game's own data, so the catalogue cannot name something that is not there. Design data only:
 // nothing in the game reads it yet.
 //
-//   node scripts/tasks/build-task-catalogue.mjs            writes docs/product/task_catalogue.json and task_catalogue.csv
+//   node scripts/tasks/build-task-catalogue.mjs            writes docs/product/task_catalogue.json and task_catalogue.csv, and lib/game/taskCatalogue.json (what the game and the server load)
 //   node scripts/tasks/build-task-catalogue.mjs --seed N   for another city seed (default: the live city's, 20260101)
 //   (ids are stable: D-BIZ-3k9x0a1q is made from the task's cadence, family and goal, so a catalogue can grow without renumbering)
 //
@@ -300,6 +300,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const cat = await buildCatalogue(i >= 0 ? Number(process.argv[i + 1]) : 20260101);
   const dir = path.join(root, 'docs', 'product');
   fs.writeFileSync(path.join(dir, 'task_catalogue.json'), JSON.stringify(cat, null, 1) + '\n');
+  fs.writeFileSync(path.join(root, 'lib', 'game', 'taskCatalogue.json'), JSON.stringify(cat, null, 1) + '\n'); // the copy the game and the server load
   fs.writeFileSync(path.join(dir, 'task_catalogue.csv'), toCsv(cat));
   const by = (key) => Object.entries(cat.tasks.reduce((m, t) => ((m[t[key]] = (m[t[key]] ?? 0) + 1), m), {})).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' | ');
   console.log(`${cat.counts.total} tasks (${cat.counts.daily} daily, ${cat.counts.weekly} weekly), seed ${cat.seed}`);
