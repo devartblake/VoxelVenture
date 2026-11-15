@@ -53,9 +53,7 @@ check('it is honest about what the game records today: all three tracking signal
 // ---- the files agree with the generator
 const onDisk = JSON.parse(fs.readFileSync(path.join(root, 'docs/product/task_catalogue.json'), 'utf8'));
 check('docs/product/task_catalogue.json is exactly what the generator makes (run scripts/tasks/build-task-catalogue.mjs after a change)', JSON.stringify(onDisk) === JSON.stringify(cat));
-check('and the CSV for spreadsheets matches too', fs.readFileSync(path.join(root, 'docs/product/task_catalogue.csv'), 'utf8').replace(/
-/g, '
-') === toCsv(cat));
+check('and the CSV for spreadsheets matches too', fs.readFileSync(path.join(root, 'docs/product/task_catalogue.csv'), 'utf8').replace(/\r\n/g, '\n') === toCsv(cat));
 const doc = fs.readFileSync(path.join(root, 'docs/product/daily_weekly_tasks.md'), 'utf8');
 check('the document states the real total and the split', doc.includes(`${tasks.length} tasks`) && doc.includes(`${cat.counts.daily} daily`) && doc.includes(`${cat.counts.weekly} weekly`));
 
