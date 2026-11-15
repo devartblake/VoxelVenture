@@ -28,3 +28,9 @@ Adding roads, towns or landmasses is **not a problem**, because the bake is rege
 So the rule is: **append, never renumber, never move what is live.** Re-bake after every change and commit the files. The staging database's island lots (ids from 1,000,000) were seeded from an older shape and must be re-seeded once, before Harbor Isle opens.
 
 Not yet there: a **world hash check** between the client and the server (the manifest carries one), the **merged chunk geometry** and the **streaming runtime** (task 11), and a **save that holds only the player's changes**.
+
+## Plots that have builds on them, and letting players claim them
+
+The bake holds where a plot is, not what stands on it, so there is nothing in the bake to remove. What stands on a plot comes from the generator (a seeded building and a made-up owner such as "ChefLuigi") and from the server's `plots` table. Today, of Voxel Town's 1,010 plots, 489 are built by the generator (the city's own businesses, with no player account behind them) and 521 are empty lots; Harbor Town has 566 built and 504 empty. A player claims an empty lot directly, and can already take over a city business for 1.25 times its land price (`takeOverPlot`), so a build is not a block, only an extra cost.
+
+Making them claimable as empty lots is two changes that must agree: the **generator** has to stop drawing the building, and the **server** has to clear the owner (`owner_name` null, `claimable` 1) for plots with no player account, which never touches a plot a player holds. It affects the daily features that name the city's businesses (the 2,061 catalogue tasks, Plot of the Day, the chest): tasks whose target no longer exists are already dropped by the server's `finishable()` filter, but the numbers change. So: do it for **Harbor Isle first** (a recipe option, since it is not live and has no owners), and for Voxel Town decide how many city businesses to keep as the city's own landmarks.
