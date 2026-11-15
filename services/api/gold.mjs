@@ -147,8 +147,8 @@ function billboardOf(seed, input) {
 }
 
 // ---- the wardrobe and the raffle: spending, with the server's prices and the server's dice
-const ownedOf = (db, accountId) => ({ ...DEFAULT_OWNED, ...Object.fromEntries(db.prepare('SELECT item_id FROM game_inventory WHERE account_id = ?').all(accountId).map((r) => [r.item_id, true])) });
-const appearanceOf = (db, accountId) => { const row = db.prepare('SELECT appearance FROM game_profile WHERE account_id = ?').get(accountId); return { ...DEFAULT_APPEARANCE, ...(row ? JSON.parse(row.appearance) : {}) }; };
+export const ownedOf = (db, accountId) => ({ ...DEFAULT_OWNED, ...Object.fromEntries(db.prepare('SELECT item_id FROM game_inventory WHERE account_id = ?').all(accountId).map((r) => [r.item_id, true])) });
+export const appearanceOf = (db, accountId) => { const row = db.prepare('SELECT appearance FROM game_profile WHERE account_id = ?').get(accountId); return { ...DEFAULT_APPEARANCE, ...(row ? JSON.parse(row.appearance) : {}) }; };
 const saveAppearance = (db, accountId, appearance) => db.prepare('INSERT INTO game_profile (account_id, appearance) VALUES (?,?) ON CONFLICT(account_id) DO UPDATE SET appearance = excluded.appearance').run(accountId, JSON.stringify(appearance));
 
 export function buy(db, account, input, at = now()) {

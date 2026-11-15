@@ -1,5 +1,11 @@
 # Changelog: @voxelventure/shared-types
 
+## 0.18.0 (2026-11-15)
+
+Player tasks (`services/api/tasks.mjs`, [daily_weekly_tasks.md](../../docs/product/daily_weekly_tasks.md)). New contracts, all version 1, in [`contracts/tasks.js`](src/contracts/tasks.js). The server verifies every task from its own records and pays the tier's Gold through the Gold wallet: **no request carries progress, "done" or an amount**.
+
+- `tasks.view` (GET /tasks: today's three and this week's five tasks for the account, each with the server's progress and whether it was collected; a guest sees them without progress), `tasks.claim-result` (POST /tasks/<id>/claim: what was paid and the Gold after it; a refusal with `not_done` carries `progress`), `tasks.history` (GET /me/tasks: what the account collected, with totals, streaks and counts by category), `admin.tasks` (GET /admin/tasks: how many accounts were shown and how many collected each task, who, and how many tasks the server cannot verify yet).
+
 ## 0.17.0 (2026-11-15)
 
 The game's Gold is held by the server (`services/api/gold.mjs`, [backend.md](../../docs/architecture/backend.md#currency)). New contracts, all version 1, in [`contracts/game.js`](src/contracts/game.js). **No request carries an amount**: a page says what happened and the server decides what it pays.

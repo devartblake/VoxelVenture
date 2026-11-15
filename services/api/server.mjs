@@ -41,6 +41,7 @@ import * as market from './market.mjs';
 import * as stats from './stats.mjs';
 import * as community from './community.mjs';
 import * as gold from './gold.mjs';
+import { createTasks } from './tasks.mjs';
 import * as messaging from './messaging.mjs';
 import * as business from './business.mjs';
 import * as auditLog from './audit.mjs';
@@ -76,8 +77,9 @@ function healthDetails(db, env, at = Date.now()) {
   return { outbox: { pending: o.n, oldestMinutes: o.oldest ? Math.round((at - o.oldest) / 60000) : null, failed: db.prepare("SELECT COUNT(*) AS n FROM outbox WHERE status = 'failed'").get().n }, backupHours };
 }
 
-export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env, adminLogin = {} } = {}) {
+export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue = undefined, origin = '*', rate = { perMinute: 240, authPerMinute: 20 }, transport = null, deliverEveryMs = 5000, env = process.env, adminLogin = {} } = {}) {
   const db = openDb(dbFile);
+  const tasks = createTasks({ seed, catalogue: taskCatalogue }); // (taskCatalogue: tests only; the game loads lib/game/taskCatalogue.json)
   const seeded = core.seedWorld(db, seed);
   const adsSeeded = core.seedAds(db, seed);
   const brandsSeeded = engage.seedBrands(db, seed);
@@ -698,6 +700,11 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, origin = '*', 
     if (m === 'POST' && p === '/game/appearance') return gold.equip(db, account, await body(req));
     if (m === 'POST' && p === '/game/raffle') return gold.enterRaffle(db, account);
     if (m === 'GET' && p === '/admin/currency/audit') return (adminOnly(token), gold.auditCurrency(db));
+    // player tasks (tasks.mjs): what is available, collecting (the server checks and pays), and what you have collected
+    if (m === 'GET' && p === '/tasks') return tasks.view(db, account);
+    if ((r = p.match(/^\/tasks\/([DW]-[A-Z]{3}-[0-9a-z]{8})\/claim$/)) && m === 'POST') return tasks.claim(db, account, r[1]);
+    if (m === 'GET' && p === '/me/tasks') return tasks.history(db, account, { limit: url.searchParams.get('limit'), before: url.searchParams.get('before') });
+    if (m === 'GET' && p === '/admin/tasks') return (adminOnly(token), tasks.adminReport(db));
     if (m === 'POST' && p === '/vote') return community.castVote(db, account, (await body(req)).plotId);
     // presence and analytics
     if (m === 'POST' && p === '/presence/ping') {
