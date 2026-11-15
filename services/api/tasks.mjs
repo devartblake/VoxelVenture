@@ -16,7 +16,7 @@ import { transaction } from './db.mjs';
 import * as gold from './gold.mjs';
 import { votesView } from './community.mjs';
 
-const { generateCity } = await imp('city/cityGenerator.js');
+const { generateTown } = await imp('city/townExtension.js'); // the city the game builds (see gold.mjs): the stars and the plots must be the player's own
 const { scavengerHunt } = await imp('game/daily.js');
 const { tasksForDay, tasksForWeek } = await imp('game/taskSchedule.js');
 const { bestStreak, dayOf, plotFacts, progressOf, streakAt, supports, windowOf } = await imp('game/taskRules.js');
@@ -34,7 +34,7 @@ const goalItems = (goal) => (goal.type === 'wear' ? goal.items ?? [goal.item] : 
  * @param {{ seed: number, catalogue?: { tasks: object[] } }} options
  */
 export function createTasks({ seed, catalogue = loadCatalogue() }) {
-  const city = generateCity(seed);
+  const city = generateTown(seed);
   const byId = new Map(catalogue.tasks.map((t) => [t.id, t]));
   // The tasks the server can verify AND that take some effort. A "wear" task whose items are all free ones (the outfit everyone starts in) is done from nothing: it would pay for doing nothing,
   // so it is never offered (a test checks that no verifiable task is done by an account with no records).

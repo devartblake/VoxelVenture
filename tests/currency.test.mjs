@@ -14,12 +14,12 @@ const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok
 
 const SEED = 20260101;
 const SITE = 'https://site.test';
-const { generateCity } = await imp('city/cityGenerator.js');
+const { generateTown } = await imp('city/townExtension.js'); // the city the game builds, as the server does (tests/daily-city.test.mjs)
 const { COSMETIC_BY_ID, RAFFLE_COST, RAFFLE_PRIZES } = await imp('game/cosmetics.js');
 const { HUNT_BONUS, HUNT_GOLD, POTD_VISIT_GOLD, dailyChest, plotOfTheDay, scavengerHunt } = await imp('game/daily.js');
 const { FISH, FISH_DAILY_CAP } = await imp('sim/vehicles.js');
 const { BILLBOARD_QUEST_GOLD, BILLBOARD_QUEST_SECONDS, utcDay } = await imp('game/goldRules.js');
-const city = generateCity(SEED);
+const city = generateTown(SEED);
 const day = utcDay();
 const chest = dailyChest(city.layout.intersections, SEED, day);
 const stars = scavengerHunt(city.layout, city.plots, SEED, day);
