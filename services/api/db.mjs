@@ -86,6 +86,26 @@ export function openDb(file = ':memory:') {
   db.exec('CREATE TABLE IF NOT EXISTS game_inventory (account_id INTEGER NOT NULL REFERENCES accounts(id), item_id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (account_id, item_id))');
   db.exec("CREATE TABLE IF NOT EXISTS game_profile (account_id INTEGER PRIMARY KEY REFERENCES accounts(id), appearance TEXT NOT NULL DEFAULT '{}')");
   db.exec('CREATE TABLE IF NOT EXISTS game_timers (account_id INTEGER NOT NULL REFERENCES accounts(id), key TEXT NOT NULL, started_at INTEGER NOT NULL, PRIMARY KEY (account_id, key))');
+  // Player tasks (services/api/tasks.mjs; docs/product/daily_weekly_tasks.md): what an account collected (once per task and period, which the unique key enforces), and which
+  // tasks were shown to which account (so an admin can see how many were offered as well as collected). Progress is never stored: it is worked out again from the
+  // server's own records each time.
+  db.exec(`CREATE TABLE IF NOT EXISTS task_claims (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    task_id TEXT NOT NULL,
+    period_key TEXT NOT NULL,
+    cadence TEXT NOT NULL,
+    tier TEXT NOT NULL,
+    category TEXT NOT NULL,
+    gold INTEGER NOT NULL,
+    claimed_at INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    evidence TEXT,
+    UNIQUE (account_id, task_id, period_key)
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS task_claims_account ON task_claims(account_id, claimed_at)');
+  db.exec('CREATE INDEX IF NOT EXISTS task_claims_task ON task_claims(task_id)');
+  db.exec('CREATE TABLE IF NOT EXISTS task_offers (account_id INTEGER NOT NULL REFERENCES accounts(id), task_id TEXT NOT NULL, period_key TEXT NOT NULL, first_seen_at INTEGER NOT NULL, PRIMARY KEY (account_id, task_id, period_key))');
   // Reserve the graphics backlog IDs without asserting descriptions or completion.
   const seedRollout = db.prepare('INSERT OR IGNORE INTO rollout_items (id,title) VALUES (?,?)');
   for (let n=1;n<=13;n++) {

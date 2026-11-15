@@ -7,6 +7,8 @@ import { leadsCsv } from '@/lib/data/csv';
 import { myLeadsRemote, setEmailRemote, walletRemote } from '@/lib/data/sync';
 import { gameLedgerRemote } from '@/lib/data/game';
 import { useCityStore } from '@/lib/state/store';
+import { Collected } from './TasksView';
+import { usePanel } from '@/lib/state/panelStore';
 import { useAccount } from '@/lib/state/accountStore';
 
 const INPUT = 'w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-1.5 text-xs text-white focus:border-sx-cyan focus:outline-none';
@@ -105,6 +107,11 @@ export default function AccountView() {
         {leads && leads.totals.confirmed > 0 && (
           <button onClick={() => downloadCsv(leads)} className="mt-2 flex items-center gap-1.5 rounded-full border border-sx-stroke px-3 py-1 text-[11px] text-slate-200 hover:border-sx-line"><Download className="h-3 w-3" /> Download as CSV</button>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">
+        <h3 className="mb-2 flex items-center justify-between text-xs font-bold text-white"><span className="flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 text-green-300" /> Tasks collected</span><button onClick={() => usePanel.getState().open('tasks')} className="rounded-full border border-sx-stroke px-2.5 py-0.5 text-[10px] font-normal text-slate-200 hover:border-sx-line">Open tasks</button></h3>
+        <Collected limit={8} />
       </section>
 
       <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">

@@ -17,6 +17,10 @@ Additive only, made when the API starts (`services/api/db.mjs`, the same upgrade
 
 `accounts.gold` and `gold_ledger` stay as they are: they are the **Credits** wallet (the name is from before there were two).
 
+## The task tables (player tasks)
+
+The same additive upgrade also creates `task_claims` (what an account collected: unique `(account_id, task_id, period_key)`, so a task is collected once per period) and `task_offers` (which tasks were shown to which account, for the admin's offered-versus-collected view). Nothing existing changes. Tasks pay through the same Gold ledger (`reason = 'task'`), so `npm run audit:currency` covers them; after the staging play also try: collect a task twice (the second is refused), and `GET /admin/tasks` as the admin.
+
 ## What happens to players
 
 - Gold used to be saved only in each player's browser. **It is not imported**: a balance sent by a browser is exactly what would let someone print Gold. Every signed-in account starts with 0 Gold and earns it from the server. Say so in the release note: "Your Gold is now kept safely on the server, so it follows your account. Gold saved in your browser before this update is not carried over."

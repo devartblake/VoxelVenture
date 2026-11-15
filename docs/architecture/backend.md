@@ -221,6 +221,10 @@ Until this change Gold was a number in the browser's saved game, so anyone could
 
 Tests: `tests/currency.test.mjs` (the server's rules), `tests/currency-client.test.mjs` (the page owns nothing and saves nothing of value). Migration and staging rehearsal: [currency_migration.md](../operations/currency_migration.md).
 
+## Player tasks (`services/api/tasks.mjs`)
+
+Daily and weekly tasks, built on the server-held Gold (above): the server decides what is on offer to an account (the shared schedule over the tasks it can verify, for the account's own facts), works out progress from its own records (verified visits, the Gold ledger, votes, hunt wins, the wardrobe, earlier claims), and pays the tier's Gold through the Gold wallet once per task and period (`task_claims`, unique `(account, task, period)`). A page never says a task is done or what it pays. Tasks that need an avatar position or an event nobody records are not offered (770 of 2,061 today). Routes: `GET /tasks`, `POST /tasks/<id>/claim`, `GET /me/tasks`, `GET /admin/tasks`. How it works, what is held back and why: [player_tasks.md](../product/player_tasks.md). Tests: `tests/player-tasks*.test.mjs`. Contracts: `tasks.*`, `admin.tasks` (shared-types 0.18.0).
+
 ## What it does not do yet
 - **Payments and Gold on the server** (task 6): with Stripe set up, claims, take-overs, renewals and market stalls are paid through Stripe Checkout ([billing.md](../monetization/billing.md)), one by one or together through the cart. Without Stripe, a claim records its price in the ledger but charges nothing. The server's Credits move only through visit quests and their budgets; nothing is bought with money, and the game's own Gold stays local.
 - **Realtime:** done for ownership and ad changes (push from the API through the presence server). With a server, the building card's statistics and history come from `/plots/<id>/stats` and `/plots/<id>/history` (`lib/data/liveStats.js`); the simulated provider is used only without one.

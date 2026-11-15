@@ -205,6 +205,7 @@ Written for: you, to plan the next stage. Status on 2026-10-17:
   - **A second town on Harbor Isle**: a world recipe (`lib/world/`), global plot ids (town index x 1,000,000 + the town's own), a procedural coast with a harbour, beaches, headlands and hills, and the island placed 380 units of open water east of the mainland. `/world` shows both on one map. 1,070 plots (ids 1,000,001 up).
   - **Not done:** the island is not in the game (the streaming runtime, task 11, comes first), nothing is drawn at sea, its lots are not for sale (`WORLD_TOWNS` is off by default and adds empty, unclaimable land), no highways (task 12).
   - **Tests:** `tests/town-extension.test.mjs` (27 checks), `tests/world-recipe.test.mjs` (33). `tests/api.test.mjs` and `tests/lease-price.test.mjs` now compare with the town the server seeds, not the plain generator.
+- [x] **Player tasks, built** (2026-11-15; [player_tasks.md](../product/player_tasks.md)): the server verifies every task from its own records and pays the tier's Gold through the server-held wallet, once per task and period. `GET /tasks`, `POST /tasks/<id>/claim`, `GET /me/tasks`, `GET /admin/tasks` (offered and collected per task, and who). A Tasks panel (Today, This week, Collected), toasts, and a Tasks section in the profile with totals, streaks and counts by category. 1,291 of the 2,061 catalogue tasks are on offer; 570 need the avatar's position (waiting for presence-verified positions) and 198 an event nobody records. `shared-types` 0.18.0. `tests/player-tasks*.test.mjs`.
 
 ## To do
 
