@@ -223,6 +223,22 @@ Staging and production share the machine, and every service starts `/usr/bin/nod
 
 **`production.sh deploy` really deploys.** It has no `--check`: only `migrate --check` is read-only. Read the whole command before running it, even to look.
 
+## 9. More plots: the top-up
+
+The town now has 155 more plots (ids 881 to 1035, [docs/world/world_recipe.md](../docs/world/world_recipe.md)). A database seeded before that has 855. The API tops it up when it starts: it inserts the plots the generator has that the database lacks, **by id, new ids only**, with each plot's opening ledger entry, and changes no existing row. The result is in the start-up value `seeded.toppedUp` (155 the first time, 0 after).
+
+**Rehearse it on staging first** (nothing here has been run on the real staging or production servers yet):
+1. **Copy:** `sudo -u voxel cp /srv/voxelventure-staging/data/voxelventure.db /tmp/before-topup.db` (a copy to compare with; `staging.sh deploy` also snapshots the database).
+2. **Count:** `sqlite3 /srv/voxelventure-staging/data/voxelventure.db "SELECT COUNT(*) FROM plots; SELECT MAX(id) FROM plots WHERE id < 100000;"` should say 855 (or more, if lots were added) and 880.
+3. **Deploy the API and the web app together** as usual (`push.ps1 staging -Deploy`): the deploy restarts the API, which tops the database up, and builds the web app with the new plots.
+4. **Check:** `plots` in `https://api.staging.voxelventure.app/health` is 1010; `SELECT COUNT(*) FROM plots WHERE id >= 881 AND id < 100000;` is 155; and none of the old rows changed: `sqlite3 /tmp/before-topup.db "SELECT * FROM plots WHERE id < 881 ORDER BY id" | sha256sum` equals the same command on the live file.
+5. **Run `npm run verify:live` and the journeys** as in section 4. Any plot the journeys claimed keeps its owner.
+6. **Restart the API again:** the count must not change.
+
+**Production:** the same, after staging. Deploy order matters: the API first, then the web app (a plot the web app shows must exist in the database). **Rollback:** `staging.sh rollback` (or `production.sh rollback`) switches back to the earlier release; the 155 rows stay, are harmless (unclaimed lots the old code does not show), and are topped up again by the next release. To remove them: `DELETE FROM plots WHERE id >= 881 AND id < 100000 AND owner_account IS NULL; DELETE FROM ledger WHERE plot_id >= 881 AND plot_id < 100000;` (only if nobody has claimed one: check first).
+
+**The island** (`WORLD_TOWNS=harbor` in `api.env`) adds 1,070 empty, unclaimable lots under ids from 1,000,001. Leave it unset on staging and production until the game can show the island.
+
 ## Commands
 
 | | |
@@ -252,3 +268,4 @@ Staging and production share the machine, and every service starts `/usr/bin/nod
 | 2026-11-14 | Node 26.13.1 (LTS) on staging, beside the system Node 22.23.3 (section 8) | `/opt/node-26` with its checksum verified, staging's three services on it by drop-ins, staging rebuilt with it (Next 16.4.6, three 0.187). `verify:live` passed all 20 checks, presence answered over a WebSocket, nothing restarted. Journeys: 3 of 5 passed; `merchant-onboarding` and `visitor-discovery-to-storefront` could not (Stripe test mode is on, so a claim needs a payment) and pass locally on Node 26. | Remove the drop-ins |
 | 2026-11-14 | Node 26.13.1 on production, release `20261114-201244` (same commit as staging, `217ab8e`) | NodeSource switched to `setup_26.x` and `nodejs` installed while the old processes kept serving; the deploy then built with it, backed up (and uploaded), switched and restarted the three services onto Node 26 with no restarts since. `verify:live` passed. The deploy ran by mistake from `deploy --check` (there is no such flag), through the same safe path. | `production.sh rollback` |
 | 2026-11-14 | Security headers and the report-only CSP on staging (`d1c6462`, release `20261114-212434`) | Deployed; staging's Caddy file replaced after `caddy validate` on the whole server config (it also holds production's sites), then reloaded. All six headers present on staging, none on production (not yet updated). `verify:live` passed and the pilot tour passed 6 of 6 in a real browser, iframes included. The CSP reported only the known `script-src eval` probe, nothing else. A first draft would have broken the combined config (the same snippet name in both Caddyfiles); fixed in #119. | Restore `/etc/caddy/staging.caddy.bak-20261114` and `systemctl reload caddy`; `staging.sh rollback` for the app |
+| 2026-11-14 | More plots: the top-up rehearsed on a FILE database on a developer machine (not on staging; section 9) | A database seeded by a server with the extension off (all its start-up seeding: world, ads, brands), one lot claimed and re-priced by a player, then started by the new server: 855 to 1,010 plots, **155 rows added, 0 of the 855 old rows changed in any column**, the claimed lot still the player's, `/health` 1010, a second start `toppedUp: 0`. `WORLD_TOWNS=harbor` on the same file added 1,070 empty, unclaimable lots and nothing else. | The staging and production rehearsals are still to do |

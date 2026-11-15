@@ -9,7 +9,7 @@ import { leadTarget } from './business.mjs';
 // Everything that turns visitors into leads and customers: a business's offers (coupon, visit quest with a Gold budget, video, game demo),
 // the email sign-ups it collects (double opt-in), its feedback board, and the email the server sends (confirmations, take-over notices,
 // the Plot of the Day newsletter). No HTTP in here: server.mjs routes to these functions.
-const { generateCity } = await imp('city/cityGenerator.js');
+const { generateTown } = await imp('city/townExtension.js');
 const { toEmbedUrl } = await imp('content/embeds.js');
 const now = () => Date.now();
 const DAY = 86400000;
@@ -28,7 +28,7 @@ const visitorOf = (account, input) => (account ? `a${account.id}` : `x${text(inp
 // ---- offers: coupon, quest, video, game ---------------------------------------------------------------------------------
 // Gives the city's own businesses the offers the generator made for them (once), and a budget for their quest.
 export function seedBrands(db, seed = 20260101) {
-  const city = generateCity(seed);
+  const city = generateTown(seed);
   const set = db.prepare('UPDATE plots SET brand = ?, quest_budget = ? WHERE id = ? AND brand IS NULL AND owner_account IS NULL');
   let n = 0;
   transaction(db, () => {

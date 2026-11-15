@@ -148,7 +148,8 @@ try {
   core.seedWorld(db, 20260101);
   db.exec("UPDATE plots SET facts = json_remove(facts, '$.land')");
   const again = core.seedWorld(db, 20260101);
-  const city = generateCity(20260101);
+  const { generateTown } = await imp('city/townExtension.js'); // the server seeds the town: the generator's city plus the extra lots
+  const city = generateTown(20260101);
   const sample = city.plots.find((p) => p.luxury);
   check('an older database gets each plot\'s pricing attributes when the server starts', again.seeded === false && again.land === city.plots.length && JSON.stringify(JSON.parse(db.prepare('SELECT facts FROM plots WHERE id = ?').get(sample.id).facts).land) === JSON.stringify(sample.land) && core.seedWorld(db, 20260101).land === 0, JSON.stringify(again));
   {
