@@ -33,7 +33,7 @@ const world = buildWorld();
 const again = buildWorld(structuredClone(WORLD_RECIPE));
 check('building the world twice gives the same world', JSON.stringify(world.plots.map((p) => [p.id, p.x, p.z])) === JSON.stringify(again.plots.map((p) => [p.id, p.x, p.z])) && JSON.stringify(world.landmasses.map((l) => l.outline.points)) === JSON.stringify(again.landmasses.map((l) => l.outline.points)));
 const [first, island] = world.towns;
-check('two towns, on two landmasses', world.towns.length === 2 && world.landmasses.length === 2);
+check('two towns, on four landmasses: the mainland and Harbor Isle carry the towns, and the two Lesser Caymans have none', world.towns.length === 2 && world.landmasses.length === 4 && world.landmasses.filter((l) => !world.towns.some((t) => t.landmass === l.id)).map((l) => l.id).join() === 'little-isle,the-brac');
 check('the first town is at the origin: the same coordinates and ids as the game uses', first.origin.x === 0 && first.origin.z === 0 && first.plots.every((p, i) => p.id === first.city.plots[i].id && p.x === Math.round(first.city.plots[i].x * 100) / 100));
 const FIRST_TOWN_FINGERPRINT = '440f6fcc22b118a275b8326cb07f9d4fab8385e3d66e588007e39979d187c7ee';
 const fingerprint = (plots) => { const h = crypto.createHash('sha256'); for (const p of plots) h.update(`${JSON.stringify(p, (k, v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v))}\n`); return h.digest('hex'); };
@@ -48,7 +48,7 @@ check('the island holds well over a thousand lots, as the first town does', isla
 for (const l of world.landmasses) {
   const t = world.towns.find((x) => x.landmass === l.id);
   check(`${l.id}: the coast is a closed shape that does not cross itself`, l.outline.points.length >= 48 && !selfIntersects(l.outline.points) && polygonArea(l.outline.points) > 1e5);
-  check(`${l.id}: every plot, every road end and every corner of the town's land is inside the coast`, t.plots.every((p) => pointInPolygon(p.x, p.z, l.outline.points)) && t.roads.every((r) => (r.axis === 'x' ? [[r.from, r.center], [r.to, r.center]] : [[r.center, r.from], [r.center, r.to]]).every(([x, z]) => pointInPolygon(x, z, l.outline.points))) && [[t.land.x0, t.land.z0], [t.land.x1, t.land.z0], [t.land.x1, t.land.z1], [t.land.x0, t.land.z1]].every(([x, z]) => pointInPolygon(x, z, l.outline.points)));
+  if (t) check(`${l.id}: every plot, every road end and every corner of the town's land is inside the coast`, t.plots.every((p) => pointInPolygon(p.x, p.z, l.outline.points)) && t.roads.every((r) => (r.axis === 'x' ? [[r.from, r.center], [r.to, r.center]] : [[r.center, r.from], [r.center, r.to]]).every(([x, z]) => pointInPolygon(x, z, l.outline.points))) && [[t.land.x0, t.land.z0], [t.land.x1, t.land.z0], [t.land.x1, t.land.z1], [t.land.x0, t.land.z1]].every(([x, z]) => pointInPolygon(x, z, l.outline.points)));
 }
 const [mainland, isle] = world.landmasses;
 const water = polygonDistance(mainland.outline.points, isle.outline.points);
@@ -65,7 +65,7 @@ check('whatever the seed and the shape of the land, the land is inside its coast
 // ---- the features
 const f = isle.features;
 check('the island has a harbour on the side that faces the mainland, with piers that point out to sea', f.harbour && f.harbour.at.x < isle.centre.x && f.harbour.piers.length === 3 && f.harbour.out.x < 0 && f.harbour.piers.every((p) => p.length >= 26));
-check('and a beach, headlands and hills (the hills on the island but not on the town, and away from the harbour)', f.beaches.length >= 1 && f.headlands.length === 3 && f.hills.length >= 1 && f.hills.every((h) => pointInPolygon(h.x, h.z, isle.outline.points) && h.x >= isle.centre.x - 1));
+check('and a beach and headlands, no random hills (Grand Cayman is flat: its one low bluff is a range)', f.beaches.length >= 1 && f.headlands.length === 3 && !f.hills && f.ranges.length === 1 && f.ranges[0].name === 'The Eastern Bluff');
 check('the mainland has the features its recipe lists, and no harbour (it asks for none)', mainland.features.beaches && mainland.features.headlands && !mainland.features.harbour && !mainland.features.hills);
 check('features are deterministic', JSON.stringify(coastFeatures(isle.outline, { seed: 2202, facing: { x: -1, z: 0 }, landRect: isle.land })) === JSON.stringify(coastFeatures(isle.outline, { seed: 2202, facing: { x: -1, z: 0 }, landRect: isle.land })));
 
@@ -87,7 +87,7 @@ check('features are deterministic', JSON.stringify(coastFeatures(isle.outline, {
   check('another seed really is another coast, and no variation at all would be Jamaica itself: the variation changes it', JSON.stringify(a.points) !== JSON.stringify(b.points) && JSON.stringify(a.points) !== JSON.stringify(templateOutline({ template: 'jamaica', rect, seed: spec.seed, margin: spec.margin, length: spec.length, anchor: spec.anchor, stretch: spec.stretch, rotate: 0, variation: 0 }).points));
   check('the template is a real outline: about 50 points, closed, and after two rounds of corner-cutting four times as many', JAMAICA.length >= 45 && chaikin(JAMAICA.map(([x, z]) => ({ x, z }))).length === JAMAICA.length * 4);
   check('a coast whose town cannot fit asks for nothing impossible: a land far bigger than the island is an error, not a coast that leaves the town in the sea', (() => { try { templateOutline({ template: 'jamaica', rect: { x0: -3000, x1: 3000, z0: -3000, z1: 3000 }, seed: 1, margin: 70, length: 400, anchor: { lon: -77.28, lat: 18.02 } }); return false; } catch (e) { return /does not fit/.test(e.message); } })());
-  check('the recipe checks its coast: an unknown shape, or mountain ranges on a plain coast, are refused', bad((r) => { r.landmasses[0].coast.shape = 'atlantis'; return r; }) && bad((r) => { r.landmasses[1].features.push('ranges'); return r; }) && bad((r) => { delete r.landmasses[0].coast.anchor; return r; }));
+  check('the recipe checks its coast: an unknown shape, mountain ranges or a landmass with no town but no template, and a town on a template with no anchor, are refused', bad((r) => { r.landmasses[0].coast.shape = 'atlantis'; return r; }) && bad((r) => { delete r.landmasses[1].coast.shape; return r; }) && bad((r) => { delete r.landmasses[0].coast.anchor; return r; }));
 }
 
 // ---- its mountains: ranges with a height function
@@ -117,6 +117,27 @@ check('features are deterministic', JSON.stringify(coastFeatures(isle.outline, {
 // ---- the island is still placed at exactly its gap, now that the mainland is so much bigger
 check('Harbor Isle is still 380 units of open water from the mainland, and does not touch it', Math.abs(polygonDistance(mainland.outline.points, isle.outline.points) - 380) < 0.5, polygonDistance(mainland.outline.points, isle.outline.points).toFixed(2));
 
+// ---- Harbor Isle is a variation of Grand Cayman, and the Lesser Caymans are near it
+{
+  const hull = (pts) => { const q = [...pts].sort((u, v) => u.x - v.x || u.z - v.z); const cr = (o, u, v) => (u.x - o.x) * (v.z - o.z) - (u.z - o.z) * (v.x - o.x); const lo = []; for (const p of q) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); } const up = []; for (const p of [...q].reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); } return lo.slice(0, -1).concat(up.slice(0, -1)); };
+  const [, , little, brac] = world.landmasses;
+  const w = isle.bounds.x1 - isle.bounds.x0, h = isle.bounds.z1 - isle.bounds.z0;
+  check('Harbor Isle\'s coast comes from the Grand Cayman template, simple, long and not square', isle.outline.kind === 'template' && isle.outline.template === 'grand-cayman' && !selfIntersects(isle.outline.points) && w / h > 1.8, `${w.toFixed(0)} x ${h.toFixed(0)}`);
+  check('it has the North Sound: a great bay in the north (the island fills well under its convex hull: a plain blob fills nearly all of it)', polygonArea(isle.outline.points) / polygonArea(hull(isle.outline.points)) < 0.88, `${(polygonArea(isle.outline.points) / polygonArea(hull(isle.outline.points)) * 100).toFixed(0)}%`);
+  check('and it is smaller than the mainland: Grand Cayman is a fraction of Jamaica', isle.area < mainland.area);
+  const rect = isle.land;
+  const edge = []; for (let x = rect.x0; x <= rect.x1; x += 20) edge.push([x, rect.z0], [x, rect.z1]); for (let z = rect.z0; z <= rect.z1; z += 20) edge.push([rect.x0, z], [rect.x1, z]);
+  const clear = (x, z) => Math.min(...isle.outline.points.map((q, i) => { const r = isle.outline.points[(i + 1) % isle.outline.points.length]; const dx = r.x - q.x, dz = r.z - q.z; const t = Math.max(0, Math.min(1, ((x - q.x) * dx + (z - q.z) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - q.x - t * dx, z - q.z - t * dz); }));
+  check('Harbor Town\'s land is on the fat western end with at least the recipe\'s 80 units of beach all round it', edge.every(([x, z]) => pointInPolygon(x, z, isle.outline.points) && clear(x, z) >= 80), `${Math.min(...edge.map(([x, z]) => clear(x, z))).toFixed(0)} units at the tightest`);
+  check('the harbour is on the west coast, facing the mainland it is placed from (George Town\'s), not the nearer Lesser Caymans', isle.features.harbour.at.x < isle.centre.x && isle.features.harbour.out.x < -0.7);
+  check('the Lesser Caymans have no town, no town land and no plots: only a coast (Little Isle) and a coast with a bluff (The Brac)', !little.land && !brac.land && world.towns.every((t) => t.landmass !== 'little-isle' && t.landmass !== 'the-brac') && little.outline.template === 'little-cayman' && brac.outline.template === 'cayman-brac' && little.outline.points.length > 40 && !selfIntersects(little.outline.points) && !selfIntersects(brac.outline.points));
+  check('they are thin islands, the Brac thinner and longer, and the Brac has its Bluff, rising at its east end (and Little Isle has none)', (brac.bounds.x1 - brac.bounds.x0) > (little.bounds.x1 - little.bounds.x0) && brac.features.ranges?.length === 1 && brac.features.ranges[0].name === 'The Bluff' && brac.features.ranges[0].height > 6 && brac.features.ranges[0].points[0].x > brac.centre.x - 100 && !little.features.ranges);
+  check('Little Isle is exactly 260 units of water from Harbor Isle and the Brac 300, both placed out from it as the recipe says, and they are clear of each other', Math.abs(polygonDistance(isle.outline.points, little.outline.points) - 260) < 0.5 && Math.abs(polygonDistance(isle.outline.points, brac.outline.points) - 300) < 0.5 && polygonDistance(little.outline.points, brac.outline.points) > 150, `${polygonDistance(isle.outline.points, little.outline.points).toFixed(1)} and ${polygonDistance(isle.outline.points, brac.outline.points).toFixed(1)}, ${polygonDistance(little.outline.points, brac.outline.points).toFixed(0)} apart`);
+  check('they are near Harbor Isle, not a hundred and thirty kilometres away: both within 300 units of water (about 85 seconds by boat at 3.6 a second)', polygonDistance(isle.outline.points, little.outline.points) <= 300 && polygonDistance(isle.outline.points, brac.outline.points) <= 300.5, `${(polygonDistance(isle.outline.points, brac.outline.points) / 3.6).toFixed(0)} seconds to the Brac`);
+  check('and every landmass is clear of every other: no two touch', [mainland, isle, little, brac].every((l, i, all) => all.every((o, j) => i === j || polygonDistance(l.outline.points, o.outline.points) > 150)));
+  check('only the two towns have plots: nothing was added to the database\'s world by the Lesser Caymans', world.plots.length === 2080 && world.stats.towns.length === 2);
+}
+
 // ---- the island's airstrip: a destination for flights (docs/world/player_flight.md)
 {
   const a = f.airstrip;
@@ -126,7 +147,7 @@ check('Harbor Isle is still 380 units of open water from the mainland, and does 
   const footprint = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([i, j]) => ({ x: a.at.x + tx * i * a.frame.runwayHalf - nx * j * 22, z: a.at.z + tz * i * a.frame.runwayHalf - nz * j * 22 }));
   const distToCoast = (p) => Math.min(...isle.outline.points.map((q, i) => { const r = isle.outline.points[(i + 1) % isle.outline.points.length]; const dx = r.x - q.x, dz = r.z - q.z; const t = Math.max(0, Math.min(1, ((p.x - q.x) * dx + (p.z - q.z) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(p.x - q.x - t * dx, p.z - q.z - t * dz); }));
   check('its whole footprint (runway and room round it) is on the island and at least 14 units from the water', footprint.every((p) => pointInPolygon(p.x, p.z, isle.outline.points) && distToCoast(p) >= 14));
-  check('and off the town\'s land, clear of every hill, and away from the harbour', !(a.at.x > isle.land.x0 && a.at.x < isle.land.x1 && a.at.z > isle.land.z0 && a.at.z < isle.land.z1) && f.hills.every((h) => Math.hypot(h.x - a.at.x, h.z - a.at.z) > h.radius + a.frame.runwayHalf) && Math.hypot(f.harbour.at.x - a.at.x, f.harbour.at.z - a.at.z) > 70);
+  check('and off the town\'s land, clear of every hill, and away from the harbour', !(a.at.x > isle.land.x0 && a.at.x < isle.land.x1 && a.at.z > isle.land.z0 && a.at.z < isle.land.z1) && (f.hills ?? []).every((h) => Math.hypot(h.x - a.at.x, h.z - a.at.z) > h.radius + a.frame.runwayHalf) && Math.hypot(f.harbour.at.x - a.at.x, f.harbour.at.z - a.at.z) > 70);
   check('its frame is the shape the city\'s airports use: origin, unit t and n at right angles, runwayN 0, and a runway shorter than the international\'s 116', a.frame.origin.x === a.at.x && Math.abs(Math.hypot(tx, tz) - 1) < 1e-9 && Math.abs(Math.hypot(nx, nz) - 1) < 1e-9 && Math.abs(tx * nx + tz * nz) < 1e-9 && a.frame.runwayN === 0 && a.frame.runwayHalf * 2 === a.length && a.length < 116);
   check('n points towards the town and the apron lies on that side of the runway', (isle.land.x0 + isle.land.x1) / 2 * nx + (isle.land.z0 + isle.land.z1) / 2 * nz - (a.at.x * nx + a.at.z * nz) > 0 && (a.apron.x - a.at.x) * nx + (a.apron.z - a.at.z) * nz > 0);
   check('the airstrip is deterministic, and changes nothing else: the island\'s plots, roads and coast are what they were', JSON.stringify(buildWorld().landmasses.find((l) => l.id === 'harbor-isle').features.airstrip) === JSON.stringify(a) && isle.outline.points.length > 0 && buildWorld().towns.find((t) => t.id === 'harbor').plots.length === 1070);

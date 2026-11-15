@@ -100,6 +100,18 @@ They are data and a height function, **not terrain in the game yet**: a terrain 
 
 **Harbor Isle moved.** The island is placed by its gap from the mainland's coast (380 units), and the mainland is now much bigger, so the island's town is at (1922.9, 78.1) and not (977.5, 161.4). Its lots that a staging server may already hold (`WORLD_TOWNS=harbor`) have the old coordinates. They are empty, not for sale and not shown anywhere, so nothing is wrong, but when the island is made final they have to be **re-seeded**: delete the rows with ids from 1,000,000 up (none is owned) and restart the API with `WORLD_TOWNS=harbor`. The island's own design is still to be changed (it is still a rounded square), so that is best done once, after both landmasses are final.
 
+## 4b. Harbor Isle is a variation of Grand Cayman, with the Lesser Caymans beside it (2026-11-15)
+
+Harbor Isle and two new town-less islands are drawn from a **spine and a width profile** ([shapes.js](../../lib/world/shapes.js), `spineIsland`): a line along the island and, for each side, how far the coast is from it along the way. That gives broad ends, waists, bays and tapering tips that cannot cross themselves (the hand-placed corner lists looked wrong).
+
+| Landmass | Template | Look | Placed |
+|---|---|---|---|
+| Harbor Isle | `grand-cayman` | broad west end where Harbor Town stands, the North Sound biting into the north side, a long arm tapering east; stretch 0.7, about 2.1 to 1; a low Eastern Bluff (height 4) | 380 units of water from the mainland (bearing 8) |
+| Little Isle | `little-cayman` | stocky, about 4 to 1, pinched in the middle by Preston Bay | 260 from Harbor Isle (bearing -35) |
+| The Brac | `cayman-brac` | slimmer and curved, about 4 to 1 overall but varying in width, bow-like east tip, with the Bluff (height 9) | 300 from Harbor Isle (bearing -85) |
+
+The Lesser Caymans are about 275 units apart and have no town, no plots and no database rows. The harbour faces the landmass the island is placed from (the mainland).
+
 ## 5. What is not done, and why
 
 - **The island is not in the game.** Walking or driving to it needs the streaming runtime (roadmap task 11): chunked geometry, collision and traffic that work on a map this size. The main game keeps loading the first town only and does not regress.
