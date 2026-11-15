@@ -4,7 +4,7 @@
 
 ```
 manifest.json            the world: landmasses (coast, harbour, airstrip, ranges), towns (origin, land, plot id range), highways, causeways, links, ocean, the chunk index, a hash
-chunks/<cx>_<cz>.json    one square of the map: plots (id, place, size, facing, district), roads and highways cut at the chunk's edges, the land share, and the ground heights on a 5 x 5 grid
+chunks/<cx>_<cz>.json    one square of the map: plots (id, place, size, facing, district), roads and highways cut at the chunk's edges, the land share, and the ground grid (16 x 16 cells of land, beach or sea, with the height at each corner)
 ```
 
 The first run baked 273 chunks and 274 files, 473 KB, for the mainland, Harbor Isle and the two Lesser Caymans (open sea is not baked). The code is `lib/world/bake.js` (pure) and `lib/world/bakedWorld.js` (a loader: `loadBakedWorld(load)` gives `chunk(cx, cz)`, `near(x, z, radius)` and `plot(id)`).

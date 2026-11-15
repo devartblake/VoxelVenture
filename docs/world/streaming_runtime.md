@@ -5,7 +5,7 @@ The game today loads one town and builds all of it at once. The streaming runtim
 | # | Slice | State |
 | :-: | :-- | :-- |
 | 1 | **The chunk manager** ([lib/world/chunkManager.js](../../lib/world/chunkManager.js)): which chunks are wanted around the player, loaded nearest first one per frame, let go of with hysteresis, capped, with a look-ahead in the direction of travel | done (2026-11-15), `tests/world-streaming.test.mjs` |
-| 2 | **Merged chunk geometry**: the bake also writes each chunk's roads, plots' ground, water and ground patches as a few merged meshes (a chunk is about ten meshes, not fifteen hundred objects), loaded with the chunk | next |
+| 2 | **Merged chunk geometry** ([lib/world/chunkMesh.js](../../lib/world/chunkMesh.js)): each chunk becomes three meshes, however much is in it: the ground, the town roads and the highways (rings, spurs, links, causeways and the bridges' raised decks). Done (2026-11-15), `tests/world-chunk-mesh.test.mjs` | done |
 | 3 | **A React layer** that mounts and disposes what the manager says, behind a flag (`?world=baked`) so the game is unchanged until it works | |
 | 4 | **Overview pictures**: a baked flat picture of each chunk, for the Overview and Top-down cameras and the mini-map | |
 | 5 | **A spatial collision index** in place of one list for the whole town | |
@@ -27,3 +27,13 @@ The game today loads one town and builds all of it at once. The streaming runtim
 ## Plots and what stands on them
 
 A chunk records where a plot is, not what is on it. What stands on a plot (the generated building, the city's own business, or a player's) comes from the town's seed and the database, as it does today. See [world_bake.md](world_bake.md) for what that means for letting players claim plots that now have builds.
+
+## Merged chunk geometry (slice 2)
+
+`chunkMeshes(chunk)` returns `{ ground, roads, highways }`, each a set of typed arrays (positions, indices, and colours for the ground) with no three.js in it: the React layer will make a `BufferGeometry` from each. The geometry is **built from the baked data when a chunk mounts**, not stored as binary files beside it: the bake stays small and readable (about 0.6 MB for the whole world), building a chunk's three meshes is a few milliseconds of arithmetic, and the same function makes the same geometry on every machine. If profiling on phones shows the build is a hitch, it can move into the bake without changing the data the runtime reads.
+
+- **Ground.** The bake now writes each land chunk a 16 x 16 grid of 8-unit cells (sea, land or beach) and the height at each corner in centimetres (left out when flat). The mesh is the land and beach cells, sharing corner vertices, with the baked heights: the Blue Mountains rise to 12 in the mesh, and neighbouring chunks meet exactly (3,404 shared edge points agree). Colours by vertex: sand on the beach, grass, rock above 3, peak above 10.
+- **Town roads and highways.** Flat ribbons a hair above the ground (an arterial 3.2 wide, a local street 2.2; highways 6, causeways 8). A causeway's bridge deck rises from the shore to its 9 units of clearance over 60 units and comes down at the other end (the baked bridge pieces say how far along the bridge they are, so a deck cut across several chunks is one smooth curve).
+- **Cost.** A chunk is at most 3 draw calls; the busiest has 584 triangles. The whole desktop ring round Voxel Town (25 chunks) is 48 draw calls and about 12,000 triangles, mounted through the chunk manager.
+
+What these meshes do not draw: plots and buildings (still made from the town's seed by the generator), the lamps, trees and water. The game's own roads keep their drawing until the React layer (slice 3) mounts these.

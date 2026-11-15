@@ -1,1 +1,1 @@
-{"cx":10,"cz":-2,"size":128,"bounds":{"x0":1280,"z0":-256,"x1":1408,"z1":-128},"land":0,"plots":[],"roads":[],"highways":[{"id":"north-causeway","kind":"causeway-bridge","class":"highway","width":8,"a":{"x":1280,"z":-147.78},"b":{"x":1408,"z":-170.09},"clearance":9}]}
+{"cx":10,"cz":-2,"size":128,"bounds":{"x0":1280,"z0":-256,"x1":1408,"z1":-128},"land":0,"plots":[],"roads":[],"highways":[{"id":"north-causeway","kind":"causeway-bridge","class":"highway","width":8,"a":{"x":1280,"z":-147.78},"b":{"x":1408,"z":-170.09},"clearance":9,"along":[186.24,316.17],"span":606.43}]}
