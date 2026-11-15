@@ -112,7 +112,13 @@ function AdActions({ billboard }) {
 function LookQuest({ billboardId }) {
   const done = useCityStore((s) => Boolean(s.completedQuests[billboardId]));
   const complete = useCityStore((s) => s.completeBillboardQuest);
+  const start = useCityStore((s) => s.startBillboardQuest);
   const [seconds, setSeconds] = useState(0);
+
+  // with a game server it keeps the clock: it is told when you start looking, and decides when you have looked long enough
+  useEffect(() => {
+    if (!done) start?.(billboardId);
+  }, [done, start, billboardId]);
 
   useEffect(() => {
     if (done) return undefined;

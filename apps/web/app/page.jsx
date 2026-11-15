@@ -10,6 +10,9 @@ import SidePanel from '@/components/ui/panel/SidePanel';
 import Toolbar from '@/components/ui/panel/Toolbar';
 import { useCityStore } from '@/lib/state/store';
 import { dayKey } from '@/lib/game/daily';
+import { utcDay } from '@/lib/game/goldRules';
+import { apiOn } from '@/lib/data/api';
+import { installGame } from '@/lib/data/game';
 import { useView } from '@/lib/state/viewStore';
 import InteriorModal from '@/components/interior/InteriorModal';
 import TouchControls from '@/components/ui/TouchControls';
@@ -39,6 +42,9 @@ if (typeof window !== 'undefined') {
   if (tourActive()) useCityStore.persist.setOptions({ storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } });
 }
 
+// The day the chest, the stars and the Plot of the Day are worked out for: with a game server, ITS day (UTC), so a device clock cannot move them; otherwise the local date.
+const contentDay = () => (apiOn() ? utcDay() : dayKey());
+
 export default function Home() {
   const [drawable, setDrawable] = useState(true); // checked after mount (the server cannot know); false shows the plain fallback
   useEffect(() => setDrawable(canDrawCity()), []);
@@ -51,17 +57,17 @@ export default function Home() {
     // foot traffic is counted outdoors only, and not during a demo tour (leaving the tour reloads the page as an ordinary visit)
     if (!tourActive()) startPresence({ indoors: () => Boolean(useCityStore.getState().activeInteriorPlot) });
     // with a game server: who is signed in, and the owners of every plot (browsing never asks for a sign-in)
-    useAccount.getState().hydrate().then(() => startSync());
+    useAccount.getState().hydrate().then(() => { startSync(); installGame(); }); // installGame: with a server, the Gold is the server's
   }, []);
   useEffect(() => {
     let alive = true;
     Promise.resolve(useCityStore.persist.rehydrate()).then(() => {
       if (!alive) return;
-      useCityStore.getState().setDay(dayKey());
+      useCityStore.getState().setDay(contentDay());
       useCommunity.getState().loadVotes(); // Building of the Week (the demo's needs the city's plots, so after they are loaded)
     });
     const timer = setInterval(() => {
-      const today = dayKey();
+      const today = contentDay();
       if (useCityStore.getState().day && useCityStore.getState().day !== today) useCityStore.getState().setDay(today);
     }, 60000);
     return () => {

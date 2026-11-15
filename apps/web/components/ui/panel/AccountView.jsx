@@ -5,9 +5,12 @@ import { Coins, Download, LogOut, Mail, Users } from 'lucide-react';
 import { apiOn } from '@/lib/data/api';
 import { leadsCsv } from '@/lib/data/csv';
 import { myLeadsRemote, setEmailRemote, walletRemote } from '@/lib/data/sync';
+import { gameLedgerRemote } from '@/lib/data/game';
+import { useCityStore } from '@/lib/state/store';
 import { useAccount } from '@/lib/state/accountStore';
 
 const INPUT = 'w-full rounded-lg border border-sx-stroke bg-sx-alt px-3 py-1.5 text-xs text-white focus:border-sx-cyan focus:outline-none';
+const GOLD_REASON = { chest: 'Daily chest', potd: 'Plot of the Day', star: 'Gold star', hunt_bonus: 'Scavenger hunt bonus', fish: 'Fishing', billboard: 'Ad quest', task: 'Task collected', buy: 'Wardrobe purchase', raffle_ticket: 'Raffle ticket', raffle_prize: 'Raffle prize' };
 const REASON = { starter: 'Welcome Credits', quest: 'Visit quest reward', quest_budget: 'Added to a quest budget', budget_refund: 'Quest budget returned' };
 
 // Your account: the email for notices (confirmed by a link), whether to get them, and your Gold wallet (visit quests pay into it, and a
@@ -17,13 +20,16 @@ export default function AccountView() {
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
   const [ledger, setLedger] = useState([]);
+  const [goldLedger, setGoldLedger] = useState([]);
+  const gold = useCityStore((s) => s.gold);
   const [leads, setLeads] = useState(null);
   useEffect(() => {
     if (account) {
       walletRemote().then((w) => setLedger(w.ledger)).catch(() => {});
+      gameLedgerRemote().then((g) => setGoldLedger(g.ledger)).catch(() => {});
       myLeadsRemote().then(setLeads).catch(() => {});
     }
-  }, [account?.id, account?.gold]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [account?.id, account?.gold, gold]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!apiOn()) return <p className="text-xs text-slate-400">Accounts need the game server. This copy of the game runs on its own.</p>;
   if (!account) {
@@ -99,6 +105,16 @@ export default function AccountView() {
         {leads && leads.totals.confirmed > 0 && (
           <button onClick={() => downloadCsv(leads)} className="mt-2 flex items-center gap-1.5 rounded-full border border-sx-stroke px-3 py-1 text-[11px] text-slate-200 hover:border-sx-line"><Download className="h-3 w-3" /> Download as CSV</button>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">
+        <h3 className="mb-1 flex items-center justify-between text-xs font-bold text-white"><span className="flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 text-amber-300" /> Gold</span><span className="font-mono text-amber-300">{gold.toLocaleString()}</span></h3>
+        <p className="mb-2 text-[11px] text-slate-400">Gold is the game's money: the daily chest, the stars, fishing, ad quests and tasks pay it, and the wardrobe and the raffle spend it. The server keeps it, so it follows your account and nothing on this page can change it.</p>
+        <ul className="space-y-1 text-[11px]">
+          {goldLedger.map((l, i) => (
+            <li key={i} className="flex justify-between text-slate-300"><span>{GOLD_REASON[l.reason] ?? l.reason}</span><span className={l.delta >= 0 ? 'text-green-400' : 'text-slate-400'}>{l.delta > 0 ? '+' : ''}{l.delta}</span></li>
+          ))}
+        </ul>
       </section>
 
       <section className="rounded-2xl border border-sx-stroke bg-sx-alt/40 p-3">

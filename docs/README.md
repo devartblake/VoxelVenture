@@ -98,7 +98,7 @@ The 3D city's systems: roads and land, street names, sound and light, models, th
 | [world_recipe.md](world/world_recipe.md) | More plots in the first town (155 added after the generator, none of the first 855 changed), the world recipe, global plot ids, a procedural island coast, a second town on Harbor Isle, the `/world` map, and what is not done (the island is not in the game yet) |
 | [kenney_assets.md](world/kenney_assets.md) | The Kenney (CC0) boats, pier decks and amusement-park pieces: what was found, what is used, what is still built in code |
 | [voxelize.md](world/voxelize.md) | Turning a `.glb` model into a voxel `.vox` with a small palette and modular tiles: the options, the axes, what it gains and what it does not (measured), and the licence note |
-| [daily_weekly_tasks.md](product/daily_weekly_tasks.md) | What players can do each day and week today, and a catalogue of 898 daily and weekly tasks made from the city's own places, with a schedule, a Gold proposal, what it leaves out (anything that would pad owners' verified figures) and what the game would need to record |
+| [daily_weekly_tasks.md](product/daily_weekly_tasks.md) | What players can do each day and week today, and a catalogue of 2061 daily and weekly tasks made from the city's own places, with stable ids, a schedule, Gold by tier, the rule that the server holds every balance and verifies every task, what it leaves out (anything that would pad owners' verified figures) and what the game would need to record |
 | [infill_and_land.md](world/infill_and_land.md) | Free land, new streets (inside the county road and outer blocks), the amusement park, how many lots and what it costs |
 | [city_editor.md](world/city_editor.md) | The `/editor` page: add, move and remove roads, streets, lots and parks, validate, save and open in the game |
 | [street_names.md](world/street_names.md) | The offline OpenStreetMap street-name script, the city name sets, and each district's own list (the Meadow Quarter's streets use theirs; the editor suggests by district) |
@@ -114,6 +114,7 @@ Running the live service. The deploy runbooks are in `deploy/`, listed below.
 | [asset_admission.md](operations/asset_admission.md) | **Before adding anything VoxelVenture did not make** (models, textures, sounds, music, fonts, icons, map data, code): the licence allow-list (never GPL/AGPL, NC, ND or unknown), provenance and stored licences, credits, file and budget checks, reviews, approval and retirement. `npm run check:assets` enforces the register in `lib/content/assetSources.js` |
 | [social_posts.md](operations/social_posts.md) | Welcome posts on VoxelVenture's X account for owners who opt in: the text, the review queue, the settings and how visits from a post are counted |
 | [hosting_stack_payments.md](operations/hosting_stack_payments.md) | Going live: why the server stays on Node, the Linode setup, why Stripe was chosen (now built: [billing.md](monetization/billing.md)), and the owner dashboard |
+| [currency_migration.md](operations/currency_migration.md) | The server holds every balance (Gold and Credits): what changes in the database, what happens to players' browser-held Gold, the staging rehearsal and the audit |
 
 ### Competitive research
 
