@@ -70,7 +70,7 @@ const half = tr.width / 2;
   const mainland = world.landmasses[0];
   const town = world.towns[0];
   const b = tr.bounds;
-  check('it is on the mainland\'s flat plain: inside the coast, off the town\'s land by 40 or more, and about 400 units (a minute by car) from Voxel Town', b.x0 > mainland.bounds.x0 && b.x1 < mainland.bounds.x1 && (b.x0 > town.land.x1 + 40 || b.x1 < town.land.x0 - 40 || b.z0 > town.land.z1 + 40 || b.z1 < town.land.z0 - 40) && Math.hypot(tr.start.x - (town.land.x0 + town.land.x1) / 2, tr.start.z - (town.land.z0 + town.land.z1) / 2) > 250 && Math.hypot(tr.start.x - (town.land.x0 + town.land.x1) / 2, tr.start.z - (town.land.z0 + town.land.z1) / 2) < 600);
+  check('it is on the mainland\'s flat plain: inside the coast, off the town\'s land by 40 or more, and about 600 units (85 seconds by car) from Voxel Town', b.x0 > mainland.bounds.x0 && b.x1 < mainland.bounds.x1 && (b.x0 > town.land.x1 + 40 || b.x1 < town.land.x0 - 40 || b.z0 > town.land.z1 + 40 || b.z1 < town.land.z0 - 40) && Math.hypot(tr.start.x - (town.land.x0 + town.land.x1) / 2, tr.start.z - (town.land.z0 + town.land.z1) / 2) > 400 && Math.hypot(tr.start.x - (town.land.x0 + town.land.x1) / 2, tr.start.z - (town.land.z0 + town.land.z1) / 2) < 700);
   const bad = JSON.parse(JSON.stringify(WORLD_RECIPE));
   bad.tracks[0].site = { x: -2000, z: -2000 };
   let message = '';

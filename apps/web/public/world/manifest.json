@@ -8240,53 +8240,53 @@
    "width": 10,
    "scale": 0.39,
    "start": {
-    "x": 198.44,
-    "z": -288.99,
-    "heading": -1.567381843265448,
+    "x": -110.56,
+    "z": -519.99,
+    "heading": -1.5673818432654423,
     "index": 99
    },
    "checkpoints": [
     {
-     "x": 93.54,
-     "z": -291.94,
+     "x": -215.46,
+     "z": -522.94,
      "index": 144
     },
     {
-     "x": 132.99,
-     "z": -350.92,
+     "x": -176.01,
+     "z": -581.92,
      "index": 189
     },
     {
-     "x": 156.2,
-     "z": -308.81,
+     "x": -152.8,
+     "z": -539.81,
      "index": 234
     },
     {
-     "x": 147.8,
-     "z": -379.87,
+     "x": -161.2,
+     "z": -610.87,
      "index": 279
     },
     {
-     "x": 113.82,
-     "z": -401.2,
+     "x": -195.18,
+     "z": -632.2,
      "index": 324
     },
     {
-     "x": 213.04,
-     "z": -361.75,
+     "x": -95.96,
+     "z": -592.75,
      "index": 8
     },
     {
-     "x": 284.02,
-     "z": -302.57,
+     "x": -24.98,
+     "z": -533.57,
      "index": 53
     }
    ],
    "bounds": {
-    "x0": 45.06,
-    "x1": 332.67,
-    "z0": -450.72,
-    "z1": -238.28
+    "x0": -263.94,
+    "x1": 23.67,
+    "z0": -681.72,
+    "z1": -469.28
    },
    "quads": 1819,
    "props": 707
@@ -8297,7 +8297,7 @@
    "id": "speedway-road",
    "name": "Dover Raceway Road",
    "kind": "track",
-   "length": 67.47
+   "length": 34
   },
   {
    "id": "harbor-isle-harbour-road",
@@ -8816,7 +8816,9 @@
    "land": 0.94,
    "plots": 0,
    "roads": 0,
-   "highways": 6
+   "highways": 12,
+   "props": 45,
+   "surface": 38
   },
   {
    "key": "-2_-5",
@@ -8825,7 +8827,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 218,
+   "props": 287,
+   "surface": 1051
   },
   {
    "key": "-2_-4",
@@ -8834,7 +8838,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0,
+   "highways": 18,
+   "props": 55,
+   "surface": 74,
    "heights": true
   },
   {
@@ -8899,7 +8905,8 @@
    "land": 0.76,
    "plots": 0,
    "roads": 0,
-   "highways": 5
+   "highways": 5,
+   "props": 25
   },
   {
    "key": "-1_-5",
@@ -8908,7 +8915,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 128,
+   "props": 218,
+   "surface": 640
   },
   {
    "key": "-1_-4",
@@ -8917,7 +8926,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 0,
+   "props": 55,
+   "surface": 16
   },
   {
    "key": "-1_-3",
@@ -8989,7 +9000,8 @@
    "land": 0.57,
    "plots": 0,
    "roads": 0,
-   "highways": 7
+   "highways": 7,
+   "props": 1
   },
   {
    "key": "0_-5",
@@ -8998,7 +9010,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1
+   "highways": 2,
+   "props": 14
   },
   {
    "key": "0_-4",
@@ -9007,9 +9020,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 31,
-   "props": 53,
-   "surface": 173
+   "highways": 1,
+   "props": 7
   },
   {
    "key": "0_-3",
@@ -9018,9 +9030,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 102,
-   "props": 141,
-   "surface": 449
+   "highways": 1
   },
   {
    "key": "0_-2",
@@ -9029,8 +9039,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1,
-   "props": 5
+   "highways": 1
   },
   {
    "key": "0_-1",
@@ -9111,9 +9120,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 27,
-   "props": 55,
-   "surface": 132
+   "highways": 0
   },
   {
    "key": "1_-3",
@@ -9122,9 +9129,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 177,
-   "props": 325,
-   "surface": 857
+   "highways": 0
   },
   {
    "key": "1_-2",
@@ -9133,8 +9138,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0,
-   "props": 10
+   "highways": 0
   },
   {
    "key": "1_-1",
@@ -9197,8 +9201,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0,
-   "props": 26
+   "highways": 0
   },
   {
    "key": "2_-3",
@@ -9207,9 +9210,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 37,
-   "props": 87,
-   "surface": 208
+   "highways": 0
   },
   {
    "key": "2_-2",
@@ -9218,8 +9219,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0,
-   "props": 5
+   "highways": 0
   },
   {
    "key": "2_-1",
@@ -11086,5 +11086,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "a5f71ff119005de3"
+ "hash": "f894e58ab5e797b6"
 }
