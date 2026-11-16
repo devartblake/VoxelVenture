@@ -87,7 +87,7 @@ const valid = (m, c) => {
   const hm = chunkMeshes(homeChunk);
   check('the town\'s roads are ribbons: at least 2 triangles for each road piece (a long piece is cut every 6 units to follow the ground), laid a hair above the ground', hm.roads.triangles >= 2 * homeChunk.roads.length && hm.roads.triangles <= 2 * homeChunk.roads.reduce((n, r) => n + Math.ceil(Math.hypot(r.b.x - r.a.x, r.b.z - r.a.z) / 6), 0) && homeChunk.roads.length > 10 && Math.min(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) > 0 && Math.max(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) < 0.2);
   check('an arterial is wider than a local street', ROAD_WIDTH.arterial > ROAD_WIDTH.local);
-  const withHw = meshed.filter(({ c }) => c.highways.length);
+  const withHw = meshed.filter(({ c }) => c.highways.some((h) => h.kind !== 'track')); // (a circuit's centreline is a road for timing, not drawn)
   check('every chunk the highways pass through has a highway mesh', withHw.every(({ m }) => m.highways.triangles > 0) && withHw.length > 60, `${withHw.length} chunks`);
   const bridge = meshed.filter(({ c }) => c.highways.some((h) => h.kind === 'causeway-bridge'));
   const deck = Math.max(...bridge.map(({ m }) => { let y = 0; for (let v = 1; v < m.highways.positions.length; v += 3) y = Math.max(y, m.highways.positions[v]); return y; }));

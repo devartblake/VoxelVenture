@@ -28,7 +28,7 @@ The recordings are served locally from `apps/web/public/audio/music/`; Sideways 
 
 ## 3D models
 
-**Kenney**, https://www.kenney.nl: City Kit (Commercial), City Kit (Suburban), City Kit (Roads), Nature Kit, Car Kit, Watercraft Kit, Pirate Kit and Coaster Kit. Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. Credit is not required but is given gladly. Which kit each model comes from: `apps/web/public/models/CREDITS.md`. The furniture editor's car is the Car Kit's SUV. Kit versions (City Kit (Commercial) 2.1, City Kit (Suburban) 2.0, City Kit (Roads) 2.2, Nature Kit 2.1, Car Kit 3.1, Watercraft Kit 2.1, Pirate Kit 2.1, Coaster Kit 1.0), each kit's saved page and its `License.txt`: [docs/licences/kenney/](docs/licences/kenney/README.md).
+**Kenney**, https://www.kenney.nl: City Kit (Commercial), City Kit (Suburban), City Kit (Roads), Racing Kit, Nature Kit, Car Kit, Watercraft Kit, Pirate Kit and Coaster Kit. Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. Credit is not required but is given gladly. Which kit each model comes from: `apps/web/public/models/CREDITS.md`. The furniture editor's car is the Car Kit's SUV. Kit versions (City Kit (Commercial) 2.1, City Kit (Suburban) 2.0, City Kit (Roads) 2.2, Racing Kit 2.0, Racing Kit 2.0, Nature Kit 2.1, Car Kit 3.1, Watercraft Kit 2.1, Pirate Kit 2.1, Coaster Kit 1.0), each kit's saved page and its `License.txt`: [docs/licences/kenney/](docs/licences/kenney/README.md).
 
 **Pascal Editor (Pascal Group Inc.)**, https://github.com/pascalorg/editor: the interior items (doors, windows, furniture) and materials in `apps/web/public/items/` and `apps/web/public/material/`, the editor’s icons, sounds and cursor (`apps/web/public/icons/`, `audios/`, `cursor.svg`), the shared TypeScript configuration (`vendor/typescript-config/`) and elevation styles (`styles/elevation.css`), and the `@pascal-app/*` packages behind them: the building interiors, the furniture editor (*Redesign inside*) and the `/viewer` page. **MIT** licence, https://opensource.org/license/mit; the licence file and what was copied: [docs/licences/pascal-editor/](docs/licences/pascal-editor/README.md).
 
@@ -37,6 +37,8 @@ The recordings are served locally from `apps/web/public/audio/music/`; Sideways 
 **Voxel landmarks** in `apps/web/public/models/vox/`: made for this game.
 
 ## Map data
+
+**The racing track's shape** (Voxel Speedway, `lib/world/data/raceways.js` and the baked world): the outlines of Dover Raceway, Jamwest Speedway and Palisadoes International Raceway, Jamaica, from OpenStreetMap (ways 247345542, 298009120 and 755310636): (c) OpenStreetMap contributors, **ODbL 1.0**, https://www.openstreetmap.org/copyright. Only the shape of each circuit is used.
 
 **Real street names** (off unless the game is built with `NEXT_PUBLIC_STREET_NAMES`): © OpenStreetMap contributors, **ODbL 1.0**, https://www.openstreetmap.org/copyright. The `/reference` page's street maps are drawn from the same data.
 

@@ -3,11 +3,13 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { useFrame, useThree } from '@react-three/fiber';
 import { loadBakedWorld } from '@/lib/world/bakedWorld';
 import { createChunkManager } from '@/lib/world/chunkManager';
 import { buildChunkObject, createChunkMaterials, disposeChunkObject } from '@/lib/world/chunkObject';
 import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
+import { TRACK_MODELS } from '@/lib/world/track';
 
 // The streaming runtime React layer (roadmap task 11, slice 3; docs/world/streaming_runtime.md). Mounts the baked chunks (public/world, scripts/bake-world.mjs) near the camera or a point the
 // caller gives, and disposes the ones left behind, one chunk a frame. It owns no game state: with no `focus` it follows the camera, and `skip(chunk)` lets a caller leave out chunks it draws itself
@@ -22,14 +24,31 @@ let bridgeModels = null;
 function loadBridgeModels() {
   bridgeModels ??= (async () => {
     const loader = new GLTFLoader();
+    // a model is one geometry with a group for each of its materials (a track tile is road, kerb and grass; a flag is cloth and pole): every mesh of the file, in the file's own placement, merged
     const first = async (file) => {
       const gltf = await loader.loadAsync(`/models/kenney/roads/${file}`);
-      let found = null;
-      gltf.scene.traverse((o) => { if (!found && o.isMesh) found = { geometry: o.geometry, material: o.material }; });
-      if (!found) throw new Error(`${file} has no mesh`);
-      return found;
+      gltf.scene.updateMatrixWorld(true);
+      const parts = [];
+      // a road tile carries its own grass, coplanar with the road: the ground is already grass, and two surfaces at one height flicker, so a tile's grass is left out (trees keep theirs: it is their leaves)
+      gltf.scene.traverse((o) => { if (o.isMesh && !(/^road/.test(file.replace(/^.*\//, '')) && o.material?.name === 'grass')) parts.push(o); });
+      if (!parts.length) throw new Error(`${file} has no mesh`);
+      const geometries = parts.map((o) => {
+        const g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+        for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name); // the kit's colours are in its materials, not textures
+        return g;
+      });
+      const geometry = geometries.length === 1 ? geometries[0] : mergeGeometries(geometries, true);
+      // the road surface is drawn over the tile's grey base, which is at the same height: pulled toward the camera it always wins
+      const materials = parts.map((o) => { if (o.material?.name === 'road') { const m = o.material.clone(); m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2; return m; } return o.material; });
+      return { geometry, material: materials.length === 1 ? materials[0] : materials };
     };
-    return { deck: await first('road-bridge.glb'), pillar: await first('bridge-pillar-wide.glb') };
+    const models = { deck: await first('road-bridge.glb'), pillar: await first('bridge-pillar-wide.glb'), props: null };
+    // the racing track's models (Kenney Racing Kit, public/models/kenney/racing): a circuit that cannot load them stays a ribbon
+    try {
+      const entries = await Promise.all(TRACK_MODELS.map(async (name) => [name, await first(`../racing/${name}.glb`)]));
+      models.props = Object.fromEntries(entries);
+    } catch { models.props = null; }
+    return models;
   })().catch(() => null);
   return bridgeModels;
 }
@@ -94,7 +113,9 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       });
       setActiveTerrain(terrain);
       stats.sample = (x, z) => terrain.sample(x, z);
-      stats.bridgeModels = Boolean(models);
+      stats.describe = () => [...objects.entries()].map(([k, g]) => `${k}: ${g.children.map((m) => `${m.name.split(':')[1]}${m.isInstancedMesh ? `x${m.count}` : ''}`).join(',')}`); // for the tests and the dev page
+      stats.bridgeModels = Boolean(models?.deck);
+      stats.trackModels = Boolean(models?.props);
       stats.ready = true; stats.profile = profile;
       onReady?.(baked.manifest);
     })();
@@ -120,7 +141,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
     m.step().then(() => { stats.loads = m.stats().loads; });
   });
 
-  useEffect(() => () => { materials.ground.dispose(); materials.roads.dispose(); materials.highways.dispose(); seaMaterial.dispose(); }, [materials, seaMaterial]);
+  useEffect(() => () => { materials.ground.dispose(); materials.roads.dispose(); materials.highways.dispose(); materials.track.dispose(); seaMaterial.dispose(); }, [materials, seaMaterial]);
   return (
     <group ref={root} name="streamed-world">
       <mesh ref={water} rotation={[-Math.PI / 2, 0, 0]} visible={false} renderOrder={-1} material={seaMaterial} name="sea">

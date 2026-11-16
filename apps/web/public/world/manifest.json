@@ -8229,7 +8229,76 @@
    }
   }
  ],
+ "tracks": [
+  {
+   "id": "speedway",
+   "name": "Dover Raceway",
+   "landmass": "mainland",
+   "shape": "dover-raceway",
+   "osmWay": 247345542,
+   "length": 898.86,
+   "width": 10,
+   "scale": 0.39,
+   "start": {
+    "x": 198.44,
+    "z": -288.99,
+    "heading": -1.567381843265448,
+    "index": 99
+   },
+   "checkpoints": [
+    {
+     "x": 93.54,
+     "z": -291.94,
+     "index": 144
+    },
+    {
+     "x": 132.99,
+     "z": -350.92,
+     "index": 189
+    },
+    {
+     "x": 156.2,
+     "z": -308.81,
+     "index": 234
+    },
+    {
+     "x": 147.8,
+     "z": -379.87,
+     "index": 279
+    },
+    {
+     "x": 113.82,
+     "z": -401.2,
+     "index": 324
+    },
+    {
+     "x": 213.04,
+     "z": -361.75,
+     "index": 8
+    },
+    {
+     "x": 284.02,
+     "z": -302.57,
+     "index": 53
+    }
+   ],
+   "bounds": {
+    "x0": 45.06,
+    "x1": 332.67,
+    "z0": -450.72,
+    "z1": -238.28
+   },
+   "quads": 1819,
+   "props": 707
+  }
+ ],
  "links": [
+  {
+   "id": "speedway-road",
+   "name": "Dover Raceway Road",
+   "kind": "track",
+   "length": 67.47
+  },
   {
    "id": "harbor-isle-harbour-road",
    "name": "Harbor Isle Harbour Road",
@@ -8938,7 +9007,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1
+   "highways": 31,
+   "props": 53,
+   "surface": 173
   },
   {
    "key": "0_-3",
@@ -8947,7 +9018,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1
+   "highways": 102,
+   "props": 141,
+   "surface": 449
   },
   {
    "key": "0_-2",
@@ -8956,7 +9029,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1
+   "highways": 1,
+   "props": 5
   },
   {
    "key": "0_-1",
@@ -9037,7 +9111,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 27,
+   "props": 55,
+   "surface": 132
   },
   {
    "key": "1_-3",
@@ -9046,7 +9122,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 177,
+   "props": 325,
+   "surface": 857
   },
   {
    "key": "1_-2",
@@ -9055,7 +9133,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 0,
+   "props": 10
   },
   {
    "key": "1_-1",
@@ -9118,7 +9197,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 0,
+   "props": 26
   },
   {
    "key": "2_-3",
@@ -9127,7 +9207,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 37,
+   "props": 87,
+   "surface": 208
   },
   {
    "key": "2_-2",
@@ -9136,7 +9218,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 0,
+   "props": 5
   },
   {
    "key": "2_-1",
@@ -11003,5 +11086,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "f7db6d78f4a01e71"
+ "hash": "a5f71ff119005de3"
 }

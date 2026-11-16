@@ -156,6 +156,7 @@ The Lesser Caymans are about 275 units apart and have no town, no plots and no d
 | [lib/world/shapes.js](../../lib/world/shapes.js) | the template coasts (Jamaica, Grand Cayman, Little Cayman, Cayman Brac), `spineIsland`, the ranges, the terrain grid and `elevationAt` |
 | [lib/world/data/jamaicaDem.js](../../lib/world/data/jamaicaDem.js), [scripts/world/dem_ridges.mjs](../../scripts/world/dem_ridges.mjs) | the real elevation data (generated) and the script that makes it |
 | [lib/world/highways.js](../../lib/world/highways.js) | the coastal rings, spurs, link roads and causeways |
+| [lib/world/track.js](../../lib/world/track.js), [data/raceways.js](../../lib/world/data/raceways.js) | the racing track and the real circuit shapes ([racing_track.md](racing_track.md)) |
 | [lib/world/vacant.js](../../lib/world/vacant.js) | a vacant town: the city's businesses taken off its lots |
 | [lib/world/buildWorld.js](../../lib/world/buildWorld.js) | the recipe turned into the map |
 | [lib/world/bake.js](../../lib/world/bake.js), [bakedWorld.js](../../lib/world/bakedWorld.js), [scripts/bake-world.mjs](../../scripts/bake-world.mjs) | the bake and its loader ([world_bake.md](world_bake.md)) |
@@ -163,4 +164,4 @@ The Lesser Caymans are about 275 units apart and have no town, no plots and no d
 | [apps/web/components/dev/WorldMap.jsx](../../apps/web/components/dev/WorldMap.jsx), `apps/web/app/world/page.jsx` | the map preview page |
 | [apps/web/components/world/StreamedWorld.jsx](../../apps/web/components/world/StreamedWorld.jsx), [apps/web/components/dev/WorldStream.jsx](../../apps/web/components/dev/WorldStream.jsx), `apps/web/app/world/stream/page.jsx` | the React layer and its dev page |
 | [services/api/core.mjs](../../services/api/core.mjs) | `topUpPlots`, `seedTowns`, `openTowns` |
-| [tests/town-extension.test.mjs](../../tests/town-extension.test.mjs), [world-recipe](../../tests/world-recipe.test.mjs), [world-bake](../../tests/world-bake.test.mjs), [world-streaming](../../tests/world-streaming.test.mjs), [world-chunk-mesh](../../tests/world-chunk-mesh.test.mjs), [world-chunk-object](../../tests/world-chunk-object.test.mjs), [world-terrain](../../tests/world-terrain.test.mjs) | the checks |
+| [tests/town-extension.test.mjs](../../tests/town-extension.test.mjs), [world-recipe](../../tests/world-recipe.test.mjs), [world-bake](../../tests/world-bake.test.mjs), [world-streaming](../../tests/world-streaming.test.mjs), [world-chunk-mesh](../../tests/world-chunk-mesh.test.mjs), [world-chunk-object](../../tests/world-chunk-object.test.mjs), [world-terrain](../../tests/world-terrain.test.mjs), [world-track](../../tests/world-track.test.mjs) | the checks |

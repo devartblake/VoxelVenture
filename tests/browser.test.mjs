@@ -782,6 +782,7 @@ try {
   check('streaming: with ?world=baked the chunks round the town mount (outside its land), in three draw calls a chunk at most', bakedReady && bakedStats.mounted >= 4 && bakedStats.drawCalls <= bakedStats.mounted * 3 && bakedStats.triangles > 0, JSON.stringify(bakedStats));
   check('streaming: the terrain is live: the first town is left to the game, open water is sea, and the shore is land that stops a walker', (await baked.eval(`(() => { const w = window.__vvStreamedWorld; const a = w.sample(30, -16), b = w.sample(-2000, 300); return a.surface === 'town' && !a.known && b.surface === 'sea' && b.known; })()`)) === true);
   check('streaming: the Kenney bridge models (City Kit Roads) load for the causeways', bakedStats.bridgeModels === true, String(bakedStats.bridgeModels));
+  check('streaming: the Kenney Racing Kit models load for the racing track', bakedStats.trackModels === true, String(bakedStats.trackModels));
   check('streaming: no console errors or uncaught exceptions', baked.problems().length === 0, baked.problems().slice(0, 3).join(' | '));
   await baked.close();
 
