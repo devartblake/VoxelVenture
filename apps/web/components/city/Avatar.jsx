@@ -5,6 +5,7 @@ import { useThree } from '@react-three/fiber';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
 import { fleetRefs, useFleet } from '@/lib/state/fleetStore';
+import { TRAIN, canBoard, secondsToTrain, station as trainStation, trainState } from '@/lib/world/train';
 import { usePanel } from '@/lib/state/panelStore';
 import { avatarState } from '@/lib/sim/avatarState';
 import { surfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
@@ -240,15 +241,16 @@ export default function Avatar() {
     // --- in a car or a boat: it drives (apps/web/components/city/Vehicles.jsx); we just sit in it and the camera follows
     const vehicle = avatarState.vehicle;
     if (vehicle) {
-      root.current.visible = vehicle.kind === 'boat' && !firstPerson(); // a boat's passenger shows; in a car you are inside
+      root.current.visible = (vehicle.kind === 'boat' || vehicle.kind === 'train') && !firstPerson(); // a boat's passenger shows (and a train's, standing); in a car you are inside
       if (vehicle.kind === 'boat') {
         const seat = seatWorld(vehicle); // where this kind of boat's seat is (lib/content/boatModels.js)
         root.current.position.set(seat.x, WATER_Y + seat.y, seat.z);
-      } else root.current.position.set(avatarState.x, surfaceHeight(layout, avatarState.x, avatarState.z, plots), avatarState.z);
+      } else root.current.position.set(avatarState.x, vehicle.kind === 'train' ? vehicle.y : surfaceHeight(layout, avatarState.x, avatarState.z, plots), avatarState.z);
       root.current.rotation.y = avatarState.yaw;
-      legL.current.rotation.x = legR.current.rotation.x = -1.2; // sitting
-      armL.current.rotation.set(-0.7, 0, 0);
-      armR.current.rotation.set(-0.7, 0, 0);
+      const standing = vehicle.kind === 'train'; // a rider of the train stands (holding on); the rest of a vehicle's riders sit
+      legL.current.rotation.x = legR.current.rotation.x = standing ? 0 : -1.2;
+      armL.current.rotation.set(standing ? -0.2 : -0.7, 0, 0);
+      armR.current.rotation.set(standing ? -0.2 : -0.7, 0, 0);
       body.current.rotation.z = 0;
       lastPromptId.current = '__vehicle__'; // the vehicle sets the prompt; recompute it when we get out
       if (controls) {
@@ -449,6 +451,19 @@ export default function Avatar() {
         for (const c of sim.cars) {
           const d = Math.hypot(c.x - x, c.z - z);
           if (d < 1.5) consider(`car-${c.id}`, 'Drive this car', d / 1.5 - 0.35, () => useFleet.getState().enterCar(c));
+        }
+      }
+      // the train: board at a station while it stands there (lib/world/train.js)
+      const tline = fleetRefs.trainLine;
+      if (tline && !avatarState.vehicle) {
+        const now = Date.now();
+        const ts = trainState(tline, now);
+        for (const which of ['A', 'B']) {
+          const stn = trainStation(tline, which);
+          const d = Math.hypot(stn.x - x, stn.z - z);
+          if (d > 7) continue;
+          if (canBoard(ts, which)) consider(`train-${which}`, `Board the train from ${stn.name}`, d / 7 - 0.35, () => useFleet.getState().boardTrain(which));
+          else consider(`train-wait-${which}`, `${stn.name}: the next train in ${secondsToTrain(tline, now, which)} s`, d / 7 - 0.2, () => store.notify(`The train shuttles over the Harbor Causeway: it is in ${stn.name} for ${TRAIN.dwell} seconds every few minutes.`));
         }
       }
       const fleet = useFleet.getState();

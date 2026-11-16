@@ -22,3 +22,4 @@ These moved here from `architecture/` on 2026-10-18, which now holds the system 
 | [player_flight.md](player_flight.md) | A plane the player flies, and flights to Harbor Isle (roadmap task 18) |
 
 The world features players see (boats and piers, the world map, what can go behind a building, interiors) are in [product/](../product/README.md).
+- [train.md](train.md): the rideable train between the mainland and Harbor Isle (the first causeway).

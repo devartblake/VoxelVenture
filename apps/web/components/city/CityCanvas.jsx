@@ -26,6 +26,7 @@ import DayNight from './DayNight';
 import DraftBuilding from './DraftBuilding';
 import StreamedNetwork from './StreamedNetwork';
 import StreamedWorld from '@/components/world/StreamedWorld';
+import Train from '@/components/world/Train';
 import Traffic from './Traffic';
 import CurvedRoad from './CurvedRoad';
 import ReservedArea from './ReservedArea';
@@ -148,6 +149,7 @@ export default function CityCanvas() {
         <group name="city" position={[-layout.center.x, 0, -layout.center.z]}>
           <Land land={layout.land} urban={layout.urban} lawns={layout.lawns} />
           {bakedWorld && <StreamedWorld profile={bakedWorld.profile} skip={skipTownChunks} />}
+          {bakedWorld && <Train />}
           <GroundPatches patches={layout.landscape.patches} />
           <Hills hills={layout.hills} />
           <Animals layout={layout} />

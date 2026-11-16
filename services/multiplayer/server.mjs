@@ -137,7 +137,7 @@ const cleanName = (n) => str(n, 20).trim() || 'Player';
 
 // The vehicle a player is in ({ kind: 'car' | 'boat', boatKind, color, spec: 'racecar' for a race car }), or null: only these few values are kept, whatever the client sends.
 const cleanVeh = (v) =>
-  v && (v.kind === 'car' || v.kind === 'boat')
+  v && (v.kind === 'car' || v.kind === 'boat' || v.kind === 'train')
     ? { kind: v.kind, boatKind: ['sailboat', 'rowboat-large', 'fishing'].includes(v.boatKind) ? v.boatKind : 'rowboat', color: /^#[0-9a-f]{6}$/i.test(String(v.color)) ? String(v.color) : '#3b82f6', ...(v.kind === 'car' && v.spec === 'racecar' ? { spec: 'racecar' } : {}) }
     : null;
 // The cars a player has left parked (at most three): { x, z, yaw, color } each, kept only if they are plain numbers and a plain colour.

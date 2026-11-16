@@ -86,11 +86,11 @@ function RemoteAvatar({ id }) {
     const sig = p.veh ? `${p.veh.kind}|${p.veh.boatKind}|${p.veh.color}|${p.veh.spec ?? ''}` : '';
     if (sig !== vehSig) setVehSig(sig);
     if (car.current) {
-      car.current.visible = Boolean(p.veh);
+      car.current.visible = Boolean(p.veh) && p.veh.kind !== 'train';
       car.current.position.set(p.x, p.veh?.kind === 'boat' ? WATER_Y : carSurfaceHeight(layout, p.x, p.z, p.yaw, 2, plots), p.z);
       car.current.rotation.y = p.yaw;
     }
-    root.current.visible = !p.veh || p.veh.kind === 'boat';
+    root.current.visible = !p.veh || p.veh.kind === 'boat' || p.veh.kind === 'train';
     if (p.veh) {
       lift = 0;
       spin = 0;
