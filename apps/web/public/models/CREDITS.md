@@ -11,4 +11,8 @@ The trees and bushes in `kenney/nature/` are from the **Kenney Nature Kit**, and
 
 The boats and buoys in `kenney/watercraft/` are from the **Kenney Watercraft Kit**, the docks and platforms in `kenney/pirate/` from the **Kenney Pirate Kit**, and the amusement-park pieces in `kenney/coaster/` (entrance, stalls, coaster train, supports, paths, benches) from the **Kenney Coaster Kit**, all CC0.
 
+The 61 food and drink models in `kenney/food/` and the 6 containers, tanks and solar panels in `kenney/industrial/` (the interior furniture menu: `lib/content/kitItems.js`) are from the **Kenney Food Kit** 2.0 and **City Kit (Industrial)** 2.0, also CC0.
+
+The palms, flowers, fences, logs, crops, campfire and tent among the trees in `kenney/nature/`, and the containers, tank, chimney and solar panels in `kenney/industrial/`, are the yards behind owners' buildings (`lib/content/yardModels.js`).
+
 Voxel landmarks in `vox/` are made for this project (see scripts/models/make-sample-vox.mjs, or your own MagicaVoxel `.vox` files).

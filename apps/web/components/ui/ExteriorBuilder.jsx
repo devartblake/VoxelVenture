@@ -4,7 +4,8 @@ import React, { useMemo } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { CROWNS, PALETTES, applyExterior, cleanExterior, floorRange, paletteById, tierName, tierNote, wallColorOf } from '@/lib/game/exterior';
 import { modelOptions } from '@/lib/content/models';
-import { BACKS, MIN_ROOM, backRoom } from '@/lib/content/backyards';
+import { MIN_ROOM, backRoom, backsFor } from '@/lib/content/backyards';
+import { CORNERS, FRONTS, ROOFS, SIDE_STYLES, WINDOWS, startFor } from '@/lib/content/modularBuild';
 import { useCityStore } from '@/lib/state/store';
 import { choiceCost, outsideCost } from '@/lib/game/claimPrice';
 
@@ -84,14 +85,38 @@ export default function ExteriorBuilder({ plot, type, value, onChange }) {
         ) : (
           <>
             <div className="flex flex-wrap gap-1.5" role="group" aria-label="Behind the building">
-              {BACKS.map((b) => (
+              {backsFor(type).map((b) => (
                 <button key={b.id} type="button" title={b.hint} onClick={() => set({ back: b.id })} aria-pressed={config.back === b.id} className={`${btn} ${config.back === b.id ? 'border-sx-cyan bg-sx-cyan/15 text-white' : 'border-sx-stroke hover:bg-sx-alt'}`} data-testid={`back-${b.id}`}>
                   {b.label}
+                  {b.suited && <span className="ml-1 text-[10px] text-emerald-300" title={`Suits your ${type}`}>★</span>}
                 </button>
               ))}
             </div>
             <p className="mt-1 text-[10px] text-slate-500">{room.toFixed(1)} units of free ground behind this lot; the items are fitted to it.</p>
           </>
+        )}
+      </div>
+
+      {/* the outside built from kit pieces */}
+      <div data-testid="build-options">
+        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Build it from pieces</span>
+        <button type="button" onClick={() => set({ build: config.build ? null : startFor(type) })} aria-pressed={Boolean(config.build)} className={`${btn} ${config.build ? 'border-sx-cyan bg-sx-cyan/15 text-white' : 'border-sx-stroke text-slate-300 hover:bg-sx-alt'}`} title="Assemble the outside from walls, windows, doorways and corners">
+          {config.build ? 'Built from pieces (turn off)' : 'Build the outside from pieces'}
+        </button>
+        {config.build && (
+          <div className="mt-2 space-y-1.5">
+            {[['front', 'Front', FRONTS], ['back', 'Back', SIDE_STYLES], ['sides', 'Sides', SIDE_STYLES], ['windows', 'Windows', WINDOWS], ['corners', 'Corners', CORNERS], ['roof', 'Roof edge', ROOFS]].map(([key, label, options]) => (
+              <div key={key} className="flex flex-wrap items-center gap-1.5" role="group" aria-label={label}>
+                <span className="w-16 text-[11px] text-slate-400">{label}</span>
+                {options.map((o) => (
+                  <button key={o.id} type="button" title={o.hint} onClick={() => set({ build: { ...config.build, [key]: o.id } })} aria-pressed={config.build[key] === o.id} className={`${btn} ${config.build[key] === o.id ? 'border-sx-cyan bg-sx-cyan/15 text-white' : 'border-sx-stroke text-slate-300 hover:bg-sx-alt'}`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+            <p className="text-[10px] text-slate-500">The building keeps its size; the pieces are laid over its walls. Free for now.</p>
+          </div>
         )}
       </div>
 

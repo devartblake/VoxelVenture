@@ -9,7 +9,8 @@ const HEX = /^#[0-9a-f]{6}$/;
 for (const { id } of b.BACKS) {
   const parts = b.backParts(id);
   if (id === 'none') { if (parts.length) bad('"none" has no parts', ''); continue; }
-  if (parts.length < 2 || parts.length > 6) bad('a back is a few solids', `${id}: ${parts.length}`);
+  const made = b.BACKS.find((x) => x.id === id).models; // a yard of models has its ground as the one solid (tests/yard-models.test.mjs checks the models)
+  if (made ? parts.length !== 1 : parts.length < 2 || parts.length > 6) bad('a back is a few solids', `${id}: ${parts.length}`);
   for (const p of parts) if (p.color !== 'accent' && !HEX.test(p.color)) bad('a part has a colour', `${id} ${p.color}`);
 }
 const plot = { id: 1, owner: 'x', x: 10, z: 0, w: 3, d: 3, facing: 1, yaw: 0, exterior: { back: 'garden' } };
