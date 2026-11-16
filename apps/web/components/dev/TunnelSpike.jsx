@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { TUNNEL, floorY, pointAt, tunnelRoute } from '@/lib/world/tunnel';
+const CHUNK = 128; // the baked world's chunk size
 import { trainLine } from '@/lib/world/train';
 
 // DEVELOPMENT SPIKE (docs/world/tunnel_evaluation.md): the tunnel beside the Harbor Causeway, with its own road entrance that starts before the bridge's road, a lit tube, ramps and covered portals, and a free
@@ -15,7 +16,22 @@ export function useRoute() {
   const [route, setRoute] = useState(null);
   useEffect(() => {
     let alive = true;
-    fetch('/world/manifest.json').then((r) => r.json()).then((m) => { if (alive && m.causeways?.length) setRoute(tunnelRoute(trainLine(m.causeways[0]))); }).catch(() => {});
+    (async () => {
+      try {
+        const m = await (await fetch('/world/manifest.json')).json();
+        if (!m.causeways?.length) return;
+        const line = trainLine(m.causeways[0]);
+        // the main roads near each portal (rings and spurs of the chunks round it), so the tunnel's road joins them
+        const base = tunnelRoute(line);
+        const want = new Set();
+        for (const s of [base.s0, base.s1]) { const p = pointAt(line, s); for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) want.add(`${Math.floor(p.x / CHUNK) + dx}_${Math.floor(p.z / CHUNK) + dz}`); }
+        const roads = [];
+        await Promise.all([...want].map(async (key) => {
+          try { const c = await (await fetch(`/world/chunks/${key}.json`)).json(); for (const h of c.highways ?? []) if (h.a && h.b && /^(ring|spur|link)$/.test(h.kind)) roads.push({ a: h.a, b: h.b, id: h.id }); } catch { /* no chunk there */ }
+        }));
+        if (alive) setRoute(tunnelRoute(line, roads));
+      } catch { /* no world */ }
+    })();
     return () => { alive = false; };
   }, []);
   return route;
@@ -72,18 +88,16 @@ function Tube({ route }) {
   );
 }
 
-// the approach roads: a flat ribbon on the ground from each end of the road to its portal (the tunnel's own road, before the bridge's)
+// the tunnel's road: a link from the main road of the area (the ring road) to each portal, and a marker at the bridge road's first point, for comparison (the tunnel's road starts before it)
 function Approach({ route }) {
   const line = route.line;
-  const ends = [[route.approach0, route.s0], [route.s1, route.approach1]];
+  const ribbons = route.links.length ? route.links.map((l) => [l.from, l.to]) : [[pointAt(line, route.approach0), pointAt(line, route.s0)], [pointAt(line, route.s1), pointAt(line, route.approach1)]];
   return (
     <group name="tunnel-approach">
-      {ends.map(([a, b], i) => {
-        const pa = pointAt(line, a), pb = pointAt(line, b);
-        const len = Math.hypot(pb.x - pa.x, pb.z - pa.z);
-        return <mesh key={i} position={[(pa.x + pb.x) / 2, TUNNEL.ground - 0.06, (pa.z + pb.z) / 2]} rotation={[0, line.yaw, 0]}><boxGeometry args={[TUNNEL.width, 0.12, len]} /><meshStandardMaterial color="#374151" roughness={0.9} /></mesh>;
+      {ribbons.map(([a, b], i) => {
+        const len = Math.hypot(b.x - a.x, b.z - a.z);
+        return <mesh key={i} position={[(a.x + b.x) / 2, TUNNEL.ground - 0.04, (a.z + b.z) / 2]} rotation={[0, Math.atan2(b.x - a.x, b.z - a.z), 0]}><boxGeometry args={[TUNNEL.width, 0.12, len]} /><meshStandardMaterial color="#1f2937" roughness={0.9} /></mesh>;
       })}
-      {/* a marker at the bridge road's first point, for comparison: the tunnel's road starts before it */}
       <mesh position={[line.a.x, 3, line.a.z]}><cylinderGeometry args={[0.2, 0.2, 6, 8]} /><meshStandardMaterial color="#f97316" emissive="#f97316" emissiveIntensity={0.6} /></mesh>
     </group>
   );
