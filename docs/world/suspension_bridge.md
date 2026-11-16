@@ -24,7 +24,7 @@ Harbor Causeway's water section (392 units) is now a suspension bridge: two tall
 
 ## The lamps
 
-The bridge's street lamps (every 32 units, a pair across the deck) stand **on the kerb walk**: 3.7 units from the centre line (the walk's middle) and 0.12 above the road surface (the walk's top), and their light pools lie on the road beside them. Checked against the girder's real surface: every lamp is within 2 cm of the road height plus the kerb (`tests/suspension.test.mjs`, 24 lamps). Before the check the lamps stood at 3.5, so their bases were sunk 0.12 into the kerb.
+The bridge's street lamps (every 32 units, a pair across the deck) stand **on the kerb walk**: 3.7 units from the centre line (the walk's middle) and 0.12 above the road surface (the walk's top), and their light pools lie on the road beside them. Checked against the girder's real surface: every lamp is within 2 cm of the road height plus the kerb (`tests/suspension.test.mjs`, 24 lamps). Two things were wrong before: the lamps were set at 3.5 (their bases sunk 0.12 into the kerb), and, the real cause of lamps standing off the side of the bridge, the lamp model's post is **not at its origin**: every Racing Kit model sits at a node offset of (-0.35, -0.65) inside its file, so a lamp placed at a point stood 3 to 4 units away from it. The bridge's lamps now use the model's anchor (`ANCHOR.lightPostModern`) like the track's props.
 
 ## Also fixed here
 
