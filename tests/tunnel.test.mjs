@@ -15,7 +15,7 @@ const plain = T.tunnelRoute(line);
 const K = T.TUNNEL;
 
 if (!(route.approach0 <= route.s0 && route.s0 < 0 && route.s1 > line.length && route.approach1 >= route.s1)) bad('the tunnel has its own road entrance, and it starts before the causeway road (which starts at 0)', JSON.stringify([route.approach0, route.s0]));
-if (plain.approach0 > -(K.inland + K.approach) + 1e-9 || plain.links.length) bad('with no main roads the approach is a plain 40 units before the portal (110 before the bridge road)', String(plain.approach0));
+if (plain.approach0 > -(K.inland + K.approach) + 1e-9 || plain.links.length) bad('with no main roads the approach is a plain 40 units before the portal (150 before the bridge road)', String(plain.approach0));
 // the tunnel's road joins the main roads of the area at each end (the owner: a road that connects to the main road)
 if (route.links.length !== 2 || route.links.some((l) => !(l.length > 1 && l.length < 120) || !roads.some((r) => r.id === l.road))) bad('each portal is linked to a main road of the area, not left in a field', JSON.stringify(route.links.map((l) => [l.road, l.length])));
 if (!(route.links[0].road === 'mainland-ring' && route.links[1].road === 'harbor-ring')) bad('the mainland portal joins the mainland ring road and the isle portal the Harbor ring road', route.links.map((l) => l.road).join());
@@ -26,10 +26,10 @@ if (Math.abs(T.floorY(route, route.s0) - K.ground) > 1e-9 || Math.abs(T.floorY(r
 if (Math.abs(T.floorY(route, line.length / 2) - K.floor) > 1e-9) bad('the road is at the full depth under the sea', '');
 let steepest = 0, up = 0, down = 0;
 for (let s = route.s0; s < route.s1; s += 0.5) { const d = T.floorY(route, s + 0.5) - T.floorY(route, s); steepest = Math.max(steepest, Math.abs(d / 0.5)); if (d > 1e-9) up++; if (d < -1e-9) down++; }
-if (steepest > K.grade + 1e-6) bad('no grade is steeper than the road limit of 0.12', String(steepest));
+if (steepest > K.grade + 1e-6 || K.grade > 0.12) bad('no grade is steeper than 0.08, easier than the road limit of 0.12', String(steepest));
 if (!up || !down) bad('the road goes down at one end and up at the other', '');
 const ramp = T.rampLength();
-if (ramp < 40 || ramp > 55 || Math.abs(T.floorY(route, route.s0 + ramp) - K.floor) > 1e-6) bad('a ramp is about 48 units and reaches the floor', String(ramp));
+if (ramp < 65 || ramp > 80 || Math.abs(T.floorY(route, route.s0 + ramp) - K.floor) > 1e-6) bad('a ramp is about 71 units and reaches the floor', String(ramp));
 if (!(route.s0 + ramp < 0)) bad('the ramp ends before the causeway begins, under the shore', '');
 // under the sea: the roof is below the water, with a margin for its thickness
 const seaFrom = line.deckFrom, seaTo = line.deckFrom + line.bridgeLen;
