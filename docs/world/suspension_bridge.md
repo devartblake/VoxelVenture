@@ -2,7 +2,7 @@
 
 Written for: the owner and developers. Built 2026-11-16 at the owner's request ("update the bridge to mimic the Golden Gate Bridge in San Francisco"). It is an homage in shape and colour: no assets or names of the real bridge are used.
 
-Harbor Causeway's water section (392 units) is now a suspension bridge: two tall towers with cross struts, a main cable over each tower on each side, back-stays to the shores, vertical suspenders from the cables to the deck, a girder deck, all in International Orange, and **no piers under the main span**. The North Causeway keeps the plain deck (`SUSPENSION.ids` in `lib/world/suspensionSpec.js` lists the bridges drawn this way).
+Harbor Causeway's water section (392 units) is now a suspension bridge: two tall towers with cross struts, a main cable over each tower on each side, back-stays to the shores, vertical suspenders from the cables to the deck, a girder deck, all in International Orange, and **no piers under the main span**. The North Causeway is an arch bridge ([arch_bridge.md](arch_bridge.md)); `SUSPENSION.ids` in `lib/world/suspensionSpec.js` lists the bridges drawn as suspension bridges.
 
 ## Proportions kept from the real bridge
 
@@ -22,6 +22,10 @@ Harbor Causeway's water section (392 units) is now a suspension bridge: two tall
 - **The deck is its own girder, not the kit's tiles.** The City Kit (Roads) deck tile has four corner sockets (footplates and collars a pier attaches to) that hang under the deck as stray pieces when no pier is there. The suspension deck is a plain girder 1.4 deep (the kit's is 2.6) with an asphalt road, a kerb on each edge and a lane line; the tiles of this causeway are flagged `suspension` and skipped by `chunkObject.js`. The road surface is still the game's (`deckHeight`), so cars, the avatar and the train are on it. The side spans' piers meet the thinner girder.
 - **Tests:** `tests/suspension.test.mjs` (the towers, cables, suspenders, deck, no piers under the main span, the train fits), and the chunk tests (`world-chunk-mesh`, `world-chunk-object`) follow the change.
 
+## Night lights (2026-11-16)
+
+A red aircraft beacon on the head of each of the four tower legs, a warm light at both ends of every cross strut (so the towers glow) and one every 11 units along each main cable (`lights` in `lib/world/suspension.js`, drawn by `BridgeLights` in `BridgeKit.jsx`): small glowing spheres registered with the game's dusk (`registerGlow`): faint by day, bright at night. Look at it at night on the dev page: `/world/stream?night=1`.
+
 ## The lamps
 
 The bridge's street lamps (every 32 units, a pair across the deck) stand **on the kerb walk**: 3.7 units from the centre line (the walk's middle) and 0.12 above the road surface (the walk's top), and their light pools lie on the road beside them. Checked against the girder's real surface: every lamp is within 2 cm of the road height plus the kerb (`tests/suspension.test.mjs`, 24 lamps). Two things were wrong before: the lamps were set at 3.5 (their bases sunk 0.12 into the kerb), and, the real cause of lamps standing off the side of the bridge, the lamp model's post is **not at its origin**: every Racing Kit model sits at a node offset of (-0.35, -0.65) inside its file, so a lamp placed at a point stood 3 to 4 units away from it. The bridge's lamps now use the model's anchor (`ANCHOR.lightPostModern`) like the track's props.
@@ -33,6 +37,6 @@ The train's rail tiles were placed by the rail model's origin, not its middle (t
 ## Not done
 
 - The North Causeway, and any other bridge, as a second suspension or arch bridge.
-- Lights on the towers at night (the aircraft lights of the real towers), and the deck's lamps match the old deck's.
+- Floodlights on the towers (the real ones are lit from below).
 - The deck's side rails; the real bridge has a railing and a sidewalk: the kerbs are the only edge.
 - Real-scale length: the main span is 258 units against the real 1280 m; the tower is lower relative to the span than the real one.

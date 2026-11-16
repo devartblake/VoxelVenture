@@ -54,6 +54,11 @@ if (hangers.some((h) => !(h.y1 > h.y0 + 0.8) || Math.abs(h.y0 - deckHeight(bridg
 if (new Set(hangers.map((h) => h.side)).size !== 2) bad('suspenders on both sides', '');
 if (hangers.some((h) => Math.abs(h.s - t0.s) < 2 || Math.abs(h.s - t1.s) < 2)) bad('no suspender at a tower', '');
 
+// ---- the lights at night: a red beacon on every leg's head, a warm light at each strut end and along the cables
+const beacons = st.lights.filter((l) => l.kind === 'beacon'), warm = st.lights.filter((l) => l.kind === 'warm');
+if (beacons.length !== 4 || beacons.some((b) => Math.abs(b.y - (t0.top + 0.6)) > 1e-6 && Math.abs(b.y - (t1.top + 0.6)) > 1e-6)) bad('a red beacon on the head of each of the four legs', String(beacons.length));
+if (warm.length < 40 || st.lights.some((l) => !Number.isFinite(l.s + l.lateral + l.y))) bad('warm lights on the struts and along the cables', String(warm.length));
+if (warm.some((l) => l.y < deckHeight(bridge, l.s) + 0.5)) bad('no light is below the deck', '');
 // ---- the deck
 const deck = S.deckSegments(bridge);
 if (deck.length < 90 || deck.some((g) => !(g.length > 3 && g.length <= SUSPENSION.deckSegment + 1e-6))) bad('the deck is cut into 4-unit pieces', String(deck.length));
@@ -72,7 +77,7 @@ const inside = piers.filter((q) => { const s = onLine(q); return s > t0.s + 3 &&
 if (inside.length) bad('no pier stands under the main span, between the towers', String(inside.length));
 if (piers.length < 6) bad('the side spans keep their piers', String(piers.length));
 if (piers.some((q) => q.y1 > 9 - SUSPENSION.deckThickness + 0.2)) bad('a pier reaches up to the underside of the thinner girder', '');
-if (placed.flatMap(({ p }) => p.tiles).some((t) => !t.suspension)) bad('every deck tile of the bridge is flagged: the layer draws it, the kit tiles do not', '');
+if (placed.flatMap(({ p }) => p.tiles).some((t) => t.styled !== 'suspension')) bad('every deck tile of the bridge is flagged: the layer draws it, the kit tiles do not', '');
 // the lamps stand on the deck: on the kerb walk, its top 0.12 over the road surface the girder really has, within a hair
 const lamps = placed.flatMap(({ p }) => p.lamps);
 if (lamps.length < 16) bad('the bridge has lamps', String(lamps.length));
