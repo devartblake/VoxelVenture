@@ -15,13 +15,13 @@ Written for: the owner and developers. Started 2026-11-16 (steps 1, 3 and 4 of t
 | `BOAT_FLOAT` | 0.04 | a boat floats this far over the baked sea |
 | `SHORE_GROUND` | 0.2 | the shore where the tunnel's portals are cut (the ground there is 0 to 0.5) |
 | `DECK_BASE` | 0 | what a bridge deck's height is measured from (the causeways' 9 is over this, not over the sea) |
-| `LIFT` | road 0.06, highway 0.1, prop 0.03, rail 0.16 | how far over the surface each kind of thing is laid, against z-fighting |
+| `LIFT` | road 0.06, highway 0.1, prop 0.03, rail 0.16, deckRail 0.04, plot 0.1, yard 0.14, paint {gravel 0.03, asphalt 0.05, mark 0.08, top 0.1} | how far over the surface each kind of thing is laid, against z-fighting |
 
 No value changed: they are what the game already used. `layers()` lists every absolute height with a colour, for the overlay and the guards.
 
 ## What reads it now
 
-`lib/world/terrain.js` (the sea level and the seabed of the shallows), `StreamedWorld.jsx` (the sea plane), `lib/city/surfaceHeight.js` and `River.jsx` (the town water), `Vehicles.jsx` (a boat's float), `lib/world/chunkMesh.js` (the lifts, the seabed, the piers' floor), `chunkObject.js` (a prop's lift), `suspensionSpec.js` and `archSpec.js` (their foundations), `train.js` (the rail's lift), `tunnel.js` (the sea level and the shore). Before, `StreamedWorld.jsx` declared its own copy of the sea level next to `terrain.js`'s, `River.jsx` its own town water, and the seabed was a `-1.5` in five places.
+`lib/world/terrain.js` (the sea level and the seabed of the shallows), `StreamedWorld.jsx` (the sea plane), `lib/city/surfaceHeight.js` and `River.jsx` (the town water), `Vehicles.jsx` (a boat's float), `lib/world/chunkMesh.js` (the lifts, the seabed, the piers' floor), `chunkObject.js` (a prop's lift), `suspensionSpec.js` and `archSpec.js` (their foundations), `train.js` (the rail's lift, over the shore and over a bridge deck), `tunnel.js` (the sea level and the shore), `track.js` (the circuit's paint layers: `LIFT.paint`), `modularBuild.js` and `backyards.js` (what owners build on a plot: `LIFT.plot`, `LIFT.yard`), `Land.jsx` (the town slab's top). Before, `StreamedWorld.jsx` declared its own copy of the sea level next to `terrain.js`'s, `River.jsx` its own town water, and the seabed was a `-1.5` in five places.
 
 ## The guard (`tests/datum.test.mjs`)
 
@@ -56,5 +56,5 @@ Not checked in a full game session: only the development page's arrangement (a p
 
 ## Next steps
 
-- **Step 2, the rest of the systems:** the avatar and cars on the town and the join, interiors, the plots' `y`, the lamp pools and kerb heights (`lib/world/bridgeDeckSpec.js`), the track's paint layers (`PALETTE` in `track.js`): move them onto the datum and widen the guard's file list as each moves.
+- **Step 2, still to move:** the avatar's, the cars' and the interiors' own heights in the town (`surfaceHeight.js` strips and curbs, plots' `y`, the interior floors), the bridge kerb and girder offsets (`bridgeDeckSpec.js`) and the lamp pools: each moves onto the datum as it is touched, and the guard's file list widens with it.
 - **Step 5, the rest:** reconcile the town's water with the sea (0.326) and the town slab's 0.004.

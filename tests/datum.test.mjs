@@ -36,6 +36,17 @@ if (TUNNEL.floor - 0.12 - TUNNEL.wall < D.SEA_FLOOR - 6) bad('the tunnel is not 
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/manifest.json'), 'utf8'));
 for (const c of manifest.causeways) if (!(c.clearance >= 8 && D.overSea(c.clearance) > c.clearance)) bad('a causeway deck leaves room for a boat under it, measured over the water', `${c.id}: ${c.clearance}`);
 
+// the racing circuit's paint layers, the train's rail on a deck, and what owners build on a plot, all at the datum's lifts
+const { PALETTE } = await imp('world/track.js');
+const paint = (name) => PALETTE.find((p) => p.name === name).y;
+if (paint('gravel') !== D.LIFT.paint.gravel || paint('asphalt') !== D.LIFT.paint.asphalt || paint('line') !== D.LIFT.paint.mark || paint('black') !== D.LIFT.paint.top) bad('the circuit paint layers are the datum ones', '');
+if (!(D.LIFT.paint.gravel < D.LIFT.paint.asphalt && D.LIFT.paint.asphalt < D.LIFT.paint.mark && D.LIFT.paint.mark < D.LIFT.paint.top)) bad('the paint layers are stacked: gravel, asphalt, marks, the top', '');
+if (!(D.LIFT.yard > D.LIFT.plot && D.LIFT.deckRail > 0)) bad('a yard\'s models stand over its ground, and the rail over the deck', '');
+const { buildPieces } = await imp('content/modularBuild.js');
+const { PROP_CATALOG } = await imp('content/propCatalog.js');
+const piece = buildPieces({ id: 1, owner: 'x', x: 0, z: 0, w: 3, d: 3, facing: 1, yaw: 0, height: 1.2, exterior: { floors: 1, build: { front: 'doorway', back: 'plain', sides: 'plain', windows: 'square', corners: 'plain', roof: 'none' } } }, { front: 'doorway', back: 'plain', sides: 'plain', windows: 'square', corners: 'plain', roof: 'none' }, PROP_CATALOG)[0];
+if (!piece || Math.abs(piece.y - D.LIFT.plot) > 1e-9) bad('a building\'s pieces stand at the datum\'s plot lift on the ground floor', String(piece?.y));
+
 // ---- what is still unsettled is listed, and listed honestly
 const ids = D.DATUM_ISSUES.map((i) => i.id).sort().join();
 if (ids !== 'animal-water,deck-from-ground,town-top,town-water-vs-sea') bad('the known disagreements: the town water against the sea, decks from the ground, the town slab, the animals', ids);
