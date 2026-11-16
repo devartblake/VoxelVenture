@@ -4,10 +4,10 @@
 
 ```
 manifest.json            the world: landmasses (coast, harbour, airstrip, ranges), towns (origin, land, plot id range), highways, causeways, links, ocean, the chunk index, a hash
-chunks/<cx>_<cz>.json    one square of the map: plots (id, place, size, facing, district), roads and highways cut at the chunk's edges, the land share, and the ground grid (32 x 32 cells of land, beach or sea, with the height at each corner and one ring beyond)
+chunks/<cx>_<cz>.json    one square of the map: plots (id, place, size, facing, district), roads and highways cut at the chunk's edges, the land share, and the ground grid (32 x 32 cells of land, beach or sea; the height at each corner and one ring beyond; and, where a coast is near, the signed distance to it at each corner, from which the mesh cuts a smooth shore)
 ```
 
-The bake is 289 chunks and 290 files, about 1 MB, for the mainland, Harbor Isle and the two Lesser Caymans (open sea is not baked). The code is `lib/world/bake.js` (pure) and `lib/world/bakedWorld.js` (a loader: `loadBakedWorld(load)` gives `chunk(cx, cz)`, `near(x, z, radius)` and `plot(id)`).
+The bake is 299 chunks and 300 files, about 1.9 MB, for the mainland, Harbor Isle and the two Lesser Caymans (open sea is not baked). The code is `lib/world/bake.js` (pure) and `lib/world/bakedWorld.js` (a loader: `loadBakedWorld(load)` gives `chunk(cx, cz)`, `near(x, z, radius)` and `plot(id)`).
 
 **What is in a chunk, and what is not.** A chunk says where things are: each plot's global id and place, every road piece, the bridges (with their clearance), the land and the heights (the real mountain heights, read from `elevationAt`). It does not hold what a plot *is* (its building, owner, brand): that is still made from the town's seed by the generator, which the game and the server both run, so the bake cannot disagree with either. Merged geometry for the streaming runtime (task 11) is added beside this data, not in its place.
 

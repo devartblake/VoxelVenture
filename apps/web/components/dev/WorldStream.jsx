@@ -27,6 +27,8 @@ export default function WorldStream() {
     ['Voxel Town', ...centre(manifest.towns[0].land)],
     ['Harbor Town', ...centre(manifest.towns[1].land)],
     ['Blue Mountains', manifest.landmasses[0].features.ranges[0].points[4].x, manifest.landmasses[0].features.ranges[0].points[4].z],
+    ['Causeway', (manifest.causeways[0].span.from.x + manifest.causeways[0].span.to.x) / 2, (manifest.causeways[0].span.from.z + manifest.causeways[0].span.to.z) / 2],
+    ['Coast', manifest.causeways[0].points[0].x - 150, manifest.causeways[0].points[0].z + 120],
   ] : [];
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0b1b33' }}>
