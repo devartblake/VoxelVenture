@@ -22,6 +22,10 @@ Harbor Causeway's water section (392 units) is now a suspension bridge: two tall
 - **The deck is its own girder, not the kit's tiles.** The City Kit (Roads) deck tile has four corner sockets (footplates and collars a pier attaches to) that hang under the deck as stray pieces when no pier is there. The suspension deck is a plain girder 1.4 deep (the kit's is 2.6) with an asphalt road, a kerb on each edge and a lane line; the tiles of this causeway are flagged `suspension` and skipped by `chunkObject.js`. The road surface is still the game's (`deckHeight`), so cars, the avatar and the train are on it. The side spans' piers meet the thinner girder.
 - **Tests:** `tests/suspension.test.mjs` (the towers, cables, suspenders, deck, no piers under the main span, the train fits), and the chunk tests (`world-chunk-mesh`, `world-chunk-object`) follow the change.
 
+## The lamps
+
+The bridge's street lamps (every 32 units, a pair across the deck) stand **on the kerb walk**: 3.7 units from the centre line (the walk's middle) and 0.12 above the road surface (the walk's top), and their light pools lie on the road beside them. Checked against the girder's real surface: every lamp is within 2 cm of the road height plus the kerb (`tests/suspension.test.mjs`, 24 lamps). Before the check the lamps stood at 3.5, so their bases were sunk 0.12 into the kerb.
+
 ## Also fixed here
 
 The train's rail tiles were placed by the rail model's origin, not its middle (the model runs 0 to 4 along z and lies 1 below y 0), so they sat 3 units off along the line and 1.6 under the deck. They are now shifted by the catalogue's offsets (`RAIL_SHIFT` in `Train.jsx`) and lie on the deck on the train's own lane.

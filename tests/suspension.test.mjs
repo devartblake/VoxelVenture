@@ -73,6 +73,21 @@ if (inside.length) bad('no pier stands under the main span, between the towers',
 if (piers.length < 6) bad('the side spans keep their piers', String(piers.length));
 if (piers.some((q) => q.y1 > 9 - SUSPENSION.deckThickness + 0.2)) bad('a pier reaches up to the underside of the thinner girder', '');
 if (placed.flatMap(({ p }) => p.tiles).some((t) => !t.suspension)) bad('every deck tile of the bridge is flagged: the layer draws it, the kit tiles do not', '');
+// the lamps stand on the deck: on the kerb walk, its top 0.12 over the road surface the girder really has, within a hair
+const lamps = placed.flatMap(({ p }) => p.lamps);
+if (lamps.length < 16) bad('the bridge has lamps', String(lamps.length));
+const K = SUSPENSION.kerb;
+let worst = 0;
+for (const l of lamps) {
+  const s = onLine(l);
+  const lateral = (l.x - line.a.x) * line.normal.x + (l.z - line.a.z) * line.normal.z;
+  const g = deck.find((q) => Math.abs(q.s - s) <= q.length / 2 + 1e-9);
+  const surface = g.y + Math.tan(g.pitch) * (s - g.s);
+  worst = Math.max(worst, Math.abs(l.y - (surface + K.height)));
+  if (Math.abs(Math.abs(lateral) - K.centre) > 0.01) bad('a lamp stands in the middle of the kerb walk', String(lateral));
+  if (Math.abs(lateral) + K.width / 2 > SUSPENSION.deckWidth / 2 + 0.01) bad('the kerb walk is on the deck', '');
+}
+if (worst > 0.02) bad('every lamp stands on the kerb, within 2 cm of the real road surface plus the kerb height (aligned with the bridge floor)', String(worst));
 // the train and the tunnel stay clear of the structure
 if (TRAIN.lateral + (TRAIN.scale * 1.4) / 2 > 4.1 || TRAIN.lateral + TRAIN.scale * 0.7 > SUSPENSION.legOffset) bad('the train fits between the legs', '');
 if (S.towerS(100)[0] !== 17) bad('towerS', '');

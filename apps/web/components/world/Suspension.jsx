@@ -45,7 +45,7 @@ export default function Suspension() {
       const c = at(g.s, 0, g.y);
       deckList.push({ part: 'girder', p: new THREE.Vector3(c.x, g.y - SUSPENSION.deckThickness / 2 - 0.02, c.z), size: [SUSPENSION.deckWidth + 0.5, SUSPENSION.deckThickness, g.length * 1.02], pitch: g.pitch });
       deckList.push({ part: 'road', p: new THREE.Vector3(c.x, g.y - 0.02, c.z), size: [SUSPENSION.deckWidth - 1.2, 0.08, g.length * 1.02], pitch: g.pitch });
-      for (const side of [-1, 1]) { const w = at(g.s, side * (SUSPENSION.deckWidth / 2 - 0.3), g.y + 0.04); deckList.push({ part: 'walk', p: w, size: [0.6, 0.16, g.length * 1.02], pitch: g.pitch }); }
+      for (const side of [-1, 1]) { const K = SUSPENSION.kerb; const w = at(g.s, side * K.centre, g.y + K.height / 2 - 0.02); deckList.push({ part: 'walk', p: w, size: [K.width, K.height + 0.04, g.length * 1.02], pitch: g.pitch }); }
       deckList.push({ part: 'line', p: new THREE.Vector3(c.x, g.y + 0.025, c.z), size: [0.14, 0.03, g.length * 0.55], pitch: g.pitch });
     }
     return { boxList, rodList, deckList };
