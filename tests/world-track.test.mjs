@@ -7,7 +7,7 @@ let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
 
 const { RACEWAYS } = await imp('world/data/raceways.js');
-const { generateTrack, PALETTE, TRACK, TRACK_MODELS, ANCHOR } = await imp('world/track.js');
+const { generateTrack, PALETTE, TRACK, TRACK_MODELS, ANCHOR, FLOOD } = await imp('world/track.js');
 const { buildWorld } = await imp('world/buildWorld.js');
 const { WORLD_RECIPE, validateRecipe } = await imp('world/worldRecipe.js');
 const { bakeWorld } = await imp('world/bake.js');
@@ -72,6 +72,15 @@ const half = tr.width / 2;
   check('race cars are about the size of the city cars (4 units), and every model they use is in the shipped list with an anchor', cars.every((c) => c.s === 3.1) && cars.every((c) => TRACK_MODELS.includes(c.model) && ANCHOR[c.model]));
   const lamps = tr.props.filter((p) => p.model === 'lightPostModern');
   check('the lamps stand beside the road with their arms reaching over it: each lamp\'s front points at the nearest road, to within 0.3 of a turn', lamps.length >= 3 && lamps.every((l) => { let best = null; for (const q of tr.centreline) if (!best || Math.hypot(l.x - q.x, l.z - q.z) < Math.hypot(l.x - best.x, l.z - best.z)) best = q; let d = Math.abs(l.yaw - Math.atan2(best.x - l.x, best.z - l.z)) % (Math.PI * 2); d = Math.min(d, Math.PI * 2 - d); return d < 0.3; }));
+}
+
+// ---- stadium lights: masts round the circuit so that every point of the road is lit
+{
+  const masts = tr.props.filter((p) => p.model === 'lightPostLarge');
+  check('masts of stadium lights stand round the circuit (6 to 16 of them), every one at least 19 from the road and in the open (not on another building)', masts.length >= 6 && masts.length <= 16 && masts.every((m) => Math.min(...tr.centreline.map((q) => Math.hypot(m.x - q.x, m.z - q.z))) >= 19) && masts.every((m) => m.s === FLOOD.scale));
+  const unlit = tr.centreline.filter((q) => !masts.some((m) => Math.hypot(m.x - q.x, m.z - q.z) <= FLOOD.reach));
+  check('every point of the road is within 52 units of a mast, so the whole circuit is lit at night', unlit.length === 0, `${unlit.length} unlit of ${tr.centreline.length}`);
+  check('no two masts stand side by side: each is 30 or more units from the next', masts.every((m, i) => masts.every((o, j) => i === j || Math.hypot(m.x - o.x, m.z - o.z) >= 30)));
 }
 
 // ---- where it stands on the map

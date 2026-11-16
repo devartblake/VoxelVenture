@@ -27,7 +27,7 @@ Each baked chunk holds the quads (`surface`) and models (`props`) that lie in it
 
 ## Admission and credits
 
-The Racing Kit (2.0, CC0) is registered in `lib/content/assetSources.js` and `docs/licences/kenney/` (the page, the licence): fourteen models are shipped in `apps/web/public/models/kenney/racing/` (`roadStart`, `barrierRed`, `barrierWhite`, `grandStand`, `grandStandAwning`, `tent`, `pitsOffice`, `lightPostModern`, `treeLarge`, `treeSmall` and the four race cars, about 520 KB). The circuit's shape is OpenStreetMap data (ODbL): credited in CREDITS.md and the credits page, as the street names are. The kit's road tiles are not used (a first version built the circuit from them on a grid; it looked like a toy), so they are not shipped.
+The Racing Kit (2.0, CC0) is registered in `lib/content/assetSources.js` and `docs/licences/kenney/` (the page, the licence): fifteen models are shipped in `apps/web/public/models/kenney/racing/` (`roadStart`, `barrierRed`, `barrierWhite`, `grandStand`, `grandStandAwning`, `tent`, `pitsOffice`, `lightPostModern`, `treeLarge`, `treeSmall` and the four race cars, about 520 KB). The circuit's shape is OpenStreetMap data (ODbL): credited in CREDITS.md and the credits page, as the street names are. The kit's road tiles are not used (a first version built the circuit from them on a grid; it looked like a toy), so they are not shipped.
 
 ## Tests
 
@@ -49,6 +49,10 @@ Laps are rows in `race_laps` (an additive table). **A lap pays no Gold** (nothin
 
 - **Race cars:** six Kenney Racing Kit race cars (`raceCarRed`, `raceCarGreen`, `raceCarOrange`, `raceCarWhite`, 1,430 triangles each) stand on the grid behind the start line, pointing along the lap, scaled to the city cars' size (4 units). They are scenery for now: a car the player drives is a separate piece (a faster vehicle kind with its own speed cap, which the server's bounds would then follow).
 - **Night:** the lamp heads and the pit windows glow at night, and **every lamp throws a pool of light on the road** (an additive disc, dark by day): the track's lamps at the start, and a pair of **lamps along both edges of each causeway bridge** every 32 units, at the height of the deck. The glow is the game's own: `registerGlow` in `components/city/nightLights.js`, driven by `DayNight`, so the track follows the game's dusk (on `/world/stream` a Day/Night button does it).
+
+## Stadium lights (2026-11-16)
+
+Eight tall light masts (the Racing Kit's `lightPostLarge` scaled up to 22 units) stand round the circuit, 21 units outside the road and clear of the buildings. They are chosen one at a time: each new mast is the one that lights the most of the road not yet lit, until **every point of the road is within 52 units of a mast** (361 of 361 points; the test checks it), and no two stand side by side. Each throws a wide pool of light (a 56-unit disc, additive, dark by day) over the road, and its lamp bank glows at night; the overlap is kept dim so the circuit reads as evenly lit, not as bright spots. The small lamps at the start and the bridge lamps are separate.
 
 ## Not done
 

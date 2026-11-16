@@ -54,6 +54,8 @@ function loadBridgeModels() {
       const warm = (material, night, day = 0) => { const m = material.clone(); m.emissive.set('#ffe2a0'); registerGlow(m, { day, night }); return m; };
       const lamp = models.props.lightPostModern;
       if (lamp) lamp.material = [].concat(lamp.material).map((m) => (m.name === '_defaultMat' ? warm(m, 3.2, 0.15) : m));
+      const mast = models.props.lightPostLarge;
+      if (mast) mast.material = [].concat(mast.material).map((m) => (m.name === '_defaultMat' ? warm(m, 5, 0.2) : m)); // the lamp bank of a stadium mast
       const pits = models.props.pitsOffice;
       if (pits) pits.material = [].concat(pits.material).map((m) => (m.name === 'glass' ? warm(m, 1.3) : m));
       if (typeof document !== 'undefined') {
@@ -72,6 +74,10 @@ function loadBridgeModels() {
         const material = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffc872', emissiveIntensity: 0, alphaMap: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
         registerGlow(material, { day: 0, night: 0.9 });
         models.pool = { geometry, material };
+        // the stadium lights' pools: much wider, and a little dimmer where they overlap
+        const floodMaterial = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#fff0d4', emissiveIntensity: 0, alphaMap: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+        registerGlow(floodMaterial, { day: 0, night: 0.3 });
+        models.floodPool = { geometry, material: floodMaterial };
       }
     }
     return models;
