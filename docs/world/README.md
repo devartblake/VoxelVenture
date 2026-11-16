@@ -23,3 +23,4 @@ These moved here from `architecture/` on 2026-10-18, which now holds the system 
 
 The world features players see (boats and piers, the world map, what can go behind a building, interiors) are in [product/](../product/README.md).
 - [train.md](train.md): the rideable train between the mainland and Harbor Isle (the first causeway).
+- [tunnel_evaluation.md](tunnel_evaluation.md): an undersea tunnel between the two large islands: what it needs, two stages, cost and risk, and the first spike.

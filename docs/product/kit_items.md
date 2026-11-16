@@ -29,5 +29,5 @@ Like all fixtures they start at price 0 (`lib/content/fixturePrices.js`), and no
 
 ## Not done
 
-- The Food Kit's and City Kit (Industrial)'s kit pages are not saved as HTML (the `License.txt` of each is, in `docs/licences/kenney/`).
+- (Done 2026-11-16: the kit pages and `License.txt` of the Food, Industrial, Building and Train kits are saved in `docs/licences/kenney/`.)
 - Other kits' items (the Building Kit's modular pieces, the Nature Kit's plants and rocks) are the next steps: see [yard_items.md](yard_items.md) and [building_designer.md](building_designer.md) when they exist.
