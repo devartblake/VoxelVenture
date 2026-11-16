@@ -39,6 +39,32 @@ const chunk = await baked.chunk(hc.cx, hc.cz);
   check('a chunk with nothing in it makes an empty group, not an error', sea.children.length === 0 && sea.userData.triangles === 0);
 }
 
+// ---- the bridge from models: instanced decks and pillars sharing the model geometry
+{
+  const deckGeometry = new THREE.BoxGeometry(1, 0.52, 1);
+  const pillarGeometry = new THREE.BoxGeometry(0.14, 0.5, 0.14);
+  const models = { deck: { geometry: deckGeometry, material: new THREE.MeshStandardMaterial() }, pillar: { geometry: pillarGeometry, material: new THREE.MeshStandardMaterial() } };
+  const bridgeChunks = [];
+  for (const c of baked.manifest.chunks) { const ch = await baked.chunk(c.cx, c.cz); if (ch.highways.some((h) => h.kind === 'causeway-bridge')) bridgeChunks.push(ch); }
+  const withModels = bridgeChunks.map((c) => buildChunkObject(THREE, c, materials, { models }));
+  const decks = withModels.flatMap((g) => g.children.filter((m) => m.name.endsWith(':deck')));
+  const pillars = withModels.flatMap((g) => g.children.filter((m) => m.name.endsWith(':pillars')));
+  check('a chunk with a bridge gets an instanced deck (and pillars where it is high), sharing the model geometry and material', decks.length >= 8 && pillars.length >= 3 && decks.every((m) => m.isInstancedMesh && m.geometry === deckGeometry && m.material === models.deck.material) && pillars.every((m) => m.geometry === pillarGeometry));
+  const first = decks[0];
+  const m4 = new THREE.Matrix4();
+  first.getMatrixAt(0, m4);
+  const pos = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+  m4.decompose(pos, q, sc);
+  check('a deck tile is scaled to the road (8 across, 5 deep, its length along) and its origin is 0.51 x 5 below the road surface', Math.abs(sc.x - 8) < 1e-6 && Math.abs(sc.y - 5) < 1e-6 && sc.z > 0 && sc.z <= 8 + 1e-6 && pos.y < 0 + 1e-6 + 9);
+  const noModels = bridgeChunks.map((c) => buildChunkObject(THREE, c, materials));
+  check('without models the same chunks draw the bridge as a ribbon in the highways mesh (the fallback), and no instanced mesh is made', noModels.every((g) => !g.children.some((m) => m.isInstancedMesh)) && noModels.some((g, i) => g.userData.triangles > withModels[i].userData.triangles - 1e9));
+  let freed = 0;
+  const geoms = [deckGeometry, pillarGeometry];
+  for (const geo of geoms) geo.addEventListener('dispose', () => freed++);
+  for (const g of withModels) disposeChunkObject(g);
+  check('disposing a bridge chunk frees its instance buffers and its own geometries but NOT the shared model geometry (other chunks still use it)', freed === 0 && withModels.every((g) => g.children.length === 0));
+}
+
 // ---- the manager driving it: a long walk leaves a bounded scene and frees what it leaves behind
 {
   const scene = new THREE.Group();

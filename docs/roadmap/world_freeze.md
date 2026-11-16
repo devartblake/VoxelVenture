@@ -34,6 +34,11 @@ Outside music (task 39) was explicitly requested by the user on 2026-10-16 and a
 - **What it does not do:** it changes none of the first 855 plots (a stored fingerprint proves it), and the game does not load the island: walking or sailing there needs the streaming runtime (task 11), still deferred. The island's lots are not for sale (`WORLD_TOWNS` is off by default and adds empty, unclaimable land; since 2026-11-15 Harbor Town is vacant and `WORLD_OPEN=harbor`, also off by default, opens its lots: [world_bake.md](../world/world_bake.md)).
 - **Tested by:** `tests/town-extension.test.mjs` and `tests/world-recipe.test.mjs`.
 
+**The world: Jamaica, the Caymans, roads, the baked world, the streaming runtime and the causeway bridge models** were explicitly requested by the user across 2026-11-15 (roadmap tasks 9 to 12, 14 and 17, first slices; [world_recipe.md](../world/world_recipe.md), [world_bake.md](../world/world_bake.md), [streaming_runtime.md](../world/streaming_runtime.md)). It is a scoped exception:
+- **What it adds:** landmasses shaped like Jamaica and Grand Cayman, real mountain terrain, coastal roads and two causeways, a baked world (`apps/web/public/world/`), a chunk manager, merged chunk geometry, the sea and a smooth coast, the ground under avatars, cars and boats, and **three Kenney City Kit (Roads) models** for the causeway bridges (`apps/web/public/models/kenney/roads/`, the only files under a frozen folder; admitted through the asset register).
+- **What it does not do:** it changes nothing in the first town's 855 plots or its roads, and none of it is on in the game unless `?world=baked` is in the address (the browser test checks that without it nothing is mounted). The island's lots are not for sale.
+- **Tested by:** `world-recipe`, `world-bake`, `world-streaming`, `world-chunk-mesh`, `world-chunk-object`, `world-terrain`, `asset-admission` and the browser test.
+
 ## What continues
 
 - **Stability:** crash fixes, saved-game and data-loss fixes, console errors (tasks 29, 30, 32, 37).

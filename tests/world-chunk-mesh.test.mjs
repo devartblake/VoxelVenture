@@ -8,7 +8,7 @@ let fails = 0;
 const check = (name, ok, extra = '') => { if (!ok) fails++; console.log(ok ? 'ok  ' : 'FAIL', name, extra); };
 
 const { loadBakedWorld } = await imp('world/bakedWorld.js');
-const { chunkMeshes, meshCost, groundHeight, BRIDGE_RAMP, ROAD_WIDTH } = await imp('world/chunkMesh.js');
+const { chunkMeshes, meshCost, groundHeight, bridgePlacements, deckHeight, BRIDGE, BRIDGE_RAMP, ROAD_WIDTH } = await imp('world/chunkMesh.js');
 const { createChunkManager } = await imp('world/chunkManager.js');
 const dir = path.join(root, 'apps/web/public/world');
 const baked = await loadBakedWorld(async (name) => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')));
@@ -97,6 +97,23 @@ const valid = (m, c) => {
   const seaHw = meshed.filter(({ c }) => !c.ground && c.highways.length);
   check('a chunk that is only sea with a bridge over it still has its deck (and no ground)', seaHw.length > 3 && seaHw.every(({ m }) => m.highways.triangles > 0 && m.ground.triangles === 0));
   check('the ground height under a road in a mountain chunk follows the ground', (() => { const c = chunks.find((x) => x.ground?.h && x.highways.length); if (!c) return true; const h = c.highways[0]; return groundHeight(c, h.a.x, h.a.z) >= 0; })());
+}
+
+// ---- the bridge from Kenney models: deck tiles along the span and pillars under the high part
+{
+  const all = chunks.map((c) => ({ c, p: bridgePlacements(c) }));
+  const spans = new Map();
+  for (const c of chunks) for (const h of c.highways) if (h.kind === 'causeway-bridge') spans.set(h.id, h.span);
+  const tiles = all.flatMap(({ p }) => p.tiles);
+  const expected = [...spans.values()].reduce((n, span) => n + Math.ceil(span / BRIDGE.tile), 0);
+  check('every bridge is a row of deck tiles: one for every 8 units of each span, none twice and none missing', tiles.length === expected && new Set(tiles.map((t) => `${t.x.toFixed(2)},${t.z.toFixed(2)}`)).size === tiles.length, `${tiles.length} tiles for ${spans.size} bridges`);
+  check('each tile is at the height of the deck there (the road surface), tilted to its slope: flat on the middle, rising on the ramps, never steeper than the ramp', tiles.every((t) => t.y >= -1e-9 && t.y <= 9.01 && Math.abs(t.pitch) < 0.25) && tiles.some((t) => t.y > 8.9 && Math.abs(t.pitch) < 0.01) && tiles.some((t) => t.pitch > 0.05) && tiles.some((t) => t.pitch < -0.05));
+  check('tiles go once along the road: a tile is 8 long (the last may be shorter) and 8 wide', tiles.every((t) => t.length > 0 && t.length <= BRIDGE.tile + 1e-9 && t.width === 8));
+  const pillars = all.flatMap(({ p }) => p.pillars);
+  check('pillars stand in pairs under the high part of the deck only, from the shallows (-1.5) up to the underside of the deck, and none is under a ramp that is nearly on the ground', pillars.length >= 20 && pillars.length % 2 === 0 && pillars.every((q) => q.y0 === BRIDGE.floor && q.y1 > q.y0 && q.y1 < 9 - BRIDGE.surface * BRIDGE.depth + 0.2) && pillars.every((q) => q.y1 > BRIDGE.pillarMinY - BRIDGE.surface * BRIDGE.depth + 0.1), `${pillars.length} pillars`);
+  const withModels = chunks.filter((c) => c.highways.some((h) => h.kind === 'causeway-bridge')).map((c) => ({ c, ribbon: chunkMeshes(c), model: chunkMeshes(c, { bridges: 'models' }) }));
+  check('with models the bridge ribbon is left out of the highway mesh (the deck is drawn by the models), and the rest of the road is unchanged', withModels.every(({ ribbon, model }) => model.highways.triangles < ribbon.highways.triangles || ribbon.highways.triangles === 0) && withModels.some(({ ribbon, model }) => model.highways.triangles < ribbon.highways.triangles) && withModels.every(({ ribbon, model }) => model.ground.triangles === ribbon.ground.triangles));
+  check('the deck height is the same function the mesh, the terrain and the tiles all read', Math.abs(deckHeight({ clearance: 9, span: 400 }, 200) - 9) < 1e-9 && deckHeight({ clearance: 9, span: 400 }, 0) === 0 && BRIDGE_RAMP === 60);
 }
 
 // ---- a road over rising ground follows it (a long road is cut every 6 units and each piece laid at the ground height)
