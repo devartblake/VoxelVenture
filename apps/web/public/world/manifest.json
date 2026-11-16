@@ -8232,7 +8232,7 @@
  "tracks": [
   {
    "id": "speedway",
-   "name": "Dover Raceway",
+   "name": "Voxel Speedway",
    "landmass": "mainland",
    "shape": "dover-raceway",
    "osmWay": 247345542,
@@ -8289,13 +8289,13 @@
     "z1": -469.28
    },
    "quads": 1819,
-   "props": 707
+   "props": 713
   }
  ],
  "links": [
   {
    "id": "speedway-road",
-   "name": "Dover Raceway Road",
+   "name": "Voxel Speedway Road",
    "kind": "track",
    "length": 34
   },
@@ -8916,7 +8916,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 128,
-   "props": 218,
+   "props": 224,
    "surface": 640
   },
   {
@@ -11086,5 +11086,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "f894e58ab5e797b6"
+ "hash": "81105ab58d9234d4"
 }

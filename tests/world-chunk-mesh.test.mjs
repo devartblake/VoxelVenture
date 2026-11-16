@@ -116,6 +116,14 @@ const valid = (m, c) => {
   check('the deck height is the same function the mesh, the terrain and the tiles all read', Math.abs(deckHeight({ clearance: 9, span: 400 }, 200) - 9) < 1e-9 && deckHeight({ clearance: 9, span: 400 }, 0) === 0 && BRIDGE_RAMP === 60);
 }
 
+// ---- the bridge's lamps (night): both edges of the deck, between the pillars, their arms over the road
+{
+  const lamps = chunks.flatMap((c) => bridgePlacements(c).lamps);
+  const spans = [...new Map(chunks.flatMap((c) => c.highways.filter((h) => h.kind === 'causeway-bridge').map((h) => [h.id, h.span]))).values()];
+  check('every bridge has lamps along both edges, one pair every 32 units', lamps.length >= 2 * spans.reduce((n, sp) => n + Math.floor((sp - 24) / BRIDGE.lampEvery), 0) - 4 && lamps.length % 2 === 0, `${lamps.length} lamps on ${spans.length} bridges`);
+  check('a lamp stands at the height of the deck (0 to 9) and its arm points to the middle of the road', lamps.every((l) => l.y >= 0 && l.y <= 9.01 && Number.isFinite(l.yaw)));
+}
+
 // ---- a road over rising ground follows it (a long road is cut every 6 units and each piece laid at the ground height)
 {
   const n = 32;

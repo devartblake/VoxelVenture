@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import CityCanvas from '@/components/city/CityCanvas';
+import RaceHud from '@/components/world/RaceHud';
 import Header from '@/components/ui/Header';
 import { MiniMapButton } from '@/components/ui/Legend';
 import InteractPrompt from '@/components/ui/InteractPrompt';
@@ -90,6 +91,7 @@ export default function Home() {
       <InteractPrompt />
       <Toast />
       <VehicleHud />
+      <RaceHud />
       <TouchControls />
       <InteriorModal />
       <WorldMap />

@@ -27,15 +27,31 @@ Each baked chunk holds the quads (`surface`) and models (`props`) that lie in it
 
 ## Admission and credits
 
-The Racing Kit (2.0, CC0) is registered in `lib/content/assetSources.js` and `docs/licences/kenney/` (the page, the licence): ten models are shipped in `apps/web/public/models/kenney/racing/` (`roadStart`, `barrierRed`, `barrierWhite`, `grandStand`, `grandStandAwning`, `tent`, `pitsOffice`, `lightPostModern`, `treeLarge`, `treeSmall`, about 100 KB). The circuit's shape is OpenStreetMap data (ODbL): credited in CREDITS.md and the credits page, as the street names are. The kit's road tiles are not used (a first version built the circuit from them on a grid; it looked like a toy), so they are not shipped.
+The Racing Kit (2.0, CC0) is registered in `lib/content/assetSources.js` and `docs/licences/kenney/` (the page, the licence): fourteen models are shipped in `apps/web/public/models/kenney/racing/` (`roadStart`, `barrierRed`, `barrierWhite`, `grandStand`, `grandStandAwning`, `tent`, `pitsOffice`, `lightPostModern`, `treeLarge`, `treeSmall` and the four race cars, about 520 KB). The circuit's shape is OpenStreetMap data (ODbL): credited in CREDITS.md and the credits page, as the street names are. The kit's road tiles are not used (a first version built the circuit from them on a grid; it looked like a toy), so they are not shipped.
 
 ## Tests
 
 `tests/world-track.test.mjs`: the three real shapes; for each, a closed evenly spaced loop of a sensible length with no stretches closer than a road's width and a margin; the Voxel Speedway's start on a gentle stretch, seven checkpoints in order, the surface layers and counts, the models and their distances (barriers 7.7 or more, buildings 9 or more, trees 19 or more from the road), the grandstands facing the track, the placement on flat land and the refusal of a bad site, the link road, the bake, the mesh, and the instanced meshes with their disposal.
 
+## Lap timing and the leaderboard (built 2026-11-16)
+
+**The server times the laps.** This follows the game's rule for value (a player never creates their own): the page never sends a time. It says "I am at the start line" or "I am at checkpoint 3" with where the avatar is, and the server's clock times the lap between the passes (`services/api/race.mjs`). A pass counts only when it is within 16 units of that point, is the next point in order (start line, checkpoints 1 to 7, start line), and is no further from the last pass than a car could have driven in the time between (the presence tracker's car speed and lag allowance). A lap quicker than 90% of the circuit at the car's top speed is refused (the speed bound between checkpoints already holds a forger to a car's pace). Positions are the page's own report, as for the daily stars, so the next check is the presence tracker's recorded positions.
+
+| Route | What |
+| :-- | :-- |
+| `POST /race/pass` `{ track, index, x, z }` | a pass; answers `start`, `checkpoint`, `lap` (with the server's `ms`, the account's `best`, its `rank`, and `record`) or `ignored` (out of order, or the run expired after five minutes) |
+| `GET /race/leaderboard?track=speedway&limit=10` | public: each account's best lap, quickest first, with ranks; a banned account is left out |
+| `GET /race/me?track=speedway` | the signed-in player's best, rank and last ten laps |
+
+Laps are rows in `race_laps` (an additive table). **A lap pays no Gold** (nothing in a request or an answer is an amount): it earns a place on the board. On the page (`RaceHud.jsx`, with `?world=baked`): a panel appears near the circuit with the lap clock, seven checkpoint marks, last and best lap and the top five (`lib/world/lapTimer.js` does the local timing; guests see the clock, and a game without a server says laps are not recorded). Tested by `tests/race.test.mjs` (the server) and `tests/lap-timer.test.mjs` (the page's timer).
+
+## Race cars and night lighting (built 2026-11-16)
+
+- **Race cars:** six Kenney Racing Kit race cars (`raceCarRed`, `raceCarGreen`, `raceCarOrange`, `raceCarWhite`, 1,430 triangles each) stand on the grid behind the start line, pointing along the lap, scaled to the city cars' size (4 units). They are scenery for now: a car the player drives is a separate piece (a faster vehicle kind with its own speed cap, which the server's bounds would then follow).
+- **Night:** the lamp heads and the pit windows glow at night, and **every lamp throws a pool of light on the road** (an additive disc, dark by day): the track's lamps at the start, and a pair of **lamps along both edges of each causeway bridge** every 32 units, at the height of the deck. The glow is the game's own: `registerGlow` in `components/city/nightLights.js`, driven by `DayNight`, so the track follows the game's dusk (on `/world/stream` a Day/Night button does it).
+
 ## Not done
 
-- **Lap timing, a leaderboard and results.** The data is there (a closed centreline, checkpoints, the start line); a timer needs the player's position near the line and the checkpoints in order, and results must be kept by the server like the other rewards (the game's rule: a player never creates their own value). A first slice: a client lap timer on `?world=baked`, then a server-side check against the presence tracker's positions.
-- **Race cars** (the kit has four) and a pit lane; the grid has no cars on it.
-- **The track is not lit at night**, and the surface has no skid marks or wear.
+- **Checking laps against the presence tracker's positions** (the server's bounds are in place; this adds a record of where the car really was), and a **drivable race car** (a faster vehicle kind: its own speed cap in `movement.js` and the lap bounds).
+- **A pit lane**, skid marks and tyre wear on the surface.
 - **A second circuit** on a smaller island (a road and a heli-pad would be needed first; see the roadmap).

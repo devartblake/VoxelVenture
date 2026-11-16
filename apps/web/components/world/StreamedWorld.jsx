@@ -10,6 +10,7 @@ import { createChunkManager } from '@/lib/world/chunkManager';
 import { buildChunkObject, createChunkMaterials, disposeChunkObject } from '@/lib/world/chunkObject';
 import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
+import { registerGlow } from '@/components/city/nightLights';
 
 // The streaming runtime React layer (roadmap task 11, slice 3; docs/world/streaming_runtime.md). Mounts the baked chunks (public/world, scripts/bake-world.mjs) near the camera or a point the
 // caller gives, and disposes the ones left behind, one chunk a frame. It owns no game state: with no `focus` it follows the camera, and `skip(chunk)` lets a caller leave out chunks it draws itself
@@ -48,6 +49,31 @@ function loadBridgeModels() {
       const entries = await Promise.all(TRACK_MODELS.map(async (name) => [name, await first(`../racing/${name}.glb`)]));
       models.props = Object.fromEntries(entries);
     } catch { models.props = null; }
+    // night (components/city/nightLights.js drives these with the game's own dusk): the lamp heads and the pit windows glow, and each lamp throws a pool of light on the road
+    if (models.props) {
+      const warm = (material, night, day = 0) => { const m = material.clone(); m.emissive.set('#ffe2a0'); registerGlow(m, { day, night }); return m; };
+      const lamp = models.props.lightPostModern;
+      if (lamp) lamp.material = [].concat(lamp.material).map((m) => (m.name === '_defaultMat' ? warm(m, 3.2, 0.15) : m));
+      const pits = models.props.pitsOffice;
+      if (pits) pits.material = [].concat(pits.material).map((m) => (m.name === 'glass' ? warm(m, 1.3) : m));
+      if (typeof document !== 'undefined') {
+        const c = document.createElement('canvas');
+        c.width = 64;
+        c.height = 64;
+        const g = c.getContext('2d');
+        const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.5, '#808080');
+        grad.addColorStop(1, '#000000');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 64, 64);
+        const tex = new THREE.CanvasTexture(c);
+        const geometry = new THREE.CircleGeometry(1, 28).rotateX(-Math.PI / 2);
+        const material = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffc872', emissiveIntensity: 0, alphaMap: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+        registerGlow(material, { day: 0, night: 0.9 });
+        models.pool = { geometry, material };
+      }
+    }
     return models;
   })().catch(() => null);
   return bridgeModels;

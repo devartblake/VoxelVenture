@@ -65,6 +65,15 @@ const half = tr.width / 2;
   check('the grandstands face the track: each one\'s front (its +z) points at the road, to within 0.3 of a turn', [...only('grandStand'), ...only('grandStandAwning')].every((p) => { let best = null; for (const q of c) if (!best || dist(p, q) < dist(p, best)) best = q; const want = Math.atan2(best.x - p.x, best.z - p.z); let d = Math.abs(p.yaw - want) % (Math.PI * 2); d = Math.min(d, Math.PI * 2 - d); return d < 0.35; }));
 }
 
+// ---- race cars on the grid, and the lamps that light the track at night
+{
+  const cars = tr.props.filter((p) => /^raceCar/.test(p.model));
+  check('six race cars stand on the grid behind the start line, in all four colours, pointing along the lap (the way the gantry faces)', cars.length === 6 && new Set(cars.map((c) => c.model)).size === 4 && cars.every((c) => Math.abs(Math.sin(c.yaw) - Math.sin(tr.start.heading)) < 0.6 && Math.abs(Math.cos(c.yaw) - Math.cos(tr.start.heading)) < 0.6) && cars.every((c) => Math.hypot(c.x - tr.start.x, c.z - tr.start.z) > 6 && Math.hypot(c.x - tr.start.x, c.z - tr.start.z) < 60));
+  check('race cars are about the size of the city cars (4 units), and every model they use is in the shipped list with an anchor', cars.every((c) => c.s === 3.1) && cars.every((c) => TRACK_MODELS.includes(c.model) && ANCHOR[c.model]));
+  const lamps = tr.props.filter((p) => p.model === 'lightPostModern');
+  check('the lamps stand beside the road with their arms reaching over it: each lamp\'s front points at the nearest road, to within 0.3 of a turn', lamps.length >= 3 && lamps.every((l) => { let best = null; for (const q of tr.centreline) if (!best || Math.hypot(l.x - q.x, l.z - q.z) < Math.hypot(l.x - best.x, l.z - best.z)) best = q; let d = Math.abs(l.yaw - Math.atan2(best.x - l.x, best.z - l.z)) % (Math.PI * 2); d = Math.min(d, Math.PI * 2 - d); return d < 0.3; }));
+}
+
 // ---- where it stands on the map
 {
   const mainland = world.landmasses[0];
