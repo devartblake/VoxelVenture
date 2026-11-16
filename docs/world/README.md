@@ -26,3 +26,4 @@ The world features players see (boats and piers, the world map, what can go behi
 - [tunnel_evaluation.md](tunnel_evaluation.md): an undersea tunnel between the two large islands: what it needs, two stages, cost and risk, and the first spike.
 - [suspension_bridge.md](suspension_bridge.md): Harbor Causeway as a suspension bridge: towers, cables, suspenders, a girder deck and no piers under the main span.
 - [arch_bridge.md](arch_bridge.md): the North Causeway as a steel through-arch bridge (after the Sydney harbour bridge): ribs, hangers, posts, pylons and night lights.
+- [datum.md](datum.md): the world's datum: the named ground, sea and lift heights in one file, the guard test, the overlay, and what is not settled.

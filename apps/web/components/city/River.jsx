@@ -6,7 +6,7 @@ import { useGatedFrame } from '@/lib/performance/runtime';
 import { useLodHidden } from '@/lib/performance/lodRuntime';
 
 const BANK = 1.2; // sandy bank beyond the water on each side
-const WATER_Y = 0.026;
+import { WATER_Y } from '@/lib/city/surfaceHeight'; // the town water (lib/world/datum.js)
 const DECK_HALF_WIDTH = 1.45;
 
 // A river that runs wall to wall across the land (see layout.rivers), with a bridge wherever a road

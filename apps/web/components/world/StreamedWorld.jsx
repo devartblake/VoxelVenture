@@ -12,6 +12,7 @@ import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
+import { SEA_LEVEL } from '@/lib/world/datum';
 import { registerGlow } from '@/components/city/nightLights';
 
 // The streaming runtime React layer (roadmap task 11, slice 3; docs/world/streaming_runtime.md). Mounts the baked chunks (public/world, scripts/bake-world.mjs) near the camera or a point the
@@ -87,7 +88,7 @@ function loadBridgeModels() {
   return bridgeModels;
 }
 
-export const SEA_LEVEL = -0.3; // the water plane: the shallows (ground sloping to -1.5 beyond the coast) meet it a little out from the shore
+export { SEA_LEVEL }; // the water plane (lib/world/datum.js): the shallows meet it a little out from the shore
 
 export default function StreamedWorld({ base = '/world', profile = 'desktop', focus = null, skip = null, onReady = null, sea = true }) {
   const root = useRef(null);
