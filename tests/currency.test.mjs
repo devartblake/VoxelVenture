@@ -18,7 +18,7 @@ const { generateTown } = await imp('city/townExtension.js'); // the city the gam
 const { COSMETIC_BY_ID, RAFFLE_COST, RAFFLE_PRIZES } = await imp('game/cosmetics.js');
 const { HUNT_BONUS, HUNT_GOLD, POTD_VISIT_GOLD, dailyChest, plotOfTheDay, scavengerHunt } = await imp('game/daily.js');
 const { FISH, FISH_DAILY_CAP } = await imp('sim/vehicles.js');
-const { BILLBOARD_QUEST_GOLD, BILLBOARD_QUEST_SECONDS, utcDay } = await imp('game/goldRules.js');
+const { BILLBOARD_QUEST_GOLD, BILLBOARD_QUEST_SECONDS, MAX_SPEED, utcDay } = await imp('game/goldRules.js');
 const city = generateTown(SEED);
 const day = utcDay();
 const chest = dailyChest(city.layout.intersections, SEED, day);
@@ -83,7 +83,8 @@ const farStar = Math.hypot(first.x - second.x, first.z - second.z);
 const ok1 = gold.collectStar(db, SEED, ivy, { index: 0, x: first.x, z: first.z }, dayBase);
 let tooFast = null;
 try { gold.collectStar(db, SEED, ivy, { index: 1, x: second.x, z: second.z }, dayBase + 500); } catch (e) { tooFast = e; }
-check('two stars further apart than anything could move in the time are refused (too_fast)', farStar < 31 || (ok1.paid === HUNT_GOLD && tooFast?.code === 'too_fast'), `${farStar.toFixed(0)} units in 0.5 s`);
+// the server reckons at least a second between two reports, so two stars are refused only when they are more than MAX_SPEED apart (which day's stars are how far apart changes every day: this was 31, and failed on a day when they were 46 apart)
+check('two stars further apart than anything could move in the time are refused (too_fast)', farStar < MAX_SPEED + 1 || (ok1.paid === HUNT_GOLD && tooFast?.code === 'too_fast'), `${farStar.toFixed(0)} units in 0.5 s`);
 
 // ---- the scavenger hunt: three stars, the bonus once, and the vote bonus only because the server saw them
 const hal = await signup('Hal');
