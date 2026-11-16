@@ -8,7 +8,7 @@ Written for: the owner, to decide whether and when to build it. Evaluated 2026-1
 
 **Yes, it is possible, and it can be done in two stages of very different cost.**
 
-1. **A rail tunnel you ride through (cheap, about 2 to 3 days).** The train already carries the rider, so no walking or driving below the sea has to be collision-checked. What it needs: a drawn tube under the sea, two portals, a second train line, a camera that stays inside the tube, and the presence check allowing the corridor. No change to the ground model.
+1. **A rail tunnel you ride through (cheap, about 3 to 4 days).** The train already carries the rider, so no walking or driving below the sea has to be collision-checked. What it needs: a drawn tube under the sea, two portals cut into the ground (a bake change), a second train line, a camera that stays inside the tube, and the presence check allowing the corridor. No change to the ground model's heights.
 2. **A tunnel you can walk or drive in (expensive, about 1 to 2 weeks, real risk).** This needs the ground model to answer "which level are you on?" at a point, because the road above and the tunnel below share the same ground position on land. That is the same change real mountains and any overpass would need, so it should be built once, after task 17.
 
 I recommend stage 1 first (it answers the question for players at low cost) and stage 2 only if players want to drive it.
@@ -24,13 +24,13 @@ I recommend stage 1 first (it answers the question for players at low cost) and 
 | **Presence and anti-cheat** | `inBounds` is the land's bounding box plus a 30 margin (`placeGeometry.js`); `movement.js` checks the speed of a mode. | The corridor lies inside the world's rectangle (the two islands are 456 apart inside it), so it passes; a rider's cruise speed (6) is under a car's (7). The tracker's other checks (teleport, speed) are unchanged. Worth one test with a tube route. |
 | **The train** | `lib/world/train.js`: one line, a function of the clock; rail on the Harbor Causeway deck. | Generalise it from one line to a list of lines (a `route` of points with a height profile `y(s)`), keep the timetable. The tunnel line would be the second. |
 | **Streaming** | Chunks stream around the camera; open sea has none. | The tube is not a chunk: draw it as one instanced set (about 70 segments of 8 units, the bridge deck's tile length) always, or by distance. It costs a few thousand triangles and about 3 draw calls. |
-| **Bake and the freeze** | `npm run bake:world` makes 299 chunks; a changed world needs a fresh bake and the freeze exception. | Stage 1 needs no bake (the tube and the line are code and the manifest's causeway/route data). Stage 2 may add a `tunnels` entry to the manifest (route, depth profile, portals) so the bake and the tests agree. |
+| **Bake and the freeze** | `npm run bake:world` makes 299 chunks; a changed world needs a fresh bake and the freeze exception. | **Both stages need a bake for the portal cuts** (a hole in the ground over each ramp, see the spike's finding); the tube and the line stay code. A `tunnels` entry in the manifest (route, depth profile, portals, cuts) keeps the bake, the terrain query and the tests in agreement. |
 
 ## A design that fits
 
-- **Route.** Straight between the two islands. The cheapest is the Harbor Causeway's own two ends (456 units: the shortest gap), a little to one side of the road so the two never cross. A second tunnel along the North Causeway (676) is possible later.
+- **Route.** Straight between the two islands, beside the Harbor Causeway (456 units: the shortest gap), 9 units to the side so the two never cross. **It has its own road entrance, which starts before the bridge's road** (the owner's requirement): the tunnel's road begins 110 units before the causeway's first point and its portal is 110 before it. A second tunnel along the North Causeway (676) is possible later.
 - **Depth.** The tube's floor at about **-5.5** and roof at about **-1.0** (the sea plane is at -0.3, so the roof is just under the water: visible from above), 6 units wide inside, 4.5 high: a train (3.2 high at the scale used on the causeway) and, in stage 2, a road lane beside it.
-- **Portals.** On each shore, a ramp that goes down at a grade of 0.12 (the road's own `maxGrade`) from the ground (about 0 to 0.5) to the floor: 5.8 units of drop, so **about 48 units of ramp** at each end; the ramp is a cut with walls and a cover, with a portal arch at the surface. Total length about 456 + 2 x 48 = **550 units**: a **90-second ride** at the train's 6 units a second (more with the stops).
+- **Portals.** On each shore, a ramp that goes down at a grade of 0.08 (easier than the road's own limit of 0.12) from the ground (about 0 to 0.5) to the floor: 5.8 units of drop, so **about 71 units of ramp** at each end; the ramp is a cut (a trench in the ground, see the spike's finding) with walls, then a cover, with a portal arch at the surface. With the portals 70 units inland of each end, the length is **676 units** (456 + 2 x 70): a **115-second ride** at the train's 6 units a second (more with the stops).
 - **Look.** The Kenney kits have no tunnel tube; the Minigolf Kit's tunnel pieces are far too small. Build it from primitives (floor, walls, roof, a lit strip, ribs every 8 units, a portal arch) or from the Roads kit's bridge deck pieces turned over; a few emissive strips give light at night (the existing `registerGlow`).
 - **The ride.** A station on each side where the rail meets the tunnel; the rider boards as for the causeway train. Inside, a clamped, slightly pulled-in camera and a tunnel hum; windows to the sea are not needed.
 
@@ -40,7 +40,7 @@ I recommend stage 1 first (it answers the question for players at low cost) and 
 | :--- | :--- | :--- |
 | Code | `lib/world/tunnel.js` (route, profile, portals), `Tunnel.jsx` (the tube), `train.js` generalised to two lines, camera clamp | `tunnelAt` and the layer in `terrain.js`, `Avatar.jsx`, `Vehicles.jsx`, the presence verifier, a corridor rule, lighting, ventilation props |
 | Tests | the profile and the ride; the tracker accepts the ride; the tube stays under the sea and above nothing | all of stage 1, plus layer changes at the portals, a car through the tunnel, nobody can fall through or stay in the wall |
-| Time | about 2 to 3 days | about 1 to 2 weeks |
+| Time | about 3 to 4 days | about 1 to 2 weeks |
 | Main risk | the camera inside the tube; seeing the sea plane from below; sorting of a transparent plane over a tube | the layer rule: every system that reads `groundY` (the avatar, cars, boats, the tracker, the camera) must agree, and a missed one drops someone through the floor or traps them |
 | Performance | a few thousand triangles, 3 draw calls | same; the traffic simulation and the interior systems must ignore the tube |
 
@@ -48,11 +48,12 @@ Two things stay true on both stages: it is **not** a gameplay or income feature 
 
 ## What the spike showed (2026-11-16)
 
-A plain tube (floor -5.5, roof -1.0, 6.4 wide, boxes and light strips) was placed under the sea beside the Harbor Causeway, behind the dev page's `?tunnel=1` (`apps/web/components/dev/TunnelSpike.jsx`, `/world/stream?tunnel=1&look=1448,284,10,14,26`).
+The spike is a development page, not part of the game: `/world/stream?tunnel=1&cam=free` (fly with the mouse drag to look, W A S D to move, Q and E down and up, shift for speed; `&at=x,y,z&yaw=degrees&pitch=degrees` start somewhere). It draws the tube from `lib/world/tunnel.js` (tested by `tests/tunnel.test.mjs`) beside the Harbor Causeway, with its own road entrance, ramps, lamps and a free camera: `apps/web/components/dev/TunnelSpike.jsx`.
 
-- **From above: it works.** The tube shows through the sea as a long lighter band under the water, with the bridge's pillars standing beside it. That is the "you can see it is there" effect, with no change to the sea.
-- **From inside: not settled.** The dev page's orbit camera cannot go below the horizon, so the inside of the tube could not be looked at; the one low shot showed the sea plane lit from the camera's side with a bright sun reflection. That is a warning, not a result: a camera in or near the tube must see only the tube (opaque, double-sided, lit from inside), and portals must be covered so the sea plane is never seen from below. A spike with a free camera is the next step.
-- **Boxes are one-sided:** a tube made of boxes is invisible from inside unless its material is double-sided (the spike's first version was).
+- **From above the sea: it works.** The tube shows through the water as a long lighter band beside the bridge's pillars.
+- **From inside, under the sea and under the shore: it works.** A free camera inside sees only the tube: walls, a roof with two lamp strips, a road with a lane line, converging to a point. No water, sea plane or void shows, no glare. The feared problem (the sea plane seen from below) does not arise while the tube is closed all round (walls, roof and a slab under the road, all double-sided). Boxes are one-sided: the tube's materials must be double-sided.
+- **The tunnel has its own road entrance, before the bridge's, joined to the main road.** The portal is 110 units before the causeway's first point (the bridge's road starts at 0, an orange marker in the spike), so the tunnel's entrance comes first; the ramp goes down at 0.08 for 71 units and is at the full depth (-5.5) 39 units before the shore. The tunnel's road is a **link from the main road of the area to each portal**, so it is on the road network and not in a field: on the mainland a 29-unit link from the mainland ring road, on Harbor Isle a 104-unit link from the Harbor ring road (found by `linkToRoads` in `lib/world/tunnel.js` from the baked rings, spurs and links, and checked by `tests/tunnel.test.mjs`). The tube is 9 units to the side of the causeway (the deck is 8 wide), opposite the train's rail, and it is **676 units portal to portal**; the tunnel's road and the bridge's meet only through the ring roads, never on the causeway. In the game this link would be a road of the world's recipe (`links` in `lib/world/highways.js`), baked like the others.
+- **The one real problem: the ground covers the ramp.** The baked ground is a solid surface, so where the ramp is still above or near ground level (the first 40 units of each ramp) the road lies under the grass: from a camera standing on the ramp the floor is the ground's own surface. A portal therefore needs a **cut** (a trench) in the ground: a hole in the terrain mesh over the ramp's footprint with walls down to the road (the ground grid already has a land/sea mask per cell; a "cut" list in the bake, or a trench drawn over a hole in `chunkMesh.js`), or the ramp has to start where the ground is at the waterline. This is a bake change (a fresh bake and the freeze exception), and `terrain.sample` must know the cut too (the ground height there is the ramp's, not the grass's). It is the main new cost: about one extra day for stage 1 (the train carries the rider but the camera still sees the ground), more for stage 2.
 
 ## Why after tasks 17 and 18
 
@@ -65,6 +66,6 @@ A tunnel under the Blue Mountains (a ridge about 18 units high) is stage 2's mec
 
 ## Recommended next steps
 
-1. **Finish the spike** (the first half is done, above): a free camera inside the tube, with the portals covered, to learn what the sea plane and fog do from below. It answers the second visual unknown.
+1. **The spike is finished** (above): it answers both visual unknowns. What it adds to stage 1 is the terrain cut at the portals.
 2. If it looks right, **stage 1** as its own pull request after tasks 17 and 18.
 3. Decide on **stage 2** after stage 1 has been played.
