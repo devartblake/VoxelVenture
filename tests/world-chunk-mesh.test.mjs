@@ -87,7 +87,7 @@ const valid = (m, c) => {
   const hm = chunkMeshes(homeChunk);
   check('the town\'s roads are ribbons: at least 2 triangles for each road piece (a long piece is cut every 6 units to follow the ground), laid a hair above the ground', hm.roads.triangles >= 2 * homeChunk.roads.length && hm.roads.triangles <= 2 * homeChunk.roads.reduce((n, r) => n + Math.ceil(Math.hypot(r.b.x - r.a.x, r.b.z - r.a.z) / 6), 0) && homeChunk.roads.length > 10 && Math.min(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) > 0 && Math.max(...Array.from(hm.roads.positions).filter((_, i) => i % 3 === 1)) < 0.2);
   check('an arterial is wider than a local street', ROAD_WIDTH.arterial > ROAD_WIDTH.local);
-  const withHw = meshed.filter(({ c }) => c.highways.length);
+  const withHw = meshed.filter(({ c }) => c.highways.some((h) => h.kind !== 'track')); // (a circuit's centreline is a road for timing, not drawn)
   check('every chunk the highways pass through has a highway mesh', withHw.every(({ m }) => m.highways.triangles > 0) && withHw.length > 60, `${withHw.length} chunks`);
   const bridge = meshed.filter(({ c }) => c.highways.some((h) => h.kind === 'causeway-bridge'));
   const deck = Math.max(...bridge.map(({ m }) => { let y = 0; for (let v = 1; v < m.highways.positions.length; v += 3) y = Math.max(y, m.highways.positions[v]); return y; }));
@@ -114,6 +114,14 @@ const valid = (m, c) => {
   const withModels = chunks.filter((c) => c.highways.some((h) => h.kind === 'causeway-bridge')).map((c) => ({ c, ribbon: chunkMeshes(c), model: chunkMeshes(c, { bridges: 'models' }) }));
   check('with models the bridge ribbon is left out of the highway mesh (the deck is drawn by the models), and the rest of the road is unchanged', withModels.every(({ ribbon, model }) => model.highways.triangles < ribbon.highways.triangles || ribbon.highways.triangles === 0) && withModels.some(({ ribbon, model }) => model.highways.triangles < ribbon.highways.triangles) && withModels.every(({ ribbon, model }) => model.ground.triangles === ribbon.ground.triangles));
   check('the deck height is the same function the mesh, the terrain and the tiles all read', Math.abs(deckHeight({ clearance: 9, span: 400 }, 200) - 9) < 1e-9 && deckHeight({ clearance: 9, span: 400 }, 0) === 0 && BRIDGE_RAMP === 60);
+}
+
+// ---- the bridge's lamps (night): both edges of the deck, between the pillars, their arms over the road
+{
+  const lamps = chunks.flatMap((c) => bridgePlacements(c).lamps);
+  const spans = [...new Map(chunks.flatMap((c) => c.highways.filter((h) => h.kind === 'causeway-bridge').map((h) => [h.id, h.span]))).values()];
+  check('every bridge has lamps along both edges, one pair every 32 units', lamps.length >= 2 * spans.reduce((n, sp) => n + Math.floor((sp - 24) / BRIDGE.lampEvery), 0) - 4 && lamps.length % 2 === 0, `${lamps.length} lamps on ${spans.length} bridges`);
+  check('a lamp stands at the height of the deck (0 to 9) and its arm points to the middle of the road', lamps.every((l) => l.y >= 0 && l.y <= 9.01 && Number.isFinite(l.yaw)));
 }
 
 // ---- a road over rising ground follows it (a long road is cut every 6 units and each piece laid at the ground height)

@@ -108,6 +108,7 @@ The 3D city's systems: roads and land, street names, sound and light, models, th
 | [study_world_streaming.md](world/study_world_streaming.md) | Feasibility study: how big the map can get, streaming a world of several cities, an island with an ocean and a shipping yard (measurements, prototype, plan) |
 | [world_bake.md](world/world_bake.md) | The baked world: a manifest and chunk files of plots, roads, bridges, land and heights, how it is checked, how the world can grow without moving what is there, the vacant Harbor Town and opening it for claims |
 | [streaming_runtime.md](world/streaming_runtime.md) | The streaming runtime (roadmap task 11): the chunk manager, merged chunk geometry (three meshes a chunk) and the React layer (`/world/stream`, `?world=baked`), slice by slice |
+| [racing_track.md](world/racing_track.md) | The racing track (Voxel Speedway): a closed circuit on the mainland from the shape of the real Dover Raceway (OpenStreetMap) and the Kenney Racing Kit |
 
 ### Operations
 

@@ -65,6 +65,33 @@ const chunk = await baked.chunk(hc.cx, hc.cz);
   check('disposing a bridge chunk frees its instance buffers and its own geometries but NOT the shared model geometry (other chunks still use it)', freed === 0 && withModels.every((g) => g.children.length === 0));
 }
 
+// ---- night: pools of light under the lamps (the track's and the bridges') and the bridge's own lamp posts
+{
+  const model = (g) => ({ geometry: g, material: new THREE.MeshStandardMaterial() });
+  const pool = { geometry: new THREE.CircleGeometry(1, 8).rotateX(-Math.PI / 2), material: new THREE.MeshStandardMaterial() };
+  const models = { deck: model(new THREE.BoxGeometry(1, 0.5, 1)), pillar: model(new THREE.BoxGeometry(0.1, 0.5, 0.1)), props: { lightPostModern: model(new THREE.BoxGeometry(0.1, 0.8, 0.1)) }, pool };
+  const withLamps = [];
+  for (const c of baked.manifest.chunks) { const ch = await baked.chunk(c.cx, c.cz); const g = buildChunkObject(THREE, ch, materials, { models }); if (g.children.some((m) => m.name.endsWith(':light-pools'))) withLamps.push({ g, ch }); }
+  const pools = withLamps.flatMap(({ g }) => g.children.filter((m) => m.name.endsWith(':light-pools')));
+  check('chunks with a lamp get an instanced pool of light, one disc a lamp, sharing the pool geometry and material (the DayNight glow lights them)', pools.length >= 6 && pools.every((m) => m.isInstancedMesh && m.geometry === pool.geometry && m.material === pool.material) && withLamps.some(({ g }) => g.children.some((m) => m.name.endsWith(':bridge-lamps'))));
+  const noPool = baked.manifest.chunks.length > 0 && (await (async () => { const ch = await baked.chunk(withLamps[0].ch.cx, withLamps[0].ch.cz); return !buildChunkObject(THREE, ch, materials, { models: { ...models, pool: null } }).children.some((m) => m.name.endsWith(':light-pools')); })());
+  check('without the pool model (or by day, where its glow is 0) nothing is drawn: a chunk makes no light pools', noPool);
+  let freed = 0;
+  pool.geometry.addEventListener('dispose', () => freed++);
+  for (const { g } of withLamps) disposeChunkObject(g);
+  check('disposing a lit chunk leaves the shared pool geometry alone', freed === 0);
+}
+
+// ---- stadium lights: a wide pool of light under each mast
+{
+  const model = (g) => ({ geometry: g, material: new THREE.MeshStandardMaterial() });
+  const floodPool = { geometry: new THREE.CircleGeometry(1, 8).rotateX(-Math.PI / 2), material: new THREE.MeshStandardMaterial() };
+  const models = { deck: model(new THREE.BoxGeometry(1, 0.5, 1)), pillar: model(new THREE.BoxGeometry(0.1, 0.5, 0.1)), props: { lightPostLarge: model(new THREE.BoxGeometry(0.2, 0.8, 0.1)) }, floodPool };
+  const pools = [];
+  for (const c of baked.manifest.chunks) { const ch = await baked.chunk(c.cx, c.cz); const g = buildChunkObject(THREE, ch, materials, { models }); pools.push(...g.children.filter((m) => m.name.endsWith(':flood-pools'))); }
+  check('every mast gets a wide pool of light: instanced discs sharing the pool geometry and material, as many as there are masts', pools.length >= 3 && pools.every((m) => m.isInstancedMesh && m.geometry === floodPool.geometry && m.material === floodPool.material) && pools.reduce((n, m) => n + m.count, 0) >= 6, `${pools.reduce((n, m) => n + m.count, 0)} pools`);
+}
+
 // ---- the manager driving it: a long walk leaves a bounded scene and frees what it leaves behind
 {
   const scene = new THREE.Group();

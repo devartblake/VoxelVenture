@@ -72,3 +72,7 @@ The bridge decks were flat ribbons. They are now **Kenney City Kit (Roads) 2.2**
 - **Drawing** (`chunkObject.js`): two **instanced meshes** a chunk (the decks, the pillars) that share the model's geometry and material, so a bridge chunk is a few draw calls and the shared geometry is never freed with a chunk. `StreamedWorld` loads the two models once; if they cannot be loaded the bridge is the flat ribbon it was, so nothing breaks.
 - **Collision is unchanged:** a body on the bridge stands at the deck height (`terrain.js` and the tiles read the same `deckHeight`), and the kit's road surface is at the tile's top, so the model and the walkable height agree.
 - **Not done:** the road markings and the rails are the kit's, so they do not yet match the ribbon's colour; the bridge is not lit at night; the corner and ramp pieces of the kit (`road-bridge` is straight only) are not needed for straight causeways.
+
+## Night lighting and the lap clock
+
+The React layer registers the lamps and the pit windows with the game's `registerGlow` (components/city/nightLights.js, driven by `DayNight`) and draws a pool of light under every lamp of the track and of the causeway bridges (an instanced additive disc whose brightness is a glow). The racing track's lap clock (`RaceHud.jsx`) is a DOM overlay shown with `?world=baked` near the circuit. See [racing_track.md](racing_track.md).

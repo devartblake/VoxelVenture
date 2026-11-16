@@ -688,3 +688,14 @@ CREATE TABLE IF NOT EXISTS rollout_items (
   evidence_url TEXT NOT NULL DEFAULT '',
   updated_at INTEGER NOT NULL DEFAULT 0
 );
+
+-- the racing track's lap times (race.mjs): one row for each lap the server timed, never a time the page sent
+CREATE TABLE IF NOT EXISTS race_laps (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  track TEXT NOT NULL,
+  ms INTEGER NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS race_laps_track ON race_laps(track, ms);
+CREATE INDEX IF NOT EXISTS race_laps_account ON race_laps(account_id, track, at);

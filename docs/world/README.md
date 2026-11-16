@@ -18,6 +18,7 @@ These moved here from `architecture/` on 2026-10-18, which now holds the system 
 | [world_recipe.md](world_recipe.md) | The world recipe: the landmasses (a Jamaica mainland, Harbor Isle as Grand Cayman, the Lesser Caymans), the real mountains, the coastal roads, spurs and causeways, global plot ids |
 | [world_bake.md](world_bake.md) | The baked world (`npm run bake:world`), how to grow it safely, the vacant Harbor Town and `WORLD_OPEN` |
 | [streaming_runtime.md](streaming_runtime.md) | The chunk manager, merged chunk geometry and the React layer (`/world/stream`, `?world=baked`) |
+| [racing_track.md](racing_track.md) | The racing track: Voxel Speedway, a closed circuit on the mainland from the shape of the real Dover Raceway (OpenStreetMap) and the Kenney Racing Kit, how it is placed, built and drawn |
 | [player_flight.md](player_flight.md) | A plane the player flies, and flights to Harbor Isle (roadmap task 18) |
 
 The world features players see (boats and piers, the world map, what can go behind a building, interiors) are in [product/](../product/README.md).

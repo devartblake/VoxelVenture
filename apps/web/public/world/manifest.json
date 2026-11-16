@@ -8229,7 +8229,76 @@
    }
   }
  ],
+ "tracks": [
+  {
+   "id": "speedway",
+   "name": "Voxel Speedway",
+   "landmass": "mainland",
+   "shape": "dover-raceway",
+   "osmWay": 247345542,
+   "length": 898.86,
+   "width": 10,
+   "scale": 0.39,
+   "start": {
+    "x": -110.56,
+    "z": -519.99,
+    "heading": -1.5673818432654423,
+    "index": 99
+   },
+   "checkpoints": [
+    {
+     "x": -215.46,
+     "z": -522.94,
+     "index": 144
+    },
+    {
+     "x": -176.01,
+     "z": -581.92,
+     "index": 189
+    },
+    {
+     "x": -152.8,
+     "z": -539.81,
+     "index": 234
+    },
+    {
+     "x": -161.2,
+     "z": -610.87,
+     "index": 279
+    },
+    {
+     "x": -195.18,
+     "z": -632.2,
+     "index": 324
+    },
+    {
+     "x": -95.96,
+     "z": -592.75,
+     "index": 8
+    },
+    {
+     "x": -24.98,
+     "z": -533.57,
+     "index": 53
+    }
+   ],
+   "bounds": {
+    "x0": -263.94,
+    "x1": 23.67,
+    "z0": -681.72,
+    "z1": -469.28
+   },
+   "quads": 1819,
+   "props": 721
+  }
+ ],
  "links": [
+  {
+   "id": "speedway-road",
+   "name": "Voxel Speedway Road",
+   "kind": "track",
+   "length": 34
+  },
   {
    "id": "harbor-isle-harbour-road",
    "name": "Harbor Isle Harbour Road",
@@ -8747,7 +8816,9 @@
    "land": 0.94,
    "plots": 0,
    "roads": 0,
-   "highways": 6
+   "highways": 12,
+   "props": 45,
+   "surface": 38
   },
   {
    "key": "-2_-5",
@@ -8756,7 +8827,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 218,
+   "props": 289,
+   "surface": 1051
   },
   {
    "key": "-2_-4",
@@ -8765,7 +8838,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0,
+   "highways": 18,
+   "props": 57,
+   "surface": 74,
    "heights": true
   },
   {
@@ -8830,7 +8905,8 @@
    "land": 0.76,
    "plots": 0,
    "roads": 0,
-   "highways": 5
+   "highways": 5,
+   "props": 25
   },
   {
    "key": "-1_-5",
@@ -8839,7 +8915,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 128,
+   "props": 227,
+   "surface": 640
   },
   {
    "key": "-1_-4",
@@ -8848,7 +8926,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 0,
+   "props": 56,
+   "surface": 16
   },
   {
    "key": "-1_-3",
@@ -8920,7 +9000,8 @@
    "land": 0.57,
    "plots": 0,
    "roads": 0,
-   "highways": 7
+   "highways": 7,
+   "props": 1
   },
   {
    "key": "0_-5",
@@ -8929,7 +9010,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1
+   "highways": 2,
+   "props": 14
   },
   {
    "key": "0_-4",
@@ -8938,7 +9020,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1
+   "highways": 1,
+   "props": 7
   },
   {
    "key": "0_-3",
@@ -11003,5 +11086,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "f7db6d78f4a01e71"
+ "hash": "41967d9cf6512547"
 }
