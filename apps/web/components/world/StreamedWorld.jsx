@@ -11,6 +11,7 @@ import { buildChunkObject, createChunkMaterials, disposeChunkObject } from '@/li
 import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
 import { useFleet } from '@/lib/state/fleetStore';
+import { applyGroundTexture } from '@/lib/world/groundTexture';
 import { registerGlow } from '@/components/city/nightLights';
 
 // The streaming runtime React layer (roadmap task 11, slice 3; docs/world/streaming_runtime.md). Mounts the baked chunks (public/world, scripts/bake-world.mjs) near the camera or a point the
@@ -92,6 +93,16 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
   const root = useRef(null);
   const camera = useThree((s) => s.camera);
   const materials = useMemo(() => createChunkMaterials(THREE), []);
+  // the grain of the ground (lib/world/groundTexture.js): ambientCG's grass and dirt over the vertex colours; ?groundtex=0 turns it off (to compare)
+  useEffect(() => {
+    if (typeof window === 'undefined' || new URLSearchParams(window.location.search).get('groundtex') === '0') return undefined;
+    let alive = true;
+    const loader = new THREE.TextureLoader();
+    Promise.all([loader.loadAsync(`${base}/ground/grass.jpg`), loader.loadAsync(`${base}/ground/dirt.jpg`)])
+      .then(([grass, dirt]) => { if (alive) applyGroundTexture(THREE, materials.ground, grass, dirt); })
+      .catch(() => {}); // no textures: the vertex colours alone
+    return () => { alive = false; };
+  }, [base, materials]);
   const state = useRef({ manager: null, objects: new Map(), last: null, velocity: { x: 0, z: 0 } });
   const water = useRef(null);
   const seaMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: '#1f6a99', roughness: 0.22, metalness: 0.05, transparent: true, opacity: 0.88 }), []);

@@ -32,6 +32,8 @@ The recordings are served locally from `apps/web/public/audio/music/`; Sideways 
 
 **Pascal Editor (Pascal Group Inc.)**, https://github.com/pascalorg/editor: the interior items (doors, windows, furniture) and materials in `apps/web/public/items/` and `apps/web/public/material/`, the editor’s icons, sounds and cursor (`apps/web/public/icons/`, `audios/`, `cursor.svg`), the shared TypeScript configuration (`vendor/typescript-config/`) and elevation styles (`styles/elevation.css`), and the `@pascal-app/*` packages behind them: the building interiors, the furniture editor (*Redesign inside*) and the `/viewer` page. **MIT** licence, https://opensource.org/license/mit; the licence file and what was copied: [docs/licences/pascal-editor/](docs/licences/pascal-editor/README.md).
 
+**Grass005 and Ground048** by **ambientCG** (Lennart Demes), https://ambientcg.com: the grass and dirt colour maps (re-sized to 512 x 512) that give the baked world's ground its grain (`apps/web/public/world/ground/`). Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. How they were taken: [docs/licences/ambientcg/](docs/licences/ambientcg/README.md).
+
 **Venice Sunset** by **Greg Zaal (Poly Haven)**, https://polyhaven.com/a/venice_sunset: the environment light map of the building interiors and the furniture editor (`apps/web/public/hdri/venice_sunset_1k.hdr`, the 1k HDR, which came with the Pascal editor's files). Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. The saved page and how the file was matched: [docs/licences/polyhaven/](docs/licences/polyhaven/README.md).
 
 **Voxel landmarks** in `apps/web/public/models/vox/`: made for this game.
