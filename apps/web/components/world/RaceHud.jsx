@@ -32,10 +32,10 @@ export default function RaceHud() {
     timer.current = createLapTimer({ points });
     const mid = { x: (track.bounds.x0 + track.bounds.x1) / 2, z: (track.bounds.z0 + track.bounds.z1) / 2 };
     let alive = true;
-    const refresh = () => raceLeaderboard(track.id).then((r) => alive && setBoard(r.board ?? [])).catch(() => {});
+    const refresh = () => raceLeaderboard(track.id, 8, avatarState.vehicle?.spec === 'racecar' ? 'racecar' : 'car').then((r) => alive && setBoard(r.board ?? [])).catch(() => {});
     refresh();
     const board30 = setInterval(refresh, 30000);
-    const tell = (index) => { if (raceLive()) racePass(track.id, index, avatarState.x, avatarState.z).then((r) => { if (r?.event === 'lap') { setView((v) => ({ ...v, last: r.ms, best: r.best, rank: r.rank, note: r.record ? 'A new best lap.' : '' })); refresh(); } }).catch((e) => setView((v) => ({ ...v, note: e?.message ?? '' }))); };
+    const tell = (index) => { if (raceLive()) racePass(track.id, index, avatarState.x, avatarState.z, avatarState.vehicle?.spec === 'racecar' ? 'racecar' : 'car').then((r) => { if (r?.event === 'lap') { setView((v) => ({ ...v, last: r.ms, best: r.best, rank: r.rank, note: r.record ? 'A new best lap.' : '' })); refresh(); } }).catch((e) => setView((v) => ({ ...v, note: e?.message ?? '' }))); };
     const tick = setInterval(() => {
       const t = timer.current;
       const near = Math.hypot(avatarState.x - mid.x, avatarState.z - mid.z) < NEAR;

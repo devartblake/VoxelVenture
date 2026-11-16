@@ -224,7 +224,7 @@ Tests: `tests/currency.test.mjs` (the server's rules), `tests/currency-client.te
 
 ## The racing track's laps (`services/api/race.mjs`)
 
-The server times the laps and keeps the leaderboard: a page says where the avatar is at a point of the circuit, never a time. `POST /race/pass`, `GET /race/leaderboard` (public), `GET /race/me`; the table is `race_laps`; a pass must be near the point, in order, and no further than a car could drive in the time; a lap pays no Gold. Details in [racing_track.md](../world/racing_track.md); tested by `tests/race.test.mjs`.
+The server times the laps and keeps the leaderboard: a page says where the avatar is at a point of the circuit, never a time. `POST /race/pass`, `GET /race/leaderboard` (public), `GET /race/me`; the table is `race_laps`; a pass must be near the point, in order, and no further than a car could drive in the time; a lap pays no Gold; the page also says which vehicle it drives (`car` or `racecar`) and each vehicle has its own board and speed bound. Details in [racing_track.md](../world/racing_track.md); tested by `tests/race.test.mjs`.
 
 ## Player tasks (`services/api/tasks.mjs`)
 

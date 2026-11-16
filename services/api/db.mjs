@@ -10,6 +10,7 @@ export function openDb(file = ':memory:') {
   db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
   db.exec(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'schema.sql'), 'utf8'));
   // columns added after the first version: a database made earlier is upgraded in place
+  addColumn(db, 'race_laps', 'vehicle', "TEXT NOT NULL DEFAULT 'car'");
   addColumn(db, 'accounts', 'email', 'TEXT');
   addColumn(db, 'accounts', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
   addColumn(db, 'accounts', 'email_token', 'TEXT');

@@ -454,7 +454,7 @@ export default function Avatar() {
       const fleet = useFleet.getState();
       for (const c of fleet.parked) {
         const d = Math.hypot(c.x - x, c.z - z);
-        if (d < 1.9) consider(`parked-${c.id}`, 'Drive your car', d / 1.9 - 0.35, () => useFleet.getState().enterParked(c.id));
+        if (d < 1.9) consider(`parked-${c.id}`, c.spec === 'racecar' ? 'Drive the race car' : 'Drive your car', d / 1.9 - 0.35, () => useFleet.getState().enterParked(c.id));
       }
       for (const b of store.layout.boats ?? []) {
         const at = fleet.moved[b.id] ?? b;

@@ -73,6 +73,10 @@ The bridge decks were flat ribbons. They are now **Kenney City Kit (Roads) 2.2**
 - **Collision is unchanged:** a body on the bridge stands at the deck height (`terrain.js` and the tiles read the same `deckHeight`), and the kit's road surface is at the tile's top, so the model and the walkable height agree.
 - **Not done:** the road markings and the rails are the kit's, so they do not yet match the ribbon's colour; the bridge is not lit at night; the corner and ramp pieces of the kit (`road-bridge` is straight only) are not needed for straight causeways.
 
+## Ground texture (2026-11-15)
+
+The ground is coloured per vertex (grass, beach, rock by height, slope and shore), which is smooth up close. `lib/world/groundTexture.js` lays ambientCG's grass and dirt (CC0, `apps/web/public/world/ground/`, 512 x 512 each, about 160 KB together; `docs/licences/ambientcg/`) over those colours as detail: each texture is divided by its own average colour, so it adds grain (light and dark, a little hue) and the vertex colours keep deciding the colour. Grass is on the flat ground and dirt on the steeper slopes (by the surface normal); a second, larger sampling of each breaks up the repeat; the grain fades out between 380 and 900 units from the camera (a far hillside is a smooth colour). It is a shader patch on the shared ground material (`onBeforeCompile`), so it costs no extra geometry or draw calls. `?groundtex=0` turns it off, to compare. Only the Color maps are used (no normal or roughness maps), and the textures are not baked into the chunks. `tests/world-ground-texture.test.mjs`.
+
 ## Night lighting and the lap clock
 
 The React layer registers the lamps and the pit windows with the game's `registerGlow` (components/city/nightLights.js, driven by `DayNight`) and draws a pool of light under every lamp of the track and of the causeway bridges (an instanced additive disc whose brightness is a glow). The racing track's lap clock (`RaceHud.jsx`) is a DOM overlay shown with `?world=baked` near the circuit. See [racing_track.md](racing_track.md).

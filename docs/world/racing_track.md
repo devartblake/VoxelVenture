@@ -54,6 +54,14 @@ Laps are rows in `race_laps` (an additive table). **A lap pays no Gold** (nothin
 
 Eight tall light masts (the Racing Kit's `lightPostLarge` scaled up to 22 units) stand round the circuit, 21 units outside the road and clear of the buildings. They are chosen one at a time: each new mast is the one that lights the most of the road not yet lit, until **every point of the road is within 52 units of a mast** (361 of 361 points; the test checks it), and no two stand side by side. Each throws a wide pool of light (a 56-unit disc, additive, dark by day) over the road, and its lamp bank glows at night; the overlap is kept dim so the circuit reads as evenly lit, not as bright spots. The small lamps at the start and the bridge lamps are separate.
 
+## The drivable race car and its gauges (2026-11-15)
+
+A race car waits at the pole position of the circuit (a parked car, `race-pole`, put by the streaming layer when `?world=baked` is mounted; walk up and press the prompt "Drive the race car"). It is a normal `kind: 'car'` vehicle with `spec: 'racecar'`, so every place that treats cars still works; the spec changes the numbers (`VEHICLES.racecar` in `lib/sim/vehicles.js`): top speed 15 (a city car's is 7), quicker acceleration and brakes (0 to top in about 2 s, a stop in under 1 s), and it turns less sharply the faster it goes (`highSpeedTurn`). It is drawn with the Kenney race car model (`RaceCarModel`, colour picks red, green, orange or white) and seen by other players the same way (the presence `veh` carries `spec`, which the server keeps only for `'racecar'`; `SPEED_CAP.racecar` and `modeOf` give it its own speed cap for the anti-cheat).
+
+**Gauges** (`apps/web/components/ui/Gauges.jsx`, numbers in `lib/sim/gauges.js`, tested by `tests/gauges.test.mjs`): an analogue speedometer (needle, ticks every 20, redline), a digital readout, the gear (R, N, 1 to 6) and a rev bar. The speed is shown in km/h as map units a second times 14, so a race car's top speed reads 210 and a city car's 98; the map is scaled down, so this is a display scale, not real kilometres. The gearbox is for show: the gear and the revs follow the speed.
+
+**Laps by vehicle:** the page says which vehicle it drives in `POST /race/pass` (`vehicle: 'car' | 'racecar'`); the server uses that vehicle's speed cap for the checkpoint bound and the quickest possible lap, and each vehicle has its own leaderboard (`race_laps.vehicle`, `GET /race/leaderboard?vehicle=`, `GET /race/me?vehicle=`). Changing vehicle mid-lap restarts it. Positions are still self-reported: the presence tracker's verification of laps is the next step.
+
 ## Not done
 
 - **Checking laps against the presence tracker's positions** (the server's bounds are in place; this adds a record of where the car really was), and a **drivable race car** (a faster vehicle kind: its own speed cap in `movement.js` and the lap bounds).

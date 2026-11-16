@@ -13,6 +13,7 @@ import { carSurfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
 import { SEA_LEVEL, activeTerrain } from '@/lib/world/terrain';
 import { boatModel } from '@/lib/content/boatModels';
 import { PropModel } from './PropModels';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { fleetRefs, useFleet } from '@/lib/state/fleetStore';
 import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
@@ -51,6 +52,26 @@ export function CarModel({ color }) {
   );
 }
 
+// The race car: the Kenney Racing Kit's (public/models/kenney/racing, CC0), the colour picking the model; until it has loaded, the box car.
+const RACE_MODELS = { '#dc2626': 'raceCarRed', '#16a34a': 'raceCarGreen', '#ea580c': 'raceCarOrange', '#f8fafc': 'raceCarWhite' };
+const raceModelCache = new Map();
+function loadRaceModel(name) {
+  if (!raceModelCache.has(name)) raceModelCache.set(name, new GLTFLoader().loadAsync(`/models/kenney/racing/${name}.glb`).then((g) => g.scene).catch(() => null));
+  return raceModelCache.get(name);
+}
+export function RaceCarModel({ color }) {
+  const name = RACE_MODELS[String(color).toLowerCase()] ?? 'raceCarRed';
+  const [scene, setScene] = React.useState(null);
+  useEffect(() => {
+    let alive = true;
+    loadRaceModel(name).then((s) => { if (alive && s) setScene(s.clone(true)); });
+    return () => { alive = false; };
+  }, [name]);
+  if (!scene) return <CarModel color={color} />;
+  return <group scale={VEHICLES.racecar.scale}><primitive object={scene} position={[-0.305, 0.03, 0.675]} /></group>; // the model's anchor (lib/world/track.js ANCHOR) at the group's origin
+}
+export const CarOf = ({ spec, color }) => (spec === 'racecar' ? <RaceCarModel color={color} /> : <CarModel color={color} />);
+
 // The boat of this kind: the Kenney model (lib/content/boatModels.js), or the box boat until it has loaded.
 export function BoatModel({ kind, color }) {
   const m = boatModel(kind);
@@ -84,6 +105,7 @@ export default function Vehicles() {
   const layout = useCityStore((s) => s.layout);
   const plots = useCityStore((s) => s.plots);
   const parked = useFleet((s) => s.parked);
+  const drivenSpec = useFleet((s) => s.hud?.spec ?? null);
   const drivenKind = useFleet((s) => s.hud?.kind ?? null); // re-render when you get in or out (the vehicle itself changes every frame)
   const water = useMemo(() => waterRects(layout), [layout]);
   const keys = useRef(new Set());
@@ -275,11 +297,11 @@ export default function Vehicles() {
       last.current.prompt = promptKey;
       useWorld.setState({ prompt: { id: `vehicle-${promptKey}`, label, action: v.kind === 'car' ? leave : sailing ? () => useFleet.getState().cancelDock() : fish } });
     }
-    const speed = Math.round(Math.abs(v.speed) * 4) / 4;
-    const hudKey = `${v.kind}|${speed}|${l.phase}|${sailing}`;
+    const speed = Math.round(Math.abs(v.speed) * (v.spec ? 8 : 4)) / (v.spec ? 8 : 4); // (a gauge wants a finer speed)
+    const hudKey = `${v.kind}|${v.spec ?? ''}|${v.speed < -0.15}|${speed}|${l.phase}|${sailing}`;
     if (hudKey !== last.current.hud) {
       last.current.hud = hudKey;
-      useFleet.getState().setHud({ kind: v.kind, speed, phase: l.phase, docking: sailing });
+      useFleet.getState().setHud({ kind: v.kind, spec: v.spec ?? null, reversing: v.speed < -0.15, speed, phase: l.phase, docking: sailing });
     }
 
     // ---- draw it
@@ -304,8 +326,8 @@ export default function Vehicles() {
         </group>
       ))}
       {parked.map((c) => (
-        <group key={c.id} position={[c.x, carSurfaceHeight(layout, c.x, c.z, c.yaw, CAR, plots), c.z]} rotation={[0, c.yaw, 0]}>
-          <CarModel color={c.color} />
+        <group key={c.id} position={[c.x, activeTerrain()?.decides(c.x, c.z) ? activeTerrain().groundY(c.x, c.z) : carSurfaceHeight(layout, c.x, c.z, c.yaw, CAR, plots), c.z]} rotation={[0, c.yaw, 0]}>
+          <CarOf spec={c.spec} color={c.color} />
         </group>
       ))}
       {/* the cars other players left parked */}
@@ -316,7 +338,7 @@ export default function Vehicles() {
       ))}
       {/* the one being driven or sailed */}
       <group ref={driven} visible={false}>
-        {drivenKind === 'boat' ? <BoatModel kind={avatarState.vehicle?.boatKind ?? 'rowboat'} color={avatarState.vehicle?.color ?? '#b45309'} /> : drivenKind === 'car' ? <CarModel color={avatarState.vehicle?.color ?? '#3b82f6'} /> : null}
+        {drivenKind === 'boat' ? <BoatModel kind={avatarState.vehicle?.boatKind ?? 'rowboat'} color={avatarState.vehicle?.color ?? '#b45309'} /> : drivenKind === 'car' ? <CarOf spec={drivenSpec} color={avatarState.vehicle?.color ?? '#3b82f6'} /> : null}
       </group>
       {/* the fishing rod, line and bobber */}
       <mesh ref={(m) => { line.current.rod = m; }} visible={false}><boxGeometry args={[0.025, 0.025, 1.1]} /><meshStandardMaterial color="#78350f" /></mesh>

@@ -90,6 +90,32 @@ const at = (i, ms) => ({ track: 'speedway', index: i, x: points[i].x + 3, z: poi
   check('a point that is not on the track is refused (bad_point)', err?.code === 'bad_point');
 }
 
+// ---- the race car: its own pace, its own board
+{
+  race.resetRuns();
+  const t0 = 1_800_000_200_000;
+  const RACE_MS = Math.round((tr.length / SPEED_CAP.racecar) * 1000);
+  const fastStep = Math.round(RACE_MS / 8 * 1.25);
+  const lapWith = (account, vehicle) => {
+    race.pass(db, account, { ...at(0), vehicle }, t0);
+    let t = t0, last;
+    for (let i = 1; i <= 8; i++) { t += fastStep; last = race.pass(db, account, { ...at(i % 8), vehicle }, t); }
+    return last;
+  };
+  let err = null;
+  try { lapWith(A, 'car'); } catch (e) { err = e; }
+  check('a lap at a race car pace is refused for a plain car (too_fast): the bound follows the vehicle the page says it drives', err?.code === 'too_fast');
+  race.resetRuns();
+  db.prepare('DELETE FROM race_laps').run();
+  const lap = lapWith(A, 'racecar');
+  check('the same lap is kept for the race car, with a time near the circuit at the race car top speed', lap.event === 'lap' && lap.ms >= RACE_MS * 0.9, `${lap.ms} ms`);
+  check('each vehicle has its own board: the lap is on the race car board and not on the car board', race.leaderboard(db, 'speedway', 10, 'racecar').board.length === 1 && race.leaderboard(db, 'speedway', 10, 'car').board.length === 0 && race.leaderboard(db, 'speedway', 10, 'racecar').vehicle === 'racecar');
+  check('your own page follows the vehicle too, and an unknown vehicle is the plain car', race.mine(db, A, 'speedway', 'racecar').best === lap.ms && race.mine(db, A, 'speedway', 'car').best === null && race.leaderboard(db, 'speedway', 10, 'tank').vehicle === 'car');
+  race.resetRuns();
+  race.pass(db, A, { ...at(0), vehicle: 'racecar' }, t0);
+  check('changing vehicle in the middle of a lap starts it over: a checkpoint of the other vehicle is ignored', race.pass(db, A, { ...at(1), vehicle: 'car' }, t0 + 30_000).event === 'ignored');
+}
+
 // ---- the leaderboard
 {
   db.prepare('DELETE FROM race_laps').run();
