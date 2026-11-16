@@ -50,6 +50,10 @@ Outside music (task 39) was explicitly requested by the user on 2026-10-16 and a
 
 When in doubt: if the change helps a business get found, convert a visitor, measure a result or pay, it continues. If it makes the world bigger or prettier, it waits.
 
+## Exception: the owner's requests of 2026-11-15 (race car, ground texture, kit items, yards, designer)
+
+The owner asked, in terms, for each of these, so each commit carries a `World-freeze-exception:` trailer naming the request: a drivable race car with speed gauges (`lib/sim/gauges.js`, `Gauges.jsx`), ambientCG grass and dirt on the baked ground (`lib/world/groundTexture.js`, two files in `apps/web/public/world/ground/`), Food Kit and City Kit (Industrial) items in the furniture menu by business type (`lib/content/kitItems.js`, models under `apps/web/public/models/kenney/{food,industrial}`), yards made of models behind the building (`lib/content/yardModels.js`, more Nature Kit models, `/dev/yards`), and a building designer from Building Kit pieces (`lib/content/modularBuild.js`, `apps/web/public/models/kenney/building`, `/dev/buildings`). Nothing else of the world changes: no plot, road or collision is touched (a designed building keeps its box), and no new asset ships except the models and textures those features use (`asset-admission` checks every one).
+
 ## Exception: presence-verified positions
 
 `lib/world/placeGeometry.js` reads the city and adds nothing to it: no plots, roads or props change. It is the scoped exception under which the check is run for the presence-tracker branch.

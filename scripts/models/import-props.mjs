@@ -1,7 +1,7 @@
 // Imports Kenney's Nature Kit (trees, bushes) and Car Kit (cars) into apps/web/public/models/kenney/ and writes lib/content/propCatalog.js.
 //   node scripts/models/import-props.mjs <folder containing nature-kit/ and car-kit/ as unzipped from kenney.nl>
 //   node scripts/models/import-props.mjs <folder> --only watercraft,pirate,coaster    add or refresh just these kits (the others in the catalog are kept)
-// Kits: nature-kit, car-kit, watercraft (Watercraft Kit), pirate (Pirate Kit), coaster (Coaster Kit).
+// Kits: nature-kit, city-kit-industrial, building-kit, car-kit, watercraft (Watercraft Kit), pirate (Pirate Kit), coaster (Coaster Kit).
 // (CC0, https://kenney.nl.) Files are only copied and their headers read.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,7 +17,13 @@ if (!source) {
   process.exit(1);
 }
 const KITS = {
-  nature: { folder: 'nature-kit', dir: 'GLTF format', textured: false, models: { tree: ['tree_default', 'tree_oak', 'tree_simple', 'tree_fat', 'tree_pineTallA', 'tree_pineRoundA', 'tree_small'], bush: ['plant_bush', 'plant_bushLarge', 'plant_bushSmall'] } },
+  nature: { folder: 'nature-kit', dir: 'GLTF format', textured: false, models: { tree: ['tree_default', 'tree_oak', 'tree_simple', 'tree_fat', 'tree_pineTallA', 'tree_pineRoundA', 'tree_small'], bush: ['plant_bush', 'plant_bushLarge', 'plant_bushSmall'],
+    // the yards behind owners' buildings (lib/content/yardModels.js): palms, flowers, fences, rocks, logs, crops and a campfire
+    yard: ['tree_palm', 'tree_palmBend', 'tree_palmShort', 'tree_palmTall', 'tree_palmDetailedShort', 'flower_redA', 'flower_yellowA', 'flower_purpleA', 'grass_large', 'plant_flatTall', 'fence_simple', 'fence_planks', 'fence_gate', 'fence_corner',
+      'rock_smallA', 'rock_largeA', 'stone_largeA', 'stump_round', 'log', 'log_stack', 'mushroom_red', 'crop_pumpkin', 'crop_melon', 'crop_carrot', 'cactus_short', 'campfire_stones', 'pot_large', 'sign', 'tent_smallOpen', 'path_stone'] } },
+  // the Building Kit's walls, windows, doorways, corners and roof edge: the owner's kit-built outside (lib/content/modularBuild.js)
+  building: { folder: 'building-kit', dir: 'GLB format', textured: true, models: { piece: ['wall', 'wall-window-square', 'wall-window-round', 'wall-window-wide-square', 'wall-doorway-square', 'wall-doorway-round', 'wall-corner', 'wall-corner-column', 'wall-corner-round', 'border', 'border-corner', 'border-high', 'border-high-corner'] } },
+  industrial: { folder: 'city-kit-industrial', dir: 'GLB format', textured: true, models: { yard: ['shipping-container-a', 'shipping-container-b', 'shipping-container-c', 'detail-tank', 'detail-tank-large', 'chimney-small', 'solar-panel-landscape-group'] } },
   watercraft: { folder: 'watercraft', dir: 'GLB format', textured: true, models: { boat: ['boat-row-small', 'boat-row-large', 'boat-fishing-small', 'boat-sail-a', 'boat-sail-b', 'boat-speed-a', 'boat-speed-b', 'boat-speed-d', 'boat-tow-a'], buoy: ['buoy', 'buoy-flag'], dock: ['ramp', 'ramp-wide'] } },
   pirate: { folder: 'pirate', dir: 'GLB format', textured: true, models: { dock: ['structure-platform-dock', 'structure-platform-dock-small', 'structure-platform', 'structure-platform-small', 'platform', 'platform-planks'], deco: ['barrel', 'crate'] } },
   coaster: {

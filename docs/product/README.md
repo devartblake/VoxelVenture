@@ -13,7 +13,9 @@ Documents are stored in their primary topic directories. Related service and dep
 | [business_funnel.md](business_funnel.md) |
 | [community.md](community.md) |
 | [interiors_fixtures.md](interiors_fixtures.md) |
+| [kit_items.md](kit_items.md) |
 | [market.md](market.md) |
+| [yard_items.md](yard_items.md) |
 | [overview.md](overview.md) |
 | [pilot_tour.md](pilot_tour.md) |
 | [sales_funnel_proposal.md](sales_funnel_proposal.md) |

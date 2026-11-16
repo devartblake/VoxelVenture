@@ -2,7 +2,11 @@
 
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { backInstances } from '@/lib/content/backyards';
+import { backInstances, backModelItems } from '@/lib/content/backyards';
+import { yardPreset } from '@/lib/content/yardModels';
+import { BUILD_PIECE_IDS, MAX_PIECES, buildPieces } from '@/lib/content/modularBuild';
+import { PROP_CATALOG } from '@/lib/content/propCatalog';
+import PropInstances, { usePropsReady } from './PropModels';
 import { crownInstances } from '@/lib/content/crowns';
 import { modelFor } from '@/lib/content/models';
 import { useDraft } from '@/lib/state/draftStore';
@@ -31,6 +35,16 @@ export default function Crowns({ plots }) {
     }),
     []
   );
+  const draftList = useMemo(() => (draft ? [...plots.filter((p) => p.id !== draft.id), draft] : plots), [plots, draft]);
+  // the yards made of models: only the models the chosen yards use are loaded, and drawn once they have
+  const yardIds = useMemo(() => [...new Set(draftList.filter((p) => p.owner && yardPreset(p.exterior?.back)).flatMap((p) => yardPreset(p.exterior.back).models.map((m) => m.id)))], [draftList]);
+  const yardReady = usePropsReady(yardIds);
+  // buildings designed from kit pieces (lib/content/modularBuild.js): their pieces are loaded only when a built plot has a design
+  const designed = useMemo(() => draftList.filter((p) => p.owner && p.exterior?.build), [draftList]);
+  const pieceIds = useMemo(() => (designed.length ? BUILD_PIECE_IDS : []), [designed.length]);
+  const piecesReady = usePropsReady(pieceIds);
+  const pieceItems = useMemo(() => (piecesReady ? designed.flatMap((p) => buildPieces(p, p.exterior.build, PROP_CATALOG)).slice(0, MAX_PIECES) : []), [piecesReady, designed]);
+  const yardItems = useMemo(() => (yardReady ? backModelItems(draftList, plots, PROP_CATALOG) : []), [yardReady, draftList, plots]);
   const instances = useMemo(() => {
     const list = draft ? [...plots.filter((p) => p.id !== draft.id), draft] : plots;
     return [...crownInstances(list, (p) => modelFor(p)?.height ?? p.height ?? 1.2), ...backInstances(list, plots)];
@@ -66,6 +80,8 @@ export default function Crowns({ plots }) {
 
   return (
     <group name="crowns">
+      {yardItems.length > 0 && <PropInstances items={yardItems} />}
+      {pieceItems.length > 0 && <PropInstances items={pieceItems} shadows={false} />}
       {Object.keys(SHAPES).map((shape) => (
         <instancedMesh
           key={shape}

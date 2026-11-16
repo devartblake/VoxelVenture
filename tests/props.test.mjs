@@ -11,7 +11,7 @@ for (const m of PROP_CATALOG) {
   const file = path.join(root, 'apps', 'web', 'public', m.url);
   if (!fs.existsSync(file) || fs.readFileSync(file).readUInt32LE(0) !== 0x46546c67) bad('every prop file exists and is a .glb', m.url);
   if (m.textured && !fs.existsSync(path.join(root, 'apps', 'web', 'public', 'models', 'kenney', m.kit, 'Textures', 'colormap.png'))) bad('a textured kit has its colormap', m.kit);
-  if (!(m.h > 0.1 && m.tris > 10 && m.tris < 4000)) bad('a prop has a sane size and triangle count', m.id);
+  if (!(m.h > (m.cls === 'yard' ? 0.04 : 0.1) && m.tris > 10 && m.tris < 4000)) bad('a prop has a sane size and triangle count', m.id);
 }
 for (const cls of ['tree', 'bush', 'car', 'truck']) if (PROP_CATALOG.filter((m) => m.cls === cls).length < 2) bad('at least two models of each kind', cls);
 
@@ -46,7 +46,7 @@ for (const t of Array.from({ length: 200 }, (_, i) => ({ x: i * 1.7, z: i * 0.9,
   const id = treeModelFor(t, undefined, { park: true }).id;
   if (/palm|pine/i.test(id)) bad('park trees are leafy, no palms or pines', id);
 }
-if (PROP_CATALOG.some((m) => /palm/i.test(m.id))) bad('no palm trees are imported', '');
+if (PROP_CATALOG.some((m) => /palm/i.test(m.id) && m.cls === 'tree')) bad('no palm trees among the trees the city plants (palms are yard models: lib/content/yardModels.js)', '');
 if (!bushModelFor({ x: 1, z: 2, w: 0.4 })) bad('bushes get a model', '');
 console.log(`${trees} trees in 10 cities use ${used.size} models`);
 console.log(total() === 0 ? 'ALL OK' : `${total()} problems`);

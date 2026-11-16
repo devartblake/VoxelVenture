@@ -91,7 +91,7 @@ export const propMaterial = (materials, entry) => (entry.textured ? materials[ma
 
 const tmp = new THREE.Object3D();
 const col = new THREE.Color();
-function Group({ id, rows }) {
+function Group({ id, rows, shadows }) {
   const ref = useRef(null);
   const { geometries, materials } = useProps.getState();
   const entry = byId.get(id);
@@ -105,10 +105,11 @@ function Group({ id, rows }) {
       const [ox, oy, oz] = r.offset;
       tmp.position.set(r.x + ox * cos + oz * sin, r.y + oy, r.z - ox * sin + oz * cos);
       tmp.rotation.set(0, r.rotY, 0);
-      tmp.scale.setScalar(r.scale);
+      if (r.scaleV) tmp.scale.set(r.scaleV[0], r.scaleV[1], r.scaleV[2]);
+      else tmp.scale.setScalar(r.scale);
       tmp.updateMatrix();
       mesh.setMatrixAt(i, tmp.matrix);
-      mesh.setColorAt(i, col.set(r.tint ?? '#ffffff'));
+      mesh.setColorAt(i, Array.isArray(r.tint) ? col.setRGB(r.tint[0], r.tint[1], r.tint[2]) : col.set(r.tint ?? '#ffffff')); // a tint is a colour, or [r, g, b] (which may be over 1: a brighter-than-the-texture instance)
     });
     mesh.count = rows.length;
     mesh.instanceMatrix.needsUpdate = true;
@@ -123,29 +124,30 @@ function Group({ id, rows }) {
         ref.current = m;
       }}
       args={[geometries[id], propMaterial(materials, entry), Math.max(1, rows.length)]}
-      castShadow
-      receiveShadow
+      castShadow={shadows}
+      receiveShadow={shadows}
       frustumCulled={false}
     />
   );
 }
 
 // Draws static props: items = [{ x, z, y?, tint?, model: { id, scale, rotY, offset } | null }]. An item whose model has not loaded is skipped.
-export default function PropInstances({ items }) {
+// `shadows` false for a skin laid a hair over something else (the pieces of a designed building over its box): they would fight its shadow and come out dark.
+export default function PropInstances({ items, shadows = true }) {
   const geometries = useProps((s) => s.geometries);
   const groups = useMemo(() => {
     const out = new Map();
     for (const it of items) {
       if (!it.model || !geometries[it.model.id]) continue;
       if (!out.has(it.model.id)) out.set(it.model.id, []);
-      out.get(it.model.id).push({ x: it.x, y: it.y ?? 0, z: it.z, tint: it.tint, scale: it.model.scale, rotY: it.model.rotY ?? 0, offset: it.model.offset });
+      out.get(it.model.id).push({ x: it.x, y: it.y ?? 0, z: it.z, tint: it.tint, scale: it.model.scale, scaleV: it.model.scaleV, rotY: it.model.rotY ?? 0, offset: it.model.offset });
     }
     return out;
   }, [items, geometries]);
   return (
     <group>
       {[...groups.entries()].map(([id, rows]) => (
-        <Group key={`${id}-${rows.length}`} id={id} rows={rows} />
+        <Group key={`${id}-${rows.length}`} id={id} rows={rows} shadows={shadows} />
       ))}
     </group>
   );

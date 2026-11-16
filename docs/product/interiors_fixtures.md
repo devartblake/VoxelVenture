@@ -12,6 +12,8 @@ The owner says what the business is when claiming (shop, restaurant, office, hou
 
 To change what a kind of business gets, edit `BUSINESS_KITS` (the group ids and the `essentials` pattern); `tests/business-fixtures.test.mjs` checks that every business type and layout has a kit, a sensible essentials list, and that "show all" still reaches all 110 items.
 
+The kit items (Kenney Food Kit and City Kit (Industrial): food and drink, market produce, containers and tanks) are three more groups in the same menu: see [kit_items.md](kit_items.md).
+
 ## Prices, and what a business is worth
 Prices are yours to set; **every price starts at 0**, so nothing about a business's worth changes until you fill them in. The worth of a business is the place (its plot or store value) plus the fixtures in it, scaled by a factor:
 
