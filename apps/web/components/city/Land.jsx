@@ -4,8 +4,9 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { groundTexture } from './groundTextures';
 
+import { TOWN_GROUND_TOP } from '@/lib/world/datum';
 const THICKNESS = 0.6;
-const TOP_Y = 0.004; // just above the dark backdrop grid, below every road, lawn and shore
+const TOP_Y = TOWN_GROUND_TOP; // just above the dark backdrop grid, below every road, lawn and shore (lib/world/datum.js)
 
 // The ground the city stands on: a grass-green slab with a soil edge, so the city, its water and the
 // open country between read as one piece of land with a clear boundary, rather than floating in the void.

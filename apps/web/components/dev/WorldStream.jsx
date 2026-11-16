@@ -38,6 +38,10 @@ export default function WorldStream() {
   const free = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cam') === 'free'; // ?cam=free: fly (the tunnel spike), instead of orbiting
   const camAt = useRef({ x: target.x, z: target.z });
   const route = useRoute();
+  // ?skiptown=1: the game's own arrangement round the first town (lib/world/townJoin.js): the chunks wholly inside the town's land are left out, those that overlap it are joined, and a plain slab stands for the town's land (docs/world/datum.md, "The town border")
+  const [townLand, setTownLand] = useState(null);
+  const skipTown = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('skiptown') === '1';
+  React.useEffect(() => { if (skipTown) fetch('/world/manifest.json').then((r) => r.json()).then((m) => setTownLand(m.towns[0].land)).catch(() => {}); }, [skipTown]);
   // ?datum=1: the world's datum drawn as grids at every named height, with a legend (components/dev/DatumOverlay.jsx)
   const [datum, setDatum] = useState(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('datum') === '1');
   const datumLayers = useDatumLayers(manifest);
@@ -81,7 +85,8 @@ export default function WorldStream() {
         <Suspension />
         <ArchBridge />
         {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '1' && <TunnelSpike />}
-        <StreamedWorld profile={profile} focus={focus} onReady={onReady} />
+        {skipTown && townLand && <mesh position={[(townLand.x0 + townLand.x1) / 2, 0.004 - 0.3, (townLand.z0 + townLand.z1) / 2]}><boxGeometry args={[townLand.x1 - townLand.x0, 0.6, townLand.z1 - townLand.z0]} /><meshStandardMaterial color="#4d8a4d" /></mesh>}
+        <StreamedWorld profile={profile} focus={focus} onReady={onReady} town={skipTown && townLand ? townLand : null} />
       </Canvas>
     </div>
   );

@@ -36,13 +36,25 @@ No value changed: they are what the game already used. `layers()` lists every ab
 2. **A deck's height is measured from 0**, so a causeway's clearance over the water is 0.3 more than its number (9.3, not 9). Harmless, but a bridge built "9 over the water" must say so (`overSea`).
 3. **The animals swim at 0.035**, not at the town water (0.026).
 
-And the biggest one, step 5 of the plan: where the town's flat ground meets the baked terrain at the town border, the two ground models are checked against each other only by the town skip (chunks the game draws itself); there is no test that the heights agree at the join.
+(The join between the town's flat ground and the baked terrain is now tested: see "The town border" below.)
 
 ## The overlay: `/world/stream?datum=1`
 
 A grid and a faint sheet at every named height, centred on where you are looking (follow it with the orbit or the free camera: `&cam=free`), with a legend: each layer's height, name and note, a checkbox for each, the camera's height, and the unsettled disagreements. A **Datum** button on the page toggles it. It is a development tool and nothing in the game uses it (`apps/web/components/dev/DatumOverlay.jsx`).
 
+## The town border (step 5, 2026-11-16)
+
+Checking the join between the first town and the baked world found a real gap, and it is fixed.
+
+- **Heights agree.** The baked ground in the 16 chunks that overlap the town's land, and for 60 units beyond them, is exactly the town ground (0): no step at the join. The first hills rise about 80 units further out (4 to 7 units high).
+- **There was a frame of ground that nothing drew.** The game left out every baked chunk that overlapped the town's land and drew the town's own land slab instead. But a chunk is 128 units square and the land is not a whole number of chunks, so round the town there was a frame of ground 97 units wide on the west, 69 on the east and north and 51 on the south (126,000 square units) that neither the town nor a chunk drew: **the sea showed through round the town, and the roads from the ring to the town's gates stopped short** (the spurs inside the left-out chunks were not drawn). Seen on the development page with the game's arrangement (`/world/stream?skiptown=1`): `gallery/join_a.webp`.
+- **The join** (`lib/world/townJoin.js`): a chunk wholly inside the town's land is still left out (the town covers it, 4 chunks); a chunk that only overlaps it is **drawn with its ground, lowered 0.08 so the town's slab (0.004 over the ground) wins where they lie together, and with its highways cut to the part outside the land** (the baked streets, plots and props are the town's own and are dropped; a bridge is never cut). `terrain.js` still treats every overlapping chunk as the town's, so collision there is unchanged. `StreamedWorld` takes the town's land as `town` and `CityCanvas` passes `layout.land`.
+- **Tested** by `tests/town-join.test.mjs`: the manifest's land is the game's; heights; **126,512 square units undrawn before the join, 0 after**; the clipping of a segment outside, crossing, inside and through the land; and on the real chunks no highway piece is left inside the land and the spurs that reach the town are kept (10) and cut at its edge (4).
+- **New datum entry:** the town's land slab is 0.004 over the ground (`TOWN_GROUND_TOP`, used by `Land.jsx`), another small disagreement, listed in `DATUM_ISSUES`.
+
+Not checked in a full game session: only the development page's arrangement (a plain slab for the town) was looked at, from above and at a grazing angle (the stripes in `join_d` are the dev page's depth precision at a near plane of 0.05; from above the join is clean, `join_f`).
+
 ## Next steps
 
 - **Step 2, the rest of the systems:** the avatar and cars on the town and the join, interiors, the plots' `y`, the lamp pools and kerb heights (`lib/world/bridgeDeckSpec.js`), the track's paint layers (`PALETTE` in `track.js`): move them onto the datum and widen the guard's file list as each moves.
-- **Step 5:** reconcile the town's water with the sea, and add a test of the heights where the town meets the baked terrain.
+- **Step 5, the rest:** reconcile the town's water with the sea (0.326) and the town slab's 0.004.

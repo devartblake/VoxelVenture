@@ -20,6 +20,7 @@ if (Math.abs(D.overSea(9) - 9.3) > 1e-9) bad('a deck 9 high is 9.3 over the wate
 const ls = D.layers();
 if (new Set(ls.map((l) => l.id)).size !== ls.length || ls.some((l) => !Number.isFinite(l.y) || !/^#[0-9a-f]{6}$/.test(l.color) || !l.label)) bad('every layer has a unique id, a height, a colour and a label', '');
 const y = (id) => ls.find((l) => l.id === id).y;
+if (!(y('townTop') > D.TOWN_GROUND && y('townTop') < D.LIFT.road)) bad('the town slab is a hair over the town ground, under the roads', String(y('townTop')));
 if (!(y('tunnelFloor') < y('tunnelRoof') && y('tunnelRoof') < y('sea') && y('sea') > y('seaFloor') && y('deck') > y('sea') + 5)) bad('the layers stack: the tunnel under the sea, the deck high over it', '');
 
 // ---- every system reads the datum
@@ -37,9 +38,9 @@ for (const c of manifest.causeways) if (!(c.clearance >= 8 && D.overSea(c.cleara
 
 // ---- what is still unsettled is listed, and listed honestly
 const ids = D.DATUM_ISSUES.map((i) => i.id).sort().join();
-if (ids !== 'animal-water,deck-from-ground,town-water-vs-sea') bad('the known disagreements: the town water against the sea, decks from the ground, the animals', ids);
+if (ids !== 'animal-water,deck-from-ground,town-top,town-water-vs-sea') bad('the known disagreements: the town water against the sea, decks from the ground, the town slab, the animals', ids);
 const gap = (id) => D.DATUM_ISSUES.find((i) => i.id === id).gap;
-if (Math.abs(gap('town-water-vs-sea') - (D.TOWN_WATER - D.SEA_LEVEL)) > 1e-9 || Math.abs(gap('deck-from-ground') + D.SEA_LEVEL) > 1e-9 || Math.abs(gap('animal-water') - 0.009) > 1e-9) bad('each disagreement states its real size', '');
+if (Math.abs(gap('town-water-vs-sea') - (D.TOWN_WATER - D.SEA_LEVEL)) > 1e-9 || Math.abs(gap('deck-from-ground') + D.SEA_LEVEL) > 1e-9 || Math.abs(gap('animal-water') - 0.009) > 1e-9 || gap('town-top') !== D.TOWN_GROUND_TOP) bad('each disagreement states its real size', '');
 
 // ---- the sources do not grow a height of their own
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
