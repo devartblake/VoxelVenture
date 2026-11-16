@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { useFrame, useThree } from '@react-three/fiber';
 import { loadBakedWorld } from '@/lib/world/bakedWorld';
 import { createChunkManager } from '@/lib/world/chunkManager';
@@ -14,6 +15,24 @@ import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 //   window.__vvStreamedWorld: { ready, mounted, mounts, unmounts, loads, triangles, drawCalls, profile, focus } for the tests and the dev page.
 const stats = { ready: false, mounted: 0, mounts: 0, unmounts: 0, loads: 0, triangles: 0, drawCalls: 0, profile: '', focus: null };
 if (typeof window !== 'undefined') window.__vvStreamedWorld = stats;
+
+// The causeway bridge models: the Kenney City Kit (Roads) deck and pillar (public/models/kenney/roads, CC0, docs/licences/kenney/). Loaded once and shared by every chunk; if they cannot be loaded the
+// bridges are flat ribbons (chunkMesh.js), so nothing breaks.
+let bridgeModels = null;
+function loadBridgeModels() {
+  bridgeModels ??= (async () => {
+    const loader = new GLTFLoader();
+    const first = async (file) => {
+      const gltf = await loader.loadAsync(`/models/kenney/roads/${file}`);
+      let found = null;
+      gltf.scene.traverse((o) => { if (!found && o.isMesh) found = { geometry: o.geometry, material: o.material }; });
+      if (!found) throw new Error(`${file} has no mesh`);
+      return found;
+    };
+    return { deck: await first('road-bridge.glb'), pillar: await first('bridge-pillar-wide.glb') };
+  })().catch(() => null);
+  return bridgeModels;
+}
 
 export const SEA_LEVEL = -0.3; // the water plane: the shallows (ground sloping to -1.5 beyond the coast) meet it a little out from the shore
 
@@ -35,13 +54,14 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       try {
         baked = await loadBakedWorld(async (name) => { const r = await fetch(`${base}/${name}`); if (!r.ok) throw new Error(`${name}: ${r.status}`); return r.json(); });
       } catch { return; } // no baked world here: draw nothing
+      const models = await loadBridgeModels(); // null when they cannot be loaded: the bridges are then ribbons
       if (cancelled) return;
       // the manager only knows the chunks the caller has not skipped
       const known = skip ? { ...baked, manifest: { ...baked.manifest, chunks: baked.manifest.chunks.filter((c) => !skip(c)) } } : baked;
       st.manager = createChunkManager(known, {
         profile,
         onMount: (chunk) => {
-          const group = buildChunkObject(THREE, chunk, materials);
+          const group = buildChunkObject(THREE, chunk, materials, { models });
           objects.set(`${chunk.cx}_${chunk.cz}`, group);
           parent?.add(group);
           stats.mounts++; stats.mounted = objects.size; stats.triangles += group.userData.triangles; stats.drawCalls += group.children.length;
@@ -74,6 +94,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       });
       setActiveTerrain(terrain);
       stats.sample = (x, z) => terrain.sample(x, z);
+      stats.bridgeModels = Boolean(models);
       stats.ready = true; stats.profile = profile;
       onReady?.(baked.manifest);
     })();
