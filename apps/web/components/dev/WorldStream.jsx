@@ -6,7 +6,7 @@ import { applyGlow } from '@/components/city/nightLights';
 import { OrbitControls } from '@react-three/drei';
 import StreamedWorld from '@/components/world/StreamedWorld';
 import Train from '@/components/world/Train';
-import TunnelSpike from '@/components/dev/TunnelSpike';
+import TunnelSpike, { FreeCam, startFromQuery, useRoute } from '@/components/dev/TunnelSpike';
 
 // DEVELOPMENT TOOL: the baked world (public/world) streamed by the chunk manager and flown over with an orbit camera, so the React layer of roadmap task 11 can be seen working without the game.
 // The point the orbit controls look at is the focus, so dragging or the jump buttons make chunks mount and unmount. ?profile=phone|desktop|overview. window.__vvStreamedWorld (StreamedWorld.jsx) has the counts.
@@ -32,9 +32,12 @@ export default function WorldStream() {
   const [night, setNight] = useState(false);
   const [offset, setOffset] = useState(look.length === 5 && look.every(Number.isFinite) ? look.slice(2) : [150, 130, 260]);
   const controls = useRef(null);
+  const free = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cam') === 'free'; // ?cam=free: fly (the tunnel spike), instead of orbiting
+  const camAt = useRef({ x: target.x, z: target.z });
+  const route = useRoute();
   const profile = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('profile') || 'desktop' : 'desktop';
   const onReady = useCallback((m) => setManifest(m), []);
-  const focus = useCallback(() => (controls.current ? { x: controls.current.target.x, z: controls.current.target.z } : { x: target.x, z: target.z }), [target]);
+  const focus = useCallback(() => (free ? { x: camAt.current.x, z: camAt.current.z } : controls.current ? { x: controls.current.target.x, z: controls.current.target.z } : { x: target.x, z: target.z }), [target, free]);
   const places = manifest ? [
     ['Voxel Town', ...centre(manifest.towns[0].land)],
     ['Harbor Town', ...centre(manifest.towns[1].land)],
@@ -52,14 +55,18 @@ export default function WorldStream() {
         ))}
         <button onClick={() => setNight((v) => !v)} style={{ padding: '2px 8px' }}>{night ? 'Day' : 'Night'}</button>
       </div>
-      <Canvas camera={{ fov: 50, near: 1, far: 6000 }} gl={{ antialias: true }}>
+      <Canvas camera={{ fov: free ? 70 : 50, near: free ? 0.05 : 1, far: 6000 }} gl={{ antialias: true }}>
         <color attach="background" args={[night ? '#04070d' : '#0b1b33']} />
         <fog attach="fog" args={[night ? '#04070d' : '#0b1b33', 600, 2600]} />
         <hemisphereLight args={['#bcd4ff', '#2a3a22', night ? 0.12 : 0.7]} />
         <directionalLight position={[-500, 260, 300]} intensity={night ? 0.25 : 2.6} color="#fff1d6" />
         <Night on={night} />
-        <Rig target={target} offset={offset} />
-        <OrbitControls ref={controls} key={`${target.x},${target.z}`} target={[target.x, 0, target.z]} maxPolarAngle={Math.PI / 2.05} maxDistance={2500} />
+        {free ? (route && <FreeCam start={startFromQuery(route)} onMove={(p) => { camAt.current.x = p.x; camAt.current.z = p.z; }} />) : (
+          <>
+            <Rig target={target} offset={offset} />
+            <OrbitControls ref={controls} key={`${target.x},${target.z}`} target={[target.x, 0, target.z]} maxPolarAngle={Math.PI / 2.05} maxDistance={2500} />
+          </>
+        )}
         <Train />
         {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '1' && <TunnelSpike />}
         <StreamedWorld profile={profile} focus={focus} onReady={onReady} />
