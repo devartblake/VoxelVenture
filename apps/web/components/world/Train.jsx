@@ -24,12 +24,16 @@ const pos = new THREE.Vector3();
 const scl = new THREE.Vector3(TRAIN.scale, TRAIN.scale, TRAIN.scale);
 
 // yaw about the vertical, then the slope (a positive pitch is nose up, which is a negative turn about x)
-const place = (m, x, y, z, yaw, pitch) => {
+// `shift` moves the model in its own frame first, in model units (the rail's origin is not its middle: it runs 0 to 4 along z and lies 1 below y 0, the catalogue's cz = 2 and y0 = -1)
+const shiftV = new THREE.Vector3();
+const place = (m, x, y, z, yaw, pitch, shift = null) => {
   euler.set(-pitch, yaw, 0);
   quat.setFromEuler(euler);
   pos.set(x, y, z);
+  if (shift) pos.add(shiftV.set(shift[0], shift[1], shift[2]).multiplyScalar(TRAIN.scale).applyQuaternion(quat));
   return m.compose(pos, quat, scl);
 };
+const RAIL_SHIFT = [0, 1, -2]; // (-cx, -y0, -cz) of railroad-straight: its middle to the tile's middle, its underside to the rail height
 
 function Station({ line, which, tick }) {
   const st = useMemo(() => station(line, which), [line, which]);
@@ -79,7 +83,7 @@ export default function Train() {
   useLayoutEffect(() => {
     const mesh = rails.current;
     if (!mesh || !tiles.length) return;
-    tiles.forEach((t, i) => mesh.setMatrixAt(i, place(mat, t.x, t.y, t.z, t.yaw, t.pitch)));
+    tiles.forEach((t, i) => mesh.setMatrixAt(i, place(mat, t.x, t.y, t.z, t.yaw, t.pitch, RAIL_SHIFT)));
     mesh.count = tiles.length;
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();

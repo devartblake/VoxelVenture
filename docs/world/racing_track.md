@@ -62,6 +62,10 @@ A race car waits at the pole position of the circuit (a parked car, `race-pole`,
 
 **Laps by vehicle:** the page says which vehicle it drives in `POST /race/pass` (`vehicle: 'car' | 'racecar'`); the server uses that vehicle's speed cap for the checkpoint bound and the quickest possible lap, and each vehicle has its own leaderboard (`race_laps.vehicle`, `GET /race/leaderboard?vehicle=`, `GET /race/me?vehicle=`). Changing vehicle mid-lap restarts it. Positions are still self-reported: the presence tracker's verification of laps is the next step.
 
+## Anchors (fixed 2026-11-16)
+
+Every Racing Kit model sits at a node offset of (-0.35, -0.65) in its file, which the loader keeps, but the anchors in `lib/world/track.js` had been measured without it, so every prop (barriers, lamps, masts, grandstands, tents, pits, trees and the cars on the grid) stood about half a model-width to a few units from the place it was given, in the same direction: one barrier line close to the road and the other far from it, and lamps off the edge. `ANCHOR` is now the measured point plus `NODE_OFFSET`, and `tests/track-anchors.test.mjs` checks that every anchor lies on its model as drawn. Positions in the baked world did not change (the anchors are only used when drawing), so no re-bake.
+
 ## Not done
 
 - **Checking laps against the presence tracker's positions** (the server's bounds are in place; this adds a record of where the car really was), and a **drivable race car** (a faster vehicle kind: its own speed cap in `movement.js` and the lap bounds).

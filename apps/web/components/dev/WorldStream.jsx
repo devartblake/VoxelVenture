@@ -6,6 +6,7 @@ import { applyGlow } from '@/components/city/nightLights';
 import { OrbitControls } from '@react-three/drei';
 import StreamedWorld from '@/components/world/StreamedWorld';
 import Train from '@/components/world/Train';
+import Suspension from '@/components/world/Suspension';
 import TunnelSpike, { FreeCam, startFromQuery, useRoute } from '@/components/dev/TunnelSpike';
 
 // DEVELOPMENT TOOL: the baked world (public/world) streamed by the chunk manager and flown over with an orbit camera, so the React layer of roadmap task 11 can be seen working without the game.
@@ -68,6 +69,7 @@ export default function WorldStream() {
           </>
         )}
         <Train />
+        <Suspension />
         {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '1' && <TunnelSpike />}
         <StreamedWorld profile={profile} focus={focus} onReady={onReady} />
       </Canvas>

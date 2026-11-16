@@ -110,7 +110,7 @@ const valid = (m, c) => {
   check('each tile is at the height of the deck there (the road surface), tilted to its slope: flat on the middle, rising on the ramps, never steeper than the ramp', tiles.every((t) => t.y >= -1e-9 && t.y <= 9.01 && Math.abs(t.pitch) < 0.25) && tiles.some((t) => t.y > 8.9 && Math.abs(t.pitch) < 0.01) && tiles.some((t) => t.pitch > 0.05) && tiles.some((t) => t.pitch < -0.05));
   check('tiles go once along the road: a tile is 8 long (the last may be shorter) and 8 wide', tiles.every((t) => t.length > 0 && t.length <= BRIDGE.tile + 1e-9 && t.width === 8));
   const pillars = all.flatMap(({ p }) => p.pillars);
-  check('pillars stand in pairs under the high part of the deck only, from the shallows (-1.5) up to the underside of the deck, and none is under a ramp that is nearly on the ground', pillars.length >= 20 && pillars.length % 2 === 0 && pillars.every((q) => q.y0 === BRIDGE.floor && q.y1 > q.y0 && q.y1 < 9 - BRIDGE.surface * BRIDGE.depth + 0.2) && pillars.every((q) => q.y1 > BRIDGE.pillarMinY - BRIDGE.surface * BRIDGE.depth + 0.1), `${pillars.length} pillars`);
+  check('pillars stand in pairs under the high part of the deck only, from the shallows (-1.5) up to the underside of the deck, and none is under a ramp that is nearly on the ground', pillars.length >= 20 && pillars.length % 2 === 0 && pillars.every((q) => q.y0 === BRIDGE.floor && q.y1 > q.y0 && q.y1 < 9 - Math.min(BRIDGE.surface * BRIDGE.depth, 1.4) + 0.2) && pillars.every((q) => q.y1 > BRIDGE.pillarMinY - BRIDGE.surface * BRIDGE.depth + 0.1), `${pillars.length} pillars`);
   const withModels = chunks.filter((c) => c.highways.some((h) => h.kind === 'causeway-bridge')).map((c) => ({ c, ribbon: chunkMeshes(c), model: chunkMeshes(c, { bridges: 'models' }) }));
   check('with models the bridge ribbon is left out of the highway mesh (the deck is drawn by the models), and the rest of the road is unchanged', withModels.every(({ ribbon, model }) => model.highways.triangles < ribbon.highways.triangles || ribbon.highways.triangles === 0) && withModels.some(({ ribbon, model }) => model.highways.triangles < ribbon.highways.triangles) && withModels.every(({ ribbon, model }) => model.ground.triangles === ribbon.ground.triangles));
   check('the deck height is the same function the mesh, the terrain and the tiles all read', Math.abs(deckHeight({ clearance: 9, span: 400 }, 200) - 9) < 1e-9 && deckHeight({ clearance: 9, span: 400 }, 0) === 0 && BRIDGE_RAMP === 60);
@@ -121,7 +121,7 @@ const valid = (m, c) => {
   const lamps = chunks.flatMap((c) => bridgePlacements(c).lamps);
   const spans = [...new Map(chunks.flatMap((c) => c.highways.filter((h) => h.kind === 'causeway-bridge').map((h) => [h.id, h.span]))).values()];
   check('every bridge has lamps along both edges, one pair every 32 units', lamps.length >= 2 * spans.reduce((n, sp) => n + Math.floor((sp - 24) / BRIDGE.lampEvery), 0) - 4 && lamps.length % 2 === 0, `${lamps.length} lamps on ${spans.length} bridges`);
-  check('a lamp stands at the height of the deck (0 to 9) and its arm points to the middle of the road', lamps.every((l) => l.y >= 0 && l.y <= 9.01 && Number.isFinite(l.yaw)));
+  check('a lamp stands at the height of the deck (0 to 9, and 0.12 more on the kerb of a suspension bridge) and its arm points to the middle of the road', lamps.every((l) => l.y >= 0 && l.y <= 9.13 && Number.isFinite(l.yaw)));
 }
 
 // ---- a road over rising ground follows it (a long road is cut every 6 units and each piece laid at the ground height)
