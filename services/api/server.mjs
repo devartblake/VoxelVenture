@@ -705,8 +705,8 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue 
     if (m === 'POST' && p === '/game/raffle') return gold.enterRaffle(db, account);
     // the racing track (race.mjs): the server times the laps; a page says where it is, never a time
     if (m === 'POST' && p === '/race/pass') return race.pass(db, account, await body(req));
-    if (m === 'GET' && p === '/race/leaderboard') return race.leaderboard(db, url.searchParams.get('track') ?? 'speedway', url.searchParams.get('limit'));
-    if (m === 'GET' && p === '/race/me') return race.mine(db, account, url.searchParams.get('track') ?? 'speedway');
+    if (m === 'GET' && p === '/race/leaderboard') return race.leaderboard(db, url.searchParams.get('track') ?? 'speedway', url.searchParams.get('limit'), url.searchParams.get('vehicle'));
+    if (m === 'GET' && p === '/race/me') return race.mine(db, account, url.searchParams.get('track') ?? 'speedway', url.searchParams.get('vehicle'));
     if (m === 'GET' && p === '/admin/currency/audit') return (adminOnly(token), gold.auditCurrency(db));
     // player tasks (tasks.mjs): what is available, collecting (the server checks and pays), and what you have collected
     if (m === 'GET' && p === '/tasks') return tasks.view(db, account);

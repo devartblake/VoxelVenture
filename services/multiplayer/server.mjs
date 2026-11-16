@@ -135,10 +135,10 @@ const num = (v, fallback = 0, lim = 1e5) => (typeof v === 'number' && Number.isF
 const cleanAppearance = (a) => ({ shirt: str(a?.shirt, 40), pants: str(a?.pants, 40), hat: str(a?.hat, 40) });
 const cleanName = (n) => str(n, 20).trim() || 'Player';
 
-// The vehicle a player is in ({ kind: 'car' | 'boat', boatKind, color }), or null: only these few values are kept, whatever the client sends.
+// The vehicle a player is in ({ kind: 'car' | 'boat', boatKind, color, spec: 'racecar' for a race car }), or null: only these few values are kept, whatever the client sends.
 const cleanVeh = (v) =>
   v && (v.kind === 'car' || v.kind === 'boat')
-    ? { kind: v.kind, boatKind: ['sailboat', 'rowboat-large', 'fishing'].includes(v.boatKind) ? v.boatKind : 'rowboat', color: /^#[0-9a-f]{6}$/i.test(String(v.color)) ? String(v.color) : '#3b82f6' }
+    ? { kind: v.kind, boatKind: ['sailboat', 'rowboat-large', 'fishing'].includes(v.boatKind) ? v.boatKind : 'rowboat', color: /^#[0-9a-f]{6}$/i.test(String(v.color)) ? String(v.color) : '#3b82f6', ...(v.kind === 'car' && v.spec === 'racecar' ? { spec: 'racecar' } : {}) }
     : null;
 // The cars a player has left parked (at most three): { x, z, yaw, color } each, kept only if they are plain numbers and a plain colour.
 const cleanParked = (list) =>
@@ -148,12 +148,12 @@ const cleanParked = (list) =>
 // `account` is set only for a connection the API vouched for (a ticket), never from what a client says; `verified` says so.
 const publicPlayer = (p) => ({ id: p.id, name: p.name, appearance: p.appearance, x: p.x, z: p.z, yaw: p.yaw, moving: p.moving, emote: p.emote, veh: p.veh ?? null, parked: p.parked ?? [], account: p.account?.id ?? null, verified: Boolean(p.account) });
 // What moves: the part of a player that goes out in every update, as a short array (a fifth of the bytes of an object):
-//   [id, x, z, yaw, moving (0 or 1), emote (a name, or 0), vehicle ([kind, boatKind, colour], or 0)]
+//   [id, x, z, yaw, moving (0 or 1), emote (a name, or 0), vehicle ([kind, boatKind, colour, spec (race cars only)], or 0)]
 // `ver` changes whenever it does, so a client is only sent what it has not seen.
 const round1 = (n) => Math.round(n * 10) / 10;
 const round2 = (n) => Math.round(n * 100) / 100;
 function touch(p) {
-  const entry = [p.id, round1(p.x), round1(p.z), round2(p.yaw), p.moving ? 1 : 0, p.emote || 0, p.veh ? [p.veh.kind, p.veh.boatKind, p.veh.color] : 0];
+  const entry = [p.id, round1(p.x), round1(p.z), round2(p.yaw), p.moving ? 1 : 0, p.emote || 0, p.veh ? [p.veh.kind, p.veh.boatKind, p.veh.color, ...(p.veh.spec ? [p.veh.spec] : [])] : 0];
   const json = JSON.stringify(entry);
   if (json !== p.json) {
     p.json = json;

@@ -40,7 +40,7 @@ const last = (c, type) => [...c.inbox].reverse().find((m) => m.type === type);
 const entered = (c) => c.inbox.filter((m) => m.type === 'snapshot').flatMap((m) => m.enter ?? []);
 const exited = (c) => c.inbox.filter((m) => m.type === 'snapshot').flatMap((m) => m.exit ?? []);
 // a changed player is a short array: [id, x, z, yaw, moving, emote or 0, vehicle ([kind, boatKind, colour]) or 0]
-const decode = (a) => ({ id: a[0], x: a[1], z: a[2], yaw: a[3], moving: Boolean(a[4]), emote: a[5] || null, veh: a[6] ? { kind: a[6][0], boatKind: a[6][1], color: a[6][2] } : null });
+const decode = (a) => ({ id: a[0], x: a[1], z: a[2], yaw: a[3], moving: Boolean(a[4]), emote: a[5] || null, veh: a[6] ? { kind: a[6][0], boatKind: a[6][1], color: a[6][2], spec: a[6][3] } : null });
 const latest = (c, id) => {
   for (const m of [...c.inbox].reverse()) {
     if (m.type !== 'snapshot') continue;
@@ -72,6 +72,12 @@ a.ws.send(JSON.stringify({ type: 'state', x: 13, z: -3, yaw: 1.5, moving: true, 
 await sleep(350);
 const inCar = latest(b, a.id);
 check('Bob sees that Alice is in a red car', inCar?.veh?.kind === 'car' && inCar.veh.color === '#ff0000', JSON.stringify(inCar?.veh));
+a.ws.send(JSON.stringify({ type: 'state', x: 15, z: -3, yaw: 1.5, moving: true, emote: null, veh: { kind: 'car', color: '#dc2626', spec: 'racecar' } }));
+await sleep(350);
+check('Bob sees that Alice is in a race car (the spec is kept)', latest(b, a.id)?.veh?.spec === 'racecar', JSON.stringify(latest(b, a.id)?.veh));
+a.ws.send(JSON.stringify({ type: 'state', x: 15, z: -3, yaw: 1.5, moving: true, emote: null, veh: { kind: 'car', color: '#dc2626', spec: 'rocket' } }));
+await sleep(350);
+check('and a spec that is not a race car is dropped', latest(b, a.id)?.veh?.kind === 'car' && !latest(b, a.id)?.veh?.spec);
 a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: true, emote: null, veh: { kind: 'rocket', color: '<script>' } }));
 await sleep(350);
 check('an unknown vehicle is ignored', latest(b, a.id)?.veh == null);

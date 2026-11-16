@@ -10,7 +10,7 @@ import { useCityStore } from '@/lib/state/store';
 import { surfaceHeight, carSurfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
 import Label3D from './Label3D';
-import { BoatModel, CarModel } from './Vehicles';
+import { BoatModel, CarOf } from './Vehicles';
 
 const EMOTE_SECONDS = { wave: 1.8, dance: 3, jump: 0.7 };
 
@@ -83,7 +83,7 @@ function RemoteAvatar({ id }) {
     }
 
     // in a vehicle: it is drawn instead (a boat's passenger still shows, sitting)
-    const sig = p.veh ? `${p.veh.kind}|${p.veh.boatKind}|${p.veh.color}` : '';
+    const sig = p.veh ? `${p.veh.kind}|${p.veh.boatKind}|${p.veh.color}|${p.veh.spec ?? ''}` : '';
     if (sig !== vehSig) setVehSig(sig);
     if (car.current) {
       car.current.visible = Boolean(p.veh);
@@ -109,11 +109,11 @@ function RemoteAvatar({ id }) {
     body.current.rotation.z = p.veh ? 0 : Math.sin(a.phase) * 0.04 * a.amp;
   });
 
-  const [kind, boatKind, color] = vehSig.split('|');
+  const [kind, boatKind, color, spec] = vehSig.split('|');
   return (
     <>
     <group ref={car} visible={false}>
-      {kind === 'car' ? <CarModel color={color} /> : kind === 'boat' ? <BoatModel kind={boatKind} color={color} /> : null}
+      {kind === 'car' ? <CarOf spec={spec} color={color} /> : kind === 'boat' ? <BoatModel kind={boatKind} color={color} /> : null}
       {kind === 'car' && <Label3D text={info?.name ?? 'Player'} position={[0, 1.5, 0]} background="#38bdf8" color="#0c1a2b" height={0.3} />}
     </group>
     <group ref={root} scale={SCALE}>
