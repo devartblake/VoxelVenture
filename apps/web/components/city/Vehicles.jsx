@@ -15,6 +15,7 @@ import { boatModel } from '@/lib/content/boatModels';
 import { PropModel } from './PropModels';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { fleetRefs, useFleet } from '@/lib/state/fleetStore';
+import { canLeave, seat as trainSeat, station as trainStation, trainState } from '@/lib/world/train';
 import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
 
@@ -129,7 +130,7 @@ export default function Vehicles() {
     const r = useFleet.getState().exit();
     const notify = useCityStore.getState().notify;
     if (r === 'docking') notify('Heading for the nearest pier. Take the wheel (W A S D) to stop.');
-    else if (!r) notify(avatarState.vehicle?.kind === 'boat' ? 'There is no pier on this water: steer closer to the shore to get out.' : 'No room to get out here.');
+    else if (!r) notify(avatarState.vehicle?.kind === 'boat' ? 'There is no pier on this water: steer closer to the shore to get out.' : avatarState.vehicle?.kind === 'train' ? 'The doors open at the next station.' : 'No room to get out here.');
   };
   const fish = () => {
     const v = avatarState.vehicle;
@@ -264,6 +265,35 @@ export default function Vehicles() {
         }
       }
     }
+    // ---- riding the train (lib/world/train.js): the train carries you; the doors open in a station
+    if (v.kind === 'train') {
+      const line = fleetRefs.trainLine;
+      if (!line) { avatarState.vehicle = null; return; }
+      const st = trainState(line, Date.now());
+      const s = trainSeat(line, st, (x, z) => activeTerrain()?.groundY(x, z) ?? 0);
+      Object.assign(v, { x: s.x, z: s.z, y: s.y, yaw: s.yaw, speed: st.speed });
+      avatarState.x = s.x;
+      avatarState.z = s.z;
+      avatarState.yaw = s.yaw;
+      avatarState.moving = false;
+      const open = canLeave(st);
+      const where = open ? trainStation(line, st.at).name : st.dir > 0 ? 'Harbor Isle Station' : 'Mainland Station';
+      const label = open ? `Get off at ${where}` : `Next stop: ${where}`;
+      const promptKey = `train-${label}`;
+      if (promptKey !== last.current.prompt) {
+        last.current.prompt = promptKey;
+        useWorld.setState({ prompt: { id: `vehicle-${promptKey}`, label, action: leave } });
+      }
+      const speed = Math.round(st.speed * 4) / 4;
+      const hudKey = `train|${speed}|${open}|${where}`;
+      if (hudKey !== last.current.hud) {
+        last.current.hud = hudKey;
+        useFleet.getState().setHud({ kind: 'train', speed, doors: open, where });
+      }
+      if (driven.current) driven.current.visible = false;
+      return;
+    }
+
     // ---- drive
     const map = fleetRefs.collision;
     // with the baked world mounted (?world=baked) the baked ground decides outside the town: a car stays on land and bridges and off steep ground, a boat on the sea; inside the town the old rules

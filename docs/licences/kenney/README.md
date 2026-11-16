@@ -17,6 +17,7 @@
 | Coaster Kit | https://kenney.nl/assets/coaster-kit ([html](coaster-kit.html)) | 1.0 | 13-11-2024 | Released in 2024; CC0 | `kenney_coaster-kit.zip` | `apps/web/public/models/kenney/coaster/` | 34 |
 | City Kit (Industrial) | https://kenney.nl/assets/city-kit-industrial (page not saved yet) | 2.0 | | CC0 | `kenney_city-kit-industrial.zip` (downloaded 2026-11-15) | `apps/web/public/models/kenney/industrial/` | 6 chosen models (of 37), [License](License-city-kit-industrial.txt) |
 | Food Kit | https://kenney.nl/assets/food-kit (page not saved yet) | 2.0 | | CC0 | `kenney_food-kit.zip` (downloaded 2026-11-15) | `apps/web/public/models/kenney/food/` | 61 chosen models (of 200), [License](License-food-kit.txt) |
+| Train Kit | https://kenney.nl/assets/train-kit (page not saved yet) | 1.1 | | CC0 | `kenney_train-kit.zip` (downloaded 2026-11-16) | `apps/web/public/models/kenney/train/` | 3 chosen models (of 104), [License](License-train-kit.txt) |
 
 The pages show no version number of their own ("not stated" there); the versions above are the ones each kit's `License.txt` names (for example "Car Kit (3.1)"), and its "Creation date" (day-month-year) is given as "Kit created". The models are the kits' `Models/GLB format/*.glb` (the Nature Kit's `Models/GLTF format/*.glb`) and the kits' shared `Textures/colormap.png`, copied unmodified.
 

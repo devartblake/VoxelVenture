@@ -15,4 +15,6 @@ The 61 food and drink models in `kenney/food/` and the 6 containers, tanks and s
 
 The palms, flowers, fences, logs, crops, campfire and tent among the trees in `kenney/nature/`, and the containers, tank, chimney and solar panels in `kenney/industrial/`, are the yards behind owners' buildings (`lib/content/yardModels.js`).
 
+The train and its rail in `kenney/train/` (the train on the first causeway: `lib/world/train.js`) are from the **Kenney Train Kit** 1.1, also CC0.
+
 Voxel landmarks in `vox/` are made for this project (see scripts/models/make-sample-vox.mjs, or your own MagicaVoxel `.vox` files).

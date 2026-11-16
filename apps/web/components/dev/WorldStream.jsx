@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { applyGlow } from '@/components/city/nightLights';
 import { OrbitControls } from '@react-three/drei';
 import StreamedWorld from '@/components/world/StreamedWorld';
+import Train from '@/components/world/Train';
 
 // DEVELOPMENT TOOL: the baked world (public/world) streamed by the chunk manager and flown over with an orbit camera, so the React layer of roadmap task 11 can be seen working without the game.
 // The point the orbit controls look at is the focus, so dragging or the jump buttons make chunks mount and unmount. ?profile=phone|desktop|overview. window.__vvStreamedWorld (StreamedWorld.jsx) has the counts.
@@ -58,6 +59,7 @@ export default function WorldStream() {
         <Night on={night} />
         <Rig target={target} offset={offset} />
         <OrbitControls ref={controls} key={`${target.x},${target.z}`} target={[target.x, 0, target.z]} maxPolarAngle={Math.PI / 2.05} maxDistance={2500} />
+        <Train />
         <StreamedWorld profile={profile} focus={focus} onReady={onReady} />
       </Canvas>
     </div>

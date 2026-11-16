@@ -23,12 +23,12 @@ export default function VehicleHud() {
     <div className="pointer-events-none absolute left-1/2 top-[8.2rem] z-20 flex -translate-x-1/2 flex-col items-center gap-1.5 max-sm:top-14">
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-sx-line bg-sx-panel/90 px-4 py-1.5 text-xs text-slate-100 shadow-xl backdrop-blur-md">
         {boat ? <Anchor className="h-4 w-4 text-sky-300" /> : <Car className="h-4 w-4 text-amber-300" />}
-        {hud.spec !== 'racecar' && <span className="font-mono tabular-nums">{(hud.speed * 3.6).toFixed(0)} km/h</span>}
-        <span className="max-sm:hidden pointer-coarse:hidden text-slate-400">{boat ? 'W / S power · A / D steer · Space cast and reel · X leave (it sails you to a pier if you are far out)' : 'W / S gas and brake · A / D steer · E or X get out'}</span>
+        {hud.kind === 'train' ? <span className="font-mono tabular-nums">{(hud.speed * 14).toFixed(0)} km/h</span> : hud.spec !== 'racecar' && <span className="font-mono tabular-nums">{(hud.speed * 3.6).toFixed(0)} km/h</span>}
+        <span className="max-sm:hidden pointer-coarse:hidden text-slate-400">{boat ? 'W / S power · A / D steer · Space cast and reel · X leave (it sails you to a pier if you are far out)' : hud.kind === 'train' ? (hud.doors ? `Doors open at ${hud.where}: E or X to get off` : `Next stop: ${hud.where}`) : 'W / S gas and brake · A / D steer · E or X get out'}</span>
         {/* on a touch screen: the same, with the on-screen controls */}
-        <span className="hidden text-slate-400 pointer-coarse:inline" data-testid="vehicle-touch-hint">{boat ? 'Joystick: power and steer · Leave takes you to a pier' : 'Joystick: drive and steer · Get out to walk'}</span>
-        <button onClick={leave} className="flex items-center gap-1 rounded-full border border-sx-line px-2 py-0.5 hover:bg-sx-alt" aria-label={boat ? 'Leave the boat' : 'Get out of the car'}>
-          <LogOut className="h-3 w-3" /> {boat ? 'Leave' : 'Get out'}
+        <span className="hidden text-slate-400 pointer-coarse:inline" data-testid="vehicle-touch-hint">{boat ? 'Joystick: power and steer · Leave takes you to a pier' : hud.kind === 'train' ? 'Get off when the doors are open' : 'Joystick: drive and steer · Get out to walk'}</span>
+        <button onClick={leave} className="flex items-center gap-1 rounded-full border border-sx-line px-2 py-0.5 hover:bg-sx-alt" aria-label={boat ? 'Leave the boat' : hud.kind === 'train' ? 'Get off the train' : 'Get out of the car'}>
+          <LogOut className="h-3 w-3" /> {boat ? 'Leave' : hud.kind === 'train' ? 'Get off' : 'Get out'}
         </button>
       </div>
       {hud.spec === 'racecar' && <Gauges speed={hud.speed * (hud.reversing ? -1 : 1)} />}

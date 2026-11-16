@@ -11,7 +11,7 @@ for (const m of PROP_CATALOG) {
   const file = path.join(root, 'apps', 'web', 'public', m.url);
   if (!fs.existsSync(file) || fs.readFileSync(file).readUInt32LE(0) !== 0x46546c67) bad('every prop file exists and is a .glb', m.url);
   if (m.textured && !fs.existsSync(path.join(root, 'apps', 'web', 'public', 'models', 'kenney', m.kit, 'Textures', 'colormap.png'))) bad('a textured kit has its colormap', m.kit);
-  if (!(m.h > (m.cls === 'yard' ? 0.04 : 0.1) && m.tris > (m.cls === 'piece' ? 4 : 10) && m.tris < 4000)) bad('a prop has a sane size and triangle count', m.id);
+  if (!(m.h > (m.cls === 'yard' || m.cls === 'rail' ? 0.04 : 0.1) && m.tris > (m.cls === 'piece' ? 4 : 10) && m.tris < 4000)) bad('a prop has a sane size and triangle count', m.id);
 }
 for (const cls of ['tree', 'bush', 'car', 'truck']) if (PROP_CATALOG.filter((m) => m.cls === cls).length < 2) bad('at least two models of each kind', cls);
 

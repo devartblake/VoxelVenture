@@ -78,6 +78,9 @@ check('Bob sees that Alice is in a race car (the spec is kept)', latest(b, a.id)
 a.ws.send(JSON.stringify({ type: 'state', x: 15, z: -3, yaw: 1.5, moving: true, emote: null, veh: { kind: 'car', color: '#dc2626', spec: 'rocket' } }));
 await sleep(350);
 check('and a spec that is not a race car is dropped', latest(b, a.id)?.veh?.kind === 'car' && !latest(b, a.id)?.veh?.spec);
+a.ws.send(JSON.stringify({ type: 'state', x: 16, z: -3, yaw: 1.5, moving: true, emote: null, veh: { kind: 'train', color: '#2563eb' } }));
+await sleep(350);
+check('Bob sees that Alice rides the train (kind train is kept)', latest(b, a.id)?.veh?.kind === 'train', JSON.stringify(latest(b, a.id)?.veh));
 a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: true, emote: null, veh: { kind: 'rocket', color: '<script>' } }));
 await sleep(350);
 check('an unknown vehicle is ignored', latest(b, a.id)?.veh == null);
