@@ -779,7 +779,7 @@ try {
   const baked = await openPage(`http://localhost:${webPort}/?world=baked&diag=1&view=iso&spawn=fixed&mp=${mpPort}`, { width: 1000, height: 700 });
   const bakedReady = await waitFor(baked, `window.__vvStreamedWorld?.ready === true && window.__vvStreamedWorld.mounted >= 4`, 60);
   const bakedStats = JSON.parse(await baked.eval(`JSON.stringify(window.__vvStreamedWorld ?? null)`) ?? 'null');
-  check('streaming: with ?world=baked the chunks round the town mount (outside its land), in four draw calls a chunk at most (ground, roads, highways, the bridges' boxes)', bakedReady && bakedStats.mounted >= 4 && bakedStats.drawCalls <= bakedStats.mounted * 4 && bakedStats.triangles > 0, JSON.stringify(bakedStats));
+  check('streaming: with ?world=baked the chunks round the town mount (outside its land), in four draw calls a chunk at most (ground, roads, highways, the bridge boxes)', bakedReady && bakedStats.mounted >= 4 && bakedStats.drawCalls <= bakedStats.mounted * 4 && bakedStats.triangles > 0, JSON.stringify(bakedStats));
   check('streaming: the terrain is live: the first town is left to the game, open water is sea, and the shore is land that stops a walker', (await baked.eval(`(() => { const w = window.__vvStreamedWorld; const a = w.sample(30, -16), b = w.sample(-2000, 300); return a.surface === 'town' && !a.known && b.surface === 'sea' && b.known; })()`)) === true);
   check('streaming: the Kenney bridge models (City Kit Roads) load for the causeways', bakedStats.bridgeModels === true, String(bakedStats.bridgeModels));
   check('streaming: the Kenney Racing Kit models load for the racing track', bakedStats.trackModels === true, String(bakedStats.trackModels));

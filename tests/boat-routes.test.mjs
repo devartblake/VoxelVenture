@@ -19,7 +19,7 @@ const o = baked.manifest.ocean, CELL = 6;
 const W = Math.ceil((o.x1 - o.x0) / CELL), H = Math.ceil((o.z1 - o.z0) / CELL);
 const at = (i, j) => [o.x0 + (i + 0.5) * CELL, o.z0 + (j + 0.5) * CELL];
 const cellOf = (x, z) => [Math.floor((x - o.x0) / CELL), Math.floor((z - o.z0) / CELL)];
-const free = new Uint8Array(W * H), seen = new Uint8Array(W * H), memo = new Int8Array(W * H).fill(-1);
+const seen = new Uint8Array(W * H), memo = new Int8Array(W * H).fill(-1);
 const isFree = (i, j) => { if (i < 0 || j < 0 || i >= W || j >= H) return false; const k = j * W + i; if (memo[k] < 0) memo[k] = ok(...at(i, j)) ? 1 : 0; return memo[k] === 1; };
 const nearestFree = (x, z) => { const [ci, cj] = cellOf(x, z); for (let r = 0; r < 12; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) if (Math.max(Math.abs(di), Math.abs(dj)) === r && isFree(ci + di, cj + dj)) return [ci + di, cj + dj]; return null; };
 
