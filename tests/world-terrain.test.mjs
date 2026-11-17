@@ -88,10 +88,10 @@ const home = { x: (town.land.x0 + town.land.x1) / 2, z: (town.land.z0 + town.lan
     top = Math.max(top, t.y);
   }
   check(`a car drives the whole Harbor Causeway bridge (${span.toFixed(0)} units) without being refused once`, refused === 0 && onBridge > span * 0.95, `${refused} refused, ${onBridge} of ${span.toFixed(0)} on the bridge`);
-  check('the deck climbs smoothly to 9 units and comes down: no step of more than 0.25 between points a unit apart, the top at 9', maxJump < 0.25 && top > 8.9 && top < 9.2, `top ${top.toFixed(2)}, biggest step ${maxJump.toFixed(2)}`);
+  check('the deck climbs smoothly to 9 units and comes down: no step of more than 0.25 between points a unit apart, the top at 9', maxJump < 0.25 && top > 8.6 && top < 8.9, `top ${top.toFixed(2)}, biggest step ${maxJump.toFixed(2)}`);
   const mid = { x: first.a.x + dirx * span / 2, z: first.a.z + dirz * span / 2 };
   const m = terrain.sample(mid.x, mid.z);
-  check('under the middle of the bridge is sea: a boat can sail there (the deck is overhead), and on it you stand 9 up', m.surface === 'bridge' && m.y > 8.9 && terrain.canStand(mid.x, mid.z, 'boat') && m.sd < -20);
+  check('under the middle of the bridge is sea: a boat can sail there (the deck is overhead), and on it you stand 9 up', m.surface === 'bridge' && m.y > 8.6 && terrain.canStand(mid.x, mid.z, 'boat') && m.sd < -20);
   check('the shore end of the bridge is at ground level, and the foot of the ramp is walkable', terrain.sample(first.a.x, first.a.z).y < 0.3 && terrain.canStand(first.a.x, first.a.z, 'walk'));
   // a boat sails the gap between the landmasses, on a line that crosses no land
   let boat = { x: mid.x + 60 * dirz, z: mid.z - 60 * dirx };

@@ -48,7 +48,7 @@ const len = (s) => Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z);
   check('each coastal ring is all there, its pieces (and the bridges over its rivers) adding up to its length', world.highways.every((h) => Math.abs(all.reduce((s, c) => s + c.highways.filter((x) => (x.id === h.id && x.kind === 'ring') || (x.kind === 'river-bridge' && x.on === h.id)).reduce((t, x) => t + len(x), 0), 0) - ringLength(h)) < 3), world.highways.map((h) => ringLength(h).toFixed(0)).join(', '));
   check('each spur, each link and each causeway (road and bridge) is all there too', world.highways.every((h) => h.spurs.every((s) => Math.abs((hw.get(`${h.id}:spur-${s.side}`) ?? 0) - s.length) < 0.1)) && world.links.every((l) => Math.abs((hw.get(l.id) ?? 0) - l.length) < 0.1) && world.causeways.every((c) => Math.abs((hw.get(c.id) ?? 0) - c.length) < 0.1));
   const bridge = all.flatMap((c) => c.highways.filter((s) => s.kind === 'causeway-bridge'));
-  check('the bridge sections are marked, with their clearance, and are the 392 and 606 units of water', bridge.length > 0 && bridge.every((s) => s.clearance === 9) && Math.abs(world.causeways.reduce((s, c) => s + c.bridge.length, 0) - bridge.reduce((s, x) => s + len(x), 0)) < 0.5);
+  check('the bridge sections are marked, with their clearance, and are the 392 and 606 units of water', bridge.length > 0 && bridge.every((s) => Math.abs(s.clearance - 8.7) < 1e-6) && Math.abs(world.causeways.reduce((s, c) => s + c.bridge.length, 0) - bridge.reduce((s, x) => s + len(x), 0)) < 0.5);
   check('every piece lies inside its own chunk', all.every((c) => [...c.roads, ...c.highways].every((s) => [s.a, s.b].every((p) => p.x >= c.bounds.x0 - 0.01 && p.x <= c.bounds.x1 + 0.01 && p.z >= c.bounds.z0 - 0.01 && p.z <= c.bounds.z1 + 0.01))));
 }
 

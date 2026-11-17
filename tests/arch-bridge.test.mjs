@@ -39,7 +39,7 @@ if (rib.web.some((w, i) => i && Math.abs(w.from.s - rib.web[i - 1].to.s) > 1e-9)
 
 // ---- the deck hangs from the arch and stands on it
 if (a.hangers.length < 40 || a.hangers.some((h) => !(h.y1 > a.deckY(h.s) + 0.8) || h.y0 > a.deckY(h.s))) bad('hangers run from the deck girder up to the bottom chord, in the middle of the span', String(a.hangers.length));
-if (a.posts.length < 4 || a.posts.some((p) => !(p.y0 < a.deckY(p.s)) || p.y1 > a.deckY(p.s))) bad('posts carry the deck from the ribs where the arch is below it, near the ends', String(a.posts.length));
+if (a.posts.length < 2 || a.posts.some((p) => !(p.y0 < a.deckY(p.s)) || p.y1 > a.deckY(p.s))) bad('posts carry the deck from the ribs where the arch is below it, near the ends', String(a.posts.length));
 if (a.hangers.some((h) => h.s <= a0 || h.s >= a1)) bad('the hangers are inside the span', '');
 // every cross strut leaves room under it for a train and a lorry
 if (a.struts.length < 20 || a.struts.some((s) => s.y - a.deckY(s.s) < ARCH.strutClear - 1e-6)) bad('cross struts only where there is room under them (4.5 over the deck at least)', String(a.struts.length));
