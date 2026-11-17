@@ -18,11 +18,12 @@ const have = new Set(baked.manifest.chunks.map((c) => c.key));
 const terrain = createTerrain({ chunkAt: (cx, cz) => loaded.get(`${cx}_${cz}`), has: (cx, cz) => have.has(`${cx}_${cz}`) });
 
 // ---- the recipe turns it on, and only it
-if (JSON.stringify(WORLD_RECIPE.rivers) !== '["rio-minho"]') bad('the recipe turns on the Rio Minho (the proof) and no other river yet', JSON.stringify(WORLD_RECIPE.rivers));
+const { RIVERS } = await imp('world/riverPlan.js');
+if (JSON.stringify([...WORLD_RECIPE.rivers].sort()) !== JSON.stringify(RIVERS.map((r) => r.id).sort())) bad('the recipe turns on all fourteen rivers of the plan', JSON.stringify(WORLD_RECIPE.rivers));
 if (!validateRecipe({ ...WORLD_RECIPE, rivers: ['rio-minho', 'no-such-river'] }).some((p) => /no-such-river/.test(p))) bad('a recipe that turns on a river the plan does not have is invalid', '');
 const world = buildWorld();
-if (world.rivers.length !== 1 || world.rivers[0].id !== 'rio-minho') bad('the built world has the Rio Minho', JSON.stringify(world.rivers.map((r) => r.id)));
-const river = world.rivers[0];
+if (world.rivers.length !== 14) bad('the built world has the fourteen rivers', JSON.stringify(world.rivers.map((r) => r.id)));
+const river = world.rivers.find((r) => r.id === 'rio-minho');
 const town = baked.manifest.towns[0].land;
 const mr = baked.manifest.rivers?.[0];
 if (!mr || mr.id !== 'rio-minho' || mr.course.length !== river.course.length || mr.crosses.length < 1) bad('the manifest carries the river (course, width, crossings)', JSON.stringify(mr && Object.keys(mr)));

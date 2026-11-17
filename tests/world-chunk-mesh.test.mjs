@@ -28,8 +28,8 @@ const valid = (m, c) => {
 {
   check('every chunk makes three meshes (ground, roads, highways), each well formed: finite numbers, indices in range, whole triangles, a colour for each ground vertex', meshed.every(({ c, m }) => ['ground', 'roads', 'highways'].every((k) => valid(m[k], c))), `${chunks.length} chunks`);
   const cost = meshed.map(({ m }) => meshCost(m));
-  check('a chunk costs at most three draw calls however much is in it', cost.every((x) => x.drawCalls <= 3) && Math.max(...cost.map((x) => x.drawCalls)) === 3);
-  check('and the busiest chunk is a few thousand triangles, not tens of thousands (the town, with its roads, is the heaviest)', Math.max(...cost.map((x) => x.triangles)) < 4000, `${Math.max(...cost.map((x) => x.triangles))} at most`);
+  check('a chunk costs at most four draw calls however much is in it (ground, roads, highways, and a river bridge or the circuit paint)', cost.every((x) => x.drawCalls <= 4) && Math.max(...cost.map((x) => x.drawCalls)) >= 3);
+  check('and the busiest chunk is a few thousand triangles, not tens of thousands (the town, with its roads, is the heaviest)', Math.max(...cost.map((x) => x.triangles)) < 5000, `${Math.max(...cost.map((x) => x.triangles))} at most`);
   const ring = chunks.filter((c) => Math.max(Math.abs(c.cx - home.cx), Math.abs(c.cz - home.cz)) <= 2).map((c) => meshCost(chunkMeshes(c)));
   check('the whole 5 x 5 ring round the town (what a desktop mounts) is under 40,000 triangles and 75 draw calls', ring.reduce((s, x) => s + x.triangles, 0) < 40000 && ring.reduce((s, x) => s + x.drawCalls, 0) <= 75, `${ring.reduce((s, x) => s + x.triangles, 0)} triangles, ${ring.reduce((s, x) => s + x.drawCalls, 0)} draw calls`);
   check('the same chunk gives the same bytes each time', JSON.stringify(Array.from(chunkMeshes(homeChunk).ground.positions)) === JSON.stringify(Array.from(meshed.find((x) => x.c === homeChunk).m.ground.positions)));

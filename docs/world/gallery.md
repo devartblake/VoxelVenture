@@ -995,3 +995,25 @@ The ring road's bridge over the Rio Minho seen from the south bank: the ramp ris
 ![The bridge from higher up, the river widening to the sea beyond it.](gallery/ring_bridge_b.webp)
 
 The bridge from higher up, the river widening to the sea beyond it.
+
+## The rivers' water and the Black River's morass
+
+Each river has its own water ribbon; the delta rivers have islands, and the Black River's have mangroves ([river_plan.md](river_plan.md)).
+
+### river_mouth_water
+
+![The Rio Minho under its ring bridge, widening to the sea: blue in the middle, lighter over the shallow banks, fading out into the sea.](gallery/river_mouth_water.webp)
+
+The Rio Minho under its ring bridge, widening to the sea: blue in the middle, lighter over the shallow banks, fading out into the sea.
+
+### delta_aerial
+
+![The Black River's morass from above: the channel broken into pools by islands, with sandy banks.](gallery/delta_aerial.webp)
+
+The Black River's morass from above: the channel broken into pools by islands, with sandy banks.
+
+### delta_mangroves
+
+![The morass at ground level: tea-coloured water, islands, and mangroves standing on them.](gallery/delta_mangroves.webp)
+
+The morass at ground level: tea-coloured water, islands, and mangroves standing on them.

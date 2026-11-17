@@ -17,6 +17,7 @@ import { SEA_LEVEL } from '@/lib/world/datum';
 import { clipChunkToTown, insideTown, overlapsTown } from '@/lib/world/townJoin';
 import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
 import { SEABED, seabedMesh } from '@/lib/world/seabed';
+import { riverWaterMesh } from '@/lib/world/riverWater';
 import { OCEAN_FLOOR, SEA_FLOOR } from '@/lib/world/datum';
 import { registerGlow } from '@/components/city/nightLights';
 
@@ -163,6 +164,30 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         water.current.scale.set(o.x1 - o.x0 + 4000, o.z1 - o.z0 + 4000, 1);
         water.current.position.set((o.x0 + o.x1) / 2, SEA_LEVEL, (o.z0 + o.z1) / 2);
         water.current.visible = true;
+        // the rivers' own water (lib/world/riverWater.js): a ribbon along each course at the sea's level, light over the banks, deeper in the middle, fading out past the mouth; ?riverwater=0 turns it off
+        if (parent && baked.manifest.rivers?.length && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('riverwater') !== '0') {
+          const parts = baked.manifest.rivers.map((r) => riverWaterMesh(r));
+          const n = parts.reduce((s, p) => s + p.vertices, 0);
+          const positions = new Float32Array(n * 3), colors = new Float32Array(n * 4), indices = new Uint32Array(parts.reduce((s, p) => s + p.indices.length, 0));
+          let v = 0, k = 0;
+          for (const p of parts) {
+            positions.set(p.positions, v * 3); colors.set(p.colors, v * 4);
+            for (let i = 0; i < p.indices.length; i++) indices[k + i] = p.indices[i] + v;
+            v += p.vertices; k += p.indices.length;
+          }
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4));
+          geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+          geometry.computeVertexNormals();
+          const ribbon = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, depthWrite: false, roughness: 0.25, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 })); // (pulled toward the camera: at 300 units the depth buffer is coarser than the 0.02 the water is over the sea plane)
+          ribbon.name = 'river-water';
+          ribbon.renderOrder = 20; // after the sea's plane (which is drawn translucent over the whole ocean)
+          ribbon.frustumCulled = false;
+          parent.add(ribbon);
+          st.riverWater = ribbon;
+          stats.riverWaterVertices = n; // (for the tests and the dev page)
+        }
         // depth shading (lib/world/seaDepth.js, docs/world/water.md): the water is coloured by its distance from the coast, with a foam line at the shore; ?seashade=0 turns it off
         if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('seashade') !== '0') {
           setTimeout(() => {
@@ -223,7 +248,8 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       cancelled = true;
       setActiveTerrain(null);
       for (const group of objects.values()) { parent?.remove(group); disposeChunkObject(group); }
-      for (const m of st.seabed ?? []) { parent?.remove(m); m.geometry.dispose(); m.material.dispose(); }
+      for (const m of [...(st.seabed ?? []), ...(st.riverWater ? [st.riverWater] : [])]) { parent?.remove(m); m.geometry.dispose(); m.material.dispose(); }
+      st.riverWater = null;
       st.seabed = null;
       objects.clear();
       st.manager = null;

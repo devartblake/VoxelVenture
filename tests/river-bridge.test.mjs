@@ -50,10 +50,13 @@ const loaded = new Map();
 for (const c of baked.manifest.chunks) loaded.set(c.key, await baked.chunk(c.cx, c.cz));
 const pieces = [];
 for (const c of loaded.values()) for (const h of c.highways) if (h.kind === 'river-bridge') pieces.push({ c, h });
-if (!pieces.length || pieces.some(({ h }) => h.id !== 'rio-minho-bridge' || h.on !== 'mainland-ring' || h.clearance !== o.clearance)) bad('the ring is bridged over the Rio Minho and nowhere else (no other road touches a river)', JSON.stringify(pieces.map(({ h }) => `${h.id} on ${h.on}`)));
-const spanOf = new Set(pieces.map(({ h }) => h.span));
-if (spanOf.size !== 1) bad('the pieces of the bridge share one span (a corner in the channel does not split it)', JSON.stringify([...spanOf]));
-const sorted = pieces.map(({ h }) => h).sort((x, y) => x.along[0] - y.along[0]);
+const ids = [...new Set(pieces.map(({ h }) => h.id))];
+if (ids.length !== 14 || pieces.some(({ h }) => h.on !== 'mainland-ring' || h.clearance !== o.clearance || h.id !== h.id.replace(/-bridge$/, '') + '-bridge')) bad('the ring is bridged once over each of the fourteen rivers and nowhere else (no spur or link touches a river)', JSON.stringify(ids));
+const minho = pieces.filter(({ h }) => h.id === 'rio-minho-bridge');
+const spanOf = new Set(minho.map(({ h }) => h.span));
+if (spanOf.size !== 1) bad('the pieces of a bridge share one span (a corner in the channel does not split it)', JSON.stringify([...spanOf]));
+for (const id of ids) { const spans = new Set(pieces.filter(({ h }) => h.id === id).map(({ h }) => h.span)); if (spans.size !== 1) bad('every bridge is one span', id); }
+const sorted = minho.map(({ h }) => h).sort((x, y) => x.along[0] - y.along[0]);
 for (let i = 1; i < sorted.length; i++) if (!near(sorted[i].along[0], sorted[i - 1].along[1], 0.05)) bad('the pieces follow one another along the bridge', `${sorted[i - 1].along} ${sorted[i].along}`);
 if (!near(sorted[0].along[0], 0, 0.05) || !near(sorted.at(-1).along[1], sorted[0].span, 0.05)) bad('the pieces cover the whole span', '');
 // the road is one road: the ring pieces next to the bridge start and end where it does
@@ -62,13 +65,13 @@ let joined = 0;
 for (const c of loaded.values()) for (const h of c.highways) if (h.kind === 'ring') for (const e of ends) if (Math.hypot(h.a.x - e.x, h.a.z - e.z) < 0.02 || Math.hypot(h.b.x - e.x, h.b.z - e.z) < 0.02) joined++;
 if (joined < 2) bad('the ring road meets the bridge at both ends, with no gap', String(joined));
 
-// ---- what is drawn: the deck lies over the water, with the boxes in the track mesh and no more draw calls than a chunk had
+// ---- what is drawn: the deck lies over the water, with the boxes as a mesh of their own
 const withBridge = pieces.map(({ c }) => c).filter((c, i, a) => a.indexOf(c) === i);
 for (const c of withBridge) {
   const m = chunkMeshes(c);
-  if (!m.track.triangles || !m.track.normals || !m.track.colors) bad('the bridge boxes are in the track mesh with normals and colours', c.cx + '_' + c.cz);
+  if (!m.bridges.triangles || !m.bridges.normals || !m.bridges.colors) bad('the bridge boxes are a mesh of their own with normals and colours', c.cx + '_' + c.cz);
   const parts = Object.values(m).filter((x) => x.triangles).length;
-  if (parts > 4) bad('a chunk with a bridge has no more meshes than the four a chunk can have', String(parts));
+  if (parts > 4) bad('a chunk with a bridge has no more than four meshes (ground, roads, highways, the bridge)', String(parts));
 }
 
 // ---- the terrain: a car drives over the deck, a boat sails under it, a person on the deck is at the deck height
