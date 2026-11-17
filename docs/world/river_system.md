@@ -15,6 +15,8 @@ Written for: the owner and developers. Written 2026-11-17, after the owner point
 
 **What is done now (step 5).** The 0.004 town slab is settled: the baked ground under a joined chunk is lowered under the slab only and eases out over 24 units (`underlayAt`, `lib/world/townJoin.js`), so there is no lip where a joined chunk meets another (before, the whole chunk was lowered 0.08, with its highways). The datum names the two kinds of water (`waterLevel`) and still lists the river against the sea as open, with its real size.
 
+**The plan for all the mainland rivers is in [river_plan.md](river_plan.md)** (14 rivers, the ports, the bridges and the order of work); this page keeps the background and the real data.
+
 ## The owner's direction (2026-11-17)
 
 Start from the **mainland**, which already has a town: either from the south end of the existing river, or from real data for the mainland, and plan the whole design with tweaks. Harbor Isle's rivers can reach the sea too **if the data shows that pattern**. The mouth's size is decided once there is a design. There must be a **harbour for boats** and a **shipping port on both large landmasses**.
