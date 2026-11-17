@@ -9188,7 +9188,7 @@
    "land": 0.17,
    "plots": 0,
    "roads": 0,
-   "highways": 3
+   "highways": 4
   },
   {
    "key": "-1_-6",
@@ -9274,7 +9274,7 @@
    "land": 0.69,
    "plots": 0,
    "roads": 0,
-   "highways": 7
+   "highways": 8
   },
   {
    "key": "-1_3",
@@ -11378,5 +11378,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "c099b5e0ebc2ee07"
+ "hash": "817499c351a618f4"
 }
