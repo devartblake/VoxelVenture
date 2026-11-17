@@ -869,3 +869,19 @@ A highway with asphalt grain, an amber dashed centre line and white edge lines.
 ![The same highway with `?roadtex=0`: the old flat colour.](gallery/road_b.webp)
 
 The same highway with `?roadtex=0`: the old flat colour.
+
+## The Rio Minho in the baked world
+
+The first river cut into the baked ground as a second coast ([river_plan.md](river_plan.md)).
+
+### minho_a
+
+![The Rio Minho's north reach: a channel with sandy banks, bending to run down to the first town.](gallery/minho_a.webp)
+
+The Rio Minho's north reach: a channel with sandy banks, bending to run down to the first town.
+
+### minho_d
+
+![The Rio Minho's south reach reaching the sea: the ring road crosses it as a flat slab, the spur road ends at the ring, and the river widens to its mouth.](gallery/minho_d.webp)
+
+The Rio Minho's south reach reaching the sea: the ring road crosses it as a flat slab, the spur road ends at the ring, and the river widens to its mouth.

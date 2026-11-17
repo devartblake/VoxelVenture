@@ -19,20 +19,20 @@ Lengths and widths are in game units (a unit is about 90 m across the map; the r
 
 | River | Coast | Mouth is | Position | Real length | Length | Width (source / mid / mouth) | Fall | Moved | Bridge on |
 |---|---|---|---|---|---|---|---|---|---|
-| Rio Minho | south | mouth | page | 92.8 km | 723 | 3 / 10.5 / 24 | 4.3 | 26 | mainland-ring |
-| Milk River | south | mouth | approx | - | 223 | 3 / 5.7 / 11.6 | 2.78 | 94 | mainland-ring |
-| Black River | south | delta | page | 53.4 km | 372 | 3 / 7.1 / 22.4 | 2.78 | 32 | mainland-ring |
-| Rio Cobre | south | harbour | approx | 51 km | 444 | 3 / 7.8 / 20.5 | 4.3 | 57 | mainland-ring |
-| Hope River | south | delta | approx | - | 254 | 3 / 6 / 18.1 | 4.3 | 38 | mainland-ring |
-| Yallahs River | south | delta | approx | - | 301 | 3 / 6.5 / 19.8 | 4.3 | 18 | mainland-ring |
-| Plantain Garden River | east | mouth | approx | - | 305 | 3 / 6.5 / 13.6 | 4.3 | 4 | mainland-ring |
-| Rio Grande | north | gorge | approx | - | 217 | 2.1 / 4 / 8 | 4.3 | 8 | mainland-ring |
-| Wag Water River | north | mouth | approx | - | 331 | 3 / 6.7 / 14.3 | 4.3 | 16 | mainland-ring |
-| White River | north | mouth | page | - | 288 | 3 / 6.3 / 13.2 | 4.3 | 14 | mainland-ring |
-| Rio Bueno | north | mouth | approx | - | 284 | 3 / 6.3 / 13.1 | 3.61 | 7 | mainland-ring |
-| Martha Brae River | north | mouth | approx | - | 340 | 3 / 6.8 / 14.5 | 4.3 | 7 | mainland-ring |
-| Great River | north | mouth | page | 92 km | 455 | 3 / 7.9 / 17.4 | 3.86 | 33 | mainland-ring |
-| Cabarita River | west | mouth | approx | - | 133 | 3 / 4.8 / 9.3 | 2.78 | 12 | mainland-ring |
+| Rio Minho | south | mouth | page | 92.8 km | 709 | 6 / 12.8 / 26.7 | 4.3 | 26 | mainland-ring |
+| Milk River | south | mouth | approx | - | 223 | 6 / 8.1 / 14.6 | 2.78 | 94 | mainland-ring |
+| Black River | south | delta | page | 53.4 km | 372 | 6 / 9.6 / 26.8 | 2.78 | 32 | mainland-ring |
+| Rio Cobre | south | harbour | approx | 51 km | 444 | 6 / 10.3 / 24.1 | 4.3 | 57 | mainland-ring |
+| Hope River | south | delta | approx | - | 254 | 6 / 8.4 / 22.5 | 4.3 | 38 | mainland-ring |
+| Yallahs River | south | delta | approx | - | 301 | 6 / 8.9 / 24.2 | 4.3 | 18 | mainland-ring |
+| Plantain Garden River | east | mouth | approx | - | 305 | 6 / 8.9 / 16.6 | 4.3 | 4 | mainland-ring |
+| Rio Grande | north | gorge | approx | - | 217 | 4.2 / 5.7 / 10.1 | 4.3 | 8 | mainland-ring |
+| Wag Water River | north | mouth | approx | - | 331 | 6 / 9.2 / 17.3 | 4.3 | 16 | mainland-ring |
+| White River | north | mouth | page | - | 288 | 6 / 8.8 / 16.2 | 4.3 | 14 | mainland-ring |
+| Rio Bueno | north | mouth | approx | - | 284 | 6 / 8.7 / 16.1 | 3.61 | 7 | mainland-ring |
+| Martha Brae River | north | mouth | approx | - | 340 | 6 / 9.3 / 17.5 | 4.3 | 7 | mainland-ring |
+| Great River | north | mouth | page | 92 km | 455 | 6 / 10.4 / 20.4 | 3.86 | 33 | mainland-ring |
+| Cabarita River | west | mouth | approx | - | 133 | 6 / 7.3 / 12.3 | 2.78 | 12 | mainland-ring |
 
 **What each kind of mouth is** (it decides what is built at the sea): a **mouth** is an ordinary river mouth (a channel widening a little); a **delta** (the Black River's marsh, the Hope's and the Yallahs' gravel) spreads out and is shallow with islands of mangrove or gravel; the **harbour** (the Rio Cobre) enters the Kingston Harbour inlet at its head; a **gorge** (the Rio Grande) is narrow and steep with rock walls.
 
@@ -59,6 +59,15 @@ A shipping port on each large landmass is the Kingston Harbour (the mainland) an
 4. **Boats**: a river is navigable for boats from its mouth up to where its width falls under 6 units; the harbours and the Black River's lower reaches are the boating waters.
 5. **Nothing runs through the town but the Rio Minho**, and rivers do not cross.
 6. **The coast is cut a little at each mouth** (the mouth flares by up to 2 times its width over its last 12%), so the sea's foam and depth shading ([water.md](water.md)) meet the river, not a straight wall.
+
+## Decisions taken by the owner (2026-11-17)
+
+- **All 14 rivers are kept.** The Black River's morasses stay, **with their mangrove islands**. The mouths and the harbour entrances keep **the proportions in the table** (the flare and the widths); they can be adjusted once they are built. **Harbor Isle gets canals, a lagoon and mangroves** (no river: Grand Cayman has none). A shipping port on both large landmasses.
+
+## Built so far
+
+- **The Rio Minho in the baked world (2026-11-17; `lib/world/rivers.js`, `tests/rivers.test.mjs`).** The recipe turns it on (`rivers: ['rio-minho']`; each of the others is one id away), the world builder plans it (`buildRivers`), and the bake cuts it into the ground **as a second coast**: the ground's signed distance to the shore becomes the smaller of the coast's and the river's (stretched: a deeper bed and narrower banks than a beach, `RIVER_SD`), so the channel, the sandy banks, the water cells and the water at the sea's level all come out of the code that cuts the coast, and the terrain already lets a boat sail where the sea is deep enough. Outside the town the river runs from its source (north-west of the town) to the sea (south, west of the south spur road): 709 units, 6 wide at the source and 27 at the mouth; 15 chunks changed in the bake. It is not cut inside the first town's land (the town draws its own river there). The ring road crosses it as a flat slab (a bridge in effect: its rails and piers are not drawn yet). Seen on the development page: `gallery/minho_a.webp` (the north reach) and `gallery/minho_d.webp` (the south reach, the ring road and the mouth).
+- **Not built yet for the Rio Minho:** the town's own river sunk to the sea level (today the baked river meets the town slab 0.33 below the town's water at both ends), boats handed over between the town's boat area and the river, the ring bridge's rails, a river water surface of its own (it uses the sea plane at -0.3: a lowland river with no fall), and the sea shader's foam and depth shading at the mouth.
 
 ## The work, in order (each is a pull request with tests)
 
