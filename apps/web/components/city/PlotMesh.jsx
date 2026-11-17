@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
 import { PLOT_TILE, buildingSize } from '@/lib/city/cityGenerator';
+import { LIFT } from '@/lib/world/datum';
 
 const GOLD = '#fbbf24';
 
@@ -20,7 +21,7 @@ function BuildingDetails({ plot }) {
   const { bw, bd } = footprint(plot);
   const f = plot.facing ?? 1;
   const type = plot.buildingType;
-  const top = plot.height + 0.1;
+  const top = plot.height + LIFT.plot;
   const floors = plot.interiorData?.floors ?? 1;
   const front = bd / 2;
   const doorWidth = plot.prime ? 0.55 : 0.32;
@@ -32,12 +33,12 @@ function BuildingDetails({ plot }) {
     <group>
       {fronts.map((side) => (
         <group key={side}>
-          <mesh position={[0, 0.1 + 0.25, side * (front + 0.005)]}>
+          <mesh position={[0, LIFT.plot + 0.25, side * (front + 0.005)]}>
             <boxGeometry args={[doorWidth, 0.5, 0.02]} />
             <meshStandardMaterial color="#0f172a" roughness={0.6} />
           </mesh>
           {(type === 'restaurant' || type === 'shop') && (
-            <mesh position={[0, 0.1 + 0.78, side * (front + 0.17)]} castShadow>
+            <mesh position={[0, LIFT.plot + 0.78, side * (front + 0.17)]} castShadow>
               <boxGeometry args={[awningWidth, 0.06, 0.36]} />
               <meshStandardMaterial color={type === 'restaurant' ? '#dc2626' : '#f59e0b'} roughness={0.7} />
             </mesh>
@@ -46,14 +47,14 @@ function BuildingDetails({ plot }) {
       ))}
       {/* One dark line per floor boundary, so taller buildings read as multi-storey */}
       {Array.from({ length: floors - 1 }, (_, i) => (
-        <mesh key={i} position={[0, 0.1 + ((i + 1) * plot.height) / floors, 0]}>
+        <mesh key={i} position={[0, LIFT.plot + ((i + 1) * plot.height) / floors, 0]}>
           <boxGeometry args={[bw + 0.03, 0.03, bd + 0.03]} />
           <meshStandardMaterial color="#0f172a" roughness={0.8} />
         </mesh>
       ))}
       {type === 'office' && (
         <>
-          <mesh position={[0, 0.1 + plot.height * 0.6, 0]}>
+          <mesh position={[0, LIFT.plot + plot.height * 0.6, 0]}>
             <boxGeometry args={[bw + 0.04, plot.height * 0.3, bd + 0.04]} />
             <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.6} />
           </mesh>
@@ -139,7 +140,7 @@ export default function PlotMesh({ plot, isSelected, onSelect, isPlotOfTheDay = 
       {/* Building Structure */}
       {isClaimed ? (
         <mesh
-          position={[0, plot.height / 2 + 0.1, 0]}
+          position={[0, plot.height / 2 + LIFT.plot, 0]}
           onClick={(e) => {
             e.stopPropagation();
             onSelect(plot);

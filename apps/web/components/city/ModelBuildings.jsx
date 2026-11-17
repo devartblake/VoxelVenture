@@ -8,6 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ALL_MODELS, modelFor } from '@/lib/content/models';
 import { parseVox, voxelMesh } from '@/lib/content/vox';
+import { LIFT } from '@/lib/world/datum';
 import { instanceSpheres, useCulledInstances, useLod } from '@/lib/performance/lodRuntime';
 import BuildingStandIns from '@/components/lod/BuildingStandIns';
 
@@ -112,7 +113,7 @@ export function modelMatrix(plot, m) {
   const [ox, oy, oz] = m.offset;
   const cos = Math.cos(yaw);
   const sin = Math.sin(yaw);
-  tmp.position.set(plot.x + ox * cos + oz * sin, 0.1 + oy, plot.z - ox * sin + oz * cos);
+  tmp.position.set(plot.x + ox * cos + oz * sin, LIFT.plot + oy, plot.z - ox * sin + oz * cos);
   tmp.rotation.set(0, yaw + m.rotY, 0);
   tmp.scale.set(m.scale[0], m.scale[1], m.scale[2]);
   tmp.updateMatrix();

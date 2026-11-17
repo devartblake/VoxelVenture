@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { modelFor } from '@/lib/content/models';
 import { buildingSize } from '@/lib/city/cityGenerator';
+import { LIFT } from '@/lib/world/datum';
 import { useDraft } from '@/lib/state/draftStore';
 import { Kind, ensureModels, useModels } from './ModelBuildings';
 
@@ -20,7 +21,7 @@ export default function DraftBuilding() {
   // while the model loads (or with models off): a plain box of the right size
   const { bw, bd } = buildingSize(plot);
   return (
-    <mesh position={[plot.x, plot.height / 2 + 0.1, plot.z]} rotation={[0, plot.yaw ?? 0, 0]} castShadow>
+    <mesh position={[plot.x, plot.height / 2 + LIFT.plot, plot.z]} rotation={[0, plot.yaw ?? 0, 0]} castShadow>
       <boxGeometry args={[bw, plot.height, bd]} />
       <meshStandardMaterial color={plot.wallColor ?? plot.color ?? '#94a3b8'} roughness={0.7} />
     </mesh>
