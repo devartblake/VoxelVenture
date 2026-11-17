@@ -8334,6 +8334,92 @@
    "length": 99.71
   }
  ],
+ "ports": [
+  {
+   "id": "kingston-harbour",
+   "name": "Kingston Harbour",
+   "role": "shipping",
+   "planned": "shipping port",
+   "landmass": "mainland",
+   "at": {
+    "x": 519.58,
+    "z": 185.49
+   },
+   "t": {
+    "x": -0.86,
+    "z": -0.52
+   },
+   "n": {
+    "x": -0.52,
+    "z": 0.86
+   },
+   "boxes": 94,
+   "decks": 1
+  },
+  {
+   "id": "port-royal",
+   "name": "Port Royal",
+   "role": "boats",
+   "planned": "boat harbour",
+   "landmass": "mainland",
+   "at": {
+    "x": 414.56,
+    "z": 159.65
+   },
+   "t": {
+    "x": -0.86,
+    "z": 0.51
+   },
+   "n": {
+    "x": 0.51,
+    "z": 0.86
+   },
+   "boxes": 14,
+   "decks": 4
+  },
+  {
+   "id": "montego-bay",
+   "name": "Montego Bay",
+   "role": "cruise",
+   "planned": "cruise and cargo port",
+   "landmass": "mainland",
+   "at": {
+    "x": -690.51,
+    "z": -801.14
+   },
+   "t": {
+    "x": 0.99,
+    "z": -0.17
+   },
+   "n": {
+    "x": -0.17,
+    "z": -0.99
+   },
+   "boxes": 41,
+   "decks": 2
+  },
+  {
+   "id": "george-town",
+   "name": "George Town (Harbor Isle)",
+   "role": "shipping-cruise",
+   "planned": "shipping port and cruise anchorage",
+   "landmass": "harbor-isle",
+   "at": {
+    "x": 1631.29,
+    "z": 32.99
+   },
+   "t": {
+    "x": 0.07,
+    "z": -1
+   },
+   "n": {
+    "x": -1,
+    "z": -0.07
+   },
+   "boxes": 64,
+   "decks": 3
+  }
+ ],
  "rivers": [
   {
    "id": "rio-minho",
@@ -10576,7 +10662,7 @@
    "land": 0.23,
    "plots": 0,
    "roads": 0,
-   "highways": 4
+   "highways": 6
   },
   {
    "key": "-6_-6",
@@ -11419,7 +11505,7 @@
    "land": 0.22,
    "plots": 0,
    "roads": 0,
-   "highways": 5
+   "highways": 10
   },
   {
    "key": "4_-5",
@@ -11486,7 +11572,7 @@
    "land": 0.54,
    "plots": 0,
    "roads": 0,
-   "highways": 8,
+   "highways": 9,
    "heights": true
   },
   {
@@ -11814,7 +11900,7 @@
    "land": 0.13,
    "plots": 0,
    "roads": 0,
-   "highways": 0
+   "highways": 1
   },
   {
    "key": "12_0",
@@ -11823,7 +11909,7 @@
    "land": 0.27,
    "plots": 0,
    "roads": 0,
-   "highways": 6
+   "highways": 8
   },
   {
    "key": "12_1",
@@ -13187,5 +13273,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "e33639c99bda8a19"
+ "hash": "d15b218feaa62611"
 }
