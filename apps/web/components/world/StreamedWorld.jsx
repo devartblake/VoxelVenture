@@ -19,7 +19,7 @@ import { SEA_LEVEL } from '@/lib/world/datum';
 import { clipChunkToTown, insideTown, overlapsTown } from '@/lib/world/townJoin';
 import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
 import { SEABED, seabedMesh } from '@/lib/world/seabed';
-import { riverWaterMesh } from '@/lib/world/riverWater';
+import { applyRiverFx, riverWaterMesh } from '@/lib/world/riverWater';
 import { OCEAN_FLOOR, SEA_FLOOR } from '@/lib/world/datum';
 import { registerGlow } from '@/components/city/nightLights';
 
@@ -194,19 +194,21 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         if (parent && baked.manifest.rivers?.length && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('riverwater') !== '0') {
           const parts = baked.manifest.rivers.map((r) => riverWaterMesh(r));
           const n = parts.reduce((s, p) => s + p.vertices, 0);
-          const positions = new Float32Array(n * 3), colors = new Float32Array(n * 4), indices = new Uint32Array(parts.reduce((s, p) => s + p.indices.length, 0));
+          const positions = new Float32Array(n * 3), colors = new Float32Array(n * 4), fx = new Float32Array(n * 4), indices = new Uint32Array(parts.reduce((s, p) => s + p.indices.length, 0));
           let v = 0, k = 0;
           for (const p of parts) {
-            positions.set(p.positions, v * 3); colors.set(p.colors, v * 4);
+            positions.set(p.positions, v * 3); colors.set(p.colors, v * 4); fx.set(p.fx, v * 4);
             for (let i = 0; i < p.indices.length; i++) indices[k + i] = p.indices[i] + v;
             v += p.vertices; k += p.indices.length;
           }
           const geometry = new THREE.BufferGeometry();
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
           geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4));
+          geometry.setAttribute('riverFx', new THREE.BufferAttribute(fx, 4)); // the shader's: across, along, mouth, fade (lib/world/riverWater.js)
           geometry.setIndex(new THREE.BufferAttribute(indices, 1));
           geometry.computeVertexNormals();
           const ribbon = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, depthWrite: false, roughness: 0.25, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 })); // (pulled toward the camera: at 300 units the depth buffer is coarser than the 0.02 the water is over the sea plane)
+          if (new URLSearchParams(window.location.search).get('riverfx') !== '0') applyRiverFx(THREE, ribbon.material); // ripples, bank foam and mouth foam; ?riverfx=0 keeps the still water
           ribbon.name = 'river-water';
           ribbon.renderOrder = 20; // after the sea's plane (which is drawn translucent over the whole ocean)
           ribbon.frustumCulled = false;
@@ -288,6 +290,8 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
   useFrame((_, delta) => {
     const depth = seaMaterial.userData.seaDepth;
     if (depth) depth.uTime.value += delta; // the foam
+    const rfx = state.current.riverWater?.material.userData.riverFx;
+    if (rfx) rfx.uTime.value += delta; // the rivers' ripples and foam
     const m = state.current.manager;
     if (!m) return;
     const at = focus ? focus() : camera.position; // { x, z } or a Vector3: z is the ground z in both

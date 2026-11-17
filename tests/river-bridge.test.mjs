@@ -74,6 +74,43 @@ for (const c of withBridge) {
   if (parts > 4) bad('a chunk with a bridge has no more than four meshes (ground, roads, highways, the bridge)', String(parts));
 }
 
+// ---- the lamps (docs/world/river_plan.md): the ring road's lamps over every river, one on each side every 14 units, inside the parapet, on the road, once each
+const { riverBridgeLamps, RIVER_LAMP } = await imp('world/chunkMesh.js');
+const { buildChunkObject, createChunkMaterials } = await imp('world/chunkObject.js');
+const THREE = await import('three');
+let lampsTotal = 0;
+const lampSet = new Set();
+for (const c of withBridge) {
+  const lamps = riverBridgeLamps(c);
+  lampsTotal += lamps.length;
+  for (const l of lamps) {
+    const key = `${l.x.toFixed(2)},${l.z.toFixed(2)}`;
+    if (lampSet.has(key)) bad('a lamp is once (not in two chunks)', key);
+    lampSet.add(key);
+    if (!Number.isFinite(l.x + l.y + l.z + l.yaw)) bad('a lamp has a place and a turn', key);
+    // inside the deck's width, over the road's surface
+    const near = c.highways.filter((h) => h.kind === 'river-bridge').map((h) => { const dx = h.b.x - h.a.x, dz = h.b.z - h.a.z, l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((l.x - h.a.x) * dx + (l.z - h.a.z) * dz) / l2)); return { h, d: Math.hypot(l.x - (h.a.x + t * dx), l.z - (h.a.z + t * dz)) }; }).sort((x, y) => x.d - y.d)[0];
+    if (!(near.d > near.h.width / 2 - RIVER_LAMP.inset - 0.2 && near.d < near.h.width / 2 - RIVER_LAMP.inset + 0.2)) bad('a lamp stands just inside the parapet, at the edge of the deck', `${near.d.toFixed(2)} of ${near.h.width}`);
+    if (!(l.y >= 0.05)) bad('a lamp stands on the road surface (over the ground)', String(l.y));
+  }
+}
+if (lampsTotal < ids.length * 6) bad('every bridge has at least six lamps (three a side)', String(lampsTotal));
+const lampPerBridge = lampsTotal / ids.length;
+if (!(lampPerBridge >= 6 && lampPerBridge <= 16)) bad('a bridge has between six and sixteen lamps', String(lampPerBridge));
+// the chunk object draws them as one instanced mesh (the same lamp model as the causeways), and a light pool for each
+{
+  const mats = createChunkMaterials(THREE);
+  const model = (g) => ({ geometry: g, material: new THREE.MeshStandardMaterial() });
+  const models = { deck: null, props: { lightPostModern: model(new THREE.BoxGeometry(0.1, 0.8, 0.1)) }, pool: model(new THREE.CircleGeometry(1, 8)) };
+  const c = withBridge.find((x) => riverBridgeLamps(x).length);
+  const g = buildChunkObject(THREE, c, mats, { models });
+  const lamps = g.children.find((m) => m.name.endsWith(':bridge-lamps')), pools = g.children.find((m) => m.name.endsWith(':light-pools'));
+  if (!lamps || lamps.count !== riverBridgeLamps(c).length) bad('the chunk draws its river bridge lamps as one instanced mesh', String(lamps?.count));
+  if (!pools || pools.count < riverBridgeLamps(c).length) bad('each lamp has its pool of light on the road (dark by day: the glow is the game night)', String(pools?.count));
+  const none = buildChunkObject(THREE, c, mats, { models: { deck: null, props: {} } });
+  if (none.children.some((m) => m.name.endsWith(':bridge-lamps'))) bad('without the lamp model there are no lamps', '');
+}
+
 // ---- the terrain: a car drives over the deck, a boat sails under it, a person on the deck is at the deck height
 const have = new Set(baked.manifest.chunks.map((c) => c.key));
 const terrain = createTerrain({ chunkAt: (cx, cz) => loaded.get(`${cx}_${cz}`), has: (cx, cz) => have.has(`${cx}_${cz}`) });
