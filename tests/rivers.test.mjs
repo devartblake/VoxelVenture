@@ -19,10 +19,11 @@ const terrain = createTerrain({ chunkAt: (cx, cz) => loaded.get(`${cx}_${cz}`), 
 
 // ---- the recipe turns it on, and only it
 const { RIVERS } = await imp('world/riverPlan.js');
-if (JSON.stringify([...WORLD_RECIPE.rivers].sort()) !== JSON.stringify(RIVERS.map((r) => r.id).sort())) bad('the recipe turns on all fourteen rivers of the plan', JSON.stringify(WORLD_RECIPE.rivers));
+const { ISLE_WATER_IDS } = await imp('world/isleWaters.js');
+if (JSON.stringify([...WORLD_RECIPE.rivers].sort()) !== JSON.stringify([...RIVERS.map((r) => r.id), ...ISLE_WATER_IDS].sort())) bad('the recipe turns on all fourteen rivers of the plan and Harbor Isle waters', JSON.stringify(WORLD_RECIPE.rivers));
 if (!validateRecipe({ ...WORLD_RECIPE, rivers: ['rio-minho', 'no-such-river'] }).some((p) => /no-such-river/.test(p))) bad('a recipe that turns on a river the plan does not have is invalid', '');
 const world = buildWorld();
-if (world.rivers.length !== 14) bad('the built world has the fourteen rivers', JSON.stringify(world.rivers.map((r) => r.id)));
+if (world.rivers.length !== 14 + ISLE_WATER_IDS.length) bad('the built world has the fourteen rivers and the island waters', JSON.stringify(world.rivers.map((r) => r.id)));
 const river = world.rivers.find((r) => r.id === 'rio-minho');
 const town = baked.manifest.towns[0].land;
 const mr = baked.manifest.rivers?.[0];

@@ -33,7 +33,7 @@ No value changed: they are what the game already used. `layers()` lists every ab
 ## Not settled yet
 
 1. ~~The town water and the sea differ by 0.326~~ **settled** (2026-11-17): the town's river is at the sea's level in a trench; the lakes are ponds (see "Step 5").
-2. **A deck's height is measured from 0**, so a causeway's clearance over the water is 0.3 more than its number (9.3, not 9). Harmless, but a bridge built "9 over the water" must say so (`overSea`).
+2. ~~A deck's height is measured from 0, so a causeway's clearance over the water was 0.3 more than its number (9.3, not 9)~~ **settled** (2026-11-17): a recipe's causeway `clearance` is the height **over the water**; `highways.js` bakes it as `deckOverSea(clearance)` = clearance + SEA_LEVEL (8.7 for the recipe's 9), and a baked piece's `clearance` stays the absolute height every system already reads (`deckHeight`, the towers, the arch, the rail, the cars). `overSea(8.7)` is 9. The datum now lists no disagreement (`DATUM_ISSUES` is empty).
 3. ~~The animals swim at 0.035~~ **fixed** (they swim on the water they are on: the river's or a pond's).
 
 (The join between the town's flat ground and the baked terrain is now tested: see "The town border" below.)

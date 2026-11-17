@@ -16,7 +16,7 @@ const { bad, total } = problemTally();
 if (!(D.SEA_FLOOR < D.SEA_LEVEL && D.SEA_LEVEL < D.TOWN_GROUND && D.TOWN_GROUND <= D.TOWN_WATER)) bad('the datum is ordered: the seabed under the sea under the town ground, the town water at or over it', JSON.stringify([D.SEA_FLOOR, D.SEA_LEVEL, D.TOWN_GROUND, D.TOWN_WATER]));
 if (!(D.LIFT.road > 0 && D.LIFT.road < D.LIFT.highway && D.LIFT.prop > 0 && D.LIFT.rail > D.LIFT.highway)) bad('lifts: a road under a highway, and the rail over both', JSON.stringify(D.LIFT));
 if (!(D.SHORE_GROUND > 0 && D.SHORE_GROUND < 0.5) || D.DECK_BASE !== D.TOWN_GROUND) bad('the shore is 0 to 0.5 and decks are measured from the town ground', '');
-if (Math.abs(D.overSea(9) - 9.3) > 1e-9) bad('a deck 9 high is 9.3 over the water', String(D.overSea(9)));
+if (Math.abs(D.overSea(9) - 9.3) > 1e-9 || Math.abs(D.overSea(D.deckOverSea(9)) - 9) > 1e-9) bad('an absolute height of 9 is 9.3 over the water, and a deck asked for 9 over the water is 8.7', String(D.deckOverSea(9)));
 const ls = D.layers();
 if (new Set(ls.map((l) => l.id)).size !== ls.length || ls.some((l) => !Number.isFinite(l.y) || !/^#[0-9a-f]{6}$/.test(l.color) || !l.label)) bad('every layer has a unique id, a height, a colour and a label', '');
 const y = (id) => ls.find((l) => l.id === id).y;
@@ -34,7 +34,7 @@ if (TUNNEL.floor + TUNNEL.height + TUNNEL.wall >= D.SEA_LEVEL) bad('the tunnel r
 if (TUNNEL.floor - 0.12 - TUNNEL.wall < D.SEA_FLOOR - 6) bad('the tunnel is not absurdly far below the seabed', '');
 // the causeways' decks: their flat height is the baked clearance, over the datum's deck base
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/manifest.json'), 'utf8'));
-for (const c of manifest.causeways) if (!(c.clearance >= 8 && D.overSea(c.clearance) > c.clearance)) bad('a causeway deck leaves room for a boat under it, measured over the water', `${c.id}: ${c.clearance}`);
+for (const c of manifest.causeways) if (!(c.clearance >= 8 && Math.abs(D.overSea(c.clearance) - 9) < 1e-6)) bad('a causeway deck is the 9 units over the water the recipe asks for (not 9.3), room for a boat', `${c.id}: ${c.clearance}`);
 
 // the racing circuit's paint layers, the train's rail on a deck, and what owners build on a plot, all at the datum's lifts
 const { PALETTE } = await imp('world/track.js');
@@ -66,9 +66,7 @@ if (surfaceHeight({ roads: [], intersections: [] }, 5, 5, plotAt('x')) !== D.LIF
 
 // ---- what is still unsettled is listed, and listed honestly
 const ids = D.DATUM_ISSUES.map((i) => i.id).sort().join();
-if (ids !== 'deck-from-ground') bad('the one known disagreement left: decks are measured from the ground, not the sea (the town river is sunk to the sea level and the slab is settled: the underlay, step 5)', ids);
-const gap = (id) => D.DATUM_ISSUES.find((i) => i.id === id).gap;
-if (Math.abs(gap('deck-from-ground') + D.SEA_LEVEL) > 1e-9) bad('the disagreement states its real size', '');
+if (ids !== '') bad('no disagreement left in the datum (the town river and slab, the animals and the decks are settled)', ids);
 
 // ---- step 5: the water levels are named, and the slab is covered by the join's underlay
 if (D.waterLevel('sea') !== D.SEA_LEVEL || D.waterLevel('river') !== D.SEA_LEVEL || D.waterLevel('pond') !== D.TOWN_WATER || D.waterLevel() !== D.SEA_LEVEL) bad('the water levels are named: the sea and the river (the same level), and the ponds', '');

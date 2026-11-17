@@ -88,7 +88,7 @@ A shipping port on each large landmass is the Kingston Harbour (the mainland) an
 3. **The Rio Minho first, as the proof:** the town's river sunk (the slab cut round it, the water at its level), the whole river from the Mocho Mountains to the sea, with its bridge on the ring road, and the boats of the town able to sail out (the hand-over from the town's boat rectangles to the river, in `lib/sim/vehicles.js` and `terrain.js`). This closes the datum's town-water disagreement.
 4. **The other thirteen rivers**, each a data entry already: the channels, the water and a bridge are the same code. The delta and the gorge are the two special cases (shallows and islands; walls).
 5. **The harbours and the ports:** the Kingston Harbour (the container quay, cranes, the pilots' channel from the sea), Port Royal (the boat harbour), Montego Bay, and Harbor Isle's George Town (the existing quay widened to a cargo quay and a cruise anchorage), with the boats' berths.
-6. **Harbor Isle**: no river (Grand Cayman has no permanent surface rivers). Its water is the North Sound lagoon and mangrove channels, and perhaps canals: decided with the owner when the mainland is done.
+6. **Harbor Isle**: no river (Grand Cayman has no permanent surface rivers). Its water is the North Sound lagoon and mangrove channels, and perhaps canals: decided with the owner when the mainland is done. **Done 2026-11-17: the North Sound lagoon with mangrove islands, and a canal estate of five canals: [isle_waters.md](isle_waters.md).**
 
 ## Risks
 
@@ -102,4 +102,4 @@ A shipping port on each large landmass is the Kingston Harbour (the mainland) an
 - The width of each mouth and of the harbours' entrances (after the design is in place: this plan gives the proportions).
 - Whether the Black River's morasses are a big marsh (a wet area with mangrove islands) or just a wide delta.
 - Whether to keep all fourteen, or start with the south coast's six (Rio Minho, Milk, Black, Cobre, Hope, Yallahs).
-- Harbor Isle's water: lagoon and mangroves only, or canals too.
+- Harbor Isle's water: decided (canals, lagoon and mangroves) and built: [isle_waters.md](isle_waters.md).

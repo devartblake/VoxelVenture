@@ -35,7 +35,7 @@ if (!chunk.structures?.length || !chunk.props?.some((p) => p.d)) bad('the port c
 
 const full = buildChunkObject(THREE, chunk, materials, { models, detail: 'full' });
 const low = buildChunkObject(THREE, chunk, materials, { models, detail: 'low' });
-const none = buildChunkObject(THREE, chunk, materials, { models: null });
+const none = buildChunkObject(THREE, chunk, materials, { detail: 'low', models: props.lightPostModern ? { deck: null, props: { lightPostModern: props.lightPostModern } } : null }); // (the river bridges' lamps are not port models: they are drawn in every tier)
 const instanced = (g) => g.children.filter((m) => m.isInstancedMesh);
 const bridgesOf = (g) => g.children.find((m) => m.name.endsWith(':bridges'));
 
@@ -96,7 +96,8 @@ if (midReplaced !== bridgesOf(full).geometry.attributes.position.count) bad('the
 const noMid = buildChunkObject(THREE, chunk, materials, { models, detail: 'mid' });
 if (noMid.userData.triangles !== low.userData.triangles) bad('a phone whose mid models did not load draws the boxes (not the full models)', `${noMid.userData.triangles} ${low.userData.triangles}`);
 const noFull = buildChunkObject(THREE, chunk, materials, { models: { ...models, props: { lightPostModern: props.palm }, propsMid }, detail: 'full' });
-if (noFull.userData.triangles !== low.userData.triangles) bad('a desktop whose Kenney models did not load draws the boxes', `${noFull.userData.triangles} ${low.userData.triangles}`);
+const noneFull = buildChunkObject(THREE, chunk, materials, { detail: 'full', models: props.lightPostModern ? { deck: null, props: { lightPostModern: props.lightPostModern } } : null }); // (a desktop keeps its fine coast: the boxes alone, at the desktop's detail)
+if (noFull.userData.triangles !== noneFull.userData.triangles) bad('a desktop whose Kenney models did not load draws the boxes', `${noFull.userData.triangles} ${noneFull.userData.triangles}`);
 void fullTris;
 let worstMid = 0;
 for (const p of baked.manifest.ports) { const c = await baked.chunk(...Object.values(baked.chunkAt(p.at.x, p.at.z))); const g = buildChunkObject(THREE, c, materials, { models: { ...models, propsMid }, detail: 'mid' }); worstMid = Math.max(worstMid, g.userData.triangles); }

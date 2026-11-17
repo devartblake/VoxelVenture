@@ -42,7 +42,7 @@ for (const r of manifest.rivers) {
   const a = m.positions, w = Math.hypot(a[(row + 4) * 3] - a[row * 3], a[(row + 4) * 3 + 2] - a[row * 3 + 2]);
   if (!(w > 3 && w < 40)) bad('the ribbon is a river wide', `${r.id} ${w}`);
 }
-if (manifest.rivers.length !== 14 || vertices < 4000) bad('all fourteen rivers have water', `${manifest.rivers.length} ${vertices}`);
+if (manifest.rivers.length !== 20 || vertices < 4000) bad('all fourteen rivers and the island waters have water', `${manifest.rivers.length} ${vertices}`);
 const tint = (kind) => W.RIVER_WATER.palettes[kind].middle;
 if (!(tint('delta')[1] < tint('delta')[2] + 20 && tint('delta')[0] < tint('mouth')[0] + 40) || !Object.keys(W.RIVER_WATER.palettes).includes('gorge')) bad('each kind of river has a palette', '');
 
@@ -87,7 +87,7 @@ for (const r of manifest.rivers) {
     if (mo === 0) up++; mouthMax = Math.max(mouthMax, mo);
   }
   if (up < m.vertices / 2) bad('most of a river is upstream of its mouth foam', r.id);
-  if (mouthMax < 0.99) bad('the mouth has full foam', r.id);
+  if (r.kind === 'canal' || r.kind === 'lagoon' ? mouthMax !== 0 : mouthMax < 0.99) bad('a river mouth has full foam and still water (a canal, the lagoon) has none', r.id);
 }
 // the material patch: uniforms, the attribute, the foam in the shader
 {
