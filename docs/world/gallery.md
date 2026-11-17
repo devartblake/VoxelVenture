@@ -869,3 +869,81 @@ A highway with asphalt grain, an amber dashed centre line and white edge lines.
 ![The same highway with `?roadtex=0`: the old flat colour.](gallery/road_b.webp)
 
 The same highway with `?roadtex=0`: the old flat colour.
+
+## The North Causeway's arch bridge: lights at night
+
+The arch bridge with its lamps and lights in line with the structure: a street lamp, a hanger and an upright at the same joints, and a light on the top chord at every joint ([arch_bridge.md](arch_bridge.md)).
+
+### nca_a
+
+![The arch bridge at night: the street lamps with their pools of light along the deck, and the string of lights on the arch.](gallery/nca_a.webp)
+
+The arch bridge at night: the street lamps with their pools of light along the deck, and the string of lights on the arch.
+
+### nca_b
+
+![The arch bridge's land end at night: the lamps on the approach, the pylon and the arch rising from it.](gallery/nca_b.webp)
+
+The arch bridge's land end at night: the lamps on the approach, the pylon and the arch rising from it.
+
+### nca_c
+
+![The arch bridge by day, from the side: the hangers under the arch, the lamps on the deck edge.](gallery/nca_c.webp)
+
+The arch bridge by day, from the side: the hangers under the arch, the lamps on the deck edge.
+
+### nca_d
+
+![The arch bridge at night, from a second place along the deck.](gallery/nca_d.webp)
+
+The arch bridge at night, from a second place along the deck.
+
+## The town join, after the underlay
+
+The datum's step 5 ([datum.md](datum.md)): the ground under a joined chunk is lowered under the town's slab only, easing out over 24 units.
+
+### join5_a
+
+![From above, at the first town's south-east: the ground is continuous, the spur road runs up to the town's slab (the plain dark green square) and there is no frame or lip.](gallery/join5_a.webp)
+
+From above, at the first town's south-east: the ground is continuous, the spur road runs up to the town's slab (the plain dark green square) and there is no frame or lip.
+
+### lip_a
+
+![A spur road at ground level where it passes from a joined chunk into the next: no step can be seen at the chunk border.](gallery/lip_a.webp)
+
+A spur road at ground level where it passes from a joined chunk into the next: no step can be seen at the chunk border.
+
+### lip_b
+
+![The same border seen across the grass at a low angle.](gallery/lip_b.webp)
+
+The same border seen across the grass at a low angle.
+
+### road_d
+
+![A far view along the spur east of the town with the underlay, from the road's end (a check picture: the road, the grass and the sea at the horizon).](gallery/road_d.webp)
+
+A far view along the spur east of the town with the underlay, from the road's end (a check picture: the road, the grass and the sea at the horizon).
+
+## The asphalt candidates
+
+The three ambientCG asphalt colour maps tried for the roads ([road_texture.md](road_texture.md)): Asphalt031 was chosen (the most visible grain); Asphalt004 is very plain and Asphalt012 is dark.
+
+### asphalt_031
+
+![Asphalt031, the one used: a mid grey with a clear grain.](gallery/asphalt_031.webp)
+
+Asphalt031, the one used: a mid grey with a clear grain.
+
+### asphalt_012
+
+![Asphalt012: darker, a finer grain.](gallery/asphalt_012.webp)
+
+Asphalt012: darker, a finer grain.
+
+### asphalt_004
+
+![Asphalt004: a plain grey with almost no grain.](gallery/asphalt_004.webp)
+
+Asphalt004: a plain grey with almost no grain.
