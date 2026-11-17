@@ -4,10 +4,11 @@ import React from 'react';
 import StaticBatch from './StaticBatch';
 import { lampHeadMaterial } from './nightLights';
 import { PropModel, usePropsReady } from './PropModels';
+import { SURFACE } from '@/lib/world/datum';
 
 // The piers (lib/city/piers.js): a wooden deck on posts out into the water, with mooring posts beside the dock and a lantern at the end where you fish. The deck is a
 // little above the water and the bank (it is walkable: lib/sim/collision.js cuts it out of the water). Everything here stands still, so it is baked into a few meshes.
-const DECK_Y = 0.06;
+const DECK_Y = SURFACE.pier;
 const SLAB_SCALE_Y = 0.64; // the platform is 0.23 thick: 0.15 here, its top at the deck height
 const SLAB_Y = DECK_Y - 0.23 * SLAB_SCALE_Y;
 const PIER_MODELS = ['pirate/platform', 'pirate/barrel', 'pirate/crate'];
@@ -34,7 +35,7 @@ function Pier({ p, ready }) {
     <group>
       {/* the paved landing where the pier meets the bank */}
       {p.plaza && (
-        <mesh position={[(p.plaza.x0 + p.plaza.x1) / 2, 0.018, (p.plaza.z0 + p.plaza.z1) / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <mesh position={[(p.plaza.x0 + p.plaza.x1) / 2, SURFACE.plaza, (p.plaza.z0 + p.plaza.z1) / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[p.plaza.x1 - p.plaza.x0, p.plaza.z1 - p.plaza.z0]} />
           <meshStandardMaterial color="#d8d2c4" roughness={0.95} />
         </mesh>

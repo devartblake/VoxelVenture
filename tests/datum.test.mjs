@@ -53,12 +53,14 @@ const { ASPHALT_Y, SIDEWALK_Y } = await imp('city/curves.js');
 const { DECK } = await imp('world/bridgeDeckSpec.js');
 if (ASPHALT_Y !== SURFACE.road || SIDEWALK_Y !== SURFACE.kerb) bad('the town street meshes use the datum road and kerb heights', `${ASPHALT_Y} ${SIDEWALK_Y}`);
 if (SURFACE.land !== D.TOWN_GROUND_TOP || !(SURFACE.land < SURFACE.urban && SURFACE.urban < SURFACE.lawn && SURFACE.lawn < SURFACE.road && SURFACE.road < SURFACE.kerb)) bad('the town surfaces stack: the land, the built-up ground, a lawn, a street, the kerb', JSON.stringify(SURFACE));
-if (!(SURFACE.apron < SURFACE.runway && SURFACE.plaza < SURFACE.promenade && SURFACE.park < SURFACE.parkPath && SURFACE.mall < SURFACE.mallHall)) bad('a runway over its apron, a path over its lawn, the hall over the mall floor', '');
+if (!(SURFACE.apron < SURFACE.taxiway && SURFACE.taxiway < SURFACE.runway && SURFACE.runway < SURFACE.marking && SURFACE.land < SURFACE.hills && SURFACE.hills < SURFACE.field && SURFACE.field < SURFACE.patch && SURFACE.patch < SURFACE.lawn && SURFACE.apron < SURFACE.runway && SURFACE.plaza < SURFACE.promenade && SURFACE.park < SURFACE.parkPath && SURFACE.mall < SURFACE.mallHall)) bad('a runway over its apron, a path over its lawn, the hall over the mall floor', '');
 if (DECK.kerb.height !== D.LIFT.deckKerb) bad('the bridge kerb is the datum one', String(DECK.kerb.height));
 if (!(D.LIFT.plotPad > D.LIFT.plot && D.LIFT.pool > 0 && D.LIFT.floodPool > D.LIFT.pool)) bad('an unclaimed plot pad is over a built one base, and the lamp pools are lifted', '');
 const { surfaceHeight } = await imp('city/surfaceHeight.js');
 const flat = { roads: [], lawns: [{ x0: 0, x1: 10, z0: 0, z1: 10 }], intersections: [] };
 if (surfaceHeight(flat, 5, 5) !== SURFACE.lawn || surfaceHeight(flat, 50, 50) !== SURFACE.land) bad('a walker on a lawn stands on the datum lawn and off it on the datum land', `${surfaceHeight(flat, 5, 5)} ${surfaceHeight(flat, 50, 50)}`);
+const airport = { roads: [], intersections: [], airports: [{ apron: { x0: 0, x1: 20, z0: 0, z1: 20 }, runway: { x0: 5, x1: 10, z0: 5, z1: 10 } }] };
+if (surfaceHeight(airport, 15, 15) !== SURFACE.apron || surfaceHeight(airport, 7, 7) !== SURFACE.runway) bad('a walker on an airport apron and runway stands on the heights they are drawn at', `${surfaceHeight(airport, 15, 15)} ${surfaceHeight(airport, 7, 7)}`);
 const plotAt = (owner) => [{ x: 5, z: 5, w: 4, d: 4, yaw: 0, owner }];
 if (surfaceHeight({ roads: [], intersections: [] }, 5, 5, plotAt('x')) !== D.LIFT.plot || surfaceHeight({ roads: [], intersections: [] }, 5, 5, plotAt(null)) !== D.LIFT.plotPad) bad('a claimed plot is at the datum plot lift and an unclaimed one pad over it', '');
 
@@ -75,7 +77,7 @@ const walk = (dir, filter) => { for (const e of fs.readdirSync(path.join(root, d
 walk('lib/world', (f) => /\.js$/.test(f));
 files.push('lib/city/surfaceHeight.js', 'lib/city/curves.js', 'lib/sim/animals.js');
 walk('apps/web/components/world', (f) => /\.jsx$/.test(f));
-files.push('apps/web/components/city/River.jsx', 'apps/web/components/city/Vehicles.jsx', 'apps/web/components/city/PlotMesh.jsx', 'apps/web/components/city/DraftBuilding.jsx', 'apps/web/components/city/ModelBuildings.jsx', 'lib/content/models.js');
+files.push('apps/web/components/city/River.jsx', 'apps/web/components/city/Vehicles.jsx', 'apps/web/components/city/PlotMesh.jsx', 'apps/web/components/city/DraftBuilding.jsx', 'apps/web/components/city/ModelBuildings.jsx', 'apps/web/components/city/Airports.jsx', 'apps/web/components/city/Piers.jsx', 'apps/web/components/city/Promenade.jsx', 'apps/web/components/city/Park.jsx', 'apps/web/components/city/CurvedRoad.jsx', 'apps/web/components/city/Farmland.jsx', 'apps/web/components/city/GroundPatches.jsx', 'apps/web/components/city/Hills.jsx', 'lib/content/models.js');
 const rules = [
   { name: 'the sea level is declared once, in the datum', re: /\b(?:const|let|var)\s+SEA_LEVEL\s*=|export\s+const\s+SEA_LEVEL\s*=/ },
   { name: 'the water height is declared once, in the datum', re: /\b(?:const|let|var)\s+WATER_Y\s*=\s*[-\d]|export\s+const\s+WATER_Y\s*=\s*[-\d]/ },

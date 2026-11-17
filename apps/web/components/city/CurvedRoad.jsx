@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import { lampHeadMaterial } from './nightLights';
+import { SURFACE } from '@/lib/world/datum';
 import * as THREE from 'three';
 import {
   asphaltData,
@@ -13,7 +14,7 @@ import {
 import Label3D from './Label3D';
 
 const LAMP_HEIGHT = 0.95;
-const SIDEWALK_Y = 0.08;
+const SIDEWALK_Y = SURFACE.kerb;
 
 function toGeometry({ positions, indices }) {
   const geometry = new THREE.BufferGeometry();

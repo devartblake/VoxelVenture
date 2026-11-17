@@ -4,9 +4,10 @@ import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import PropInstances, { usePropsReady } from './PropModels';
 import { bushModelFor, treeModelFor } from '@/lib/content/props';
+import { SURFACE } from '@/lib/world/datum';
 
 const CROP_COLORS = { wheat: '#d9c26a', corn: '#8fb339', plough: '#7a5535', meadow: '#4f9a45' };
-const FIELD_Y = 0.007;
+const FIELD_Y = SURFACE.field;
 
 // Furrows: one shared greyscale stripe texture, tinted per field by the crop colour.
 let furrowTexture = null;

@@ -3,11 +3,12 @@
 import React from 'react';
 import StaticBatch from './StaticBatch';
 import { lampHeadMaterial } from './nightLights';
+import { SURFACE } from '@/lib/world/datum';
 
 // The riverwalk (lib/city/promenade.js): a paved walking area between the river drive and the water, with benches facing the river and lamp posts along the
 // drive side. The paving is a little above the grass and the sandy bank (so it does not flicker against them); the benches and lamp posts are solid
 // (lib/sim/collision.js). Everything stands still, so it is baked into a few meshes.
-const PAVE_Y = 0.02;
+const PAVE_Y = SURFACE.promenade;
 
 function Bench({ b }) {
   return (
