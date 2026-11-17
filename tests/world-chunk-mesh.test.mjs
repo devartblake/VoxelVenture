@@ -72,7 +72,9 @@ const valid = (m, c) => {
   check('chunks with a coast near carry the signed distance at every corner (33 x 33), positive on land and negative at sea', shore.length > 100 && shore.every(({ c }) => c.ground.sd.length === 33 * 33) && shore.some(({ c }) => c.ground.sd.some((v) => v > 0) && c.ground.sd.some((v) => v < 0)), `${shore.length} chunks`);
   // the cut: vertices at the bottom of the shallows (y -1.5) lie 6 units out to sea, to within a unit
   let cut = 0, worst = 0;
-  for (const { m } of shore.slice(0, 60)) for (let v = 0; v < m.ground.positions.length; v += 3) if (Math.abs(m.ground.positions[v + 1] + 1.5) < 1e-3) { cut++; worst = Math.max(worst, Math.abs(signed(m.ground.positions[v], m.ground.positions[v + 2]) + SKIRT)); }
+  // (a chunk a river runs through is left out: its channel is cut from the river's own distance, tests/rivers.test.mjs)
+  const nearRiver = (c) => (baked.manifest.rivers ?? []).some((r) => r.course.some((p) => p.x > c.bounds.x0 - 60 && p.x < c.bounds.x1 + 60 && p.z > c.bounds.z0 - 60 && p.z < c.bounds.z1 + 60));
+  for (const { m } of shore.filter(({ c }) => !nearRiver(c)).slice(0, 60)) for (let v = 0; v < m.ground.positions.length; v += 3) if (Math.abs(m.ground.positions[v + 1] + 1.5) < 1e-3) { cut++; worst = Math.max(worst, Math.abs(signed(m.ground.positions[v], m.ground.positions[v + 2]) + SKIRT)); }
   check('the edge of the ground follows the real coast: every vertex cut at the bottom of the shallows is 6 units out to sea, within 1 unit (a staircase of 4-unit cells would be off by up to 3)', cut > 100 && worst < 1.0, `${cut} vertices, worst ${worst.toFixed(2)}`);
   const lowest = Math.min(...shore.map(({ m }) => { let y = 0; for (let v = 1; v < m.ground.positions.length; v += 3) y = Math.min(y, m.ground.positions[v]); return y; }));
   check('under the sea the ground slopes down to 1.5 units and no lower, and every vertex is within 6 units of the coast or on land', lowest >= -1.5 - 1e-6 && lowest <= -1.4 && shore.every(({ m }) => { for (let v = 0; v < m.ground.positions.length; v += 3) if (signed(m.ground.positions[v], m.ground.positions[v + 2]) < -SKIRT - 1) return false; return true; }));
