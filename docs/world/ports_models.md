@@ -23,9 +23,9 @@ Written for: the owner and developers. Built 2026-11-17, after the owner asked f
 - A box that a model replaces carries a tag (`replaced`, the 11th number of the box). **When the models are drawn the box is left out; when they are not, it is what is drawn.**
 - `d: 1` marks decoration that has no box: the boats, buoys, cargo and palms.
 
-## The mobile rule
+## The three tiers and the mobile rule
 
-`buildChunkObject(..., { detail })`: **`'low'` (the phone profile) draws no port model at all**: the replaced boxes stay and the decoration is left out. `'full'` (desktop, overview) draws the models. A world whose models cannot be loaded also keeps the boxes. So:
+`buildChunkObject(..., { detail })`: **`'full'`** (a desktop, the overview) draws the Kenney models; **`'mid'`** (the **phone profile**) draws their small copies: made models for the containers (72 triangles) and the tanks (64: `lib/world/portMid.js`) and simplified Kenney copies of the boats, buoy, ramp and palm (`scripts/world/make-lods.mjs`, in `public/world/lod`, flat shaded, up to 65 per cent fewer triangles); **`'low'`** draws no model: the replaced boxes stay and the decoration is left out (a device whose models did not load). A tier whose models are missing falls to `'low'`, never up. The phone also cuts the coast in whole cells (`fineEdge: false`). So (before the ground was merged and the mid tier existed, in the first version of this page):
 
 | | Triangles |
 |---|---|
@@ -33,6 +33,8 @@ Written for: the owner and developers. Built 2026-11-17, after the owner asked f
 | the same chunk on a **desktop** | about 10,200 (7,200 of them models) |
 | the worst port chunk on a phone | under 1,800 |
 | a port's models, desktop | under 20,000 (tested), about 7,000 to 8,000 in practice |
+
+**With the mid tier** the Kingston chunk is about 6,300 triangles on a phone (the boxes alone 3,900, the small models 2,400) against about 13,000 on a desktop (9,300 of them models); and the whole phone view at Kingston is **15,300 triangles** (it was 22,200), see [performance.md](performance.md). The ground, not the models, was most of the cost: a chunk's flat ground is now merged into long quads.
 
 The phone profile mounts a ring of one chunk (3 x 3, at most 16), so a phone near a port draws a few thousand port triangles on top of the ordinary ground; the desktop ring (5 x 5) near a port is the heavy case, and the owner has said that is allowed. Checked by `tests/ports-models.test.mjs` (a phone draws exactly what a world without the models draws; the desktop replaces the boxes; the instances share the model's geometry; a boat is at the sea level and a container on the deck) and `tests/ports.test.mjs` (every model is on the water or the land it should be, none in a river, under 20,000 triangles a port).
 

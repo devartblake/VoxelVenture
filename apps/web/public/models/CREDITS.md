@@ -15,7 +15,7 @@ The 61 food and drink models in `kenney/food/` and the 6 containers, tanks and s
 
 The palms, flowers, fences, logs, crops, campfire and tent among the trees in `kenney/nature/`, and the containers, tank, chimney and solar panels in `kenney/industrial/`, are the yards behind owners' buildings (`lib/content/yardModels.js`).
 
-The containers, tanks, boats, buoys, boat ramp, barrels, crates and palms at the ports and harbours (`lib/world/ports.js`: the front rows of the container yards, the moorings, the channel buoys) are from the **Kenney City Kit (Industrial)**, **Watercraft Kit**, **Pirate Kit** and **Nature Kit** named above, also CC0; a phone draws none of them (docs/world/ports_models.md).
+The containers, tanks, boats, buoys, boat ramp, barrels, crates and palms at the ports and harbours (`lib/world/ports.js`: the front rows of the container yards, the moorings, the channel buoys) are from the **Kenney City Kit (Industrial)**, **Watercraft Kit**, **Pirate Kit** and **Nature Kit** named above, also CC0; a phone draws small copies of them: simplified copies of the Kenney boats, buoy, ramp and palm (`public/world/lod`), and made models for the containers and tanks (docs/world/ports_models.md).
 
 The train and its rail in `kenney/train/` (the train on the first causeway: `lib/world/train.js`) are from the **Kenney Train Kit** 1.1, also CC0.
 

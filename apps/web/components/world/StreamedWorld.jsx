@@ -11,6 +11,7 @@ import { buildChunkObject, createChunkMaterials, disposeChunkObject } from '@/li
 import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
 import { PORT_MODELS } from '@/lib/world/ports';
+import { MID_MADE, midModel } from '@/lib/world/portMid';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
 import { applyRoadTexture } from '@/lib/world/roadTexture';
@@ -64,6 +65,25 @@ function loadBridgeModels() {
       const entries = await Promise.all(Object.entries(PORT_MODELS).map(async ([name, m]) => [name, await first(`../${m.file}.glb`)]));
       models.props = { ...(models.props ?? {}), ...Object.fromEntries(entries) };
     } catch { /* the boxes alone */ }
+    // the mid tier (a phone, lib/world/portMid.js): small made models for the containers and the tanks, and the simplified copies of the others (public/world/lod, made by scripts/world/make-lods.mjs), flat shaded
+    try {
+      const mid = {};
+      for (const name of MID_MADE) {
+        const m = midModel(name), geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(m.positions, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(m.colors, 3));
+        geometry.setIndex(new THREE.BufferAttribute(m.indices, 1));
+        mid[name] = { geometry, material: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 }) };
+      }
+      const rest = Object.keys(PORT_MODELS).filter((name) => !MID_MADE.includes(name));
+      const loaded = await Promise.all(rest.map(async (name) => {
+        const model = await first(`../../../world/lod/${name}.glb`); // (relative to /models/kenney/roads: /world/lod)
+        model.material = [].concat(model.material).map((mat) => { const c = mat.clone(); c.flatShading = true; return c; }); // (the simplified copies have no normals: the shader works the face normal out)
+        return [name, model];
+      }));
+      models.propsMid = { ...mid, ...Object.fromEntries(loaded) };
+    } catch { /* no mid tier: a phone draws the boxes */ }
     // night (components/city/nightLights.js drives these with the game's own dusk): the lamp heads and the pit windows glow, and each lamp throws a pool of light on the road
     if (models.props) {
       const warm = (material, night, day = 0) => { const m = material.clone(); m.emissive.set('#ffe2a0'); registerGlow(m, { day, night }); return m; };
@@ -149,7 +169,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         profile,
         onMount: (chunk) => {
           const joined = town && overlapsTown(chunk, town);
-          const group = buildChunkObject(THREE, joined ? clipChunkToTown(chunk, town) : chunk, materials, { models, detail: profile === 'phone' ? 'low' : 'full' }); // (a phone draws the ports' boxes, not their models)
+          const group = buildChunkObject(THREE, joined ? clipChunkToTown(chunk, town) : chunk, materials, { models, detail: profile === 'phone' ? 'mid' : 'full' }); // (a phone draws the ports' small models, a desktop the Kenney ones)
           objects.set(`${chunk.cx}_${chunk.cz}`, group);
           parent?.add(group);
           stats.mounts++; stats.mounted = objects.size; stats.triangles += group.userData.triangles; stats.drawCalls += group.children.length;
@@ -248,6 +268,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       stats.bridgeModels = Boolean(models?.deck);
       stats.trackModels = Boolean(models?.props);
       stats.portModels = Boolean(models?.props?.['ctr-a']); // the ports' Kenney models (lib/world/ports.js)
+      stats.portModelsMid = Boolean(models?.propsMid); // and their small copies, for a phone
       stats.ready = true; stats.profile = profile;
       onReady?.(baked.manifest);
     })();

@@ -62,6 +62,19 @@ const valid = (m, c) => {
   check('the coast has its beach (sand-coloured vertices), and the Blue Mountains are coloured by height and slope: grass below, bare rock above, pale at the peaks', beaches.length > 30 && mountain.some(({ m }) => { let rock = 0, pale = 0, green = 0; for (let v = 0; v < m.ground.colors.length; v += 3) { const [r, g, b] = [m.ground.colors[v], m.ground.colors[v + 1], m.ground.colors[v + 2]]; if (Math.abs(r - 118) < 14 && Math.abs(g - 110) < 14) rock++; else if (r > 185) pale++; else if (g > r + 20 && g > b + 20) green++; } return rock > 20 && green > 20 && pale >= 0; }));
 }
 
+// ---- merged flat ground (docs/world/performance.md): a run of flat land cells far from the coast is one quad: the same ground in far fewer triangles
+{
+  const area = (m) => { let t = 0, up = 0; for (let k = 0; k < m.indices.length; k += 3) { const [a, b, c] = [0, 1, 2].map((q) => m.indices[k + q] * 3), p = m.positions; const cz = (p[b] - p[a]) * (p[c + 2] - p[a + 2]) - (p[b + 2] - p[a + 2]) * (p[c] - p[a]); t += Math.abs(cz) / 2; if (cz < 0) up++; } return { area: t, down: m.indices.length / 3 - up }; };
+  let withMerge = 0, without = 0, areaA = 0, areaB = 0, facing = 0, facingBefore = 0, checked = 0;
+  for (const { c } of meshed.filter(({ c }) => c.ground?.sd && !c.ground.h).slice(0, 40)) {
+    const a = chunkMeshes(c, { mergeFlat: false }).ground, b = chunkMeshes(c).ground;
+    without += a.triangles; withMerge += b.triangles; areaA += area(a).area; areaB += area(b).area; facing += area(b).down; facingBefore += area(a).down; checked++;
+  }
+  check('flat land far from the coast is merged: the ground of flat coast chunks has far fewer triangles, covering the same area, no more triangles facing down than before (a few cells clipped at the cut are wound the other way, as they always were)', checked >= 20 && withMerge < without * 0.7 && Math.abs(areaA - areaB) < areaA * 0.002 && facing <= facingBefore, `${checked} chunks, ${without} -> ${withMerge} triangles, area ${areaA.toFixed(0)} / ${areaB.toFixed(0)}, ${facing} facing down (${facingBefore} before)`);
+  const coarse = meshed.filter(({ c }) => c.ground?.sd).slice(0, 40).reduce((s, { c }) => s + chunkMeshes(c, { fineEdge: false }).ground.triangles, 0), fine = meshed.filter(({ c }) => c.ground?.sd).slice(0, 40).reduce((s, { c }) => s + chunkMeshes(c).ground.triangles, 0);
+  check('a phone cuts the edge of the water in whole cells (fineEdge: false): fewer triangles than the fine edge', coarse < fine, `${fine} -> ${coarse}`);
+}
+
 // ---- the shore: cut smooth from the signed distance, and the shallows beyond it
 {
   const { pointInPolygon } = await imp('world/island.js');

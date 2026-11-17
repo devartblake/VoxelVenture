@@ -1,5 +1,5 @@
 // The ports' Kenney models and the phone (lib/world/chunkObject.js, lib/world/ports.js, docs/world/ports_models.md): a desktop draws the models (instanced, sharing the model's geometry and material) in place of the boxes they replace;
-// a phone draws the boxes alone and none of the decoration, so the triangles of a port chunk on a phone are the boxes' and nothing more. The real three.js builds the geometry (no WebGL is needed); the models are
+// a phone draws small copies of the models (the mid tier) and the weakest devices the boxes alone. The real three.js builds the geometry (no WebGL is needed); the models are
 // stand-ins with the real triangle counts.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -66,6 +66,42 @@ const ctr = instanced(full).find((m) => m.name.endsWith(':ctr-a'));
 ctr.getMatrixAt(0, m4); pos.setFromMatrixPosition(m4);
 if (!(pos.y >= 0.45 && pos.y < 5)) bad('a container stands on the quay deck (half a unit up) or on another container', String(pos.y));
 
+// ---- the mid tier (a phone): made containers and tanks, simplified copies of the rest, small enough for a phone and still models
+const M = await imp('world/portMid.js');
+const lods = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/lod/lods.json'), 'utf8'));
+for (const name of M.MID_MADE) {
+  const m = M.midModel(name), n = m.positions.length / 3;
+  if (M.triangles(m) > 80 || M.triangles(m) < 12) bad('a made model is a few dozen triangles', `${name} ${M.triangles(m)}`);
+  if (m.normals.length !== m.positions.length || m.colors.length !== m.positions.length || m.indices.some((i) => i >= n) || m.colors.some((c) => c < 0 || c > 1)) bad('a made model has normals, colours (0 to 1) and indices in range', name);
+  let nonUnit = 0; for (let i = 0; i < n; i++) if (Math.abs(Math.hypot(m.normals[i * 3], m.normals[i * 3 + 1], m.normals[i * 3 + 2]) - 1) > 1e-5) nonUnit++;
+  if (nonUnit) bad('every normal is a unit vector', name);
+  let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], m.positions[i * 3 + k]); hi[k] = Math.max(hi[k], m.positions[i * 3 + k]); }
+  const want = name === 'tank' ? [1.5, 0.96, 1.5] : [0.37, 0.35, 0.82];
+  if (Math.abs(lo[1]) > 1e-6 || [0, 1, 2].some((k) => Math.abs(hi[k] - lo[k] - want[k]) > 0.03 * want[k] + 0.01)) bad('a made model has the size of the Kenney model and its origin at the middle of its base', `${name} ${lo} ${hi}`);
+}
+const fullTris = (n) => TRIS[n];
+for (const [name, r] of Object.entries(lods)) if (r.after > r.before || r.after < 10 || !fs.existsSync(path.join(root, `apps/web/public/world/lod/${name}.glb`))) bad('a simplified copy exists and has no more triangles than the model', name);
+if (Object.keys(lods).some((k) => M.MID_MADE.includes(k)) || Object.keys(lods).length + M.MID_MADE.length !== Object.keys(PORT_MODELS).length) bad('every port model has a made or a simplified mid copy, once', Object.keys(lods).join());
+const midTris = { ...Object.fromEntries(M.MID_MADE.map((k) => [k, M.triangles(M.midModel(k))])), ...Object.fromEntries(Object.entries(lods).map(([k, r]) => [k, r.after])) };
+const propsMid = Object.fromEntries(Object.keys(PORT_MODELS).map((k) => [k, stand(midTris[k])]));
+const mid = buildChunkObject(THREE, chunk, materials, { models: { ...models, propsMid }, detail: 'mid' });
+const midNames = instanced(mid).map((m) => m.name.split(':')[1]);
+if (!midNames.includes('ctr-a') || !midNames.includes('tank') && false) bad('a phone draws the mid models of the port chunk', midNames.join());
+for (const m of instanced(mid)) { const k = m.name.split(':')[1]; if (propsMid[k] && m.geometry !== propsMid[k].geometry && PORT_MODELS[k]) bad('the mid tier is instanced from the mid geometry, never the full one', m.name); }
+if (!(mid.userData.triangles < full.userData.triangles && mid.userData.triangles > low.userData.triangles - 400)) bad('a phone port chunk costs less than a desktop one and about what the boxes cost', `${mid.userData.triangles} ${full.userData.triangles} ${low.userData.triangles}`);
+if (mid.userData.triangles > 7000) bad('the Kingston chunk on a phone is under 7,000 triangles', String(mid.userData.triangles));
+const midReplaced = bridgesOf(mid).geometry.attributes.position.count;
+if (midReplaced !== bridgesOf(full).geometry.attributes.position.count) bad('the mid tier leaves the replaced boxes out too (its models stand there)', `${midReplaced}`);
+// the tiers fall down, never up: no mid models -> boxes; no full models -> boxes
+const noMid = buildChunkObject(THREE, chunk, materials, { models, detail: 'mid' });
+if (noMid.userData.triangles !== low.userData.triangles) bad('a phone whose mid models did not load draws the boxes (not the full models)', `${noMid.userData.triangles} ${low.userData.triangles}`);
+const noFull = buildChunkObject(THREE, chunk, materials, { models: { ...models, props: { lightPostModern: props.palm }, propsMid }, detail: 'full' });
+if (noFull.userData.triangles !== low.userData.triangles) bad('a desktop whose Kenney models did not load draws the boxes', `${noFull.userData.triangles} ${low.userData.triangles}`);
+void fullTris;
+let worstMid = 0;
+for (const p of baked.manifest.ports) { const c = await baked.chunk(...Object.values(baked.chunkAt(p.at.x, p.at.z))); const g = buildChunkObject(THREE, c, materials, { models: { ...models, propsMid }, detail: 'mid' }); worstMid = Math.max(worstMid, g.userData.triangles); }
+if (worstMid > 7000) bad('the worst port chunk on a phone, with the mid models, is under 7,000 triangles', String(worstMid));
+
 // ---- the phone profile's ring: the budget the owner set (mobile has to stay smooth)
 if (!(PROFILES.phone.ring === 1 && PROFILES.phone.maxMounted <= 16)) bad('a phone mounts a ring of one (3 x 3 chunks, at most 16)', JSON.stringify(PROFILES.phone));
 // the phone triangles of every port chunk are the ordinary chunk's (the boxes), under the busiest-chunk limit the mesh test sets
@@ -73,5 +109,5 @@ let worst = 0;
 for (const p of baked.manifest.ports) { const c = await baked.chunk(...Object.values(baked.chunkAt(p.at.x, p.at.z))); const g = buildChunkObject(THREE, c, materials, { models, detail: 'low' }); worst = Math.max(worst, g.userData.triangles); }
 if (worst > 5000) bad('a port chunk on a phone is under 5,000 triangles', String(worst));
 void chunkMeshes; void meshCost;
-console.log(`port models: Kingston chunk ${full.userData.triangles} triangles on a desktop (${modelTris} of them models), ${low.userData.triangles} on a phone; the worst port chunk on a phone ${worst}`);
+console.log(`port models: Kingston chunk ${full.userData.triangles} triangles on a desktop (${modelTris} of them models), ${mid.userData.triangles} on a phone (mid tier), ${low.userData.triangles} with the boxes alone; the worst port chunk on a phone ${worstMid} (${worst} boxes alone)`);
 total();

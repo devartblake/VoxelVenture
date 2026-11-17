@@ -1,0 +1,57 @@
+{
+ "boat-row": {
+  "before": 168,
+  "after": 132,
+  "bytes": 15900
+ },
+ "boat-row-l": {
+  "before": 174,
+  "after": 92,
+  "bytes": 14056
+ },
+ "boat-fish": {
+  "before": 237,
+  "after": 183,
+  "bytes": 17516
+ },
+ "boat-sail": {
+  "before": 386,
+  "after": 214,
+  "bytes": 19252
+ },
+ "boat-speed": {
+  "before": 156,
+  "after": 132,
+  "bytes": 15768
+ },
+ "boat-tug": {
+  "before": 576,
+  "after": 448,
+  "bytes": 27316
+ },
+ "buoy": {
+  "before": 118,
+  "after": 96,
+  "bytes": 13628
+ },
+ "ramp": {
+  "before": 128,
+  "after": 44,
+  "bytes": 12324
+ },
+ "barrel": {
+  "before": 148,
+  "after": 148,
+  "bytes": 16572
+ },
+ "crate": {
+  "before": 76,
+  "after": 76,
+  "bytes": 14620
+ },
+ "palm": {
+  "before": 186,
+  "after": 114,
+  "bytes": 3624
+ }
+}
