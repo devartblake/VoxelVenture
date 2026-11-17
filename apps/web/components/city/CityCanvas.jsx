@@ -28,6 +28,7 @@ import StreamedNetwork from './StreamedNetwork';
 import StreamedWorld from '@/components/world/StreamedWorld';
 import Train from '@/components/world/Train';
 import Suspension from '@/components/world/Suspension';
+import ArchBridge from '@/components/world/ArchBridge';
 import Traffic from './Traffic';
 import CurvedRoad from './CurvedRoad';
 import ReservedArea from './ReservedArea';
@@ -152,6 +153,7 @@ export default function CityCanvas() {
           {bakedWorld && <StreamedWorld profile={bakedWorld.profile} skip={skipTownChunks} />}
           {bakedWorld && <Train />}
           {bakedWorld && <Suspension />}
+          {bakedWorld && <ArchBridge />}
           <GroundPatches patches={layout.landscape.patches} />
           <Hills hills={layout.hills} />
           <Animals layout={layout} />

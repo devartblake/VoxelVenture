@@ -7,6 +7,7 @@ import { OrbitControls } from '@react-three/drei';
 import StreamedWorld from '@/components/world/StreamedWorld';
 import Train from '@/components/world/Train';
 import Suspension from '@/components/world/Suspension';
+import ArchBridge from '@/components/world/ArchBridge';
 import TunnelSpike, { FreeCam, startFromQuery, useRoute } from '@/components/dev/TunnelSpike';
 
 // DEVELOPMENT TOOL: the baked world (public/world) streamed by the chunk manager and flown over with an orbit camera, so the React layer of roadmap task 11 can be seen working without the game.
@@ -30,7 +31,7 @@ export default function WorldStream() {
   // ?look=x,z,dx,dy,dz opens at a place with the camera that far from it (for looking at a detail)
   const look = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('look') ?? '').split(',').map(Number) : [];
   const [target, setTarget] = useState(look.length >= 2 && look.every(Number.isFinite) ? { x: look[0], z: look[1] } : { x: 100, z: 100 });
-  const [night, setNight] = useState(false);
+  const [night, setNight] = useState(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('night') === '1'); // ?night=1 opens at night
   const [offset, setOffset] = useState(look.length === 5 && look.every(Number.isFinite) ? look.slice(2) : [150, 130, 260]);
   const controls = useRef(null);
   const free = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cam') === 'free'; // ?cam=free: fly (the tunnel spike), instead of orbiting
@@ -70,6 +71,7 @@ export default function WorldStream() {
         )}
         <Train />
         <Suspension />
+        <ArchBridge />
         {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '1' && <TunnelSpike />}
         <StreamedWorld profile={profile} focus={focus} onReady={onReady} />
       </Canvas>

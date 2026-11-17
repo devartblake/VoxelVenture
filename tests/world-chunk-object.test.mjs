@@ -46,11 +46,13 @@ const chunk = await baked.chunk(hc.cx, hc.cz);
   const models = { deck: { geometry: deckGeometry, material: new THREE.MeshStandardMaterial() }, pillar: { geometry: pillarGeometry, material: new THREE.MeshStandardMaterial() } };
   const bridgeChunks = [];
   for (const c of baked.manifest.chunks) { const ch = await baked.chunk(c.cx, c.cz); if (ch.highways.some((h) => h.kind === 'causeway-bridge')) bridgeChunks.push(ch); }
-  const withModels = bridgeChunks.map((c) => buildChunkObject(THREE, c, materials, { models }));
+  // the two causeways are styled bridges (suspension and arch): their decks are drawn by their own layers, so the kit's deck tiles are not made for them
+  const styledDecks = bridgeChunks.map((c) => buildChunkObject(THREE, c, materials, { models })).flatMap((g) => g.children.filter((m) => m.name.endsWith(':deck')));
+  check('the styled bridges (Harbor and North Causeway) have no deck tiles of the kit: their girders are drawn by the bridge layers', bridgeChunks.length >= 7 && styledDecks.length === 0, `${bridgeChunks.length} chunks, ${styledDecks.length} decks`);
+  // the same chunks with the bridges under a plain id (a bridge with no style of its own) get the kit's deck, as before
+  const plainChunks = bridgeChunks.map((c) => ({ ...c, highways: c.highways.map((h) => (h.kind === 'causeway-bridge' ? { ...h, id: `plain-${h.id}` } : h)) }));
+  const withModels = plainChunks.map((c) => buildChunkObject(THREE, c, materials, { models }));
   const decks = withModels.flatMap((g) => g.children.filter((m) => m.name.endsWith(':deck')));
-  const harborOnly = bridgeChunks.filter((c) => c.highways.filter((h) => h.kind === 'causeway-bridge').every((h) => h.id === 'harbor-causeway'));
-  const harborDecks = harborOnly.map((c) => buildChunkObject(THREE, c, materials, { models })).flatMap((g) => g.children.filter((m) => m.name.endsWith(':deck')));
-  check('the suspension bridge (Harbor Causeway) has no deck tiles of the kit: its girder is drawn by the suspension layer', harborOnly.length >= 3 && harborDecks.length === 0, `${harborOnly.length} chunks, ${harborDecks.length} decks`);
   const pillars = withModels.flatMap((g) => g.children.filter((m) => m.name.endsWith(':pillars')));
   check('a chunk with a bridge gets an instanced deck (and pillars where it is high), sharing the model geometry and material', decks.length >= 4 && pillars.length >= 3 && decks.every((m) => m.isInstancedMesh && m.geometry === deckGeometry && m.material === models.deck.material) && pillars.every((m) => m.geometry === pillarGeometry));
   const first = decks[0];
