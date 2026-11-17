@@ -1,0 +1,84 @@
+# The mainland's river plan
+
+Written for: the owner and developers. Made 2026-11-17, before any river is built, as the owner asked ("plan all the mainland rivers first, then start with the Rio Minho: that makes the rest faster and has fewer mistakes"). The background (why the town's river is not joined to the sea, the owner's direction, the real data) is in [river_system.md](river_system.md).
+
+![The planned rivers, ports and bridges on the mainland](gallery/river_plan.webp)
+
+*Blue: the planned rivers (the dark one is the Rio Minho through Voxel Town). White dots: mouths. Gold squares: where a river crosses a highway (a bridge). Triangles: ports. Grey: the mountain ranges. The brown lines are the baked highways.*
+
+## How it was made
+
+- **The real map on the game map.** The mainland is Jamaica's shape on its real longitude and latitude, so a real place can be put on it. The map from lon/lat to the game's x and z is a turn, a scale and a shift; it is fitted to the 22 mountain points that are known in both (the template's and the baked manifest's), with an error of **0.006 units**. May Pen (lon -77.28, lat 18.02) lands 14 units from the centre of Voxel Town, as it should (`projectionFor`, `lib/world/riverPlan.js`).
+- **The data** (`RIVERS`, `PORTS`): the real rivers of Jamaica from Wikipedia (read 2026-11-17). Where a page gives a coordinate for a point it is used (`basis: 'page'`); where it gives one coordinate or none, the position is estimated from the described course (`'approx'`). One page coordinate is wrong and is not used: the Rio Cobre's source (17.590, -76.523) is out at sea.
+- **The game's coast is not Jamaica's** (a few per cent of variation), so each mouth is **moved to the nearest point of the game's coast** and the plan says how far (the "moved" column). The course is a smooth curve from the source through the river's described turns to the mouth, with a small seeded meander (not in the town).
+- **Checked** by `tests/river-plan.test.mjs`: the projection, the data, every river (on the land, ending on the coast, widening, a fall, a highway to bridge), the Rio Minho down Willow Run, no river through the town but the Rio Minho, no two rivers crossing, the ports. To see the picture again: `node scripts/world/river-plan.mjs --write`.
+
+## The rivers
+
+Lengths and widths are in game units (a unit is about 90 m across the map; the real Rio Minho, 92.8 km, would be about 1,000). The widths are at the source, the middle and the mouth. The fall is from the sea at the mouth to the source's height (the real height in metres, scaled so Blue Mountain Peak is 18). "Moved" is how far the real mouth was from the game's coast.
+
+| River | Coast | Mouth is | Position | Real length | Length | Width (source / mid / mouth) | Fall | Moved | Bridge on |
+|---|---|---|---|---|---|---|---|---|---|
+| Rio Minho | south | mouth | page | 92.8 km | 723 | 3 / 10.5 / 24 | 4.3 | 26 | mainland-ring |
+| Milk River | south | mouth | approx | - | 223 | 3 / 5.7 / 11.6 | 2.78 | 94 | mainland-ring |
+| Black River | south | delta | page | 53.4 km | 372 | 3 / 7.1 / 22.4 | 2.78 | 32 | mainland-ring |
+| Rio Cobre | south | harbour | approx | 51 km | 444 | 3 / 7.8 / 20.5 | 4.3 | 57 | mainland-ring |
+| Hope River | south | delta | approx | - | 254 | 3 / 6 / 18.1 | 4.3 | 38 | mainland-ring |
+| Yallahs River | south | delta | approx | - | 301 | 3 / 6.5 / 19.8 | 4.3 | 18 | mainland-ring |
+| Plantain Garden River | east | mouth | approx | - | 305 | 3 / 6.5 / 13.6 | 4.3 | 4 | mainland-ring |
+| Rio Grande | north | gorge | approx | - | 217 | 2.1 / 4 / 8 | 4.3 | 8 | mainland-ring |
+| Wag Water River | north | mouth | approx | - | 331 | 3 / 6.7 / 14.3 | 4.3 | 16 | mainland-ring |
+| White River | north | mouth | page | - | 288 | 3 / 6.3 / 13.2 | 4.3 | 14 | mainland-ring |
+| Rio Bueno | north | mouth | approx | - | 284 | 3 / 6.3 / 13.1 | 3.61 | 7 | mainland-ring |
+| Martha Brae River | north | mouth | approx | - | 340 | 3 / 6.8 / 14.5 | 4.3 | 7 | mainland-ring |
+| Great River | north | mouth | page | 92 km | 455 | 3 / 7.9 / 17.4 | 3.86 | 33 | mainland-ring |
+| Cabarita River | west | mouth | approx | - | 133 | 3 / 4.8 / 9.3 | 2.78 | 12 | mainland-ring |
+
+**What each kind of mouth is** (it decides what is built at the sea): a **mouth** is an ordinary river mouth (a channel widening a little); a **delta** (the Black River's marsh, the Hope's and the Yallahs' gravel) spreads out and is shallow with islands of mangrove or gravel; the **harbour** (the Rio Cobre) enters the Kingston Harbour inlet at its head; a **gorge** (the Rio Grande) is narrow and steep with rock walls.
+
+**The Rio Minho is the town's river.** Its middle course is Willow Run, down the west of Voxel Town, unchanged; it gains a northern course (up to the Mocho Mountains, 90 units north of the town) and a southern one (150 units to the south coast).
+
+**Every river crosses the coastal ring road just before the sea**, so each needs a bridge on the ring (14 in all; the plan lists where: `crosses`). These are ordinary highway bridges over a narrow channel, in the style of the town's river bridges or the Kenney bridge kit, not the long causeway bridges.
+
+## The ports
+
+| Port | Role | Game position | Moved to the coast | Note |
+|---|---|---|---|---|
+| Kingston Harbour | shipping port (the mainland's) | (500, 172) | 47 | an almost landlocked natural harbour closed by the Palisadoes spit; the Rio Cobre enters at its head; the container terminal; in the game, at the head of the harbour inlet the coast already has |
+| Port Royal | boat harbour | (513, 182) | 1 | at the harbour mouth: a fishing and small-boat harbour (and a marina) |
+| Montego Bay | cruise and cargo port | (-691, -801) | 17 | the north-west, by the Great River's mouth (position approximate: that page was not read) |
+| George Town (Harbor Isle) | shipping port and cruise anchorage (the island's) | (1637, 33) | - | the island's existing harbour (a quay and three piers on the west coast, facing the mainland): cargo at the quay, cruise ships at anchor |
+
+A shipping port on each large landmass is the Kingston Harbour (the mainland) and George Town (Harbor Isle); the other two are the boat harbour and a second, smaller port.
+
+## The rules the design follows
+
+1. **Water levels.** The sea is -0.3 (the datum). A river's surface is the sea level at its mouth and rises upstream on a concave profile (steep near the source) to its source height, no more than 4 units (`surfaceAt`). On the plain, where the baked ground is flat at 0, the channel is **cut below the ground**: banks at the ground, water at or under -0.05 and a bed under it. The surface is a function of the distance along the river, so every consumer (the water mesh, the boats, the tests) asks the same function.
+2. **The town's river is sunk, not raised.** Today Willow Run is a plate of water 0.026 over the town slab. To join the sea it must be at the river's level: the river's rectangle is cut out of the slab (the slab built round it) and the water at its own level, with the five town bridges unchanged (their decks are at the road's height). This closes the datum's 0.326 disagreement for the river; the town's three lakes can stay raised ponds (they are not connected to anything).
+3. **One bridge per river on the ring road**, at the river's crossing with it, at the ring's own height (the road does not dip).
+4. **Boats**: a river is navigable for boats from its mouth up to where its width falls under 6 units; the harbours and the Black River's lower reaches are the boating waters.
+5. **Nothing runs through the town but the Rio Minho**, and rivers do not cross.
+6. **The coast is cut a little at each mouth** (the mouth flares by up to 2 times its width over its last 12%), so the sea's foam and depth shading ([water.md](water.md)) meet the river, not a straight wall.
+
+## The work, in order (each is a pull request with tests)
+
+1. **The river data in the bake.** A rivers list in the world recipe (the plan's courses), the manifest carrying each river (id, name, kind, course, width, fall), the chunks along each course with a heights grid (the channel carved: a bed, banks, a mouth), and the bridges on the ring. A new bake, with the freeze exception. Tests: every course is carved (the ground under it is below the surface), the join with the town slab, the checked hash.
+2. **The water.** One mesh for all rivers from the plan (a ribbon following the course at `surfaceAt`, flaring at the mouth), the sea's shader reading the rivers' mouths (foam), the delta's shallows. Test: the surface meets the sea level at every mouth and the town water at the town.
+3. **The Rio Minho first, as the proof:** the town's river sunk (the slab cut round it, the water at its level), the whole river from the Mocho Mountains to the sea, with its bridge on the ring road, and the boats of the town able to sail out (the hand-over from the town's boat rectangles to the river, in `lib/sim/vehicles.js` and `terrain.js`). This closes the datum's town-water disagreement.
+4. **The other thirteen rivers**, each a data entry already: the channels, the water and a bridge are the same code. The delta and the gorge are the two special cases (shallows and islands; walls).
+5. **The harbours and the ports:** the Kingston Harbour (the container quay, cranes, the pilots' channel from the sea), Port Royal (the boat harbour), Montego Bay, and Harbor Isle's George Town (the existing quay widened to a cargo quay and a cruise anchorage), with the boats' berths.
+6. **Harbor Isle**: no river (Grand Cayman has no permanent surface rivers). Its water is the North Sound lagoon and mangrove channels, and perhaps canals: decided with the owner when the mainland is done.
+
+## Risks
+
+- **A re-bake changes the chunk data** (the hash, the sizes, the tests that pin them) and needs the freeze exception: it is one change, so it is done once, for all fourteen rivers, which is the reason to plan them all first.
+- **A river under the ring road and the town's streets**: the five town bridges and the ring bridges are the places to look at after the carve (a road over a channel at the road's own height).
+- **The positions are partly estimated** (nine rivers are `approx`): the plan is the place to move one (a line in `RIVERS`), and the picture and the tests show the result before anything is baked.
+- **The Milk River's mouth is 94 units from where its real mouth would be** (the game's south coast is narrower there): it is kept west of the Rio Minho so the two do not meet.
+
+## Decisions still to take with the owner
+
+- The width of each mouth and of the harbours' entrances (after the design is in place: this plan gives the proportions).
+- Whether the Black River's morasses are a big marsh (a wet area with mangrove islands) or just a wide delta.
+- Whether to keep all fourteen, or start with the south coast's six (Rio Minho, Milk, Black, Cobre, Hope, Yallahs).
+- Harbor Isle's water: lagoon and mangroves only, or canals too.

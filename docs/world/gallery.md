@@ -843,3 +843,13 @@ From above: the sand shelf round the coast, the seabed falling away and the wate
 ![The shore: foam, then clear shallows over sand.](gallery/seabed_c.webp)
 
 The shore: foam, then clear shallows over sand.
+
+## The mainland's river plan
+
+The planned rivers, ports and bridges on the mainland ([river_plan.md](river_plan.md)).
+
+### river_plan
+
+![The 14 planned rivers of the mainland, the ports and the bridges where the rivers cross the ring road.](gallery/river_plan.webp)
+
+The 14 planned rivers of the mainland, the ports and the bridges where the rivers cross the ring road.
