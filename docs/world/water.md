@@ -1,4 +1,4 @@
-# The water: depth shading
+# The water: depth shading, the seabed and the water column
 
 Written for: the owner and developers. Built 2026-11-16 (option 1 of the plan for "volume" in the water; the other options are listed at the end).
 
@@ -13,13 +13,24 @@ The sea was one flat, translucent navy plane over open ocean with nothing beneat
 
 ## Honest limits
 
-- The depth is **a look, not a measurement**: open ocean has no seabed (the baked ground only slopes to -1.5 beyond a coast: [datum.md](datum.md)), so the shading follows the distance from the coast, not a real depth. Boats, the bridge piers and the tunnel do not read it.
+- The depth is **a look, not a measurement**: the seabed is drawn from a profile of the distance to the coast (option 2 below), not baked, and the game's ground does not read it. Boats, the bridge piers and the tunnel do not.
 - The shallows are translucent (0.62), so the baked seabed shows through; where it is a grey beach colour the water looks a little greyish. A seabed colour pass (sand under the shallows) is the next step.
 - The raster is made on the main thread at load (0.4 s): a worker would hide it.
 - Checked on the development page only (day and night, the coast at the causeway and from above).
 
+## Option 2: the seabed and the water column (built 2026-11-16)
+
+The sea now has a **floor you can see through it**, and the water over it has a thickness.
+
+- **The profile** (`lib/world/seabed.js`): from a coast the seabed stays on the shallows' floor (`SEA_FLOOR - 0.05`, a hair under the baked seabed so they never z-fight) out to 140 units, then falls smoothly to the **ocean floor** (`OCEAN_FLOOR`, -14 in [the datum](datum.md)) by 500 units. It never rises and has no cliff (tested).
+- **The mesh** (`seabedMesh`): one vertex for each cell of the coast raster (58,000 triangles for the whole world, made with the raster in about 0.4 s), coloured sand on the shelf, grey-blue and then dark in the deep. A plane at the ocean floor reaches past the raster to the sea's own edge.
+- **The water column** (`applySeaDepth`, the same shader): the depth over the seabed at each point and the thickness along the view ray (`depth / cos(view)`) give the light the water takes (Beer-Lambert, `1 - exp(-thickness * 0.20)`): the shallows are clear, so you see the sand; looking across the open sea, or at a low angle, is nearly opaque. The colour goes from turquoise to deep blue by `1 - exp(-depth * 0.16)`. The foam line and undrawn-land rule of option 1 are kept.
+- **Off switch:** `?seabed=0` keeps option 1's distance shading alone.
+- **Tested** by `tests/seabed.test.mjs` (the profile, the light, the colours, the mesh's size and winding, the shader's uniforms, and the real world).
+
+**Limits:** it is **drawn only**: the game's ground and collision still say the sea is the shallows' floor (`lib/world/terrain.js`), so boats, piers and the tunnel do not read it. The tunnel tube (floor -5.5) pokes through the seabed on the shelf's edge like an immersed tube. The sea is still flat (no waves). Checked on the development page by day.
+
 ## What else "volume" could mean (not built)
 
-1. **A visible seabed and water column:** draw the shallows' seabed and an ocean floor so the sea reads as a volume you can look down into (about 2 days).
-2. **Waves and swell:** vertex waves, with boats and piers moving through them; this needs the water's height as a function of position and time (about 2 to 3 days).
-3. **An underwater view:** a camera below the surface sees a fogged volume (a few more days); the tunnel spike's finding that the sea plane is seen from below applies.
+1. **Waves and swell:** vertex waves, with boats and piers moving through them; this needs the water's height as a function of position and time (about 2 to 3 days).
+2. **An underwater view:** a camera below the surface sees a fogged volume (a few more days); the tunnel spike's finding that the sea plane is seen from below applies.

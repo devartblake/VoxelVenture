@@ -821,3 +821,25 @@ The buildings with their walls brightened.
 ![The four business starts as finally built: windows, doorways, corners and a roof edge.](gallery/bld_starts_g.webp)
 
 The four business starts as finally built: windows, doorways, corners and a roof edge.
+
+## The seabed and water column
+
+The sea with a floor to see through it, and a water column that goes from clear turquoise to deep blue ([water.md](water.md)).
+
+### seabed_a
+
+![The shelf of the shallows seen through clear water at the first causeway.](gallery/seabed_a.webp)
+
+The shelf of the shallows seen through clear water at the first causeway.
+
+### seabed_b
+
+![From above: the sand shelf round the coast, the seabed falling away and the water deepening to blue.](gallery/seabed_b.webp)
+
+From above: the sand shelf round the coast, the seabed falling away and the water deepening to blue.
+
+### seabed_c
+
+![The shore: foam, then clear shallows over sand.](gallery/seabed_c.webp)
+
+The shore: foam, then clear shallows over sand.

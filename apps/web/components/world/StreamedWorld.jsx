@@ -15,6 +15,8 @@ import { applyGroundTexture } from '@/lib/world/groundTexture';
 import { SEA_LEVEL } from '@/lib/world/datum';
 import { clipChunkToTown, insideTown, joinedY, overlapsTown } from '@/lib/world/townJoin';
 import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
+import { SEABED, seabedMesh } from '@/lib/world/seabed';
+import { OCEAN_FLOOR, SEA_FLOOR } from '@/lib/world/datum';
 import { registerGlow } from '@/components/city/nightLights';
 
 // The streaming runtime React layer (roadmap task 11, slice 3; docs/world/streaming_runtime.md). Mounts the baked chunks (public/world, scripts/bake-world.mjs) near the camera or a point the
@@ -162,7 +164,29 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
             texture.minFilter = THREE.LinearFilter;
             texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
             texture.needsUpdate = true;
-            applySeaDepth(THREE, seaMaterial, field, texture);
+            // the seabed (lib/world/seabed.js): a floor to see through the water, and the water's column over it; ?seabed=0 keeps the distance shading alone
+            const bed = new URLSearchParams(window.location.search).get('seabed') !== '0';
+            applySeaDepth(THREE, seaMaterial, field, texture, undefined, bed ? { ...SEABED, shallowY: SEA_FLOOR - 0.05, deepY: OCEAN_FLOOR, seaY: SEA_LEVEL } : null);
+            if (bed && parent) {
+              const mesh = seabedMesh(field);
+              const geometry = new THREE.BufferGeometry();
+              geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+              geometry.setAttribute('color', new THREE.BufferAttribute(mesh.colors, 3, true));
+              geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+              geometry.computeVertexNormals();
+              const floor = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 }));
+              floor.name = 'seabed';
+              floor.renderOrder = -2;
+              floor.frustumCulled = false;
+              parent.add(floor);
+              // beyond the raster, the ocean floor: a plane out to the sea's own edge
+              const far = new THREE.Mesh(new THREE.PlaneGeometry(o.x1 - o.x0 + 8000, o.z1 - o.z0 + 8000), new THREE.MeshStandardMaterial({ color: '#1a283e', roughness: 1 }));
+              far.rotation.x = -Math.PI / 2;
+              far.position.set((o.x0 + o.x1) / 2, OCEAN_FLOOR - 0.05, (o.z0 + o.z1) / 2);
+              far.name = 'ocean-floor';
+              parent.add(far);
+              st.seabed = [floor, far];
+            }
           }, 0);
         }
       }
@@ -190,6 +214,8 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       cancelled = true;
       setActiveTerrain(null);
       for (const group of objects.values()) { parent?.remove(group); disposeChunkObject(group); }
+      for (const m of st.seabed ?? []) { parent?.remove(m); m.geometry.dispose(); m.material.dispose(); }
+      st.seabed = null;
       objects.clear();
       st.manager = null;
       stats.ready = false; stats.mounted = 0; stats.triangles = 0; stats.drawCalls = 0;
