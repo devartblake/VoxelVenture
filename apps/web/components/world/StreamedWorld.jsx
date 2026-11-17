@@ -14,6 +14,7 @@ import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
 import { SEA_LEVEL } from '@/lib/world/datum';
 import { clipChunkToTown, insideTown, joinedY, overlapsTown } from '@/lib/world/townJoin';
+import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
 import { registerGlow } from '@/components/city/nightLights';
 
 // The streaming runtime React layer (roadmap task 11, slice 3; docs/world/streaming_runtime.md). Mounts the baked chunks (public/world, scripts/bake-world.mjs) near the camera or a point the
@@ -151,6 +152,19 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         water.current.scale.set(o.x1 - o.x0 + 4000, o.z1 - o.z0 + 4000, 1);
         water.current.position.set((o.x0 + o.x1) / 2, SEA_LEVEL, (o.z0 + o.z1) / 2);
         water.current.visible = true;
+        // depth shading (lib/world/seaDepth.js, docs/world/water.md): the water is coloured by its distance from the coast, with a foam line at the shore; ?seashade=0 turns it off
+        if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('seashade') !== '0') {
+          setTimeout(() => {
+            if (cancelled) return;
+            const field = shoreField(baked.manifest.landmasses, o);
+            const texture = new THREE.DataTexture(field.data, field.w, field.h, THREE.RedFormat, THREE.UnsignedByteType);
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearFilter;
+            texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+            texture.needsUpdate = true;
+            applySeaDepth(THREE, seaMaterial, field, texture);
+          }, 0);
+        }
       }
       // the ground under things: the avatar and the vehicles ask it (lib/world/terrain.js) through setActiveTerrain, only while this layer is mounted
       // the race car waiting on the grid of the circuit: a parked car you can drive
@@ -180,9 +194,11 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       st.manager = null;
       stats.ready = false; stats.mounted = 0; stats.triangles = 0; stats.drawCalls = 0;
     };
-  }, [base, profile, skip, town, materials, onReady, sea]);
+  }, [base, profile, skip, town, materials, onReady, sea, seaMaterial]);
 
   useFrame((_, delta) => {
+    const depth = seaMaterial.userData.seaDepth;
+    if (depth) depth.uTime.value += delta; // the foam
     const m = state.current.manager;
     if (!m) return;
     const at = focus ? focus() : camera.position; // { x, z } or a Vector3: z is the ground z in both
