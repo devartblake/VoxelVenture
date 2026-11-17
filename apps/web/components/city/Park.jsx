@@ -5,9 +5,10 @@ import Label3D from './Label3D';
 import VoxLandmark from './VoxLandmark';
 import { Woods } from './Farmland';
 import { PARK_BENCH_OFFSETS, PARK_POND_RADIUS, parkHedges } from '@/lib/city/parkGeometry';
+import { SURFACE } from '@/lib/world/datum';
 
-const GRASS_HEIGHT = 0.06;
-const PATH_HEIGHT = 0.065;
+const GRASS_HEIGHT = SURFACE.park;
+const PATH_HEIGHT = SURFACE.parkPath;
 const PATH_WIDTH = 0.8;
 const HEDGE_HEIGHT = 0.22;
 

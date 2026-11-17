@@ -18,7 +18,7 @@ near(surfaceHeight(layout,0,1.1),0.03);
 near(surfaceHeight(layout,1.1,1.1),0.08);
 near(surfaceHeight(layout,22,0.5),0.06);
 near(surfaceHeight(layout,31,1),0.06);
-near(surfaceHeight(layout,31,0),0.066);
+near(surfaceHeight(layout,31,0),0.065);
 near(surfaceHeight(layout,40,0),0.18);
 near(surfaceHeight(layout,40,2),0.16);
 near(surfaceHeight(layout,5,20),0.03);

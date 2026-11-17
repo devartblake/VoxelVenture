@@ -3,9 +3,10 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { hillHeight } from '@/lib/city/hills';
+import { SURFACE } from '@/lib/world/datum';
 
 const STEP = 1.5; // size of a ground square: chunky, in keeping with the voxel look
-const BASE_Y = 0.006; // just above the land (0.004), below roads and lawns
+const BASE_Y = SURFACE.hills; // just above the land (0.004), below roads and lawns
 
 // The low hills in the north-east (layout.hills, see lib/city/hills.js): one mesh, flat-shaded, green with lighter grass towards the tops
 // and a few rocky patches on the steepest slopes. Squares that are flat ground are left out, so the land shows through there.

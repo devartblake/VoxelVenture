@@ -3,8 +3,9 @@
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { groundTexture } from './groundTextures';
+import { SURFACE } from '@/lib/world/datum';
 
-const Y = 0.008; // above the land (0.004), below roads, lawns and shores (0.012 and up)
+const Y = SURFACE.patch; // above the land (0.004), below roads, lawns and shores (0.012 and up)
 const KINDS = ['dirt', 'gravel', 'sand', 'dry', 'meadow', 'moss'];
 
 // Patches of different ground in the open country: bare dirt, gravel, sand, dry grass, flowery meadow and moss.

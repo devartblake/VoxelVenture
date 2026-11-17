@@ -6,13 +6,14 @@ import { PlaneModel, usePropsReady } from './PropModels';
 import { terminalWings } from '@/lib/content/models';
 import { planeModelEntry, planeRole } from '@/lib/content/planeModels';
 import { PROP_CATALOG } from '@/lib/content/propCatalog';
+import { SURFACE } from '@/lib/world/datum';
 import Label3D from './Label3D';
 import StaticBatch from './StaticBatch';
 
 // The airport's flat ground layers, bottom to top. They overlap (taxiways on the apron, the runway over the taxiways' ends, the markings
 // on the runway), so each sits a clear step above the one below AND draws with a depth bias (polygonOffset): zoomed out, a gap of a
 // thousandth of a unit is below what the depth buffer can tell apart, and the layers flickered through each other.
-const LAYER = { apron: 0.03, taxiway: 0.045, runway: 0.06, marking: 0.075 };
+const LAYER = { apron: SURFACE.apron, taxiway: SURFACE.taxiway, runway: SURFACE.runway, marking: SURFACE.marking }; // the datum's (lib/world/datum.js)
 const bias = (n) => ({ polygonOffset: true, polygonOffsetFactor: -n, polygonOffsetUnits: -n });
 
 const HANGAR_HEIGHT = 3.4;
