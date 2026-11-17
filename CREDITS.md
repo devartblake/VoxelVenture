@@ -34,6 +34,8 @@ The recordings are served locally from `apps/web/public/audio/music/`; Sideways 
 
 **Grass005 and Ground048** by **ambientCG**, https://ambientcg.com: the grass and dirt colour maps (re-sized to 512 x 512) that give the baked world's ground its grain (`apps/web/public/world/ground/`). Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. How they were taken: [docs/licences/ambientcg/](docs/licences/ambientcg/README.md).
 
+**Asphalt031** by **ambientCG**, https://ambientcg.com: the colour map (re-sized to 512 x 512) that gives the baked world's roads their asphalt grain (`apps/web/public/world/ground/asphalt.jpg`). Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. How it was taken: [docs/licences/ambientcg/](docs/licences/ambientcg/README.md).
+
 **Venice Sunset** by **Greg Zaal (Poly Haven)**, https://polyhaven.com/a/venice_sunset: the environment light map of the building interiors and the furniture editor (`apps/web/public/hdri/venice_sunset_1k.hdr`, the 1k HDR, which came with the Pascal editor's files). Released under **CC0** (public domain), https://creativecommons.org/publicdomain/zero/1.0/. The saved page and how the file was matched: [docs/licences/polyhaven/](docs/licences/polyhaven/README.md).
 
 **Voxel landmarks** in `apps/web/public/models/vox/`: made for this game.

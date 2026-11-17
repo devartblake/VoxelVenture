@@ -843,3 +843,19 @@ From above: the sand shelf round the coast, the seabed falling away and the wate
 ![The shore: foam, then clear shallows over sand.](gallery/seabed_c.webp)
 
 The shore: foam, then clear shallows over sand.
+
+## The roads' asphalt and lines
+
+The baked roads with ambientCG's asphalt grain, a dashed centre line and edge lines ([road_texture.md](road_texture.md)).
+
+### road_a
+
+![A highway with asphalt grain, an amber dashed centre line and white edge lines.](gallery/road_a.webp)
+
+A highway with asphalt grain, an amber dashed centre line and white edge lines.
+
+### road_b
+
+![The same highway with `?roadtex=0`: the old flat colour.](gallery/road_b.webp)
+
+The same highway with `?roadtex=0`: the old flat colour.
