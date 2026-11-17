@@ -60,7 +60,7 @@ The same steps for staging are in [deploy/STAGING.md](../../deploy/STAGING.md) (
 - **The first town never moves.** Its origin is (0, 0), so its coordinates and ids are what the game has always used.
 - **The island is placed by its gap, not by a guess.** Its land centre is moved out along the bearing until the open water between the two coasts is exactly the recipe's gap (found by bisection; the test allows 10 units either way). At 380 units and a boat speed of 3.6 a second, the crossing is about 100 seconds.
 - **Why seed 8675309.** Seven other candidate seeds were tried; all made sound towns. This one has a compact land (443 by 470, near square, which suits an island), three lakes, and 1,070 plots once the extension has run.
-- **`live: false`.** The game does not load the island and the server does not open its lots: see section 5.
+- **`live: false`.** The game does not load the island and the server does not open its lots: see section 5. (Since 2026-11-17 the streamed world draws its creek, the bridges over it and its ponds on the datum: [harbor_town.md](harbor_town.md).)
 
 ### Global plot ids (roadmap task 10)
 

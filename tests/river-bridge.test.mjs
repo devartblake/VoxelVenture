@@ -51,9 +51,9 @@ for (const c of baked.manifest.chunks) loaded.set(c.key, await baked.chunk(c.cx,
 const pieces = [];
 for (const c of loaded.values()) for (const h of c.highways) if (h.kind === 'river-bridge') pieces.push({ c, h });
 const isleIds = new Set(['harbor-lagoon', 'cutlass-canal', 'anchor-canal', 'pelican-canal', 'mariner-canal', 'heron-canal'].map((i) => `${i}-bridge`));
-const ids = [...new Set(pieces.filter(({ h }) => !isleIds.has(h.id)).map(({ h }) => h.id))];
+const ids = [...new Set(pieces.filter(({ h }) => !isleIds.has(h.id) && h.id !== 'mill-creek-bridge').map(({ h }) => h.id))];
 if (pieces.filter(({ h }) => isleIds.has(h.id)).some(({ h }) => h.on !== 'harbor-ring') || new Set(pieces.filter(({ h }) => isleIds.has(h.id)).map(({ h }) => h.id)).size !== isleIds.size) bad('Harbor Isle ring is bridged once over its lagoon and each canal, and nothing else crosses them', '');
-if (ids.length !== 14 || pieces.filter(({ h }) => !isleIds.has(h.id)).some(({ h }) => h.on !== 'mainland-ring' || h.clearance !== o.clearance || h.id !== h.id.replace(/-bridge$/, '') + '-bridge')) bad('the ring is bridged once over each of the fourteen rivers and nowhere else (no spur or link touches a river)', JSON.stringify(ids));
+if (ids.length !== 14 || pieces.filter(({ h }) => !isleIds.has(h.id) && h.id !== 'mill-creek-bridge').some(({ h }) => h.on !== 'mainland-ring' || h.clearance !== o.clearance || h.id !== h.id.replace(/-bridge$/, '') + '-bridge')) bad('the ring is bridged once over each of the fourteen rivers and nowhere else (no spur or link touches a river)', JSON.stringify(ids));
 const minho = pieces.filter(({ h }) => h.id === 'rio-minho-bridge');
 const spanOf = new Set(minho.map(({ h }) => h.span));
 if (spanOf.size !== 1) bad('the pieces of a bridge share one span (a corner in the channel does not split it)', JSON.stringify([...spanOf]));

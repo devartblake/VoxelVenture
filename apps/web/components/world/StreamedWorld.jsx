@@ -20,6 +20,7 @@ import { clipChunkToTown, insideTown, overlapsTown } from '@/lib/world/townJoin'
 import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
 import { SEABED, seabedMesh } from '@/lib/world/seabed';
 import { applyRiverFx, riverWaterMesh } from '@/lib/world/riverWater';
+import { pondMeshes } from '@/lib/world/ponds';
 import { OCEAN_FLOOR, SEA_FLOOR } from '@/lib/world/datum';
 import { registerGlow } from '@/components/city/nightLights';
 
@@ -216,6 +217,23 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
           st.riverWater = ribbon;
           stats.riverWaterVertices = n; // (for the tests and the dev page)
         }
+        // the ponds of the towns drawn from the baked world (lib/world/ponds.js: Harbor Town's): the same raised sand and sheet of water as the first town's lakes (Lake.jsx), at the datum's heights; ?ponds=0 turns them off
+        if (parent && baked.manifest.ponds?.length && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ponds') !== '0') {
+          const meshes = pondMeshes(baked.manifest.ponds);
+          st.ponds = [];
+          for (const [name, m, material] of [['pond-shore', meshes.shore, new THREE.MeshStandardMaterial({ color: '#d6c7a1', roughness: 1 })], ['pond-water', meshes.water, new THREE.MeshStandardMaterial({ color: '#2563eb', emissive: '#38bdf8', emissiveIntensity: 0.18, roughness: 0.7, metalness: 0 })]]) {
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(m.positions, 3));
+            geometry.setIndex(new THREE.BufferAttribute(m.indices, 1));
+            geometry.computeVertexNormals();
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.name = name;
+            mesh.receiveShadow = true;
+            parent.add(mesh);
+            st.ponds.push(mesh);
+          }
+          stats.ponds = baked.manifest.ponds.length;
+        }
         // depth shading (lib/world/seaDepth.js, docs/world/water.md): the water is coloured by its distance from the coast, with a foam line at the shore; ?seashade=0 turns it off
         if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('seashade') !== '0') {
           setTimeout(() => {
@@ -280,6 +298,8 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       for (const group of objects.values()) { parent?.remove(group); disposeChunkObject(group); }
       for (const m of [...(st.seabed ?? []), ...(st.riverWater ? [st.riverWater] : [])]) { parent?.remove(m); m.geometry.dispose(); m.material.dispose(); }
       st.riverWater = null;
+      for (const m of st.ponds ?? []) { parent?.remove(m); m.geometry.dispose(); m.material.dispose(); }
+      st.ponds = null;
       st.seabed = null;
       objects.clear();
       st.manager = null;
