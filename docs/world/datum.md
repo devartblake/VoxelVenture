@@ -54,6 +54,10 @@ Checking the join between the first town and the baked world found a real gap, a
 
 Not checked in a full game session: only the development page's arrangement (a plain slab for the town) was looked at, from above and at a grazing angle (the stripes in `join_d` are the dev page's depth precision at a near plane of 0.05; from above the join is clean, `join_f`).
 
+## The sea looks deep now
+
+The sea plane (the datum's -0.3) has depth shading by distance from the coast: [water.md](water.md). It changes colour and opacity only, no height.
+
 ## Next steps
 
 - **Step 2, still to move:** the avatar's, the cars' and the interiors' own heights in the town (`surfaceHeight.js` strips and curbs, plots' `y`, the interior floors), the bridge kerb and girder offsets (`bridgeDeckSpec.js`) and the lamp pools: each moves onto the datum as it is touched, and the guard's file list widens with it.
