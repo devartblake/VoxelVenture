@@ -76,6 +76,28 @@ for (const c of manifest.chunks) {
   for (const p of chunk.props ?? []) if (p.m === 'treeSmall' && black.islands.some((i) => Math.hypot(p.x - i.x, p.z - i.z) <= i.r)) trees++;
 }
 if (trees < black.islands.length * 2) bad('each marsh island has its mangroves', String(trees));
+// the shader's data: 4 numbers a vertex, across -1..1, the mouth foam 0 upstream and rising to 1, fading with the tail
+for (const r of manifest.rivers) {
+  const m = W.riverWaterMesh(r);
+  if (m.fx.length !== m.vertices * 4) { bad('4 fx numbers a vertex', r.id); continue; }
+  let up = 0, mouthMax = 0;
+  for (let i = 0; i < m.vertices; i++) {
+    const [a, s, mo, f] = [m.fx[i * 4], m.fx[i * 4 + 1], m.fx[i * 4 + 2], m.fx[i * 4 + 3]];
+    if (a < -1.001 || a > 1.001 || mo < 0 || mo > 1 || f < 0 || f > 1 || !(s >= 0)) bad('fx in range', r.id);
+    if (mo === 0) up++; mouthMax = Math.max(mouthMax, mo);
+  }
+  if (up < m.vertices / 2) bad('most of a river is upstream of its mouth foam', r.id);
+  if (mouthMax < 0.99) bad('the mouth has full foam', r.id);
+}
+// the material patch: uniforms, the attribute, the foam in the shader
+{
+  const mat = { userData: {} };
+  const u = W.applyRiverFx({}, mat);
+  const sh = { uniforms: {}, vertexShader: '#include <common> #include <begin_vertex>', fragmentShader: '#include <common> #include <color_fragment>' };
+  mat.onBeforeCompile(sh);
+  if (u.uTime.value !== 0 || sh.uniforms.uTime !== u.uTime || mat.userData.riverFx !== u) bad('the time uniform is shared', '');
+  if (!sh.vertexShader.includes('attribute vec4 riverFx') || !sh.fragmentShader.includes('foam') || !sh.fragmentShader.includes('uTime')) bad('the shader reads the attribute and time and draws foam', '');
+}
 void widthAt;
 console.log(`river water: ${manifest.rivers.length} rivers, ${vertices} vertices; ${delta.reduce((s, r) => s + r.islands.length, 0)} delta islands (${black.islands.length} in the Black River morass), ${trees} mangroves`);
 total();
