@@ -6,7 +6,7 @@
  },
  "chunk": {
   "size": 128,
-  "count": 299,
+  "count": 300,
   "files": "chunks/<cx>_<cz>.json"
  },
  "ocean": {
@@ -8353,8 +8353,9 @@
     "x": -0.52,
     "z": 0.86
    },
-   "boxes": 94,
-   "decks": 1
+   "boxes": 104,
+   "decks": 1,
+   "props": 33
   },
   {
    "id": "port-royal",
@@ -8375,7 +8376,8 @@
     "z": 0.86
    },
    "boxes": 14,
-   "decks": 4
+   "decks": 4,
+   "props": 17
   },
   {
    "id": "montego-bay",
@@ -8395,8 +8397,9 @@
     "x": -0.17,
     "z": -0.99
    },
-   "boxes": 41,
-   "decks": 2
+   "boxes": 46,
+   "decks": 2,
+   "props": 21
   },
   {
    "id": "george-town",
@@ -8416,8 +8419,9 @@
     "x": -1,
     "z": -0.07
    },
-   "boxes": 64,
-   "decks": 3
+   "boxes": 70,
+   "decks": 3,
+   "props": 25
   }
  ],
  "rivers": [
@@ -10662,7 +10666,8 @@
    "land": 0.23,
    "plots": 0,
    "roads": 0,
-   "highways": 6
+   "highways": 6,
+   "props": 21
   },
   {
    "key": "-6_-6",
@@ -11505,7 +11510,18 @@
    "land": 0.22,
    "plots": 0,
    "roads": 0,
-   "highways": 10
+   "highways": 10,
+   "props": 22
+  },
+  {
+   "key": "3_2",
+   "cx": 3,
+   "cz": 2,
+   "land": 0,
+   "plots": 0,
+   "roads": 0,
+   "highways": 0,
+   "props": 1
   },
   {
    "key": "4_-5",
@@ -11573,6 +11589,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 9,
+   "props": 27,
    "heights": true
   },
   {
@@ -11909,7 +11926,8 @@
    "land": 0.27,
    "plots": 0,
    "roads": 0,
-   "highways": 8
+   "highways": 8,
+   "props": 25
   },
   {
    "key": "12_1",
@@ -13273,5 +13291,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "d15b218feaa62611"
+ "hash": "834bc846fbee8cdf"
 }

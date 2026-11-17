@@ -44,7 +44,7 @@ const roads = highwaySegments(world);
 for (const p of world.ports) {
   if (p.boxes.length < 10 || p.decks.length < 1) bad('a port has its structures and a deck', `${p.id} ${p.boxes.length} ${p.decks.length}`);
   for (const b of p.boxes) {
-    if (!b.every(Number.isFinite) || b.length !== 10 || b.slice(3, 6).some((h) => !(h > 0))) { bad('every box is [centre, half sizes, yaw, colour] and finite', p.id); break; }
+    if (!b.every(Number.isFinite) || (b.length !== 10 && b.length !== 11) || b.slice(3, 6).some((h) => !(h > 0))) { bad('every box is [centre, half sizes, yaw, colour, replaced] and finite', p.id); break; }
     if (Math.hypot(b[0] - p.at.x, b[2] - p.at.z) > 90) { bad('a port stands within 90 units of its point', p.id); break; }
     if (field.sdAt(b[0], b[2]) < 1) { bad('no box stands in a river channel', `${p.id} at ${b[0]},${b[2]}`); break; }
   }
@@ -58,12 +58,32 @@ if (k.boxes.filter(container).length < 60 || k.boxes.filter((b) => b[7] === P.PO
 const royal = world.ports.find((p) => p.id === 'port-royal');
 if (royal.decks.length < 4 || royal.boxes.filter(container).length) bad('the boat harbour has docks and no container yard', '');
 
+// ---- the Kenney models (docs/world/ports_models.md): replace the front containers and the tanks, decorate the moorings; a phone draws the boxes alone
+const TRIS = { 'ctr-a': 402, 'ctr-b': 402, 'ctr-c': 402, tank: 566, 'boat-row': 168, 'boat-row-l': 174, 'boat-fish': 237, 'boat-sail': 386, 'boat-speed': 156, 'boat-tug': 576, buoy: 118, ramp: 128, barrel: 148, crate: 76, palm: 186 };
+const onSea = (id, x, z) => !inside(lm(world.ports.find((q) => q.id === id).landmass), x, z);
+for (const p of world.ports) {
+  if (!p.props?.length) { bad('every port has models', p.id); continue; }
+  let tris = 0;
+  for (const m of p.props) {
+    if (!P.PORT_MODELS[m.m] || !Number.isFinite(m.x + m.y + m.z + m.yaw + m.s) || m.d !== 1 || !(m.s > 0.3 && m.s < 6)) { bad('a model is one of the kit models with a place, a height, a turn, a size and the detail flag', `${p.id} ${JSON.stringify(m)}`); break; }
+    tris += TRIS[m.m];
+    if (/^boat|^buoy/.test(m.m) && !onSea(p.id, m.x, m.z)) bad('a boat or a buoy is on the water, not on the land', `${p.id} ${m.m} at ${m.x},${m.z}`);
+    if (/^boat|^buoy/.test(m.m) && field.sdAt(m.x, m.z) < 1) bad('and not in a river channel (a river is not a mooring)', `${p.id} ${m.m}`);
+  }
+  if (tris > 20000) bad('the models of a port are under 20,000 triangles (a desktop; a phone draws none of them)', `${p.id} ${tris}`);
+  const replaced = p.boxes.filter((b) => b[10] === 1).length, models = p.props.filter((m) => /^ctr|^tank$/.test(m.m)).length;
+  if (replaced !== models) bad('every box the models replace is tagged, and every replacing model has its box (what a phone draws)', `${p.id} ${replaced} ${models}`);
+}
+if (!world.ports.find((p) => p.id === 'kingston-harbour').props.some((m) => m.m === 'boat-tug') || world.ports.find((p) => p.id === 'port-royal').props.filter((m) => /^boat/.test(m.m)).length < 6) bad('the shipping port has tugs and the boat harbour has its boats', '');
+const kk = world.ports.find((p) => p.id === 'kingston-harbour');
+if (kk.props.filter((m) => /^ctr/.test(m.m)).length < 12 || kk.props.filter((m) => m.m === 'tank').length < 1) bad('Kingston has a front row of Kenney containers and a tank farm', String(kk.props.filter((m) => /^ctr/.test(m.m)).length));
+
 // ---- baked: the decks are jetty pieces, the boxes are structures, the manifest lists the ports
 const dir = path.join(root, 'apps/web/public/world');
 const baked = await loadBakedWorld(async (name) => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')));
 const loaded = new Map();
 for (const c of baked.manifest.chunks) loaded.set(c.key, await baked.chunk(c.cx, c.cz));
-if (baked.manifest.ports?.length !== 4 || baked.manifest.ports.some((p) => !p.boxes || !p.decks)) bad('the manifest lists the four ports', JSON.stringify(baked.manifest.ports?.map((p) => p.id)));
+if (baked.manifest.ports?.length !== 4 || baked.manifest.ports.some((p) => !p.boxes || !p.decks || !p.props)) bad('the manifest lists the four ports', JSON.stringify(baked.manifest.ports?.map((p) => p.id)));
 let jetties = 0, structures = 0;
 for (const c of loaded.values()) { jetties += c.highways.filter((h) => h.kind === 'jetty').length; structures += c.structures?.length ?? 0; }
 const wantBoxes = world.ports.reduce((s, p) => s + p.boxes.length, 0);
