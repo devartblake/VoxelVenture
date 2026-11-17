@@ -66,9 +66,15 @@ if (surfaceHeight({ roads: [], intersections: [] }, 5, 5, plotAt('x')) !== D.LIF
 
 // ---- what is still unsettled is listed, and listed honestly
 const ids = D.DATUM_ISSUES.map((i) => i.id).sort().join();
-if (ids !== 'deck-from-ground,town-top,town-water-vs-sea') bad('the known disagreements: the town water against the sea, decks from the ground, the town slab (the animals now swim on the town water)', ids);
+if (ids !== 'deck-from-ground,town-water-vs-sea') bad('the known disagreements: the town river is not joined to the sea (a river system), and decks are measured from the ground (the slab is settled: the underlay, step 5)', ids);
 const gap = (id) => D.DATUM_ISSUES.find((i) => i.id === id).gap;
-if (Math.abs(gap('town-water-vs-sea') - (D.TOWN_WATER - D.SEA_LEVEL)) > 1e-9 || Math.abs(gap('deck-from-ground') + D.SEA_LEVEL) > 1e-9 || gap('town-top') !== D.TOWN_GROUND_TOP) bad('each disagreement states its real size', '');
+if (Math.abs(gap('deck-from-ground') + D.SEA_LEVEL) > 1e-9 || Math.abs(gap('town-water-vs-sea') - (D.TOWN_WATER - D.SEA_LEVEL)) > 1e-9) bad('each disagreement states its real size', '');
+
+// ---- step 5: the water levels are named, and the slab is covered by the join's underlay
+if (D.waterLevel('sea') !== D.SEA_LEVEL || D.waterLevel('inland') !== D.TOWN_WATER || D.waterLevel() !== D.SEA_LEVEL) bad('the water levels are named: the sea, and inland water', '');
+if (!(D.TOWN_WATER > D.TOWN_GROUND_TOP && D.TOWN_WATER < D.LIFT.road && D.SEA_LEVEL < D.TOWN_GROUND)) bad('inland water is a pond over the town ground and under the roads; the sea is under the ground', '');
+const J = await imp('world/townJoin.js');
+if (!(J.JOIN.underlay > D.TOWN_GROUND_TOP) || J.underlayAt({ x0: 0, x1: 1, z0: 0, z1: 1 }, 0.5, 0.5) !== J.JOIN.underlay) bad('the slab (a hair over the town ground) is covered by the joined ground underlay, which tapers out: no whole-chunk offset', '');
 
 // ---- the sources do not grow a height of their own
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');

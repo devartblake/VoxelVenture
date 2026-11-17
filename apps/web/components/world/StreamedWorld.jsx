@@ -13,7 +13,7 @@ import { TRACK_MODELS } from '@/lib/world/track';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
 import { SEA_LEVEL } from '@/lib/world/datum';
-import { clipChunkToTown, insideTown, joinedY, overlapsTown } from '@/lib/world/townJoin';
+import { clipChunkToTown, insideTown, overlapsTown } from '@/lib/world/townJoin';
 import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
 import { SEABED, seabedMesh } from '@/lib/world/seabed';
 import { OCEAN_FLOOR, SEA_FLOOR } from '@/lib/world/datum';
@@ -133,7 +133,6 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         onMount: (chunk) => {
           const joined = town && overlapsTown(chunk, town);
           const group = buildChunkObject(THREE, joined ? clipChunkToTown(chunk, town) : chunk, materials, { models });
-          if (joined) group.position.y = joinedY(); // under the town's slab
           objects.set(`${chunk.cx}_${chunk.cz}`, group);
           parent?.add(group);
           stats.mounts++; stats.mounted = objects.size; stats.triangles += group.userData.triangles; stats.drawCalls += group.children.length;
