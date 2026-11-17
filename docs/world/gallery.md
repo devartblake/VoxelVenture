@@ -853,3 +853,19 @@ The planned rivers, ports and bridges on the mainland ([river_plan.md](river_pla
 ![The 14 planned rivers of the mainland, the ports and the bridges where the rivers cross the ring road.](gallery/river_plan.webp)
 
 The 14 planned rivers of the mainland, the ports and the bridges where the rivers cross the ring road.
+
+## The roads' asphalt and lines
+
+The baked roads with ambientCG's asphalt grain, a dashed centre line and edge lines ([road_texture.md](road_texture.md)).
+
+### road_a
+
+![A highway with asphalt grain, an amber dashed centre line and white edge lines.](gallery/road_a.webp)
+
+A highway with asphalt grain, an amber dashed centre line and white edge lines.
+
+### road_b
+
+![The same highway with `?roadtex=0`: the old flat colour.](gallery/road_b.webp)
+
+The same highway with `?roadtex=0`: the old flat colour.
