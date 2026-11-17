@@ -55,7 +55,7 @@ const len = (s) => Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z);
 // ---- the ground
 {
   const land = all.filter((c) => c.land > 0);
-  check('open sea is not baked: only chunks with land, plots or roads are in the world', all.every((c) => c.land > 0 || c.ground || c.plots.length || c.roads.length || c.highways.length) && all.length < 400, `${all.length} chunks`);
+  check('open sea is not baked: only chunks with land, plots, roads or something standing there (a port boat, a buoy) are in the world', all.every((c) => c.land > 0 || c.ground || c.plots.length || c.roads.length || c.highways.length || c.props?.length || c.structures?.length) && all.length < 400, `${all.length} chunks`);
   check('the manifest lists exactly the chunks that were baked', manifest.chunks.length === all.length && manifest.chunk.count === all.length && manifest.chunks.every((m) => chunks[m.key]));
   const heights = all.filter((c) => c.ground?.h);
   const top = Math.max(...heights.flatMap((c) => c.ground.h)) / 100;

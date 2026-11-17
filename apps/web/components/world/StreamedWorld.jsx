@@ -10,6 +10,7 @@ import { createChunkManager } from '@/lib/world/chunkManager';
 import { buildChunkObject, createChunkMaterials, disposeChunkObject } from '@/lib/world/chunkObject';
 import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
+import { PORT_MODELS } from '@/lib/world/ports';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
 import { applyRoadTexture } from '@/lib/world/roadTexture';
@@ -44,7 +45,7 @@ function loadBridgeModels() {
       if (!parts.length) throw new Error(`${file} has no mesh`);
       const geometries = parts.map((o) => {
         const g = o.geometry.clone().applyMatrix4(o.matrixWorld);
-        for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name); // the kit's colours are in its materials, not textures
+        for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && !(name === 'uv' && parts.some((o) => o.material?.map))) g.deleteAttribute(name); // the racing kit's colours are in its materials, not textures; the industrial and watercraft kits' are in a colour map (the uv stays)
         return g;
       });
       const geometry = geometries.length === 1 ? geometries[0] : mergeGeometries(geometries, true);
@@ -58,6 +59,11 @@ function loadBridgeModels() {
       const entries = await Promise.all(TRACK_MODELS.map(async (name) => [name, await first(`../racing/${name}.glb`)]));
       models.props = Object.fromEntries(entries);
     } catch { models.props = null; }
+    // the ports' models (lib/world/ports.js: Kenney Industrial, Watercraft, Pirate and Nature kits, CC0): containers, tanks, boats, buoys, cargo, palms. A world that cannot load them keeps the ports' boxes alone.
+    try {
+      const entries = await Promise.all(Object.entries(PORT_MODELS).map(async ([name, m]) => [name, await first(`../${m.file}.glb`)]));
+      models.props = { ...(models.props ?? {}), ...Object.fromEntries(entries) };
+    } catch { /* the boxes alone */ }
     // night (components/city/nightLights.js drives these with the game's own dusk): the lamp heads and the pit windows glow, and each lamp throws a pool of light on the road
     if (models.props) {
       const warm = (material, night, day = 0) => { const m = material.clone(); m.emissive.set('#ffe2a0'); registerGlow(m, { day, night }); return m; };
@@ -143,7 +149,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         profile,
         onMount: (chunk) => {
           const joined = town && overlapsTown(chunk, town);
-          const group = buildChunkObject(THREE, joined ? clipChunkToTown(chunk, town) : chunk, materials, { models });
+          const group = buildChunkObject(THREE, joined ? clipChunkToTown(chunk, town) : chunk, materials, { models, detail: profile === 'phone' ? 'low' : 'full' }); // (a phone draws the ports' boxes, not their models)
           objects.set(`${chunk.cx}_${chunk.cz}`, group);
           parent?.add(group);
           stats.mounts++; stats.mounted = objects.size; stats.triangles += group.userData.triangles; stats.drawCalls += group.children.length;
