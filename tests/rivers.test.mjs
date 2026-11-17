@@ -28,7 +28,7 @@ const mr = baked.manifest.rivers?.[0];
 if (!mr || mr.id !== 'rio-minho' || mr.course.length !== river.course.length || mr.crosses.length < 1) bad('the manifest carries the river (course, width, crossings)', JSON.stringify(mr && Object.keys(mr)));
 
 // ---- the field: negative in the channel, positive beside it, nothing in the town
-const field = riverField(world.rivers, world.towns[0].land);
+const field = riverField(world.rivers);
 const half = (i) => widthAt(river, i / (river.course.length - 1)) / 2;
 const south = river.course.findIndex((p) => p.z > town.z1 + 30), north = river.course.findIndex((p) => p.z > town.z0 - 80);
 for (const i of [north, south, river.course.length - 6]) {
@@ -36,8 +36,16 @@ for (const i of [north, south, river.course.length - 6]) {
   if (!(field.sdAt(p.x, p.z) < -half(i) * 0.8)) bad('a point on the course is in the channel (the distance is negative, about the half width)', `${i} ${field.sdAt(p.x, p.z)}`);
   if (!(field.sdAt(p.x + half(i) + 12, p.z) > 5)) bad('a point beside the river is on the bank, well out of the channel', String(i));
 }
-const mid = { x: (town.x0 + town.x1) / 2, z: (town.z0 + town.z1) / 2 };
-if (field.sdAt(river.course[river.course.findIndex((p) => p.z > 0)].x, 0) !== Infinity || field.sdAt(mid.x, mid.z) !== Infinity) bad('the river is not cut inside the first town (the town draws its own river there)', '');
+// through the first town too: the baked channel is the town river, at the width of the town trench
+const inTown = river.course.filter((p) => p.z >= town.z0 && p.z <= town.z1);
+const tr = baked.manifest.towns[0].rivers[0];
+if (!inTown.length || inTown.some((p) => p.x < tr.x0 || p.x > tr.x1)) bad('the planned river runs down the town river, inside its banks', String(inTown.length));
+const tmid = inTown[Math.floor(inTown.length / 2)];
+if (!(field.sdAt(tmid.x, tmid.z) < -5) || !(field.sdAt(tr.x1 + 5, tmid.z) > 0)) bad('the river field is a channel down the middle of the town river and not beside it', `${field.sdAt(tmid.x, tmid.z)}`);
+if (Math.abs((tr.x1 - tr.x0) - river.townWidth) > 0.02 || !(river.townT[0] < river.townT[1])) bad('the plan knows the width of the town river and where the course is in the town', JSON.stringify([river.townWidth, river.townT]));
+// the width is the town trench width where the river meets the town, and eases to the river own width away from it
+const wAt = (t) => widthAt(river, t);
+if (Math.abs(wAt(river.townT[0]) - river.townWidth) > 1e-6 || Math.abs(wAt(river.townT[1]) - river.townWidth) > 1e-6 || !(Math.abs(wAt(river.townT[0] - 0.2) - river.townWidth) > 0.5)) bad('the river is the width of the town trench at the town and its own width away from it', '');
 
 // ---- the plan rules: clear of the spur roads, over land, ending on the coast
 const spurs = highwaySegments(world).filter((h) => h.kind === 'spur');
@@ -57,7 +65,7 @@ const coast = baked.manifest.landmasses[0].coast.points;
 const end = river.course[river.course.length - 1];
 if (nearestOnCoast(coast, end.x, end.z).d > 1 || !inside(coast, river.course[3].x, river.course[3].z)) bad('the river starts on the land and ends on the coast', '');
 
-// ---- the baked ground: the chunks along it carry the signed distance with the channel in it; a chunk wholly inside the town has none
+// ---- the baked ground: the chunks along it carry the signed distance with the channel in it
 const sdChunks = baked.manifest.chunks.filter((c) => loaded.get(c.key)?.ground?.sd);
 if (sdChunks.length < 40) bad('the chunks carry the signed distance', String(sdChunks.length));
 const wholly = (c) => c.cx * 128 >= town.x0 && (c.cx + 1) * 128 <= town.x1 && c.cz * 128 >= town.z0 && (c.cz + 1) * 128 <= town.z1;
@@ -66,7 +74,6 @@ for (const c of along) {
   const g = loaded.get(c.key).ground;
   if (!g?.sd || !g.sd.some((v) => v < 0)) bad('a chunk the river runs through has the channel in its signed distance', c.key);
 }
-for (const c of baked.manifest.chunks.filter(wholly)) if (loaded.get(c.key).ground?.sd?.some((v) => v < 0)) bad('a chunk wholly inside the town has no river cut into it', c.key);
 
 // ---- the terrain: a boat sails in the river, a person and a car do not
 const pi = river.course.findIndex((q) => q.z > town.z1 + 100);

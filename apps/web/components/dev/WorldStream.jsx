@@ -1,5 +1,6 @@
 "use client";
 
+import { cutLand } from '@/lib/world/townWater';
 import React, { useCallback, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { applyGlow } from '@/components/city/nightLights';
@@ -40,8 +41,9 @@ export default function WorldStream() {
   const route = useRoute();
   // ?skiptown=1: the game's own arrangement round the first town (lib/world/townJoin.js): the chunks wholly inside the town's land are left out, those that overlap it are joined, and a plain slab stands for the town's land (docs/world/datum.md, "The town border")
   const [townLand, setTownLand] = useState(null);
+  const [townRivers, setTownRivers] = useState([]);
   const skipTown = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('skiptown') === '1';
-  React.useEffect(() => { if (skipTown) fetch('/world/manifest.json').then((r) => r.json()).then((m) => setTownLand(m.towns[0].land)).catch(() => {}); }, [skipTown]);
+  React.useEffect(() => { if (skipTown) fetch('/world/manifest.json').then((r) => r.json()).then((m) => { setTownLand(m.towns[0].land); setTownRivers(m.towns[0].rivers ?? []); }).catch(() => {}); }, [skipTown]);
   // ?datum=1: the world's datum drawn as grids at every named height, with a legend (components/dev/DatumOverlay.jsx)
   const [datum, setDatum] = useState(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('datum') === '1');
   const datumLayers = useDatumLayers(manifest);
@@ -85,7 +87,7 @@ export default function WorldStream() {
         <Suspension />
         <ArchBridge />
         {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '1' && <TunnelSpike />}
-        {skipTown && townLand && <mesh position={[(townLand.x0 + townLand.x1) / 2, 0.004 - 0.3, (townLand.z0 + townLand.z1) / 2]}><boxGeometry args={[townLand.x1 - townLand.x0, 0.6, townLand.z1 - townLand.z0]} /><meshStandardMaterial color="#4d8a4d" /></mesh>}
+        {skipTown && townLand && cutLand({ land: townLand, rivers: townRivers }).slab.map((r, i) => <mesh key={i} position={[(r.x0 + r.x1) / 2, 0.004 - 0.3, (r.z0 + r.z1) / 2]}><boxGeometry args={[r.x1 - r.x0, 0.6, r.z1 - r.z0]} /><meshStandardMaterial color="#4d8a4d" /></mesh>)}
         <StreamedWorld profile={profile} focus={focus} onReady={onReady} town={skipTown && townLand ? townLand : null} />
       </Canvas>
     </div>

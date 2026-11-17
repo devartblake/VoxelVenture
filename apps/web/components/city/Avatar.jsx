@@ -8,7 +8,7 @@ import { fleetRefs, useFleet } from '@/lib/state/fleetStore';
 import { TRAIN, canBoard, secondsToTrain, station as trainStation, trainState } from '@/lib/world/train';
 import { usePanel } from '@/lib/state/panelStore';
 import { avatarState } from '@/lib/sim/avatarState';
-import { surfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
+import { surfaceHeight, waterYFor } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
 import { buildingHalf, buildCollisionMap, findSpawn, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
 import { activeTerrain } from '@/lib/world/terrain';
@@ -244,7 +244,7 @@ export default function Avatar() {
       root.current.visible = (vehicle.kind === 'boat' || vehicle.kind === 'train') && !firstPerson(); // a boat's passenger shows (and a train's, standing); in a car you are inside
       if (vehicle.kind === 'boat') {
         const seat = seatWorld(vehicle); // where this kind of boat's seat is (lib/content/boatModels.js)
-        root.current.position.set(seat.x, WATER_Y + seat.y, seat.z);
+        root.current.position.set(seat.x, waterYFor(layout, seat.x, seat.z) + seat.y, seat.z);
       } else root.current.position.set(avatarState.x, vehicle.kind === 'train' ? vehicle.y : surfaceHeight(layout, avatarState.x, avatarState.z, plots), avatarState.z);
       root.current.rotation.y = avatarState.yaw;
       const standing = vehicle.kind === 'train'; // a rider of the train stands (holding on); the rest of a vehicle's riders sit

@@ -72,7 +72,7 @@ const len = (s) => Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z);
   check('neighbouring chunks agree along their shared edge (no seam in the ground)', shared);
   check('the ground grid is 32 x 32 cells of sea (0), land (1) or beach (2), and a chunk land share is the share of cells that are not sea', all.filter((c) => c.ground).every((c) => c.ground.mask.length === 1024 && /^[012]+$/.test(c.ground.mask) && Math.abs(c.land - [...c.ground.mask].filter((v) => v !== '0').length / 1024) < 0.006) && all.some((c) => c.ground?.mask.includes('2')));
   check('the harbour, airstrip and ranges are in the manifest, and the first landmass\'s coast is its template', manifest.landmasses.length === 4 && manifest.landmasses[1].features.airstrip.name === 'Harbor Isle Airstrip' && manifest.landmasses[1].features.harbour.quay && manifest.landmasses[0].features.ranges.length >= 4 && manifest.landmasses[0].coast.template === 'jamaica');
-  check('the land share is real: a chunk in the middle of the mainland is all land, one out to sea is not baked', chunks[chunkKey(...Object.values(chunkAt(world.towns[0].plots[0].x, world.towns[0].plots[0].z)))].land === 1 && !chunks[chunkKey(0, 20)] && land.length > 100);
+  check('the land share is real: a chunk in the middle of the mainland is land (all of it, but for the river channel), one out to sea is not baked', chunks[chunkKey(...Object.values(chunkAt(world.towns[0].plots[0].x, world.towns[0].plots[0].z)))].land > 0.85 && !chunks[chunkKey(0, 20)] && land.length > 100);
 }
 
 // ---- the same bytes each time, and the files on disk are a fresh bake

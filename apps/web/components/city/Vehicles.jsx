@@ -9,7 +9,7 @@ import { avatarState } from '@/lib/sim/avatarState';
 import { isBlocked } from '@/lib/sim/collision';
 import { FISHING, VEHICLES, inWater, pullLine, stepVehicle, tickLine, waterRects } from '@/lib/sim/vehicles';
 import { autopilot, hitsPier } from '@/lib/sim/docking';
-import { carSurfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
+import { boatYFor, carSurfaceHeight, waterYFor } from '@/lib/city/surfaceHeight';
 import { SEA_LEVEL, activeTerrain } from '@/lib/world/terrain';
 import { BOAT_FLOAT } from '@/lib/world/datum';
 import { boatModel } from '@/lib/content/boatModels';
@@ -110,6 +110,7 @@ export default function Vehicles() {
   const drivenSpec = useFleet((s) => s.hud?.spec ?? null);
   const drivenKind = useFleet((s) => s.hud?.kind ?? null); // re-render when you get in or out (the vehicle itself changes every frame)
   const water = useMemo(() => waterRects(layout), [layout]);
+  const waterOpen = useMemo(() => waterRects(layout, { reach: 4 }), [layout]); // with the baked world mounted the river runs on out of the town: its rectangle reaches past the town's edge, where the baked river takes the boat over
   const keys = useRef(new Set());
   const driven = useRef(null);
   const boatRefs = useRef({});
@@ -188,7 +189,7 @@ export default function Vehicles() {
       if (!g) continue;
       const at = moved[b.id] ?? b;
       g.visible = !(v && v.id === b.id);
-      g.position.set(at.x, WATER_Y + Math.sin(t * 1.4 + b.x) * 0.012, at.z);
+      g.position.set(at.x, waterYFor(layout, at.x, at.z) + Math.sin(t * 1.4 + b.x) * 0.012, at.z);
       g.rotation.set(Math.sin(t * 1.1 + b.z) * 0.02, at.yaw, Math.sin(t * 0.9 + b.x) * 0.03);
     }
 
@@ -200,7 +201,7 @@ export default function Vehicles() {
       const fz = Math.cos(yaw);
       const tip = new THREE.Vector3(x + fx * reach, 0.7, z + fz * reach);
       const dip = phase === 'bite' ? -0.05 + Math.sin(t * 30) * 0.03 : Math.sin(t * 2.2) * 0.01;
-      const far = new THREE.Vector3(x + fx * (reach + 2.1), WATER_Y + 0.02 + dip, z + fz * (reach + 2.1));
+      const far = new THREE.Vector3(x + fx * (reach + 2.1), waterYFor(layout, x + fx * (reach + 2.1), z + fz * (reach + 2.1)) + 0.02 + dip, z + fz * (reach + 2.1));
       bobber.position.copy(far);
       aim(string, tip, far);
       aim(rod, new THREE.Vector3(x + fx * 0.3, 0.35, z + fz * 0.3), tip, 1.1);
@@ -302,7 +303,7 @@ export default function Vehicles() {
     const canMove =
       v.kind === 'car'
         ? (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'car') : !map || (!isBlocked(x, z, map.rects, r) && x > map.bounds.x0 && x < map.bounds.x1 && z > map.bounds.z0 && z < map.bounds.z1))
-        : (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'boat') : inWater(x, z, water, r * 0.6) && !hitsPier(x, z, r * 0.8, piers)); // (a boat sails round a pier, not through it)
+        : (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'boat') : inWater(x, z, terrain ? waterOpen : water, r * 0.6) && !hitsPier(x, z, r * 0.8, piers)); // (a boat sails round a pier, not through it)
     stepVehicle(v, { throttle, steer }, dt, canMove);
     avatarState.x = v.x;
     avatarState.z = v.z;
@@ -340,7 +341,7 @@ export default function Vehicles() {
     if (g) {
       g.visible = true;
       const baked = activeTerrain()?.decides(v.x, v.z) ? activeTerrain() : null; // outside the town, the baked ground
-      g.position.set(v.x, v.kind === 'boat' ? (baked ? SEA_LEVEL + BOAT_FLOAT : WATER_Y) : baked ? baked.groundY(v.x, v.z) : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
+      g.position.set(v.x, v.kind === 'boat' ? (baked ? SEA_LEVEL + BOAT_FLOAT : boatYFor(layout, v.x, v.z)) : baked ? baked.groundY(v.x, v.z) : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
       g.rotation.set(0, v.yaw, 0);
     }
     if (v.kind === 'boat' && l.phase !== 'idle' && rod && bobber && string) {
@@ -352,7 +353,7 @@ export default function Vehicles() {
   return (
     <group name="vehicles">
       {(layout.boats ?? []).map((b) => (
-        <group key={b.id} ref={(g) => { boatRefs.current[b.id] = g; }} position={[b.x, WATER_Y, b.z]} rotation={[0, b.yaw, 0]}>
+        <group key={b.id} ref={(g) => { boatRefs.current[b.id] = g; }} position={[b.x, waterYFor(layout, b.x, b.z), b.z]} rotation={[0, b.yaw, 0]}>
           <BoatModel kind={b.kind} color={b.color} />
         </group>
       ))}
