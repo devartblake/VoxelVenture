@@ -70,6 +70,12 @@ for (const p of world.ports) {
     if (/^boat|^buoy/.test(m.m) && !onSea(p.id, m.x, m.z)) bad('a boat or a buoy is on the water, not on the land', `${p.id} ${m.m} at ${m.x},${m.z}`);
     if (/^boat|^buoy/.test(m.m) && field.sdAt(m.x, m.z) < 1) bad('and not in a river channel (a river is not a mooring)', `${p.id} ${m.m}`);
   }
+  // a boat does not sit on a deck (a quay or a pier): its keel clear of every deck's edge by a boat's half width
+  for (const m of p.props) if (/^boat/.test(m.m)) for (const d of p.decks) {
+    const dx = d.b.x - d.a.x, dz = d.b.z - d.a.z, l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((m.x - d.a.x) * dx + (m.z - d.a.z) * dz) / l2));
+    const dist = Math.hypot(m.x - (d.a.x + t * dx), m.z - (d.a.z + t * dz)) - d.width / 2;
+    if (dist < 1.1) bad('a moored boat is clear of every deck (it is alongside, not on it)', `${p.id} ${m.m} ${dist.toFixed(1)}`);
+  }
   if (tris > 20000) bad('the models of a port are under 20,000 triangles (a desktop; a phone draws none of them)', `${p.id} ${tris}`);
   const replaced = p.boxes.filter((b) => b[10] === 1).length, models = p.props.filter((m) => /^ctr|^tank$/.test(m.m)).length;
   if (replaced !== models) bad('every box the models replace is tagged, and every replacing model has its box (what a phone draws)', `${p.id} ${replaced} ${models}`);

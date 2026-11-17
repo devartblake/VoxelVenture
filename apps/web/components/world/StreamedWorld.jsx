@@ -247,6 +247,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       stats.describe = () => [...objects.entries()].map(([k, g]) => `${k}: ${g.children.map((m) => `${m.name.split(':')[1]}${m.isInstancedMesh ? `x${m.count}` : ''}`).join(',')}`); // for the tests and the dev page
       stats.bridgeModels = Boolean(models?.deck);
       stats.trackModels = Boolean(models?.props);
+      stats.portModels = Boolean(models?.props?.['ctr-a']); // the ports' Kenney models (lib/world/ports.js)
       stats.ready = true; stats.profile = profile;
       onReady?.(baked.manifest);
     })();
