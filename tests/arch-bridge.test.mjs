@@ -76,6 +76,18 @@ for (const l of lamps) {
 }
 if (lamps.length < 20 || worst > 0.02) bad('every lamp stands on the kerb, aligned with the girder surface', `${lamps.length} lamps, ${worst}`);
 
+// ---- everything is in line: a hanger, an upright, a light on the top chord at every joint, and a lamp at every fifth joint
+const { joints } = await imp('world/archSpec.js');
+const js = joints(bridge.span);
+const onJoint = (v, e = 1e-6) => js.some((j) => Math.abs(j - v) < e);
+if (a.hangers.some((h) => !onJoint(h.s)) || a.posts.some((p) => !onJoint(p.s))) bad('every hanger and post is at a joint of the ribs, under an upright', '');
+if (a.lights.filter((l) => l.kind === 'warm' && l.y > 10 && Math.abs(l.lateral) === ARCH.legOffset).some((l) => !onJoint(l.s))) bad('every light on a top chord is at a joint, over a hanger', '');
+if (Math.abs(rib.web[0].to.s - rib.web[0].from.s - ARCH.panel) > 0.5 || !rib.uprights.every((u) => onJoint(u.s))) bad('the panel is the bay: the uprights are at the joints and a panel is about 6 long', String(rib.web[0].to.s - rib.web[0].from.s));
+const archLamps = lampsOnArch();
+function lampsOnArch() { return placed.flatMap(({ p }) => p.lamps).map(onLine).filter((s) => s > a0 + 3 && s < a1 - 3); }
+if (archLamps.length < 20 || archLamps.some((s) => !onJoint(s, 0.05))) bad('every street lamp under the arch stands at a joint of the ribs, in line with a hanger', `${archLamps.length} lamps`);
+const stations = [...new Set(archLamps.map((s) => Math.round((s - a0) / ARCH.panel)))];
+if (stations.some((i) => i % ARCH.lampEvery !== 0)) bad('a lamp at every fifth joint (30 units)', stations.join());
 // ---- the lights at night
 const kinds = (l) => l.filter((x) => x.kind === 'beacon').length;
 if (kinds(a.lights) !== 2 || a.lights.length < 40) bad('a beacon on each rib at the crown and a string of lights along the arch', `${kinds(a.lights)} beacons, ${a.lights.length} lights`);
