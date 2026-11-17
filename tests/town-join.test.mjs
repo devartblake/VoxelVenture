@@ -46,8 +46,30 @@ for (const c of manifest.chunks) {
 if (worst > 0.01) bad('the baked ground in and for 60 units round the town\'s chunks is at the town ground: no step at the join', `${worst}`);
 if (!(hills > 0)) bad('the hills do begin further out (the check is looking at the real ground)', String(hills));
 // the town's slab is over the lowered ground, and under the roads
-if (!(D.TOWN_GROUND_TOP + 1e-9 > J.joinedY() + D.TOWN_GROUND + 0.02) || !(D.TOWN_GROUND_TOP < D.LIFT.road)) bad('the town slab lies over the joined ground and under the roads', '');
+if (!(D.TOWN_GROUND_TOP < D.LIFT.road)) bad('the town slab lies under the roads', '');
 if (!(J.JOIN.underlay > D.TOWN_GROUND_TOP)) bad('the joined ground is lowered more than the slab stands over the ground (so it cannot show through)', '');
+
+// ---- the underlay: under the slab only, easing out, so no lip where a joined chunk meets one that is not (step 5)
+const cx = (land.x0 + land.x1) / 2, cz = (land.z0 + land.z1) / 2;
+if (!approx(J.underlayAt(land, cx, cz), J.JOIN.underlay) || !approx(J.underlayAt(land, land.x1, cz), J.JOIN.underlay) || J.underlayAt(land, land.x1 + J.JOIN.ramp, cz) !== 0 || J.underlayAt(land, land.x1 + 500, cz) !== 0) bad('the ground is lowered the full underlay under the land and not at all a ramp beyond it', '');
+let prevU = J.JOIN.underlay;
+for (let d = 0; d <= J.JOIN.ramp + 4; d += 0.5) { const u = J.underlayAt(land, land.x1 + d, cz); if (u > prevU + 1e-12) bad('the underlay only eases out going away from the land', String(d)); prevU = u; }
+const { chunkMeshes, groundHeight, LIFT } = await imp('world/chunkMesh.js');
+const joinedChunk = J.clipChunkToTown(chunkOf(partial.find((c) => c.cx === 1 && c.cz === 0) ?? partial[0]), land);
+if (joinedChunk.underlay?.land !== land) bad('a joined chunk carries the land its ground is lowered under', '');
+const gm = chunkMeshes(joinedChunk).ground;
+let lowY = 0, highY = -1;
+for (let i = 1; i < gm.positions.length; i += 3) { lowY = Math.min(lowY, gm.positions[i]); highY = Math.max(highY, gm.positions[i]); }
+if (!approx(lowY, -J.JOIN.underlay, 1e-6) || highY > 1e-9) bad('the joined chunk ground is at the datum and lowered by the underlay under the slab (no whole-chunk offset)', `${lowY} ${highY}`);
+// the chunk's far border (outside the ramp) is at the datum, exactly as the chunk next to it
+const farX = Math.max(...gm.positions.filter((_, i) => i % 3 === 0));
+let farWorst = 0;
+for (let i = 0; i < gm.positions.length; i += 3) if (gm.positions[i] >= farX - 1e-6 && J.outsideDistance(land, gm.positions[i], gm.positions[i + 2]) >= J.JOIN.ramp) farWorst = Math.max(farWorst, Math.abs(gm.positions[i + 1]));
+if (farWorst > 1e-9) bad('where the joined chunk meets the next one the ground is level with it', String(farWorst));
+if (!approx(groundHeight(joinedChunk, cx, cz), -J.JOIN.underlay) || groundHeight({ ground: joinedChunk.ground, bounds: joinedChunk.bounds, size: joinedChunk.size }, joinedChunk.bounds.x1 - 1, joinedChunk.bounds.z1 - 1) !== 0) bad('the ground height is lowered under the land for a joined chunk and is not for a plain one', '');
+// a highway outside the ramp lies exactly where it does in the chunk beside it (the datum highway lift), not 0.08 lower
+const hw = chunkMeshes({ ...joinedChunk, highways: [{ id: 'h', kind: 'spur', a: { x: joinedChunk.bounds.x1 - 2, z: joinedChunk.bounds.z1 - 40 }, b: { x: joinedChunk.bounds.x1 - 2, z: joinedChunk.bounds.z1 - 10 }, width: 6 }] }).highways;
+if (J.outsideDistance(land, joinedChunk.bounds.x1 - 2, joinedChunk.bounds.z1 - 40) >= J.JOIN.ramp && !approx(hw.positions[1], LIFT.highway, 1e-6)) bad('a highway beyond the ramp is at the datum highway lift', String(hw.positions[1]));
 
 // ---- coverage: every land cell near the town is drawn by the town or by a chunk
 // before: the chunks that overlap the town were all left out. After: only those wholly inside are.
