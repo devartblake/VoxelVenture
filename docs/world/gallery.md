@@ -995,3 +995,47 @@ The ring road's bridge over the Rio Minho seen from the south bank: the ramp ris
 ![The bridge from higher up, the river widening to the sea beyond it.](gallery/ring_bridge_b.webp)
 
 The bridge from higher up, the river widening to the sea beyond it.
+
+## The rivers' water and the Black River's morass
+
+Each river has its own water ribbon; the delta rivers have islands, and the Black River's have mangroves ([river_plan.md](river_plan.md)).
+
+### river_mouth_water
+
+![The Rio Minho under its ring bridge, widening to the sea: blue in the middle, lighter over the shallow banks, fading out into the sea.](gallery/river_mouth_water.webp)
+
+The Rio Minho under its ring bridge, widening to the sea: blue in the middle, lighter over the shallow banks, fading out into the sea.
+
+### delta_aerial
+
+![The Black River's morass from above: the channel broken into pools by islands, with sandy banks.](gallery/delta_aerial.webp)
+
+The Black River's morass from above: the channel broken into pools by islands, with sandy banks.
+
+### delta_mangroves
+
+![The morass at ground level: tea-coloured water, islands, and mangroves standing on them.](gallery/delta_mangroves.webp)
+
+The morass at ground level: tea-coloured water, islands, and mangroves standing on them.
+
+## The ports and harbours
+
+A shipping port on each large landmass, a boat harbour and a cruise port ([river_plan.md](river_plan.md)).
+
+### port_kingston
+
+![The Kingston container port from above: the quay with its gantry cranes, the container yard, the ring road behind it and a river bridge beside it.](gallery/port_kingston.webp)
+
+The Kingston container port from above: the quay with its gantry cranes, the container yard, the ring road behind it and a river bridge beside it.
+
+### port_royal_boats
+
+![Port Royal's boat harbour: the promenade, floating docks with finger piers, and the breakwater.](gallery/port_royal_boats.webp)
+
+Port Royal's boat harbour: the promenade, floating docks with finger piers, and the breakwater.
+
+### port_montego_bay
+
+![Montego Bay's cruise port: a long pier out from a quay, the terminal building and a crane.](gallery/port_montego_bay.webp)
+
+Montego Bay's cruise port: a long pier out from a quay, the terminal building and a crane.
