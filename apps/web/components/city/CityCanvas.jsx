@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera, MapControls } from '@react-three/drei';
 import GroundGrid from './GroundGrid';
@@ -106,7 +106,6 @@ export default function CityCanvas() {
     const q = new URLSearchParams(window.location.search);
     return q.get('world') === 'baked' ? { profile: q.get('profile') || 'desktop' } : null;
   });
-  const skipTownChunks = useCallback((c) => { const { land } = layout; const x0 = c.cx * 128, z0 = c.cz * 128; return x0 < land.x1 && x0 + 128 > land.x0 && z0 < land.z1 && z0 + 128 > land.z0; }, [layout]);
   const view = useView((s) => (PRESETS[s.view].iso ? 'iso' : 'follow'));
   // the lower tiers draw a fixed share of the countryside's trees and shrubs (decoration only: nothing collides with them)
   const density = load.decorationDensity;
@@ -150,7 +149,7 @@ export default function CityCanvas() {
         <GroundGrid />
         <group name="city" position={[-layout.center.x, 0, -layout.center.z]}>
           <Land land={layout.land} urban={layout.urban} lawns={layout.lawns} />
-          {bakedWorld && <StreamedWorld profile={bakedWorld.profile} skip={skipTownChunks} />}
+          {bakedWorld && <StreamedWorld profile={bakedWorld.profile} town={layout.land} />}
           {bakedWorld && <Train />}
           {bakedWorld && <Suspension />}
           {bakedWorld && <ArchBridge />}

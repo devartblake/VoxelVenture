@@ -11,6 +11,7 @@ import { FISHING, VEHICLES, inWater, pullLine, stepVehicle, tickLine, waterRects
 import { autopilot, hitsPier } from '@/lib/sim/docking';
 import { carSurfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
 import { SEA_LEVEL, activeTerrain } from '@/lib/world/terrain';
+import { BOAT_FLOAT } from '@/lib/world/datum';
 import { boatModel } from '@/lib/content/boatModels';
 import { PropModel } from './PropModels';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -339,7 +340,7 @@ export default function Vehicles() {
     if (g) {
       g.visible = true;
       const baked = activeTerrain()?.decides(v.x, v.z) ? activeTerrain() : null; // outside the town, the baked ground
-      g.position.set(v.x, v.kind === 'boat' ? (baked ? SEA_LEVEL + 0.04 : WATER_Y) : baked ? baked.groundY(v.x, v.z) : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
+      g.position.set(v.x, v.kind === 'boat' ? (baked ? SEA_LEVEL + BOAT_FLOAT : WATER_Y) : baked ? baked.groundY(v.x, v.z) : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
       g.rotation.set(0, v.yaw, 0);
     }
     if (v.kind === 'boat' && l.phase !== 'idle' && rod && bobber && string) {

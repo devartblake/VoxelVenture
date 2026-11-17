@@ -12,6 +12,8 @@ import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
+import { SEA_LEVEL } from '@/lib/world/datum';
+import { clipChunkToTown, insideTown, joinedY, overlapsTown } from '@/lib/world/townJoin';
 import { registerGlow } from '@/components/city/nightLights';
 
 // The streaming runtime React layer (roadmap task 11, slice 3; docs/world/streaming_runtime.md). Mounts the baked chunks (public/world, scripts/bake-world.mjs) near the camera or a point the
@@ -87,9 +89,9 @@ function loadBridgeModels() {
   return bridgeModels;
 }
 
-export const SEA_LEVEL = -0.3; // the water plane: the shallows (ground sloping to -1.5 beyond the coast) meet it a little out from the shore
+export { SEA_LEVEL }; // the water plane (lib/world/datum.js): the shallows meet it a little out from the shore
 
-export default function StreamedWorld({ base = '/world', profile = 'desktop', focus = null, skip = null, onReady = null, sea = true }) {
+export default function StreamedWorld({ base = '/world', profile = 'desktop', focus = null, skip = null, town = null, onReady = null, sea = true }) {
   const root = useRef(null);
   const camera = useThree((s) => s.camera);
   const materials = useMemo(() => createChunkMaterials(THREE), []);
@@ -120,11 +122,15 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       const models = await loadBridgeModels(); // null when they cannot be loaded: the bridges are then ribbons
       if (cancelled) return;
       // the manager only knows the chunks the caller has not skipped
-      const known = skip ? { ...baked, manifest: { ...baked.manifest, chunks: baked.manifest.chunks.filter((c) => !skip(c)) } } : baked;
+      // (and, with `town` (the first town's land), the chunks wholly inside it; those that only overlap it are drawn joined to it: lib/world/townJoin.js)
+      const left = (c) => Boolean(skip?.(c)) || Boolean(town && insideTown(c, town));
+      const known = skip || town ? { ...baked, manifest: { ...baked.manifest, chunks: baked.manifest.chunks.filter((c) => !left(c)) } } : baked;
       st.manager = createChunkManager(known, {
         profile,
         onMount: (chunk) => {
-          const group = buildChunkObject(THREE, chunk, materials, { models });
+          const joined = town && overlapsTown(chunk, town);
+          const group = buildChunkObject(THREE, joined ? clipChunkToTown(chunk, town) : chunk, materials, { models });
+          if (joined) group.position.y = joinedY(); // under the town's slab
           objects.set(`${chunk.cx}_${chunk.cz}`, group);
           parent?.add(group);
           stats.mounts++; stats.mounted = objects.size; stats.triangles += group.userData.triangles; stats.drawCalls += group.children.length;
@@ -155,7 +161,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       const terrain = createTerrain({
         chunkAt: (cx, cz) => st.manager?.chunk(`${cx}_${cz}`) ?? undefined,
         has: (cx, cz) => here.has(`${cx}_${cz}`),
-        skipped: (cx, cz) => (skip ? skip({ cx, cz }) : false),
+        skipped: (cx, cz) => Boolean(skip?.({ cx, cz })) || Boolean(town && overlapsTown({ cx, cz }, town)), // (the town's own rules in every chunk that overlaps it)
         bounds: { x0: o.x0, x1: o.x1, z0: o.z0, z1: o.z1 },
       });
       setActiveTerrain(terrain);
@@ -174,7 +180,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
       st.manager = null;
       stats.ready = false; stats.mounted = 0; stats.triangles = 0; stats.drawCalls = 0;
     };
-  }, [base, profile, skip, materials, onReady, sea]);
+  }, [base, profile, skip, town, materials, onReady, sea]);
 
   useFrame((_, delta) => {
     const m = state.current.manager;

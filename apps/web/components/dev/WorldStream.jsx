@@ -9,6 +9,7 @@ import Train from '@/components/world/Train';
 import Suspension from '@/components/world/Suspension';
 import ArchBridge from '@/components/world/ArchBridge';
 import TunnelSpike, { FreeCam, startFromQuery, useRoute } from '@/components/dev/TunnelSpike';
+import { DatumLegend, DatumPlanes, useDatumLayers } from '@/components/dev/DatumOverlay';
 
 // DEVELOPMENT TOOL: the baked world (public/world) streamed by the chunk manager and flown over with an orbit camera, so the React layer of roadmap task 11 can be seen working without the game.
 // The point the orbit controls look at is the focus, so dragging or the jump buttons make chunks mount and unmount. ?profile=phone|desktop|overview. window.__vvStreamedWorld (StreamedWorld.jsx) has the counts.
@@ -37,6 +38,14 @@ export default function WorldStream() {
   const free = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cam') === 'free'; // ?cam=free: fly (the tunnel spike), instead of orbiting
   const camAt = useRef({ x: target.x, z: target.z });
   const route = useRoute();
+  // ?skiptown=1: the game's own arrangement round the first town (lib/world/townJoin.js): the chunks wholly inside the town's land are left out, those that overlap it are joined, and a plain slab stands for the town's land (docs/world/datum.md, "The town border")
+  const [townLand, setTownLand] = useState(null);
+  const skipTown = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('skiptown') === '1';
+  React.useEffect(() => { if (skipTown) fetch('/world/manifest.json').then((r) => r.json()).then((m) => setTownLand(m.towns[0].land)).catch(() => {}); }, [skipTown]);
+  // ?datum=1: the world's datum drawn as grids at every named height, with a legend (components/dev/DatumOverlay.jsx)
+  const [datum, setDatum] = useState(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('datum') === '1');
+  const datumLayers = useDatumLayers(manifest);
+  const [datumOn, setDatumOn] = useState({ sea: true, townGround: true, deck: true, tunnelFloor: true, tunnelRoof: true });
   const profile = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('profile') || 'desktop' : 'desktop';
   const onReady = useCallback((m) => setManifest(m), []);
   const focus = useCallback(() => (free ? { x: camAt.current.x, z: camAt.current.z } : controls.current ? { x: controls.current.target.x, z: controls.current.target.z } : { x: target.x, z: target.z }), [target, free]);
@@ -56,7 +65,9 @@ export default function WorldStream() {
           <button key={name} onClick={() => { setOffset(look ?? [150, 130, 260]); setTarget({ x, z }); }} style={{ padding: '2px 8px' }}>{name}</button>
         ))}
         <button onClick={() => setNight((v) => !v)} style={{ padding: '2px 8px' }}>{night ? 'Day' : 'Night'}</button>
+        <button onClick={() => setDatum((v) => !v)} style={{ padding: '2px 8px' }}>{datum ? 'Hide datum' : 'Datum'}</button>
       </div>
+      {datum && <DatumLegend layers={datumLayers} enabled={datumOn} onToggle={(id) => setDatumOn((o) => ({ ...o, [id]: !o[id] }))} />}
       <Canvas camera={{ fov: free ? 70 : 50, near: free ? 0.05 : 1, far: 6000 }} gl={{ antialias: true }}>
         <color attach="background" args={[night ? '#04070d' : '#0b1b33']} />
         <fog attach="fog" args={[night ? '#04070d' : '#0b1b33', 600, 2600]} />
@@ -69,11 +80,13 @@ export default function WorldStream() {
             <OrbitControls ref={controls} key={`${target.x},${target.z}`} target={[target.x, 0, target.z]} maxPolarAngle={Math.PI / 2.05} maxDistance={2500} />
           </>
         )}
+        {datum && <DatumPlanes layers={datumLayers} enabled={datumOn} focus={focus} />}
         <Train />
         <Suspension />
         <ArchBridge />
         {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '1' && <TunnelSpike />}
-        <StreamedWorld profile={profile} focus={focus} onReady={onReady} />
+        {skipTown && townLand && <mesh position={[(townLand.x0 + townLand.x1) / 2, 0.004 - 0.3, (townLand.z0 + townLand.z1) / 2]}><boxGeometry args={[townLand.x1 - townLand.x0, 0.6, townLand.z1 - townLand.z0]} /><meshStandardMaterial color="#4d8a4d" /></mesh>}
+        <StreamedWorld profile={profile} focus={focus} onReady={onReady} town={skipTown && townLand ? townLand : null} />
       </Canvas>
     </div>
   );
