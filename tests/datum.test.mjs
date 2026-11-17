@@ -47,20 +47,35 @@ const { PROP_CATALOG } = await imp('content/propCatalog.js');
 const piece = buildPieces({ id: 1, owner: 'x', x: 0, z: 0, w: 3, d: 3, facing: 1, yaw: 0, height: 1.2, exterior: { floors: 1, build: { front: 'doorway', back: 'plain', sides: 'plain', windows: 'square', corners: 'plain', roof: 'none' } } }, { front: 'doorway', back: 'plain', sides: 'plain', windows: 'square', corners: 'plain', roof: 'none' }, PROP_CATALOG)[0];
 if (!piece || Math.abs(piece.y - D.LIFT.plot) > 1e-9) bad('a building\'s pieces stand at the datum\'s plot lift on the ground floor', String(piece?.y));
 
+// ---- step 2: what people and cars stand on in the old town, the bridge kerb, the lamp pools and the animals
+const { SURFACE } = D;
+const { ASPHALT_Y, SIDEWALK_Y } = await imp('city/curves.js');
+const { DECK } = await imp('world/bridgeDeckSpec.js');
+if (ASPHALT_Y !== SURFACE.road || SIDEWALK_Y !== SURFACE.kerb) bad('the town street meshes use the datum road and kerb heights', `${ASPHALT_Y} ${SIDEWALK_Y}`);
+if (SURFACE.land !== D.TOWN_GROUND_TOP || !(SURFACE.land < SURFACE.urban && SURFACE.urban < SURFACE.lawn && SURFACE.lawn < SURFACE.road && SURFACE.road < SURFACE.kerb)) bad('the town surfaces stack: the land, the built-up ground, a lawn, a street, the kerb', JSON.stringify(SURFACE));
+if (!(SURFACE.apron < SURFACE.runway && SURFACE.plaza < SURFACE.promenade && SURFACE.park < SURFACE.parkPath && SURFACE.mall < SURFACE.mallHall)) bad('a runway over its apron, a path over its lawn, the hall over the mall floor', '');
+if (DECK.kerb.height !== D.LIFT.deckKerb) bad('the bridge kerb is the datum one', String(DECK.kerb.height));
+if (!(D.LIFT.plotPad > D.LIFT.plot && D.LIFT.pool > 0 && D.LIFT.floodPool > D.LIFT.pool)) bad('an unclaimed plot pad is over a built one base, and the lamp pools are lifted', '');
+const { surfaceHeight } = await imp('city/surfaceHeight.js');
+const flat = { roads: [], lawns: [{ x0: 0, x1: 10, z0: 0, z1: 10 }], intersections: [] };
+if (surfaceHeight(flat, 5, 5) !== SURFACE.lawn || surfaceHeight(flat, 50, 50) !== SURFACE.land) bad('a walker on a lawn stands on the datum lawn and off it on the datum land', `${surfaceHeight(flat, 5, 5)} ${surfaceHeight(flat, 50, 50)}`);
+const plotAt = (owner) => [{ x: 5, z: 5, w: 4, d: 4, yaw: 0, owner }];
+if (surfaceHeight({ roads: [], intersections: [] }, 5, 5, plotAt('x')) !== D.LIFT.plot || surfaceHeight({ roads: [], intersections: [] }, 5, 5, plotAt(null)) !== D.LIFT.plotPad) bad('a claimed plot is at the datum plot lift and an unclaimed one pad over it', '');
+
 // ---- what is still unsettled is listed, and listed honestly
 const ids = D.DATUM_ISSUES.map((i) => i.id).sort().join();
-if (ids !== 'animal-water,deck-from-ground,town-top,town-water-vs-sea') bad('the known disagreements: the town water against the sea, decks from the ground, the town slab, the animals', ids);
+if (ids !== 'deck-from-ground,town-top,town-water-vs-sea') bad('the known disagreements: the town water against the sea, decks from the ground, the town slab (the animals now swim on the town water)', ids);
 const gap = (id) => D.DATUM_ISSUES.find((i) => i.id === id).gap;
-if (Math.abs(gap('town-water-vs-sea') - (D.TOWN_WATER - D.SEA_LEVEL)) > 1e-9 || Math.abs(gap('deck-from-ground') + D.SEA_LEVEL) > 1e-9 || Math.abs(gap('animal-water') - 0.009) > 1e-9 || gap('town-top') !== D.TOWN_GROUND_TOP) bad('each disagreement states its real size', '');
+if (Math.abs(gap('town-water-vs-sea') - (D.TOWN_WATER - D.SEA_LEVEL)) > 1e-9 || Math.abs(gap('deck-from-ground') + D.SEA_LEVEL) > 1e-9 || gap('town-top') !== D.TOWN_GROUND_TOP) bad('each disagreement states its real size', '');
 
 // ---- the sources do not grow a height of their own
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
 const files = [];
 const walk = (dir, filter) => { for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) { const rel = `${dir}/${e.name}`; if (e.isDirectory()) { if (e.name !== 'data') walk(rel, filter); } else if (filter(rel)) files.push(rel); } };
 walk('lib/world', (f) => /\.js$/.test(f));
-files.push('lib/city/surfaceHeight.js', 'lib/sim/animals.js');
+files.push('lib/city/surfaceHeight.js', 'lib/city/curves.js', 'lib/sim/animals.js');
 walk('apps/web/components/world', (f) => /\.jsx$/.test(f));
-files.push('apps/web/components/city/River.jsx', 'apps/web/components/city/Vehicles.jsx');
+files.push('apps/web/components/city/River.jsx', 'apps/web/components/city/Vehicles.jsx', 'apps/web/components/city/PlotMesh.jsx', 'apps/web/components/city/DraftBuilding.jsx', 'apps/web/components/city/ModelBuildings.jsx', 'lib/content/models.js');
 const rules = [
   { name: 'the sea level is declared once, in the datum', re: /\b(?:const|let|var)\s+SEA_LEVEL\s*=|export\s+const\s+SEA_LEVEL\s*=/ },
   { name: 'the water height is declared once, in the datum', re: /\b(?:const|let|var)\s+WATER_Y\s*=\s*[-\d]|export\s+const\s+WATER_Y\s*=\s*[-\d]/ },

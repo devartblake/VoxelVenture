@@ -66,7 +66,7 @@ for (let seed = 1; seed <= SEEDS; seed++) {
     }
     if (!inside(a.home, a.x, a.z, 1e-6)) bad('an animal stays in its home area while it moves', `${seed} ${a.kind} #${a.id} at ${a.x.toFixed(1)},${a.z.toFixed(1)}`);
     if (a.place === 'hills' && !(a.y >= 0 && a.y <= HILL_MAX + 0.05)) bad('goats follow the ground', `${seed} y=${a.y}`);
-    if (a.mode === 'water' && Math.abs(a.y - 0.035) > 1e-6) bad('ducks sit on the water', `${seed} y=${a.y}`);
+    if (a.mode === 'water' && Math.abs(a.y - 0.026) > 1e-6) bad('ducks sit on the water', `${seed} y=${a.y}`);
     if (Math.hypot(a.x - startPos[i][0], a.z - startPos[i][1]) > 0.3) moved++;
     if (!Number.isFinite(a.x) || !Number.isFinite(a.yaw)) bad('positions stay real numbers', `${seed}`);
   });

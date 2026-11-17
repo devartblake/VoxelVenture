@@ -1,6 +1,6 @@
 # The world datum
 
-Written for: the owner and developers. Started 2026-11-16 (steps 1, 3 and 4 of the plan below; step 2 for the world's own systems).
+Written for: the owner and developers. Started 2026-11-16 (steps 1, 3 and 4 of the plan below; step 2 for the world's own systems; the town's surfaces moved 2026-11-17).
 
 **The question:** is there one ground plane and one water plane for the whole world, so that every prop, bridge, road and tunnel lines up from a single reference? **The answer today:** one sea plane for the baked world, but no single ground, and two water levels. This work names the heights in one place, makes the world's systems read them, keeps the sources from growing numbers of their own, and draws every layer so the mismatches can be seen.
 
@@ -34,7 +34,7 @@ No value changed: they are what the game already used. `layers()` lists every ab
 
 1. **The town water and the sea differ by 0.326** (0.026 against -0.3): a boat or a river on the town and one on the baked world are at different heights. Settling it means moving the town's water (or the sea) and checking every interior and boat on it.
 2. **A deck's height is measured from 0**, so a causeway's clearance over the water is 0.3 more than its number (9.3, not 9). Harmless, but a bridge built "9 over the water" must say so (`overSea`).
-3. **The animals swim at 0.035**, not at the town water (0.026).
+3. **The animals swim at 0.035**, not at the town water (0.026). (Fixed in step 2: they swim on the town water.)
 
 (The join between the town's flat ground and the baked terrain is now tested: see "The town border" below.)
 
@@ -60,5 +60,6 @@ The sea plane (the datum's -0.3) has depth shading by distance from the coast: [
 
 ## Next steps
 
-- **Step 2, still to move:** the avatar's, the cars' and the interiors' own heights in the town (`surfaceHeight.js` strips and curbs, plots' `y`, the interior floors), the bridge kerb and girder offsets (`bridgeDeckSpec.js`) and the lamp pools: each moves onto the datum as it is touched, and the guard's file list widens with it.
+- **Step 2, moved (2026-11-17):** `SURFACE` in the datum is now what a person or a car stands on in the old town (the land, the built-up ground, a lawn, a street, the kerb, a roundabout's island, an airport's apron and runway, a pier and its plaza, a promenade, a park and its paths, a mall and its hall, where an animal walks); `lib/city/surfaceHeight.js` and the street meshes (`lib/city/curves.js`) read it. `LIFT` gained the unclaimed plot's pad (0.175), the bridge kerb (0.12: `DECK.kerb.height`), the street lamps' pool of light (0.12) and the stadium pools (0.16), and a claimed plot's lift (0.1) is now what the plot's building, the draft, a model's floor (`lib/content/models.js`) and a person on the plot all read. The animals swim on the town water, so that disagreement is closed. The avatar and the cars already read `surfaceHeight`, `WATER_Y` and the terrain, so they follow. The guard's file list widened with each, and `tests/datum.test.mjs` checks the stack of surfaces, the kerb, the plot lifts and a walker on a lawn.
+- **Step 2, not moved:** small cosmetic offsets on top of a datum height (the target marker's 0.01, a boat's bob, a car's wheel contact), the interior scenes' own coordinates (an interior is its own room, not a place in the world), and some one-off lifts in the town's components (`Farmland`, `GroundPatches`, `Hills` keep their local layer numbers between the land and the roads).
 - **Step 5, the rest:** reconcile the town's water with the sea (0.326) and the town slab's 0.004.
