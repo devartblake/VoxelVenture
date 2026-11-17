@@ -22,10 +22,10 @@ check('the material is still the vertex-coloured, rough ground it was (the grain
 check('the other materials are untouched (roads, highways, track)', ['roads', 'highways', 'track'].every((k) => !materials[k].onBeforeCompile.toString().includes('uGrass')));
 check('the grain is a detail: its average is 1 (a texture divided by its own mean), and fades out with distance', GROUND_TEXTURE.strength <= 1 && GROUND_TEXTURE.fadeFrom < GROUND_TEXTURE.fadeTo);
 
-// the files: two small JPEGs, listed in the admission register
+// the files: three small JPEGs, listed in the admission register
 const dir = path.join(root, 'apps/web/public/world/ground');
 const files = fs.readdirSync(dir).sort();
-check('the folder holds grass.jpg and dirt.jpg and nothing else, each under 512 KB', files.join() === 'dirt.jpg,grass.jpg' && files.every((f) => fs.statSync(path.join(dir, f)).size < 512 * 1024));
+check('the folder holds the grass, dirt and asphalt (roads: lib/world/roadTexture.js) and nothing else, each under 512 KB', files.join() === 'asphalt.jpg,dirt.jpg,grass.jpg' && files.every((f) => fs.statSync(path.join(dir, f)).size < 512 * 1024));
 const jpg = (f) => { const b = fs.readFileSync(path.join(dir, f)); return b[0] === 0xff && b[1] === 0xd8; };
 check('and they are JPEG files', files.every(jpg));
 

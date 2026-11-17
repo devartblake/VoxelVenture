@@ -12,6 +12,7 @@ import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
+import { applyRoadTexture } from '@/lib/world/roadTexture';
 import { SEA_LEVEL } from '@/lib/world/datum';
 import { clipChunkToTown, insideTown, overlapsTown } from '@/lib/world/townJoin';
 import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
@@ -106,6 +107,15 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
     Promise.all([loader.loadAsync(`${base}/ground/grass.jpg`), loader.loadAsync(`${base}/ground/dirt.jpg`)])
       .then(([grass, dirt]) => { if (alive) applyGroundTexture(THREE, materials.ground, grass, dirt); })
       .catch(() => {}); // no textures: the vertex colours alone
+    return () => { alive = false; };
+  }, [base, materials]);
+  // the asphalt and the lines of the roads (lib/world/roadTexture.js, docs/world/road_texture.md): ambientCG's Asphalt031 over the road colours, a dashed centre line and edge lines; ?roadtex=0 keeps the flat colours
+  useEffect(() => {
+    if (typeof window === 'undefined' || new URLSearchParams(window.location.search).get('roadtex') === '0') return undefined;
+    let alive = true;
+    new THREE.TextureLoader().loadAsync(`${base}/ground/asphalt.jpg`)
+      .then((tex) => { if (alive) { applyRoadTexture(THREE, materials.roads, tex, 'street'); applyRoadTexture(THREE, materials.highways, tex.clone(), 'highway'); } })
+      .catch(() => {});
     return () => { alive = false; };
   }, [base, materials]);
   const state = useRef({ manager: null, objects: new Map(), last: null, velocity: { x: 0, z: 0 } });
