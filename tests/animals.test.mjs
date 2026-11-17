@@ -6,6 +6,7 @@ import { imp, problemTally, root } from './helpers.mjs';
 const { generateCity } = await imp('city/cityGenerator.js');
 const { createAnimals, animalCounts, KINDS } = await imp('sim/animals.js');
 const { hillHeight, HILL_MAX } = await imp('city/hills.js');
+const { riverRects } = await imp('world/townWater.js');
 const { ANIMAL_CATALOG } = await imp('content/animalCatalog.js');
 const { parseVox } = await imp('content/vox.js');
 const { bad, total } = problemTally();
@@ -66,7 +67,7 @@ for (let seed = 1; seed <= SEEDS; seed++) {
     }
     if (!inside(a.home, a.x, a.z, 1e-6)) bad('an animal stays in its home area while it moves', `${seed} ${a.kind} #${a.id} at ${a.x.toFixed(1)},${a.z.toFixed(1)}`);
     if (a.place === 'hills' && !(a.y >= 0 && a.y <= HILL_MAX + 0.05)) bad('goats follow the ground', `${seed} y=${a.y}`);
-    if (a.mode === 'water' && Math.abs(a.y - 0.026) > 1e-6) bad('ducks sit on the water', `${seed} y=${a.y}`);
+    if (a.mode === 'water' && Math.abs(a.y - (riverRects(layout).some((r) => a.x > r.x0 && a.x < r.x1 && a.z > r.z0 && a.z < r.z1) ? -0.3 : 0.026)) > 1e-6) bad('ducks sit on the water they are on (the river is the sea level, a pond the pond level)', `${seed} y=${a.y}`);
     if (Math.hypot(a.x - startPos[i][0], a.z - startPos[i][1]) > 0.3) moved++;
     if (!Number.isFinite(a.x) || !Number.isFinite(a.yaw)) bad('positions stay real numbers', `${seed}`);
   });

@@ -6,10 +6,10 @@ import { useGatedFrame } from '@/lib/performance/runtime';
 import { useLodHidden } from '@/lib/performance/lodRuntime';
 
 const BANK = 1.2; // sandy bank beyond the water on each side
-import { WATER_Y } from '@/lib/city/surfaceHeight'; // the town water (lib/world/datum.js)
+import { RIVER_BED, RIVER_WATER, TOWN_GROUND_TOP } from '@/lib/world/datum'; // the river runs in a trench at the sea's level (lib/world/townWater.js)
 const DECK_HALF_WIDTH = 1.45;
 
-// A river that runs wall to wall across the land (see layout.rivers), with a bridge wherever a road
+// A river that runs wall to wall across the land (see layout.rivers), in a trench through the slab: its water is at the sea's level, so it joins the baked river and the sea; with a bridge wherever a road
 // crosses it (layout.bridges). The road itself is drawn by <Road>; the bridge adds the parapets and the
 // piers so the road reads as crossing over water. `river` is { axis, x0, x1, z0, z1, name }.
 export default function River({ river, bridges }) {
@@ -30,15 +30,28 @@ export default function River({ river, bridges }) {
 
   return (
     <group>
-      {/* banks */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.012, cz]} receiveShadow>
-        <planeGeometry args={alongZ ? [width + BANK * 2, length] : [length, width + BANK * 2]} />
-        <meshStandardMaterial color="#d6c7a1" roughness={1} />
-      </mesh>
-      {/* water */}
-      <mesh ref={water} rotation={[-Math.PI / 2, 0, 0]} position={[cx, WATER_Y, cz]}>
+      {/* the sandy banks: a strip on each side of the water, over the slab */}
+      {[-1, 1].map((side) => (
+        <mesh key={side} rotation={[-Math.PI / 2, 0, 0]} position={alongZ ? [cx + side * (width / 2 + BANK / 2), 0.012, cz] : [cx, 0.012, cz + side * (width / 2 + BANK / 2)]} receiveShadow>
+          <planeGeometry args={alongZ ? [BANK, length] : [length, BANK]} />
+          <meshStandardMaterial color="#d6c7a1" roughness={1} />
+        </mesh>
+      ))}
+      {/* the trench: its bed, and its two walls up to the top of the slab (the slab is cut round it: Land.jsx) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, RIVER_BED, cz]} receiveShadow>
         <planeGeometry args={alongZ ? [width, length] : [length, width]} />
-        <meshStandardMaterial color="#2563eb" emissive="#38bdf8" emissiveIntensity={0.16} roughness={0.7} metalness={0} />
+        <meshStandardMaterial color="#42505a" roughness={1} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={`w${side}`} position={alongZ ? [cx + side * width / 2, (TOWN_GROUND_TOP + RIVER_BED) / 2, cz] : [cx, (TOWN_GROUND_TOP + RIVER_BED) / 2, cz + side * width / 2]} receiveShadow>
+          <boxGeometry args={alongZ ? [0.02, TOWN_GROUND_TOP - RIVER_BED, length] : [length, TOWN_GROUND_TOP - RIVER_BED, 0.02]} />
+          <meshStandardMaterial color="#4a3a24" roughness={1} />
+        </mesh>
+      ))}
+      {/* water, at the sea's level */}
+      <mesh ref={water} rotation={[-Math.PI / 2, 0, 0]} position={[cx, RIVER_WATER, cz]}>
+        <planeGeometry args={alongZ ? [width, length] : [length, width]} />
+        <meshStandardMaterial color="#2563eb" emissive="#38bdf8" emissiveIntensity={0.16} roughness={0.7} metalness={0} transparent opacity={0.9} />
       </mesh>
 
       {bridges.map((b) => {

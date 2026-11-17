@@ -148,7 +148,7 @@ export default function CityCanvas() {
         {/* City Layout (recentered so the generated city sits around the origin) */}
         <GroundGrid />
         <group name="city" position={[-layout.center.x, 0, -layout.center.z]}>
-          <Land land={layout.land} urban={layout.urban} lawns={layout.lawns} />
+          <Land land={layout.land} urban={layout.urban} lawns={layout.lawns} rivers={layout.rivers} />
           {bakedWorld && <StreamedWorld profile={bakedWorld.profile} town={layout.land} />}
           {bakedWorld && <Train />}
           {bakedWorld && <Suspension />}

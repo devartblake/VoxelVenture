@@ -53,6 +53,29 @@ const through = minho.course.filter((p) => p.z >= townRiver.z0 && p.z <= townRiv
 if (through.length < 20 || through.some((p) => p.x < townRiver.x0 - 1 || p.x > townRiver.x1 + 1)) bad('the Rio Minho runs down the town\'s own river (Willow Run), inside its banks', `${through.length}`);
 if (plan.rivers.filter((r) => r.id !== 'rio-minho').some((r) => r.course.some((p) => p.x > townRiver.x0 - 30 && p.x < townRiver.x1 + 30 && p.z > townRiver.z0 && p.z < townRiver.z1))) bad('no other river runs through the first town', '');
 
+// ---- no river meets a road but the coastal ring (which every river has to cross to reach the sea: a bridge), and none comes close to a spur, a link or the speedway circuit
+const { buildWorld } = await imp('world/buildWorld.js');
+const { highwaySegments } = await imp('world/rivers.js');
+const bw = buildWorld();
+const roads = highwaySegments(bw).filter((h) => h.kind !== 'ring');
+for (const l of bw.links ?? []) for (let i = 0; i + 1 < (l.points?.length ?? 0); i++) roads.push({ id: l.id, kind: 'link', a: l.points[i], b: l.points[i + 1] });
+for (const t of bw.tracks ?? []) t.centreline.forEach((p, i) => roads.push({ id: t.id, kind: 'track', a: p, b: t.centreline[(i + 1) % t.centreline.length] }));
+const rings = highwaySegments(bw).filter((h) => h.kind === 'ring');
+for (const r of plan.rivers) {
+  r.course.forEach((p, i) => {
+    const half = R.widthAt(r, i / (r.course.length - 1)) / 2;
+    if (r.id === 'rio-minho' && p.z > townRiver.z0 - 30 && p.z < townRiver.z1 + 50) return; // (the town and its edge: the river and the river drive meet there)
+    for (const s of roads) {
+      const dx = s.b.x - s.a.x, dz = s.b.z - s.a.z, l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((p.x - s.a.x) * dx + (p.z - s.a.z) * dz) / l2));
+      const d = Math.hypot(p.x - (s.a.x + t * dx), p.z - (s.a.z + t * dz)) - half - (s.kind === 'track' ? 28 : 3); // (a road is 6 wide; a circuit has barriers and scenery about 25 beyond its centreline)
+      if (d < 0) { bad('a river keeps clear of every road but the ring (it must not meet a spur, a link or the speedway)', `${r.id} ${s.id} ${d.toFixed(1)} at ${p.x.toFixed(0)},${p.z.toFixed(0)}`); return; }
+    }
+  });
+  let rc = 0;
+  for (const s of rings) for (let i = 1; i < r.course.length; i++) if (R.crossing(r.course[i - 1], r.course[i], s.a, s.b)) rc++;
+  if (rc !== 1) bad('a river crosses the coastal ring once, on its way to the sea', `${r.id} ${rc}`);
+}
+
 // ---- the surface falls from the source to the sea
 if (R.surfaceAt(minho, 1) !== D.SEA_LEVEL || !(R.surfaceAt(minho, 0) > R.surfaceAt(minho, 0.5) && R.surfaceAt(minho, 0.5) > R.surfaceAt(minho, 1))) bad('a river\'s surface is the sea level at its mouth and rises upstream', `${R.surfaceAt(minho, 1)}`);
 if (!(R.widthAt(minho, 1) > R.widthAt(minho, 0.88) && R.widthAt(minho, 0.88) >= R.widthAt(minho, 0.8) - 1e-9)) bad('the mouth flares', '');

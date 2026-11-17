@@ -7,7 +7,7 @@ import { COSMETIC_BY_ID } from '@/lib/game/cosmetics';
 import { remotePlayers, useNet } from '@/lib/net/multiplayer';
 import { Hat, SCALE } from './Avatar';
 import { useCityStore } from '@/lib/state/store';
-import { surfaceHeight, carSurfaceHeight, WATER_Y } from '@/lib/city/surfaceHeight';
+import { surfaceHeight, carSurfaceHeight, boatYFor, waterYFor } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
 import Label3D from './Label3D';
 import { BoatModel, CarOf } from './Vehicles';
@@ -87,7 +87,7 @@ function RemoteAvatar({ id }) {
     if (sig !== vehSig) setVehSig(sig);
     if (car.current) {
       car.current.visible = Boolean(p.veh) && p.veh.kind !== 'train';
-      car.current.position.set(p.x, p.veh?.kind === 'boat' ? WATER_Y : carSurfaceHeight(layout, p.x, p.z, p.yaw, 2, plots), p.z);
+      car.current.position.set(p.x, p.veh?.kind === 'boat' ? boatYFor(layout, p.x, p.z) : carSurfaceHeight(layout, p.x, p.z, p.yaw, 2, plots), p.z);
       car.current.rotation.y = p.yaw;
     }
     root.current.visible = !p.veh || p.veh.kind === 'boat' || p.veh.kind === 'train';
@@ -99,7 +99,7 @@ function RemoteAvatar({ id }) {
     }
     if (p.veh?.kind === 'boat') {
       const seat = seatWorld({ ...p, boatKind: p.veh.boatKind });
-      root.current.position.set(seat.x, WATER_Y + seat.y, seat.z);
+      root.current.position.set(seat.x, waterYFor(layout, seat.x, seat.z) + seat.y, seat.z);
     } else root.current.position.set(p.x, surfaceHeight(layout, p.x, p.z, plots) + lift, p.z);
     root.current.rotation.y = p.yaw + spin;
     legL.current.rotation.x = p.veh ? -1.2 : swing;
