@@ -1,6 +1,6 @@
 # Harbor Mini-Golf
 
-Written for: the owner and developers. Started 2026-11-18, after the owner asked for the mini-golf course next. **What is built is the course, its place in the world and the ball's physics; putting in the game (aiming, power, scoring) and the Kenney Minigolf Kit's models are not.**
+Written for: the owner and developers. Started 2026-11-18, after the owner asked for the mini-golf course next. **The course, its place in the world and the ball's physics were built first; putting and scoring in the game were added the same day (below).**
 
 ![The course from above.](gallery/minigolf_course_top.webp)
 
@@ -12,11 +12,24 @@ Written for: the owner and developers. Started 2026-11-18, after the owner asked
 - **The ball** (`lib/world/golfPhysics.js`): pure and deterministic. A putt (`putt(ball, angle, power)`) up to 14 units a second; friction 2.4 plus a little drag slow it; it bounces off the walls (62 per cent of the speed) and is pushed out of them; the cup takes it when it is over it slower than 6 units a second (faster it skips over; it may rebound off the end wall and drop in); it stops below 0.12. Four physics steps of 1/240 s to a frame, so a fast ball cannot pass through a wall. A hole not finished counts par + 4.
 - **Tests** (`tests/minigolf.test.mjs`): the same seed gives the same course; every hole's lane is one piece from tee to cup and every edge of it has a wall; holes do not touch; the quads face up; a soft putt rolls and stops, the same putt always rolls the same, some power along the lane sinks, the cup refuses a fast ball and takes a slow one, a putt at a side wall stays in the lane, **2,250 random putts never leave their hole**; and the baked course is in the manifest and the chunks, on flat ground, clear of the town.
 
+## Playing it (2026-11-18)
+
+- **Starting.** Walk to a tee mat (within 3.2 units): the interaction prompt says "Play hole N of Harbor Mini-Golf (par P)" (E, or tap it, like boarding the train). Refused in a vehicle. You stand a step behind the ball, facing along the lane; the panel appears (`components/ui/GolfHud.jsx`). `?golf=0` leaves the whole thing out.
+- **Aiming and putting.** **A and D or the arrows** turn the aim (1.6 radians a second); **hold Space** to charge the power (a second from nothing to full) and **let go** to putt; the aim arrow in the world grows and turns from green to red with the power. On a phone or with a mouse the panel has an aim-left and aim-right button and a **Hold to putt** button. **Esc**, or "Put the club away", ends it. While you play A and D do not walk the avatar (`Avatar.jsx`), and the avatar is kept at the ball (`hold`) so a click on the ground does not walk you off.
+- **The ball** (`MiniGolf.jsx`): the Kenney Minigolf Kit's red ball (`kenney/minigolf/ball-red.glb`), scaled to the physics ball, a plain sphere until it loads. Every frame the store steps the physics (`golfStore.tick`); when the ball stops short you aim again from where it lies, looking at the cup; when it drops, or after **8 strokes** it is picked up, the hole is done.
+- **Scoring** (`lib/world/golfScore.js`): the hole's score is its strokes (a pick-up counts at least par + 4); its name against par (Hole in one!, Albatross, Eagle, Birdie, Par, Bogey, Double bogey...); the card is nine holes with the total against par. At the end of the ninth hole the **card** is shown and the round is kept as **this device's best** (`localStorage`, `voxelventure-golf-best`, for the course) if it beats the last: nothing is sent to the server, and **no Gold or income is given** (the owner has not asked for any). "Play again" starts at hole 1.
+- **Tests** (`tests/golf-play.test.mjs`): the scoring words and totals, the best kept only when beaten, a tee found within its range, no golf from a car, the player behind the ball, aiming at a speed, power charging over a second and stopping at full, no putt without charging, no second putt while it rolls, a ball putted to the cup in some strokes with the card kept, a ball picked up at the limit, and a nine-hole round to the card and the best.
+
+## The Kenney Minigolf Kit
+
+Downloaded on 2026-11-18 from kenney.nl/assets/minigolf-kit (3.1, CC0, 125 files) through the page's own "Continue without donating" button (driven in a real browser: a plain script is refused). **In the repository so far**: three balls, three clubs, three flags and the colour map in `apps/web/public/models/kenney/minigolf/`, registered in `lib/content/assetSources.js`, credited in `CREDITS.md` and `apps/web/public/models/CREDITS.md`, with the licence in `docs/licences/kenney/License-minigolf-kit.txt`. The other 117 pieces (straights, corners, ramps, windmill, tunnels, gates, castle, hills, supports) are not committed: they are what the course will be dressed with next (below).
+
 ## What is not built
 
-1. **Playing it.** A person walks to a tee, aims, sets a power and putts: the input (keys, a drag, touch), the ball's drawing (a sphere on the felt), the stroke count, the scorecard and the finish. The physics is ready for it. Design to decide with the owner: a prompt at the tee mat (like boarding the train), A and D to aim and a held key for power (and a drag on touch), one player at a time on a hole, the score kept on the player's profile or not at all, and whether a hole's best score gives anything (it should not give Gold or income without the owner's say).
-2. **The Kenney Minigolf Kit.** The kit (CC0, 125 files) is not in the repository and kenney.nl's download is behind a button that a script cannot press: **it needs downloading by hand** (kenney.nl/assets/minigolf-kit, "Continue without donating"), unpacking into `apps/web/public/models/kenney/minigolf/` and adding to the asset register (`lib/content/assetSources.js`: the Kenney entry, `budget: 'prop'`), with its licence file in `docs/licences/kenney/`. Then the boxes (walls, flags) can be replaced by the kit's models on the same layout (the cells make 0.8-unit pieces, which the kit's 1-unit pieces would be scaled to), as the ports' boxes were (the `replaced` tag), with the boxes kept for a phone.
-3. **More courses, and the course's look in the world**: a car park, a clubhouse, a path from the east spur road, signs with the hole numbers (`Label3D`).
+1. **The kit's pieces on the course.** The walls and flags are still plain boxes; the kit's straights, corners, ends and obstacles could replace them on the same cell layout (its pieces are 1 unit, the cells 0.8: scale them), with the boxes kept for a phone, as the ports' boxes were. The windmill, ramps and hills would also make holes the cell grid cannot (a moving obstacle needs the physics to know a moving wall).
+2. **Two players, or a score others can see**: the round is one person's and this device's; a shared scoreboard is a server feature and a policy question.
+3. **Aiming by dragging** on the ball (a mouse or a finger): the buttons and keys do it now.
+4. **More courses, and the course's setting**: a car park, a clubhouse, a path from the east spur road, signs with the hole numbers (`Label3D`).
 
 ## Why a grid of cells
 

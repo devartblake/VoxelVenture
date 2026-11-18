@@ -15,3 +15,9 @@ The course from above: nine holes in a grid (straight, dogleg, blocks, zigzag an
 ![Holes seen along the lanes: striped felt, wooden walls and a flag at the cup.](minigolf_course_holes.webp)
 
 Holes seen along the lanes: striped felt, wooden walls and a flag at the cup.
+
+## minigolf_putting
+
+![Playing hole 1 in the game: the panel with Hold to putt and the aim buttons, the red Kenney ball on the tee mat and the aim arrow along the lane.](minigolf_putting.webp)
+
+Playing hole 1 in the game: the panel with Hold to putt and the aim buttons, the red Kenney ball on the tee mat and the aim arrow along the lane.
