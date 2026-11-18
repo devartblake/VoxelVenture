@@ -92,7 +92,7 @@ for (const c of baked.manifest.chunks) loaded.set(c.key, await baked.chunk(c.cx,
 if (baked.manifest.ports?.length !== 4 || baked.manifest.ports.some((p) => !p.boxes || !p.decks || !p.props)) bad('the manifest lists the four ports', JSON.stringify(baked.manifest.ports?.map((p) => p.id)));
 let jetties = 0, structures = 0;
 for (const c of loaded.values()) { jetties += c.highways.filter((h) => h.kind === 'jetty').length; structures += c.structures?.length ?? 0; }
-const wantBoxes = world.ports.reduce((s, p) => s + p.boxes.length, 0);
+const wantBoxes = world.ports.reduce((s, p) => s + p.boxes.length, 0) + (world.courses ?? []).reduce((s, c) => s + c.boxes.length, 0); // (the ports', and the mini-golf course's walls and flags)
 if (structures !== wantBoxes) bad('every box is in exactly one chunk', `${structures} ${wantBoxes}`);
 if (jetties < world.ports.reduce((s, p) => s + p.decks.length, 0)) bad('every deck is baked (a deck across a chunk edge is more than one piece)', String(jetties));
 let meshed = 0;
