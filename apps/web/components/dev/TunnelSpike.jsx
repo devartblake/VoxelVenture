@@ -56,7 +56,7 @@ export function FreeCam({ start, onMove }) {
   const keys = useRef(new Set());
   const look = useRef({ yaw: start.yaw, pitch: start.pitch });
   useEffect(() => {
-    camera.near = 0.05;
+    camera.near = 0.05; // (and out with height: useFrame below)
     camera.updateProjectionMatrix();
     camera.position.set(start.x, start.y, start.z);
     const el = gl.domElement;
@@ -79,6 +79,9 @@ export function FreeCam({ start, onMove }) {
     return () => { el.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); window.removeEventListener('pointermove', move); window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); };
   }, [camera, gl, start]);
   useFrame((_, dt) => {
+    // the near plane moves out with the height (up to 6): a 24-bit depth buffer has a grain of distance squared over near, and at 0.05 it is 0.1 of a unit at 300 away, which shows as stripes of the sea through the ground
+    const near = camera.position.y < 1 ? 0.05 : Math.min(6, 0.025 * camera.position.y + 0.05);
+    if (Math.abs(camera.near - near) > near * 0.1) { camera.near = near; camera.updateProjectionMatrix(); }
     camera.rotation.order = 'YXZ';
     camera.rotation.set(look.current.pitch, look.current.yaw, 0);
     const k = keys.current;

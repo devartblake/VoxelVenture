@@ -1,6 +1,6 @@
 # An undersea tunnel between the two large islands: evaluation
 
-> **Update 2026-11-17: stage 1 is built** (a train you ride): [tunnel.md](tunnel.md). Stage 2 is not.
+> **Update 2026-11-17: stages 1 and 2 are built** (a train you ride; a road lane you walk and drive, with a layer in the ground model): [tunnel.md](tunnel.md).
 
 Written for: the owner, to decide whether and when to build it. Evaluated 2026-11-16; nothing is built. The owner asked whether it is possible, to be looked at again after roadmap tasks 17 (real terrain) and 18 (the player's plane).
 

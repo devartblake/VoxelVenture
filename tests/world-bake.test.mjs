@@ -121,7 +121,8 @@ const len = (s) => Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z);
   const bare = bakeWorld(buildWorld(noCauseways));
   // (a chunk that is only over open water, with just a bridge in it, is not baked at all without the bridge)
   const cutKeys = new Set(Object.keys(chunks).filter((k) => chunks[k].ground?.h?.some((v) => v < 0))); // (the tunnel's portals cut the ground there: lib/world/tunnelSpec.js; the tunnel is beside a causeway)
-  const strip = (cs) => Object.fromEntries(Object.entries(cs).map(([k, c]) => [k, { ...c, ...(cutKeys.has(k) && c.ground ? { ground: { ...c.ground, h: null } } : {}), highways: c.highways.filter((h) => !h.id.endsWith('causeway')) }]).filter(([, c]) => c.land > 0 || c.plots.length || c.roads.length || c.highways.length));
+  // (the tunnel's approach roads come with the tunnel, which is beside a causeway: left out with the causeways)
+  const strip = (cs) => Object.fromEntries(Object.entries(cs).map(([k, c]) => [k, { ...c, ...(cutKeys.has(k) && c.ground ? { ground: { ...c.ground, h: null } } : {}), highways: c.highways.filter((h) => !h.id.endsWith('causeway') && !h.id.startsWith('harbor-tunnel')) }]).filter(([, c]) => c.land > 0 || c.plots.length || c.roads.length || c.highways.length));
   check('adding a road (the causeways, here) changes only the highway records: plots, town roads and ground are identical', JSON.stringify(strip(chunks)) === JSON.stringify(strip(bare.chunks)) && Object.values(bare.chunks).every((c) => c.highways.every((h) => !h.id.endsWith('causeway'))));
   // the first town is still the generator's own, bit for bit
   const city = generateTown(20260101);

@@ -132,7 +132,7 @@ export default function FollowCamera() {
       // first person: at the eyes, looking along the heading (no smoothing, so looking round is immediate)
       const px = avatarState.x - center.x;
       const pz = avatarState.z - center.z;
-      const py = (avatarState.vehicle?.kind === 'train' ? avatarState.vehicle.y ?? 0 : 0) + (avatarState.vehicle ? EYE_CAR : EYE); // (a rider of the train is at the rail's height)
+      const py = (avatarState.vehicle?.kind === 'train' ? avatarState.vehicle.y ?? 0 : avatarState.layer === 'tunnel' ? avatarState.y : 0) + (avatarState.vehicle ? EYE_CAR : EYE); // (a rider of the train is at the rail's height)
       camera.position.set(px, py, pz);
       if (Math.abs(camera.near - 0.1) > 0.01) {
         camera.near = 0.1;
@@ -150,8 +150,9 @@ export default function FollowCamera() {
     const tz = (free ? free.z : avatarState.z) - center.z;
     // a rider of the train is at the rail's height (up on a causeway's deck, down in the tunnel): the camera follows it. Inside the tunnel's tube (6.4 wide, 4.5 high) it is pulled in close and kept under the roof
     const rider = avatarState.vehicle?.kind === 'train' ? avatarState.vehicle : null;
-    const ry = rider?.y ?? 0;
-    const inTube = Boolean(rider?.inTube);
+    const underground = avatarState.layer === 'tunnel'; // on foot or in a car inside the tube (stage 2): the height it stands at
+    const ry = rider?.y ?? (underground ? avatarState.y : 0);
+    const inTube = Boolean(rider?.inTube) || underground;
     const dist = inTube ? Math.min(distance, TUBE_CAMERA.distance) : distance;
     const flat = Math.cos(pitch) * dist;
     const want = { x: tx + Math.sin(azimuth) * flat, y: ry + HEAD + (inTube ? Math.min(Math.sin(pitch) * dist, TUBE_CAMERA.lift) : Math.sin(pitch) * dist), z: tz + Math.cos(azimuth) * flat };

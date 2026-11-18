@@ -304,9 +304,13 @@ export default function Vehicles() {
     const terrain = activeTerrain();
     const canMove =
       v.kind === 'car'
-        ? (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'car') : !map || (!isBlocked(x, z, map.rects, r) && x > map.bounds.x0 && x < map.bounds.x1 && z > map.bounds.z0 && z < map.bounds.z1))
+        ? (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'car', terrain.layerAfter(v.layer ?? 'surface', v.x, v.z, x, z)) : !map || (!isBlocked(x, z, map.rects, r) && x > map.bounds.x0 && x < map.bounds.x1 && z > map.bounds.z0 && z < map.bounds.z1))
         : (x, z, r) => (terrain?.decides(x, z) ? terrain.standsWith(x, z, 'boat') : inWater(x, z, terrain ? waterOpen : water, r * 0.6) && !hitsPier(x, z, r * 0.8, piers)); // (a boat sails round a pier, not through it)
+    const [px, pz] = [v.x, v.z];
+    v.layer ??= avatarState.layer ?? 'surface'; // the layer a car is on: 'surface', or 'tunnel' inside the tunnel's tube (lib/world/terrain.js)
     stepVehicle(v, { throttle, steer }, dt, canMove);
+    if (terrain && v.kind === 'car') v.layer = terrain.layerAfter(v.layer, px, pz, v.x, v.z);
+    avatarState.layer = v.layer;
     avatarState.x = v.x;
     avatarState.z = v.z;
     avatarState.yaw = v.yaw;
@@ -343,7 +347,8 @@ export default function Vehicles() {
     if (g) {
       g.visible = true;
       const baked = activeTerrain()?.decides(v.x, v.z) ? activeTerrain() : null; // outside the town, the baked ground
-      g.position.set(v.x, v.kind === 'boat' ? (baked ? SEA_LEVEL + BOAT_FLOAT : boatYFor(layout, v.x, v.z)) : baked ? baked.groundY(v.x, v.z) : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
+      g.position.set(v.x, v.kind === 'boat' ? (baked ? SEA_LEVEL + BOAT_FLOAT : boatYFor(layout, v.x, v.z)) : baked ? baked.groundY(v.x, v.z, v.layer) : carSurfaceHeight(layout, v.x, v.z, v.yaw, CAR, plots), v.z);
+      avatarState.y = g.position.y;
       g.rotation.set(0, v.yaw, 0);
     }
     if (v.kind === 'boat' && l.phase !== 'idle' && rod && bobber && string) {
