@@ -3,9 +3,14 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { LOOPS } from '@/lib/performance/visibilityPolicy';
+import { useGatedFrame } from '@/lib/performance/runtime';
 import { avatarState } from '@/lib/sim/avatarState';
 import Label3D from '@/components/city/Label3D';
 import { TUNNEL, floorY, pointAt } from '@/lib/world/tunnel';
+import { tubePieces } from '@/lib/world/tunnelSpec';
+
+const FLAT = 32; // under the sea, where the road is level, a piece is this long (a ramp's pieces are SEG: they follow the slope)
 
 // The undersea tunnel in the world (docs/world/tunnel.md): the tube beside the Harbor Causeway, from the manifest's `tunnels` (lib/world/tunnel.js buildTunnels, baked): a road slab, walls, a roof with two lamp
 // strips and a slab under it, all double-sided so the water never shows from inside, laid in 4-unit pieces along the profile (down from a portal, level under the sea, up again). The portals' trench is cut into
@@ -30,28 +35,28 @@ export function useTunnel() {
   return route;
 }
 
-// one instanced set of boxes along the route: for each segment, a box at (lateral, y, length) in the segment's own frame, laid along the slope
+// one instanced set of boxes along the route: for each piece, a box at (lateral, y, length) in the piece's own frame, laid along the slope
 function Strip({ route, y, lateral, width, thick, color, emissive, side = 0 }) {
   const ref = useRef(null);
-  const n = Math.ceil((route.s1 - route.s0) / SEG);
+  const pieces = React.useMemo(() => tubePieces(route, SEG, FLAT), [route]);
+  const n = pieces.length;
   useLayoutEffect(() => {
     const line = route.line;
-    for (let i = 0; i < n; i++) {
-      const s = route.s0 + (i + 0.5) * SEG;
+    pieces.forEach(({ s, len }, i) => {
       const p = pointAt(line, s);
-      const y0 = floorY(route, s - SEG / 2), y1 = floorY(route, s + SEG / 2);
-      const pitch = Math.atan2(y1 - y0, SEG);
+      const y0 = floorY(route, s - len / 2), y1 = floorY(route, s + len / 2);
+      const pitch = Math.atan2(y1 - y0, len);
       D.position.set(p.x + line.normal.x * lateral, y((y0 + y1) / 2, route, s), p.z + line.normal.z * lateral);
       D.rotation.set(0, 0, 0);
       D.rotateY(line.yaw);
       D.rotateX(-pitch);
-      D.scale.set(width, thick, SEG * 1.02);
+      D.scale.set(width, thick, len * 1.02);
       D.updateMatrix();
       ref.current.setMatrixAt(i, D.matrix);
-    }
+    });
     ref.current.instanceMatrix.needsUpdate = true;
     ref.current.computeBoundingSphere();
-  }, [route, n, y, lateral, width, thick, side]);
+  }, [route, pieces, y, lateral, width, thick, side]);
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, n]} frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
@@ -115,7 +120,7 @@ function ExitSigns({ route }) {
     const line = route.line;
     marks.current.forEach((s, i) => {
       const p = pointAt(line, s);
-      D.position.set(p.x + line.normal.x * (TUNNEL.width / 2 - 0.06), floorY(route, s) + 2.1, p.z + line.normal.z * (TUNNEL.width / 2 - 0.06));
+      D.position.set(p.x - line.normal.x * (TUNNEL.width / 2 - 0.06), floorY(route, s) + 2.1, p.z - line.normal.z * (TUNNEL.width / 2 - 0.06)); // (the road side is -normal)
       D.rotation.set(0, 0, 0);
       D.rotateY(line.yaw);
       D.scale.set(0.1, 0.34, 0.9);
@@ -134,6 +139,69 @@ function ExitSigns({ route }) {
   );
 }
 
+// Emergency telephones: an orange cabinet with a blue lamp over it on the road side's wall every 80 units (between the exit signs); the tube's fittings are what a real one has, for the look: nothing uses them.
+function Phones({ route }) {
+  const box = useRef(null), lamp = useRef(null);
+  const at = [];
+  for (let s = route.s0 + 60; s < route.s1 - 40; s += 80) at.push(s);
+  useLayoutEffect(() => {
+    const line = route.line, off = TUNNEL.width / 2 - 0.15;
+    at.forEach((s, i) => {
+      const p = pointAt(line, s), f = floorY(route, s);
+      for (const [ref, y, sc] of [[box, 1.35, [0.3, 0.7, 0.5]], [lamp, 2.0, [0.12, 0.12, 0.12]]]) {
+        D.position.set(p.x - line.normal.x * off, f + y, p.z - line.normal.z * off);
+        D.rotation.set(0, 0, 0);
+        D.rotateY(line.yaw);
+        D.scale.set(...sc);
+        D.updateMatrix();
+        ref.current.setMatrixAt(i, D.matrix);
+      }
+    });
+    for (const r of [box, lamp]) { r.current.instanceMatrix.needsUpdate = true; r.current.computeBoundingSphere(); }
+  }, [route]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!at.length) return null;
+  return (
+    <group name="tunnel-phones">
+      <instancedMesh ref={box} args={[undefined, undefined, at.length]} frustumCulled={false}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#f97316" roughness={0.6} /></instancedMesh>
+      <instancedMesh ref={lamp} args={[undefined, undefined, at.length]} frustumCulled={false}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={1.6} /></instancedMesh>
+    </group>
+  );
+}
+
+// Jet fans: a housing hung from the roof's middle every 60 units, with a blade that turns (slowly: a few instances, updated on the ornament loop, and only when someone is in or near the tube)
+function Fans({ route }) {
+  const housing = useRef(null), blade = useRef(null);
+  const at = [];
+  for (let s = route.s0 + 80; s < route.s1 - 60; s += 60) at.push(s);
+  const place = (ref, i, s, y, scale, spin) => {
+    const line = route.line, p = pointAt(line, s);
+    D.position.set(p.x, floorY(route, s) + TUNNEL.height - y, p.z);
+    D.rotation.set(0, 0, 0);
+    D.rotateY(line.yaw);
+    D.rotateX(Math.PI / 2); // (a cylinder stands on y: lay it along the tube)
+    D.rotateY(spin);
+    D.scale.set(...scale);
+    D.updateMatrix();
+    ref.current.setMatrixAt(i, D.matrix);
+  };
+  useLayoutEffect(() => {
+    at.forEach((s, i) => { place(housing, i, s, 0.7, [0.5, 1.3, 0.5], 0); place(blade, i, s, 0.7, [0.44, 0.06, 0.44], 0); });
+    for (const r of [housing, blade]) { r.current.instanceMatrix.needsUpdate = true; r.current.computeBoundingSphere(); }
+  }, [route]); // eslint-disable-line react-hooks/exhaustive-deps
+  useGatedFrame(LOOPS.ornament, ({ clock }) => {
+    if (!blade.current || !(avatarState.layer === 'tunnel' || avatarState.vehicle?.inTube || (clock.elapsedTime | 0) % 4 === 0)) return;
+    at.forEach((s, i) => place(blade, i, s, 0.7, [0.44, 0.06, 0.44], clock.elapsedTime * 6 + i));
+    blade.current.instanceMatrix.needsUpdate = true;
+  });
+  if (!at.length) return null;
+  return (
+    <group name="tunnel-fans">
+      <instancedMesh ref={housing} args={[undefined, undefined, at.length]} frustumCulled={false}><cylinderGeometry args={[1, 1, 1, 14]} /><meshStandardMaterial color="#9ca3af" roughness={0.5} metalness={0.4} /></instancedMesh>
+      <instancedMesh ref={blade} args={[undefined, undefined, at.length]} frustumCulled={false}><boxGeometry args={[2, 1, 0.12]} /><meshStandardMaterial color="#4b5563" roughness={0.6} /></instancedMesh>
+    </group>
+  );
+}
+
 // A light that goes with a person or a car inside the tube (the scene's lights do not reach down there): the tube's own strips are emissive, this lights the walls and the floor near you. Off everywhere else.
 function TubeLight() {
   const ref = useRef(null);
@@ -147,15 +215,35 @@ function TubeLight() {
   return <pointLight ref={ref} intensity={30} distance={26} color="#fff1c2" visible={false} />;
 }
 
+// The tube is only drawn when someone is within VISIBLE_FROM units of it (or in it): it is under the sea, and a phone's view is a few hundred units. The distance is from the avatar in the game and from the camera on the dev page.
+export const VISIBLE_FROM = 420;
+function Gate({ route, children }) {
+  const ref = useRef(null);
+  useGatedFrame(LOOPS.ornament, ({ camera }) => {
+    const g = ref.current;
+    if (!g) return;
+    const { a, dir } = route.line;
+    const px = avatarState.ready ? avatarState.x : camera.position.x, pz = avatarState.ready ? avatarState.z : camera.position.z;
+    const s = Math.max(route.s0, Math.min(route.s1, (px - a.x) * dir.x + (pz - a.z) * dir.z));
+    const c = pointAt(route.line, s);
+    g.visible = Math.hypot(px - c.x, pz - c.z) < VISIBLE_FROM;
+  });
+  return <group ref={ref}>{children}</group>;
+}
+
 export default function Tunnel() {
   const route = useTunnel();
   if (!route || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '0')) return null;
   return (
     <>
+      <Gate route={route}>
       <Tube route={route} />
       <Portal route={route} s={route.s0} out={-1} label={route.name} />
       <Portal route={route} s={route.s1} out={1} label={route.name} />
       <ExitSigns route={route} />
+      <Phones route={route} />
+      <Fans route={route} />
+      </Gate>
       <TubeLight />
     </>
   );

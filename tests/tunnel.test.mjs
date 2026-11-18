@@ -73,5 +73,16 @@ if (!(K.height > 3.2 * 1.2 && K.width > 2.1 * 2)) bad('a train and a car fit ins
   }
   if (!validateRecipe({ ...WORLD_RECIPE, tunnels: [{ id: 'x', name: 'X', causeway: 'no-such' }] }).some((p) => /no-such/.test(p))) bad('a recipe tunnel beside a causeway it does not have is invalid', '');
 }
+// ---- what the tube costs: pieces of 4 units on the ramps and 32 where the road is level, nine strips of boxes (12 triangles a piece each)
+{
+  const S = await imp('world/tunnelSpec.js');
+  const pcs = S.tubePieces(manifest.tunnels[0]);
+  const total = pcs.reduce((n, p) => n + p.len, 0), tris = pcs.length * 9 * 12;
+  if (Math.abs(total - manifest.tunnels[0].length) > 1e-6) bad('the pieces cover the tube exactly', String(total));
+  if (pcs.some((p, i) => i && Math.abs(p.s - p.len / 2 - (pcs[i - 1].s + pcs[i - 1].len / 2)) > 1e-6)) bad('the pieces are end to end', '');
+  if (pcs.length > 75 || tris > 9000) bad('the tube is under a few thousand triangles (a third of 4-unit pieces all the way: 169 pieces, 18,000)', `${pcs.length} pieces, ${tris} triangles`);
+  if (pcs.filter((p) => p.len === 32).length < 10 || pcs.some((p) => p.len === 32 && (S.floorY(manifest.tunnels[0], p.s - 16) !== S.TUNNEL.floor || S.floorY(manifest.tunnels[0], p.s + 16) !== S.TUNNEL.floor))) bad('long pieces only where the road is level', '');
+  console.log(`  the tube: ${pcs.length} pieces, ${tris} triangles in the strips`);
+}
 console.log(`tunnel: ${route.length.toFixed(0)} units portal to portal, ramps ${ramp.toFixed(0)}, links of ${route.links.map((l) => l.length.toFixed(0)).join(' and ')} units to ${route.links.map((l) => l.road).join(' and ')}`);
 total();

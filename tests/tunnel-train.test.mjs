@@ -36,16 +36,19 @@ if (steepest > 0.0802 + 1e-3) bad('no steeper than the ramp\'s 0.08 grade', Stri
 
 // ---- the timetable runs as for any line, at a speed the presence server accepts
 const run = T.leg(line).time;
+// the line runs half a cycle behind the first causeway's (line.phase): `at(sec)` is the clock that puts it `sec` seconds into its own cycle
+const at = (sec) => (sec - line.phase) * 1000;
+if (Math.abs(line.phase - T.cycleSeconds(line) / 2) > 1e-9 || T.trainState(first, 0).at === T.trainState(line, 0).at && T.trainState(first, 0).at !== null) bad('the two lines are not in step', String(line.phase));
 if (!(run > 100 && run < 160)) bad('a ride of about two minutes', String(run));
-if (T.trainState(line, 0).at !== 'A' || T.trainState(line, (T.TRAIN.dwell + run / 2) * 1000).at !== null) bad('it stands in station A, then runs', '');
+if (T.trainState(line, at(0)).at !== 'A' || T.trainState(line, at(T.TRAIN.dwell + run / 2)).at !== null) bad('it stands in station A, then runs', '');
 const m = newMovement(), now0 = 5_000_000;
 let refused = 0;
-for (let sec = T.TRAIN.dwell; sec < T.TRAIN.dwell + run; sec += 1) { const p = T.seat(line, T.trainState(line, sec * 1000)); if (!step(m, { x: p.x, z: p.z, veh: { kind: 'train' } }, now0 + sec * 1000).ok) refused++; }
+for (let sec = T.TRAIN.dwell; sec < T.TRAIN.dwell + run; sec += 1) { const p = T.seat(line, T.trainState(line, at(sec))); if (!step(m, { x: p.x, z: p.z, veh: { kind: 'train' } }, now0 + sec * 1000).ok) refused++; }
 if (refused || modeOf({ kind: 'train' }) !== 'car' || T.TRAIN.speed >= SPEED_CAP.car) bad('every position of the tunnel ride is accepted as plausible', `${refused} refused`);
 
 // ---- boarding and riding it (lib/state/fleetStore.js)
 const realNow = Date.now;
-const setClock = (sec) => { Date.now = () => sec * 1000; };
+const setClock = (sec) => { Date.now = () => at(sec); }; // (sec seconds into this line's cycle)
 try {
   fleetRefs.trainLines = [first, line];
   fleetRefs.trainLine = first;
@@ -58,7 +61,7 @@ try {
   setClock(T.TRAIN.dwell + run / 2);
   if (useFleet.getState().leaveTrain()) bad('you cannot get off between the stations', '');
   // in the middle of the ride the rider is inside the tube, below the sea
-  const mid = T.seat(line, T.trainState(line, (T.TRAIN.dwell + run / 2) * 1000));
+  const mid = T.seat(line, T.trainState(line, at(T.TRAIN.dwell + run / 2)));
   if (!(mid.y < SEA_LEVEL - 4) || Math.abs(mid.y - (TUNNEL.floor + T.LAND_LIFT + 0.45)) > 0.05) bad('mid-ride the rider is at the bottom of the tube', String(mid.y));
   setClock(T.TRAIN.dwell + run + 2);
   if (!useFleet.getState().exit() || avatarState.vehicle) bad('you get off at the isle tunnel station', '');
