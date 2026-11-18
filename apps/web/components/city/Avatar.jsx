@@ -324,7 +324,7 @@ export default function Avatar() {
       // with the baked world mounted (?world=baked) the avatar may leave the town's land: the baked ground decides where it can stand outside the town (the coast, steep ground), the town's own rules inside
       const terrain = activeTerrain();
       const next = moveAvatar(avatarState.x, avatarState.z, dx, dz, terrain ? { ...collisionRef.current, bounds: terrain.bounds } : collisionRef.current);
-      if (terrain) Object.assign(next, terrain.constrain(avatarState.x, avatarState.z, next.x, next.z, 'walk'));
+      if (terrain) { const c = terrain.constrain(avatarState.x, avatarState.z, next.x, next.z, 'walk', avatarState.layer); Object.assign(next, c); avatarState.layer = c.layer; } // (the layer: 'surface', or 'tunnel' inside the tunnel's tube: lib/world/terrain.js)
       moved = Math.hypot(next.x - avatarState.x, next.z - avatarState.z);
       avatarState.x = next.x;
       avatarState.z = next.z;
@@ -382,7 +382,8 @@ export default function Avatar() {
     if (moved > 0) avatarState.emote = null; // walking cancels an emote
 
     const terrainNow = activeTerrain();
-    const ground = terrainNow?.decides(avatarState.x, avatarState.z) ? terrainNow.groundY(avatarState.x, avatarState.z) : surfaceHeight(layout, avatarState.x, avatarState.z, plots); // the baked ground (a mountain, a bridge deck) outside the town
+    const ground = terrainNow?.decides(avatarState.x, avatarState.z) ? terrainNow.groundY(avatarState.x, avatarState.z, avatarState.layer) : surfaceHeight(layout, avatarState.x, avatarState.z, plots); // the baked ground (a mountain, a bridge deck, the tunnel's road) outside the town
+    avatarState.y = ground; // (the camera and the light follow it inside the tunnel)
     root.current.position.set(avatarState.x, ground + lift, avatarState.z);
     root.current.rotation.y = avatarState.yaw + spin;
     legL.current.rotation.x = swing;

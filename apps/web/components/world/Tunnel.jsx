@@ -2,6 +2,8 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { avatarState } from '@/lib/sim/avatarState';
 import { TUNNEL, floorY, pointAt } from '@/lib/world/tunnel';
 
 // The undersea tunnel in the world (docs/world/tunnel.md): the tube beside the Harbor Causeway, from the manifest's `tunnels` (lib/world/tunnel.js buildTunnels, baked): a road slab, walls, a roof with two lamp
@@ -71,7 +73,9 @@ export function Tube({ route }) {
       {/* the underside, so the water never shows through from inside: a slab below the road */}
       <Strip route={route} lateral={L} width={TUNNEL.width + TUNNEL.wall * 2} thick={TUNNEL.wall} color="#334155" y={(f) => f - 0.12 - TUNNEL.wall / 2} />
       {/* the lane line and the lamps */}
-      <Strip route={route} lateral={L} width={0.14} thick={0.04} color="#f8fafc" y={(f) => f + 0.02} />
+      <Strip route={route} lateral={L + 1.5} width={0.14} thick={0.04} color="#f8fafc" y={(f) => f + 0.02} />
+      {/* the kerb between the rail's side and the road lane (TUNNEL.laneFrom) */}
+      <Strip route={route} lateral={TUNNEL.laneFrom - 0.1} width={0.2} thick={0.3} color="#cbd5e1" y={(f) => f + 0.15} />
       <Strip route={route} lateral={L - half + 0.5} width={0.3} thick={0.06} color="#fde68a" emissive="#fde68a" y={(f) => f + TUNNEL.height - 0.05} />
       <Strip route={route} lateral={L + half - 0.5} width={0.3} thick={0.06} color="#fde68a" emissive="#fde68a" y={(f) => f + TUNNEL.height - 0.05} />
     </group>
@@ -79,8 +83,26 @@ export function Tube({ route }) {
 }
 
 
+// A light that goes with a person or a car inside the tube (the scene's lights do not reach down there): the tube's own strips are emissive, this lights the walls and the floor near you. Off everywhere else.
+function TubeLight() {
+  const ref = useRef(null);
+  useFrame(() => {
+    const l = ref.current;
+    if (!l) return;
+    const inside = avatarState.layer === 'tunnel' || Boolean(avatarState.vehicle?.inTube);
+    l.visible = inside;
+    if (inside) l.position.set(avatarState.x, (avatarState.vehicle?.kind === 'train' ? avatarState.vehicle.y : avatarState.y) + 2.6, avatarState.z);
+  });
+  return <pointLight ref={ref} intensity={30} distance={26} color="#fff1c2" visible={false} />;
+}
+
 export default function Tunnel() {
   const route = useTunnel();
   if (!route || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '0')) return null;
-  return <Tube route={route} />;
+  return (
+    <>
+      <Tube route={route} />
+      <TubeLight />
+    </>
+  );
 }

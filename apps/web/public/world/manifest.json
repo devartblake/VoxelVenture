@@ -13008,7 +13008,7 @@
    "land": 0.54,
    "plots": 0,
    "roads": 0,
-   "highways": 6,
+   "highways": 8,
    "heights": true
   },
   {
@@ -13212,7 +13212,7 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 7,
+   "highways": 9,
    "heights": true
   },
   {
@@ -13303,7 +13303,7 @@
    "land": 0.9,
    "plots": 13,
    "roads": 2,
-   "highways": 0
+   "highways": 2
   },
   {
    "key": "14_3",
@@ -14491,5 +14491,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "98ac6b03b3a41e24"
+ "hash": "1e2749885c110cb5"
 }
