@@ -34,10 +34,19 @@ The tube now has **two sides**: the rail (1.6 from the tube's middle, on the **c
 - **Presence**: a person or a car is checked as before (x and z; the tube is inside the world's rectangle).
 - **Tests**: `tests/tunnel-walk.test.mjs` walks and drives the real baked world through the tunnel both ways (no stop, one layer change in and one out, the height continuous within 0.2, the floor at -5.5 at the bottom), and checks the wall, the kerb, the rail side, no boat, the ground over the tube, crossing over it without dropping in, the pit and the open mouth.
 
+## Fittings, cost and what is deliberately left out (2026-11-18)
+
+Asked whether ventilation and emergency telephones are needed: **no, they are for the look.** Nothing in the game uses them (nobody is hurt, no air is bad, no telephone rings). They are what a real tunnel has, so the tube reads as one, and they are cheap: all instanced, a few hundred triangles.
+
+- **Emergency telephones** (`Phones` in `Tunnel.jsx`): an orange cabinet with a blue lamp over it on the road side's wall every 80 units, between the green exit signs (every 40).
+- **Jet fans** (`Fans`): a housing hung from the roof's middle every 60 units with a blade that turns (a few instances, updated on the ornament loop, which the quality tiers slow or stop).
+- **The tube's cost**: pieces are 4 units on the ramps and **32 where the road is level** (`tubePieces`): 57 pieces and about 6,200 triangles in 9 strips (was 169 pieces, 18,000), plus the portals' boxes, the signs, phones and fans (under 1,000). And it is **only drawn within 420 units of the avatar** (the camera on the dev page), as it is under the sea: on a phone the view is a few hundred units. About 14 draw calls while drawn, none beyond. Not measured on a real phone.
+- **The second train is half a cycle behind the first** (`line.phase`), so the two trains are not in the same place at the same time.
+- **Traffic: not built, on purpose.** The baked world has no traffic system (the only traffic is the first town's, inside its own streets), so there is nothing to route into the tube; making cars that drive its lane would be a new system (a lane for each way: the lane is 3.4 wide, one lane both ways is not enough for two cars to pass), for no gameplay. It is the first thing to add if the world gets roads with traffic.
+
 ## Not done
 
-- **No other cars or traffic** use the tunnel (the baked world has no traffic: nothing to route into it), and there is no ventilation or emergency-telephone props (only the exit signs).
-- **Not seen on a phone**; the tube is about 3 draw calls and a few thousand triangles (not measured).
+- No traffic (above), and no distance markers, speed signs or lane arrows.
+- Not seen on a phone.
 - The cut ground is cell-sized (4 units), so the trench's sides are steps.
-- The first causeway's train and this one run on the same clock and are not staggered against each other.
 - Walking all the way through (and a car) is tested in Node on the real baked world; in the game only the way in and down the ramp was walked (headless rendering is slow).
