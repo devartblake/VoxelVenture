@@ -7,6 +7,7 @@ import { useGatedFrame } from '@/lib/performance/runtime';
 import { propEntry, propMaterial, useProps, usePropsReady } from '@/components/city/PropModels';
 import { fleetRefs } from '@/lib/state/fleetStore';
 import { activeTerrain } from '@/lib/world/terrain';
+import { tunnelTrainLine } from '@/lib/world/tunnel';
 import { TRAIN, TRAIN_MODEL_IDS, cars, pointAt, railTiles, railY, station, trainLine, trainState } from '@/lib/world/train';
 
 // The train on the first causeway (lib/world/train.js, docs/world/train.md): the rail beside the road, a station at each end, and the train, placed from the clock every frame (so everyone sees it
@@ -55,19 +56,12 @@ function Station({ line, which, tick }) {
   );
 }
 
-export default function Train() {
-  const [line, setLine] = useState(null);
+function TrainLine({ line }) {
   const ready = usePropsReady(TRAIN_MODEL_IDS);
   const geometries = useProps((s) => s.geometries);
   const materials = useProps((s) => s.materials);
   const rails = useRef(null);
   const carRefs = useRef([]);
-
-  useEffect(() => {
-    let alive = true;
-    fetch('/world/manifest.json').then((r) => r.json()).then((m) => { if (alive && m.causeways?.length) { const l = trainLine(m.causeways[0]); fleetRefs.trainLine = l; setLine(l); } }).catch(() => {});
-    return () => { alive = false; fleetRefs.trainLine = null; };
-  }, []);
 
   // the shore's height is known once the terrain near it has loaded: look again every few seconds, and lay the rail and the platforms again when it changed
   const [tick, setTick] = useState(0);
@@ -102,10 +96,9 @@ export default function Train() {
     });
   });
 
-  if (!line) return null;
   const railEntry = propEntry(model('railroad-straight'));
   return (
-    <group name="train">
+    <group name={`train-${line.id}`}>
       <Station line={line} which="A" tick={tick} />
       <Station line={line} which="B" tick={tick} />
       {ready && geometries[model('railroad-straight')] && (
@@ -120,3 +113,22 @@ export default function Train() {
   );
 }
 
+
+// The lines of the baked world: the train over the first causeway, and one through each tunnel (lib/world/tunnel.js tunnelTrainLine). The rest of the game finds them in fleetRefs (trainLines, and trainLine: the first)
+// to board and ride. `?tunnel=0` leaves the tunnel's line out.
+export default function Train() {
+  const [lines, setLines] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    fetch('/world/manifest.json').then((r) => r.json()).then((m) => {
+      if (!alive || !m.causeways?.length) return;
+      const all = [trainLine(m.causeways[0])];
+      if (new URLSearchParams(window.location.search).get('tunnel') !== '0') for (const t of m.tunnels ?? []) all.push(tunnelTrainLine(t));
+      fleetRefs.trainLines = all;
+      fleetRefs.trainLine = all[0];
+      setLines(all);
+    }).catch(() => {});
+    return () => { alive = false; fleetRefs.trainLine = null; fleetRefs.trainLines = []; };
+  }, []);
+  return <>{lines.map((l) => <TrainLine key={l.id} line={l} />)}</>;
+}

@@ -454,16 +454,15 @@ export default function Avatar() {
         }
       }
       // the train: board at a station while it stands there (lib/world/train.js)
-      const tline = fleetRefs.trainLine;
-      if (tline && !avatarState.vehicle) {
+      for (const tline of !avatarState.vehicle ? fleetRefs.trainLines ?? [] : []) { // (the first causeway's line, and one through each tunnel)
         const now = Date.now();
         const ts = trainState(tline, now);
         for (const which of ['A', 'B']) {
           const stn = trainStation(tline, which);
           const d = Math.hypot(stn.x - x, stn.z - z);
           if (d > 7) continue;
-          if (canBoard(ts, which)) consider(`train-${which}`, `Board the train from ${stn.name}`, d / 7 - 0.35, () => useFleet.getState().boardTrain(which));
-          else consider(`train-wait-${which}`, `${stn.name}: the next train in ${secondsToTrain(tline, now, which)} s`, d / 7 - 0.2, () => store.notify(`The train shuttles over the Harbor Causeway: it is in ${stn.name} for ${TRAIN.dwell} seconds every few minutes.`));
+          if (canBoard(ts, which)) consider(`train-${tline.id}-${which}`, `Board the train from ${stn.name}`, d / 7 - 0.35, () => useFleet.getState().boardTrain(which, tline.id));
+          else consider(`train-wait-${tline.id}-${which}`, `${stn.name}: the next train in ${secondsToTrain(tline, now, which)} s`, d / 7 - 0.2, () => store.notify(`The train shuttles ${tline.tunnel ? 'through the Harbor Tunnel' : 'over the Harbor Causeway'}: it is in ${stn.name} for ${TRAIN.dwell} seconds every few minutes.`));
         }
       }
       const fleet = useFleet.getState();

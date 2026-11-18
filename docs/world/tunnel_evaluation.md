@@ -1,5 +1,7 @@
 # An undersea tunnel between the two large islands: evaluation
 
+> **Update 2026-11-17: stage 1 is built** (a train you ride): [tunnel.md](tunnel.md). Stage 2 is not.
+
 Written for: the owner, to decide whether and when to build it. Evaluated 2026-11-16; nothing is built. The owner asked whether it is possible, to be looked at again after roadmap tasks 17 (real terrain) and 18 (the player's plane).
 
 **What I took the question to mean.** A tunnel under the sea between **the Mainland and Harbor Isle** (the two large landmasses; Harbor Causeway is 456 units between them and North Causeway 676). If you meant a tunnel *through* an island (under the Blue Mountains, for example), see "Through a mountain" at the end: the same machinery, simpler, and it wants task 17's real terrain first.
