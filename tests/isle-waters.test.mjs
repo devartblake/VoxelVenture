@@ -9,10 +9,10 @@ const { riverField } = await imp('world/rivers.js');
 const { bad, total } = problemTally();
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/manifest.json'), 'utf8'));
 const isle = manifest.landmasses.find((l) => l.id === 'harbor-isle');
-const waters = manifest.rivers.filter((r) => r.coast === 'isle');
+const waters = manifest.rivers.filter((r) => r.coast === 'isle' && r.id !== 'mill-creek'); // (Mill Creek is the town's: tests/harbor-town.test.mjs)
 const harbor = manifest.towns.find((t) => t.id === 'harbor').land;
 
-if (waters.map((r) => r.id).sort().join() !== [...ISLE_WATER_IDS].sort().join()) bad('the manifest has the lagoon and five canals', waters.map((r) => r.id).join());
+if (waters.map((r) => r.id).sort().join() !== ISLE_WATER_IDS.filter((i) => i !== 'mill-creek').sort().join()) bad('the manifest has the lagoon and five canals', waters.map((r) => r.id).join());
 const lagoon = waters.find((r) => r.kind === 'lagoon'), canals = waters.filter((r) => r.kind === 'canal');
 if (!lagoon || canals.length !== ISLE_WATERS.canals.count) bad('one lagoon and the canals', `${!!lagoon} ${canals.length}`);
 
@@ -54,7 +54,7 @@ if (trees !== fringe.length) bad('every fringe tree is baked', `${trees} of ${fr
 const pieces = [];
 for (const c of manifest.chunks) {
   const chunk = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8'));
-  for (const h of chunk.highways ?? []) if (h.kind === 'river-bridge' && ISLE_WATER_IDS.some((i) => h.id === `${i}-bridge`)) pieces.push(h);
+  for (const h of chunk.highways ?? []) if (h.kind === 'river-bridge' && ISLE_WATER_IDS.some((i) => i !== 'mill-creek' && h.id === `${i}-bridge`)) pieces.push(h);
 }
 for (const r of waters) if (!pieces.some((h) => h.id === `${r.id}-bridge`)) bad('the ring crosses on a bridge', r.id);
 if (pieces.some((h) => h.on !== 'harbor-ring')) bad('only the ring crosses the island waters', [...new Set(pieces.map((h) => h.on))].join());

@@ -42,7 +42,9 @@ const len = (s) => Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z);
 {
   const sums = (key) => { const m = new Map(); for (const c of all) for (const s of c[key]) m.set(s.id, (m.get(s.id) ?? 0) + len(s)); return m; };
   const town = sums('roads');
-  check('every town road is baked, and its pieces add up to its length (within a hundredth of a unit a cut)', world.roads.every((r) => Math.abs((town.get(r.id) ?? -1) - (r.to - r.from)) < 0.05), `${world.roads.length} roads`);
+  const bridged = new Map(); // (a street over a river is a river-bridge piece in the highways, not a road piece: Harbor Town's streets over Mill Creek)
+  for (const c of all) for (const h of c.highways) if (h.kind === 'river-bridge' && h.on) bridged.set(h.on, (bridged.get(h.on) ?? 0) + len(h));
+  check('every town road is baked, and its pieces add up to its length (within a hundredth of a unit a cut)', world.roads.every((r) => Math.abs((town.get(r.id) ?? 0) + (bridged.get(r.id) ?? 0) - (r.to - r.from)) < 0.05 && (town.get(r.id) || bridged.get(r.id))), `${world.roads.length} roads`);
   const hw = sums('highways');
   const ringLength = (h) => h.ring.reduce((s, p, i) => s + Math.hypot(h.ring[(i + 1) % h.ring.length].x - p.x, h.ring[(i + 1) % h.ring.length].z - p.z), 0);
   check('each coastal ring is all there, its pieces (and the bridges over its rivers) adding up to its length', world.highways.every((h) => Math.abs(all.reduce((s, c) => s + c.highways.filter((x) => (x.id === h.id && x.kind === 'ring') || (x.kind === 'river-bridge' && x.on === h.id)).reduce((t, x) => t + len(x), 0), 0) - ringLength(h)) < 3), world.highways.map((h) => ringLength(h).toFixed(0)).join(', '));

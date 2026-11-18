@@ -42,7 +42,7 @@ for (const r of manifest.rivers) {
   const a = m.positions, w = Math.hypot(a[(row + 4) * 3] - a[row * 3], a[(row + 4) * 3 + 2] - a[row * 3 + 2]);
   if (!(w > 3 && w < 40)) bad('the ribbon is a river wide', `${r.id} ${w}`);
 }
-if (manifest.rivers.length !== 20 || vertices < 4000) bad('all fourteen rivers and the island waters have water', `${manifest.rivers.length} ${vertices}`);
+if (manifest.rivers.length !== 21 || vertices < 4000) bad('all fourteen rivers and the island waters have water', `${manifest.rivers.length} ${vertices}`);
 const tint = (kind) => W.RIVER_WATER.palettes[kind].middle;
 if (!(tint('delta')[1] < tint('delta')[2] + 20 && tint('delta')[0] < tint('mouth')[0] + 40) || !Object.keys(W.RIVER_WATER.palettes).includes('gorge')) bad('each kind of river has a palette', '');
 

@@ -30,4 +30,6 @@ The island's water is **river-shaped**, so everything the mainland's rivers have
 
 ## Not done
 
+Harbor Town's own creek, Mill Creek, runs through the town to the north coast and its streets are bridged: [harbor_town.md](harbor_town.md).
+
 Nothing is built on the canals' banks (no jetties or moored boats at the canal estate, no houses): Harbor Town is not live. Task 2 (Harbor Town live and on the datum) will decide what stands there.
