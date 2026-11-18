@@ -16,6 +16,16 @@ Harbor Town is still **`live: false` and vacant** ([world_recipe.md](world_recip
 
 ![Harbor Town's streets and two of its ponds, from the air.](gallery/harbor_town_ponds.webp)
 
+## Its own street shapes (2026-11-17)
+
+The generator makes every town on the same plan, so Harbor Town's streets looked like the mainland's. Its baked streets now differ (`lib/world/harborStreets.js`, the recipe's `streetStyle: 'harbor'`): **Harbor Boulevard**, a diagonal arterial from the county ring's north-east corner to its south-west one through the core, with **Harbor Circle**, a roundabout at the middle; and an **East Crescent** and a **West Crescent**, arcs that bulge out of the county ring's sides. They are *added* to the generator's streets, which are untouched (`world.roads` is still 80 roads and every plot id and place is the same: they are a separate `town.streets`), and the first town has none. The bake splits any of them that meets a river, so the boulevard crosses Mill Creek on a bridge like the avenues and the county roads do; the coast road's, the causeways' and the canals' bridges are unchanged.
+
+![Harbor Town's streets: the grid, the boulevard through the roundabout, the two crescents, Mill Creek and its bridges in red.](gallery/harbor_town_streets.webp)
+
+![Harbor Isle's roads: the coast ring road, the spurs, the town, the airstrip, the causeways, the lagoon and the canals.](gallery/harbor_isle_roads.webp)
+
+Not done: the lots (vacant, not drawn) still face the generator's streets, so they do not follow the crescents; when the town goes live its lots will have to be laid out along these streets.
+
 ## On the datum
 
 `tests/harbor-datum.test.mjs` already held the ground, the street lifts and the level plots. `tests/harbor-town.test.mjs` adds: the creek is in the manifest at the generator's width and axis, reaches the coast, and has its spring on the island; the channel is cut under the town river; no street of the town is in the water and each crossing street is bridged; the pond sheets are at `waterLevel('pond')` and their sand a hair under; each pond is on land inside the town and away from the creek; the bake's street widths equal the mesh's; and the town is still not live.

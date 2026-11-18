@@ -62,5 +62,34 @@ for (const p of ponds) {
   if (!(field.sdAt(p.x, p.z) > 5)) bad('a pond is on land, away from the creek', p.id);
   if (!(p.x > town.land.x0 && p.x < town.land.x1 && p.z > town.land.z0 && p.z < town.land.z1)) bad('a pond is inside the town land', p.id);
 }
+// ---- the town's own street shapes (lib/world/harborStreets.js): a boulevard through a roundabout and a crescent each side, besides the generator's streets
+{
+  const { harborStreets, arcBetween, HARBOR_STREETS } = await imp('world/harborStreets.js');
+  const { buildWorld } = await imp('world/buildWorld.js');
+  const world = buildWorld();
+  const t = world.towns.find((q) => q.id === 'harbor'), first = world.towns[0];
+  if (!t.streets.length || first.streets.length) bad('Harbor Town has its own streets and the first town has none', `${t.streets.length} ${first.streets.length}`);
+  if (JSON.stringify(t.streets) !== JSON.stringify(harborStreets({ id: t.id, land: t.land, roads: t.roads }))) bad('the streets are the same every build', '');
+  if (t.roads.some((r) => /boulevard|circle|crescent/.test(r.id)) || t.roads.length !== 80) bad('the generator roads are untouched: the new streets are separate', String(t.roads.length));
+  const ids = new Set(t.streets.map((q) => q.id));
+  for (const id of ['harbor:boulevard', 'harbor:circle', 'harbor:crescent-east', 'harbor:crescent-west']) if (!ids.has(id)) bad('a street shape is there', id);
+  // continuous: each street's pieces join end to start
+  for (const id of ids) { const q = t.streets.filter((x) => x.id === id); for (let i = 1; i < q.length; i++) if (Math.hypot(q[i].a.x - q[i - 1].b.x, q[i].a.z - q[i - 1].b.z) > 1e-6 && id !== 'harbor:boulevard') bad('a street is one line', id); }
+  // the boulevard runs through the roundabout's centre, from corner to corner of the county ring, and the crescents bulge out of it
+  const centre = t.streets.filter((q) => q.id === 'harbor:circle').reduce((c, q, _, all) => ({ x: c.x + q.a.x / all.length, z: c.z + q.a.z / all.length }), { x: 0, z: 0 });
+  const bl = t.streets.filter((q) => q.id === 'harbor:boulevard'), d = (p, a, b) => Math.abs((b.x - a.x) * (a.z - p.z) - (a.x - p.x) * (b.z - a.z)) / Math.hypot(b.x - a.x, b.z - a.z);
+  if (d(centre, bl[0].a, bl[1].b) > 1) bad('the boulevard runs through the roundabout', String(d(centre, bl[0].a, bl[1].b)));
+  const eastRoad = t.roads.find((r) => r.id === 'harbor:county-east'), arcE = t.streets.filter((q) => q.id === 'harbor:crescent-east');
+  if (!(Math.max(...arcE.map((q) => q.b.x)) > eastRoad.center + HARBOR_STREETS.crescents[0].sag - 2) || arcE[0].a.x !== eastRoad.center) bad('the east crescent leaves the county ring and bulges out', '');
+  const arc = arcBetween({ x: 0, z: 0 }, { x: 0, z: 100 }, 20, 1);
+  if (Math.abs(Math.abs(arc[7].x) - 20) > 0.6 || arc[0].z !== 0 || Math.abs(arc.at(-1).z - 100) > 1e-6) bad('an arc bulges by its sag between its ends', JSON.stringify(arc[7]));
+  // no pond is under a new street
+  for (const p of ponds) for (const q of t.streets) { const dd = d(p, q.a, q.b), len = Math.hypot(q.b.x - q.a.x, q.b.z - q.a.z), along = ((p.x - q.a.x) * (q.b.x - q.a.x) + (p.z - q.a.z) * (q.b.z - q.a.z)) / len; if (along > 0 && along < len && dd < p.rz + 3) bad('a new street does not cross a pond', `${q.id} ${p.id}`); }
+  // and the streets are baked, bridged where they meet the creek: the boulevard crosses it on a bridge (the avenues and county roads still do)
+  if (!bridges.some((h) => h.on === 'harbor:boulevard')) bad('the boulevard crosses Mill Creek on a bridge', '');
+  let baked = 0;
+  for (const c of manifest.chunks) { const chunk = JSON.parse(fs.readFileSync(path.join(dir, 'chunks', `${c.key}.json`), 'utf8')); baked += (chunk.roads ?? []).filter((r) => /^harbor:(circle|crescent|boulevard)/.test(r.id)).length; }
+  if (baked < t.streets.length - 2) bad('the new streets are baked', `${baked} of ${t.streets.length}`);
+}
 console.log(`harbor town: Mill Creek ${creek?.length} units, ${bridges.length} bridge pieces on ${streets.size} streets and the ring, ${ponds.length} ponds at ${D.waterLevel('pond')}`);
 total();
