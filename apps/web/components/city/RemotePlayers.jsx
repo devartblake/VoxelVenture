@@ -40,10 +40,12 @@ function RemoteAvatar({ id }) {
     if (p.fresh) {
       p.x = p.tx;
       p.z = p.tz;
+      p.y = p.ty ?? 0;
       p.yaw = p.tyaw;
       p.fresh = false;
     }
     const k = Math.min(1, dt * 10);
+    p.y = p.fresh === false && Number.isFinite(p.y) ? p.y + ((p.ty ?? 0) - p.y) * Math.min(1, dt * 6) : (p.ty ?? 0); // their height follows the height they report (the baked world's bridges and tunnel)
     const dx = (p.tx - p.x) * k;
     const dz = (p.tz - p.z) * k;
     p.x += dx;
@@ -87,7 +89,7 @@ function RemoteAvatar({ id }) {
     if (sig !== vehSig) setVehSig(sig);
     if (car.current) {
       car.current.visible = Boolean(p.veh) && p.veh.kind !== 'train';
-      car.current.position.set(p.x, p.veh?.kind === 'boat' ? boatYFor(layout, p.x, p.z) : carSurfaceHeight(layout, p.x, p.z, p.yaw, 2, plots), p.z);
+      car.current.position.set(p.x, p.veh?.kind === 'boat' ? boatYFor(layout, p.x, p.z) : Math.abs(p.y) > 0.05 ? p.y : carSurfaceHeight(layout, p.x, p.z, p.yaw, 2, plots), p.z); // (a reported height wins over the town's ground)
       car.current.rotation.y = p.yaw;
     }
     root.current.visible = !p.veh || p.veh.kind === 'boat' || p.veh.kind === 'train';
@@ -100,7 +102,7 @@ function RemoteAvatar({ id }) {
     if (p.veh?.kind === 'boat') {
       const seat = seatWorld({ ...p, boatKind: p.veh.boatKind });
       root.current.position.set(seat.x, waterYFor(layout, seat.x, seat.z) + seat.y, seat.z);
-    } else root.current.position.set(p.x, surfaceHeight(layout, p.x, p.z, plots) + lift, p.z);
+    } else root.current.position.set(p.x, (Math.abs(p.y) > 0.05 ? p.y : surfaceHeight(layout, p.x, p.z, plots)) + lift, p.z);
     root.current.rotation.y = p.yaw + spin;
     legL.current.rotation.x = p.veh ? -1.2 : swing;
     legR.current.rotation.x = p.veh ? -1.2 : -swing;

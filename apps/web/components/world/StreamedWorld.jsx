@@ -192,6 +192,19 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         water.current.scale.set(o.x1 - o.x0 + 4000, o.z1 - o.z0 + 4000, 1);
         water.current.position.set((o.x0 + o.x1) / 2, SEA_LEVEL, (o.z0 + o.z1) / 2);
         water.current.visible = true;
+        // the tunnels' portals: the trench is cut below the sea level, and the plane is an infinite sheet at it, so the plane has a hole over each (lib/world/tunnelSpec.js portalHoles): in the geometry, so it holds
+        // whatever the quality tier (the depth shading, which is off on a low tier, is not what makes the hole)
+        const holes = (new URLSearchParams(window.location.search).get('tunnel') === '0' ? [] : baked.manifest.tunnels ?? []).flatMap((t) => portalHoles(t));
+        if (holes.length) {
+          const sx = o.x1 - o.x0 + 4000, sz = o.z1 - o.z0 + 4000, cx = (o.x0 + o.x1) / 2, cz = (o.z0 + o.z1) / 2;
+          const shape = new THREE.Shape([new THREE.Vector2(-0.5, -0.5), new THREE.Vector2(0.5, -0.5), new THREE.Vector2(0.5, 0.5), new THREE.Vector2(-0.5, 0.5)]);
+          for (const h of holes) {
+            const px = -h.dz, pz = h.dx; // across the tunnel
+            shape.holes.push(new THREE.Path([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => { const x = h.x + h.dx * a * h.along + px * b * h.across, z = h.z + h.dz * a * h.along + pz * b * h.across; return new THREE.Vector2((x - cx) / sx, -(z - cz) / sz); })));
+          }
+          water.current.geometry.dispose();
+          water.current.geometry = new THREE.ShapeGeometry(shape);
+        }
         // the rivers' own water (lib/world/riverWater.js): a ribbon along each course at the sea's level, light over the banks, deeper in the middle, fading out past the mouth; ?riverwater=0 turns it off
         if (parent && baked.manifest.rivers?.length && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('riverwater') !== '0') {
           const parts = baked.manifest.rivers.map((r) => riverWaterMesh(r));
@@ -247,7 +260,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
             texture.needsUpdate = true;
             // the seabed (lib/world/seabed.js): a floor to see through the water, and the water's column over it; ?seabed=0 keeps the distance shading alone
             const bed = new URLSearchParams(window.location.search).get('seabed') !== '0';
-            applySeaDepth(THREE, seaMaterial, field, texture, undefined, bed ? { ...SEABED, shallowY: SEA_FLOOR - 0.05, deepY: OCEAN_FLOOR, seaY: SEA_LEVEL } : null, (baked.manifest.tunnels ?? []).flatMap((t) => portalHoles(t))); // (the tunnels' portals: no sea plane over the trench)
+            applySeaDepth(THREE, seaMaterial, field, texture, undefined, bed ? { ...SEABED, shallowY: SEA_FLOOR - 0.05, deepY: OCEAN_FLOOR, seaY: SEA_LEVEL } : null);
             if (bed && parent) {
               const mesh = seabedMesh(field);
               const geometry = new THREE.BufferGeometry();
@@ -282,6 +295,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
         has: (cx, cz) => here.has(`${cx}_${cz}`),
         skipped: (cx, cz) => Boolean(skip?.({ cx, cz })) || Boolean(town && overlapsTown({ cx, cz }, town)), // (the town's own rules in every chunk that overlaps it)
         bounds: { x0: o.x0, x1: o.x1, z0: o.z0, z1: o.z1 },
+        tunnels: new URLSearchParams(window.location.search).get('tunnel') === '0' ? [] : baked.manifest.tunnels ?? [], // (the tunnels' layers: lib/world/terrain.js; ?tunnel=0 leaves them out, like the tube and its line)
       });
       setActiveTerrain(terrain);
       stats.sample = (x, z) => terrain.sample(x, z);

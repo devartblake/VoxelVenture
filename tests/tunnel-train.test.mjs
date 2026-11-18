@@ -16,7 +16,7 @@ const mt = manifest.tunnels[0];
 const line = tunnelTrainLine(mt), first = T.trainLine(manifest.causeways[0]);
 
 // ---- the line
-if (line.id === first.id || line.lateral !== TUNNEL.lateral - TUNNEL.railOffset || !line.tunnel || line.tunnel.s0 !== mt.s0) bad('a second line, in the middle of the tube', JSON.stringify([line.id, line.lateral]));
+if (line.id === first.id || line.lateral !== TUNNEL.lateral + TUNNEL.railOffset || !line.tunnel || line.tunnel.s0 !== mt.s0) bad('a second line, in the middle of the tube', JSON.stringify([line.id, line.lateral]));
 if (!(line.sA === mt.s0 - TUNNEL_LINE.station && line.sB === mt.s1 + TUNNEL_LINE.station)) bad('a station outside each portal', JSON.stringify([line.sA, line.sB]));
 if (T.station(line, 'A').name === T.station(first, 'A').name || T.station(line, 'B').name === T.station(first, 'B').name) bad('the stations have the tunnel line\'s own names', '');
 // the rail: on the ground at the stations, on the tube's road between the portals, never above the road or under it
@@ -27,7 +27,7 @@ for (let s = mt.s0; s <= mt.s1; s += 3) if (Math.abs(yAt(s) - (floorY(mt, s) + T
 if (Math.abs(yAt(mt.line.length / 2) - (TUNNEL.floor + T.LAND_LIFT)) > 1e-9) bad('level at the full depth under the sea', '');
 // the rail is under the sea level between the shores and inside the tube's walls the whole way
 for (let s = mt.s0; s <= mt.s1; s += 2) {
-  const p = T.pointAt(line, s), c = { x: mt.line.a.x + mt.line.dir.x * s + mt.line.normal.x * (TUNNEL.lateral - TUNNEL.railOffset), z: mt.line.a.z + mt.line.dir.z * s + mt.line.normal.z * (TUNNEL.lateral - TUNNEL.railOffset) };
+  const p = T.pointAt(line, s), c = { x: mt.line.a.x + mt.line.dir.x * s + mt.line.normal.x * (TUNNEL.lateral + TUNNEL.railOffset), z: mt.line.a.z + mt.line.dir.z * s + mt.line.normal.z * (TUNNEL.lateral + TUNNEL.railOffset) };
   if (Math.hypot(p.x - c.x, p.z - c.z) > 1e-3) { bad('the rail runs along the tube\'s centre', String(s)); break; }
 }
 if (!(yAt(line.deckFrom === Infinity ? mt.line.length / 2 : 0) < SEA_LEVEL)) bad('the rail under the sea is under the water', '');

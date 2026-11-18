@@ -146,14 +146,14 @@ const cleanParked = (list) =>
     .slice(0, 3)
     .map((c) => ({ x: num(c?.x), z: num(c?.z), yaw: num(c?.yaw, 0, 10), color: /^#[0-9a-f]{6}$/i.test(String(c?.color)) ? String(c.color) : '#3b82f6' }));
 // `account` is set only for a connection the API vouched for (a ticket), never from what a client says; `verified` says so.
-const publicPlayer = (p) => ({ id: p.id, name: p.name, appearance: p.appearance, x: p.x, z: p.z, yaw: p.yaw, moving: p.moving, emote: p.emote, veh: p.veh ?? null, parked: p.parked ?? [], account: p.account?.id ?? null, verified: Boolean(p.account) });
+const publicPlayer = (p) => ({ id: p.id, name: p.name, appearance: p.appearance, x: p.x, z: p.z, y: p.y ?? 0, yaw: p.yaw, moving: p.moving, emote: p.emote, veh: p.veh ?? null, parked: p.parked ?? [], account: p.account?.id ?? null, verified: Boolean(p.account) });
 // What moves: the part of a player that goes out in every update, as a short array (a fifth of the bytes of an object):
-//   [id, x, z, yaw, moving (0 or 1), emote (a name, or 0), vehicle ([kind, boatKind, colour, spec (race cars only)], or 0)]
+//   [id, x, z, yaw, moving (0 or 1), emote (a name, or 0), vehicle ([kind, boatKind, colour, spec (race cars only)], or 0), y (their height, only when it is not 0)]
 // `ver` changes whenever it does, so a client is only sent what it has not seen.
 const round1 = (n) => Math.round(n * 10) / 10;
 const round2 = (n) => Math.round(n * 100) / 100;
 function touch(p) {
-  const entry = [p.id, round1(p.x), round1(p.z), round2(p.yaw), p.moving ? 1 : 0, p.emote || 0, p.veh ? [p.veh.kind, p.veh.boatKind, p.veh.color, ...(p.veh.spec ? [p.veh.spec] : [])] : 0];
+  const entry = [p.id, round1(p.x), round1(p.z), round2(p.yaw), p.moving ? 1 : 0, p.emote || 0, p.veh ? [p.veh.kind, p.veh.boatKind, p.veh.color, ...(p.veh.spec ? [p.veh.spec] : [])] : 0, ...(Math.abs(p.y ?? 0) > 0.05 ? [round1(p.y)] : [])];
   const json = JSON.stringify(entry);
   if (json !== p.json) {
     p.json = json;
@@ -537,6 +537,7 @@ wss.on('connection', (ws, req) => {
       p.x = num(m.x);
       p.z = num(m.z);
       p.yaw = num(m.yaw, 0, 10);
+      p.y = num(m.y, 0, 60); // the height they stand at (a bridge deck, the tunnel's road); 0 when a client does not say
       p.moving = Boolean(m.moving);
       p.emote = m.emote ? str(m.emote, 12) : null;
       p.veh = cleanVeh(m.veh);

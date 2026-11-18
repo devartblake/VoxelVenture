@@ -15,8 +15,8 @@ for (const c of baked.manifest.chunks) loaded.set(c.key, await baked.chunk(c.cx,
 const have = new Set(baked.manifest.chunks.map((c) => c.key));
 const mt = baked.manifest.tunnels[0], K = S.TUNNEL;
 const terrain = createTerrain({ chunkAt: (cx, cz) => loaded.get(`${cx}_${cz}`), has: (cx, cz) => have.has(`${cx}_${cz}`), tunnels: baked.manifest.tunnels });
-// a point at `s` along the tunnel and `lat` across it (from the tube's middle, positive toward the causeway)
-const at = (s, lat) => { const c = S.centreAt(mt.line, s); return { x: c.x + mt.line.normal.x * lat, z: c.z + mt.line.normal.z * lat }; };
+// a point at `s` along the tunnel and `lat` across it (from the tube's middle, positive toward the road side, away from the causeway)
+const at = (s, lat) => { const c = S.centreAt(mt.line, s); return { x: c.x - mt.line.normal.x * lat, z: c.z - mt.line.normal.z * lat }; };
 const frame = (p) => S.tunnelFrame(mt, p.x, p.z);
 
 if (!(K.laneFrom < 0 && K.railOffset > 0 && K.mouth > 0 && K.pitLen > 60)) bad('the stage 2 constants', '');
@@ -75,6 +75,25 @@ for (const mode of ['walk', 'car']) for (const dirn of [1, -1]) {
   // the mouth itself is open ground
   const mouth = at(mt.s0 + 2, lane);
   if (!terrain.canStand(mouth.x, mouth.z, 'walk') || !terrain.canStand(mouth.x, mouth.z, 'car')) bad('the mouth of a portal is open ground', '');
+}
+// ---- the approach roads come from the road side and never run over the rail
+{
+  const roads = [];
+  for (const c of baked.manifest.chunks) for (const h of loaded.get(c.key).highways ?? []) if (h.id.startsWith('harbor-tunnel-link')) roads.push(h);
+  if (roads.length < 4) bad('each portal has an approach road of two legs', String(roads.length));
+  const half = (K.width / 2 - K.laneFrom) / 2; // the baked road is as wide as the lane
+  if (roads.some((h) => Math.abs(h.width - half * 2) > 1e-6)) bad('an approach road is as wide as the lane', JSON.stringify(roads.map((h) => h.width)));
+  const seg = (p, a, b) => { const dx = b.x - a.x, dz = b.z - a.z, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(p.x - a.x - t * dx, p.z - a.z - t * dz); };
+  // the ring roads are on the road side: every link leaves its ring road from a point with lat > 0
+  for (const l of mt.links) if (!(frame(l.from).lat > 0)) bad('the approach road leaves the ring road from the road side of the tunnel', `${l.road} lat ${frame(l.from).lat.toFixed(1)}`);
+  // the rail (from the stations to the portals, 1.6 on the other side of the tube's middle) is clear of every approach road's ribbon
+  let worst = Infinity;
+  for (const end of [[mt.s0 - 40, mt.s0 + 10], [mt.s1 - 10, mt.s1 + 40]]) for (let s = end[0]; s <= end[1]; s += 1) {
+    const rail = at(s, -K.railOffset);
+    for (const h of roads) worst = Math.min(worst, seg(rail, h.a, h.b) - h.width / 2);
+  }
+  if (!(worst > 0.3)) bad('the rail is clear of the approach roads (the train does not overlap the road)', `${worst.toFixed(2)} units of clearance`);
+  console.log(`  rail clear of the approach roads by ${worst.toFixed(2)} units`);
 }
 console.log(`tunnel walk: in and out of both portals on foot and by car (${baked.manifest.tunnels.length} tunnel)`);
 if (total()) process.exitCode = 1;

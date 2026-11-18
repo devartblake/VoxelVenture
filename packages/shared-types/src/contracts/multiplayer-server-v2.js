@@ -23,6 +23,7 @@ const player = {
     appearance,
     x: finite,
     z: finite,
+    y: finite, // the height they stand at (0 on the ground; a bridge deck or the tunnel's road otherwise); an older server sends none
     yaw: finite,
     moving: { type: 'boolean' },
     emote: { type: ['string', 'null'], maxLength: 12 },
@@ -36,7 +37,7 @@ const player = {
 const moved = {
   type: 'array',
   minItems: 7,
-  maxItems: 7,
+  maxItems: 8, // (the eighth, their height, only when it is not 0)
   prefixItems: [
     int,
     finite,
@@ -45,6 +46,7 @@ const moved = {
     { type: 'integer', enum: [0, 1] },
     { anyOf: [{ type: 'string', minLength: 1, maxLength: 12 }, { type: 'integer', enum: [0] }] },
     { anyOf: [{ type: 'array', minItems: 3, maxItems: 3, prefixItems: [{ type: 'string', enum: ['car', 'boat'] }, { type: 'string' }, colour] }, { type: 'integer', enum: [0] }] },
+    finite,
   ],
 };
 const CHAT_REJECTED = ['bad_request', 'unavailable', 'empty', 'unauthenticated', 'rate_limited', 'content_rejected'];

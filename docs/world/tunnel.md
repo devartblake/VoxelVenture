@@ -22,23 +22,22 @@ Written for: the owner and developers. Made 2026-11-17. [Stage 1](tunnel_evaluat
 
 ## Stage 2: walking and driving in the tube
 
-The tube now has **two sides**: the rail (1.6 from the middle, on the side away from the causeway) and a **road lane** for people and cars (from a 0.2 kerb to the wall, 3.4 wide), with a kerb between (`TUNNEL.railOffset`, `laneFrom`). The train line moved over to the rail side.
+The tube now has **two sides**: the rail (1.6 from the tube's middle, on the **causeway's side**) and a **road lane** for people and cars (from a 0.2 kerb to the wall, 3.4 wide) on the **other side, the side the ring roads are on**, with a kerb between (`TUNNEL.railOffset`, `laneFrom`; `lat` across the tube is measured toward the road side). The approach roads leave the ring roads on that side and are as wide as the lane, so **no road runs over the rail** (a test measures the clearance: 1.4 units from the rail's middle to the nearest road edge); the stations' platforms are on the far side of the rail from the road.
 
 - **Layers** (`lib/world/tunnelSpec.js`, `lib/world/terrain.js`): on land the road above the tube and the road in it share a ground position, so a mover has a **layer**, `'surface'` or `'tunnel'` (`avatarState.layer`, and a car's `v.layer`). It changes only by crossing a portal's **mouth** (the first 8 units of a ramp, open ground) into the tube's lane, or back out (`nextLayer`): never from the side or over the roof. `terrain.sample / canStand / standsWith / move / constrain / groundY` take the layer; on the tunnel layer the lane is `'tunnel'` at the road's height (the ramp's 0.08 grade, level under the sea), the rest of the tube is a `'wall'`, and no boat can be there. On the surface layer the tube's walls where it stands out of the ground are walls, the cut ground beyond a mouth is a **pit** nobody can step into from the side (so nobody is trapped in the trench), and the rail's side of the mouth is closed. The ground over the tube, and the sea over it, are unchanged.
 - **Movers**: `Avatar.jsx` (walking) and `Vehicles.jsx` (cars) pass the layer to the terrain and keep it; the height they stand at is `avatarState.y`. The follow camera follows a person or a car in the tube as it does a rider (pulled in, under the roof), and a light goes with them there (`TubeLight` in `Tunnel.jsx`: the scene's lights do not reach down).
-- **Approach roads**: each portal has a road from the ring road (the tunnel's `links`) that runs to 24 units out on the tube's own line and then straight in along the lane, so a car arrives square to the mouth (baked as `harbor-tunnel-link-0/1`, 6.4 wide).
+- **Approach roads**: each portal has a road from the ring road (the tunnel's `links`) that runs to 24 units out on the tube's own line and then straight in along the lane, so a car arrives square to the mouth (baked as `harbor-tunnel-link-0/1`, the lane's 3.4 wide).
+- **Portals and signs**: a frame round each mouth (two jambs with yellow-and-black hazard bands and a lintel) with a name board ("HARBOR TUNNEL") over it, and a green emergency-exit sign on the road side's wall every 40 units (`Portal`, `ExitSigns` in `Tunnel.jsx`).
+- **Other players see you at the right height**: the presence `state` message carries `y` (`avatarState.y`, clamped to 60), the server keeps it and sends it as the eighth item of a player's short array (only when it is not 0; an older client ignores it, an older server sends none = 0); remote avatars follow it (`RemotePlayers.jsx`). It also puts other players on the bridges' decks and the rail's height, which they had been drawn under. Contracts: `multiplayer-client-v2` `state.y`, `multiplayer-server-v2` `moved` (7 or 8 items) and the player's `y`; tested in `tests/multiplayer.test.mjs`.
+- **The sea's plane has a hole over each portal in its geometry** (a `ShapeGeometry`, `StreamedWorld.jsx`): it first lived in the sea shader, which a low quality tier turns off, and the trench then showed water (seen in the game).
+- **Tried in the real game** (`?world=baked`, a headless browser): the avatar was put at the mainland portal and walked in with the keyboard: it changed to the tunnel layer at the mouth, went down the ramp (y 0 to -3.3 and on), and the camera was pulled in behind it, under the roof, with the road, kerb and rail round it.
 - **Presence**: a person or a car is checked as before (x and z; the tube is inside the world's rectangle).
 - **Tests**: `tests/tunnel-walk.test.mjs` walks and drives the real baked world through the tunnel both ways (no stop, one layer change in and one out, the height continuous within 0.2, the floor at -5.5 at the bottom), and checks the wall, the kerb, the rail side, no boat, the ground over the tube, crossing over it without dropping in, the pit and the open mouth.
 
 ## Not done
 
-- **Other players do not see you in the tube at the right height**: the presence messages carry x and z, and the remote avatars are drawn at the town's height (they already are on a bridge's deck), so someone else sees you at the surface over the tube. A height in the state message is a protocol change.
-- **No other cars or traffic** use the tunnel (the baked world's traffic does not exist yet), and the tube has no signs, ventilation or emergency props.
-- **The portal is still a plain box with an open end** (no arch), and the cut ground is cell-sized (4 units).
-- **Not tried by hand in the game** (the walking and driving are tested in Node on the real baked world; the camera and light inside the tube were not seen from the game, only the tube from the dev page's free camera).
-
-(Stage 1's list, kept:)
-
-
+- **No other cars or traffic** use the tunnel (the baked world has no traffic: nothing to route into it), and there is no ventilation or emergency-telephone props (only the exit signs).
 - **Not seen on a phone**; the tube is about 3 draw calls and a few thousand triangles (not measured).
-- The first causeway's train and this one share the train models; a second train on the clock is not yet staggered against the first.
+- The cut ground is cell-sized (4 units), so the trench's sides are steps.
+- The first causeway's train and this one run on the same clock and are not staggered against each other.
+- Walking all the way through (and a car) is tested in Node on the real baked world; in the game only the way in and down the ramp was walked (headless rendering is slow).
