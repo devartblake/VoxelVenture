@@ -17,7 +17,8 @@ for (const c of manifest.chunks) {
 if (chunks.length < 10) bad('the chunks over Harbor Town\'s land are found', String(chunks.length));
 
 // the ground: every chunk over the town is flat, at the datum's town ground
-const hilly = chunks.filter((c) => c.ground?.h);
+// (the tunnel's isle portal is in the town land's south-west corner, 40 units from any plot or street: its trench is the only cut ground, lib/world/tunnelSpec.js, and it is under the tube)
+const hilly = chunks.filter((c) => c.ground?.h && !c.ground.h.some((v) => v < 0));
 if (hilly.length) bad('every chunk over Harbor Town is flat ground (the datum\'s town ground)', hilly.map((c) => `${c.cx}_${c.cz}`).join(' '));
 for (const c of chunks) if (groundHeight(c, c.bounds.x0 + 1, c.bounds.z0 + 1) !== D.TOWN_GROUND) bad('Harbor Town\'s ground is the datum town ground', `${c.cx}_${c.cz}`);
 if (!(D.TOWN_GROUND > D.SEA_LEVEL)) bad('the town ground is over the sea', '');

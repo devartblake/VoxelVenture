@@ -8195,6 +8195,65 @@
    "maxGround": 2.52
   }
  ],
+ "tunnels": [
+  {
+   "id": "harbor-tunnel",
+   "name": "Harbor Tunnel",
+   "causeway": "harbor-causeway",
+   "line": {
+    "a": {
+     "x": 1220.76,
+     "z": 266.78
+    },
+    "b": {
+     "x": 1675.66,
+     "z": 295.27
+    },
+    "length": 455.79,
+    "dir": {
+     "x": 0.99804455,
+     "z": 0.06250668
+    },
+    "normal": {
+     "x": 0.06250668,
+     "z": -0.99804455
+    }
+   },
+   "s0": -110,
+   "s1": 565.79,
+   "approach0": -110,
+   "approach1": 565.79,
+   "length": 675.79,
+   "links": [
+    {
+     "end": 0,
+     "from": {
+      "x": 1109,
+      "z": 298.07
+     },
+     "to": {
+      "x": 1110.41,
+      "z": 268.89
+     },
+     "length": 29.22,
+     "road": "mainland-ring"
+    },
+    {
+     "end": 1,
+     "from": {
+      "x": 1683.93,
+      "z": 334.28
+     },
+     "to": {
+      "x": 1784.88,
+      "z": 311.13
+     },
+     "length": 103.57,
+     "road": "harbor-ring"
+    }
+   ]
+  }
+ ],
  "causeways": [
   {
    "id": "harbor-causeway",
@@ -12949,7 +13008,8 @@
    "land": 0.54,
    "plots": 0,
    "roads": 0,
-   "highways": 6
+   "highways": 6,
+   "heights": true
   },
   {
    "key": "9_-2",
@@ -12997,7 +13057,8 @@
    "land": 0.33,
    "plots": 0,
    "roads": 0,
-   "highways": 7
+   "highways": 7,
+   "heights": true
   },
   {
    "key": "10_-2",
@@ -13151,7 +13212,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 7
+   "highways": 7,
+   "heights": true
   },
   {
    "key": "13_3",
@@ -14429,5 +14491,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "fef683965ca9f6d9"
+ "hash": "98ac6b03b3a41e24"
 }

@@ -7,6 +7,7 @@ import { applyGlow } from '@/components/city/nightLights';
 import { OrbitControls } from '@react-three/drei';
 import StreamedWorld from '@/components/world/StreamedWorld';
 import Train from '@/components/world/Train';
+import Tunnel from '@/components/world/Tunnel';
 import Suspension from '@/components/world/Suspension';
 import ArchBridge from '@/components/world/ArchBridge';
 import TunnelSpike, { FreeCam, startFromQuery, useRoute } from '@/components/dev/TunnelSpike';
@@ -84,6 +85,7 @@ export default function WorldStream() {
         )}
         {datum && <DatumPlanes layers={datumLayers} enabled={datumOn} focus={focus} />}
         <Train />
+        <Tunnel />
         <Suspension />
         <ArchBridge />
         {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tunnel') === '1' && <TunnelSpike />}

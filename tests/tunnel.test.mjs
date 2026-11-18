@@ -44,5 +44,34 @@ const cx = (line.a.x + line.b.x) / 2, cz = (line.a.z + line.b.z) / 2;
 const side = (p.x - cx) * line.normal.x + (p.z - cz) * line.normal.z;
 if (Math.abs(side - K.lateral) > 1e-6 || K.lateral >= 0 || TRAIN.lateral <= 0) bad('the tunnel is on the side opposite the train rail', String(side));
 if (!(K.height > 3.2 * 1.2 && K.width > 2.1 * 2)) bad('a train and a car fit inside (the train is 3.2 high and 2.1 wide)', '');
+// ---- stage 1 in the baked world (docs/world/tunnel.md): the manifest carries the tunnel, the bake cuts the portals' trench, the sea's plane has holes over them
+{
+  const S = await imp('world/tunnelSpec.js');
+  const { WORLD_RECIPE, validateRecipe } = await imp('world/worldRecipe.js');
+  const mt = manifest.tunnels?.[0];
+  if (!mt || mt.id !== 'harbor-tunnel' || mt.causeway !== manifest.causeways[0].id) bad('the manifest has the Harbor Tunnel beside the first causeway', JSON.stringify(mt && mt.id));
+  else {
+    if (Math.abs(mt.s0 - route.s0) > 1e-6 || Math.abs(mt.s1 - route.s1) > 0.01 || mt.links.length !== 2 || mt.links[0].road !== 'mainland-ring' || mt.links[1].road !== 'harbor-ring') bad('the baked route is the route (portals and links)', JSON.stringify([mt.s0, mt.s1]));
+    if (!(Math.abs(Math.hypot(mt.line.dir.x, mt.line.dir.z) - 1) < 1e-5) || Math.abs(mt.line.dir.x * mt.line.normal.x + mt.line.dir.z * mt.line.normal.z) > 1e-5) bad('the baked line has a unit direction and a normal across it', '');
+    // the spec's centre is the route's point (tunnel.pointAt is the train's rail offset by the difference)
+    for (const s of [-100, 0, 300, 560]) { const a = S.centreAt(mt.line, s), b = T.pointAt(line, s); if (Math.hypot(a.x - b.x, a.z - b.z) > 1e-3) bad('the spec centre is the route point', `${s}`); }
+    // the trench: cut only where the tube stands out of the ground (the first ~60 units of a ramp), to the road's height; nowhere else
+    const mid = S.centreAt(mt.line, mt.s0 + 20), deep = S.centreAt(mt.line, mt.s0 + 70), sea = S.centreAt(mt.line, line.length / 2);
+    const cut = S.trenchAt(mt, mid.x, mid.z);
+    if (cut === null || Math.abs(cut - S.floorY(mt, mt.s0 + 20)) > 1e-3) bad('the ground is cut to the road 20 units into the ramp', String(cut));
+    if (S.trenchAt(mt, deep.x, deep.z) !== null || S.trenchAt(mt, sea.x, sea.z) !== null) bad('no cut where the roof is under the ground', '');
+    const side = { x: mid.x + mt.line.normal.x * 9, z: mid.z + mt.line.normal.z * 9 };
+    if (S.trenchAt(mt, side.x, side.z) !== null) bad('no cut beside the portal beyond the trench', '');
+    // the baked ground follows it: a corner on the ramp's centre line is lower than the shore's ground
+    const key = `${Math.floor(mid.x / 128)}_${Math.floor(mid.z / 128)}`, chunk = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${key}.json`), 'utf8'));
+    if (!chunk.ground?.h || Math.min(...chunk.ground.h) >= 0) bad('the chunk at the portal has ground cut below zero', key);
+    // the sea's plane is left out over each portal's trench, not elsewhere
+    const holes = S.portalHoles(mt);
+    if (holes.length !== 2 || holes.some((h) => !(h.along > 30 && h.across > 8))) bad('a hole in the sea plane over each portal', JSON.stringify(holes.length));
+    const inHole = (p) => holes.some((h) => { const qx = p.x - h.x, qz = p.z - h.z; return Math.abs(qx * h.dx + qz * h.dz) < h.along && Math.abs(-qx * h.dz + qz * h.dx) < h.across; });
+    if (!inHole(mid) || inHole(sea) || inHole(deep) === false && false) bad('the hole covers the trench and not the sea', '');
+  }
+  if (!validateRecipe({ ...WORLD_RECIPE, tunnels: [{ id: 'x', name: 'X', causeway: 'no-such' }] }).some((p) => /no-such/.test(p))) bad('a recipe tunnel beside a causeway it does not have is invalid', '');
+}
 console.log(`tunnel: ${route.length.toFixed(0)} units portal to portal, ramps ${ramp.toFixed(0)}, links of ${route.links.map((l) => l.length.toFixed(0)).join(' and ')} units to ${route.links.map((l) => l.road).join(' and ')}`);
 total();

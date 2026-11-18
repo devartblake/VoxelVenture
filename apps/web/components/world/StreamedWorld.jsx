@@ -18,6 +18,7 @@ import { applyRoadTexture } from '@/lib/world/roadTexture';
 import { SEA_LEVEL } from '@/lib/world/datum';
 import { clipChunkToTown, insideTown, overlapsTown } from '@/lib/world/townJoin';
 import { applySeaDepth, shoreField } from '@/lib/world/seaDepth';
+import { portalHoles } from '@/lib/world/tunnelSpec';
 import { SEABED, seabedMesh } from '@/lib/world/seabed';
 import { applyRiverFx, riverWaterMesh } from '@/lib/world/riverWater';
 import { pondMeshes } from '@/lib/world/ponds';
@@ -246,7 +247,7 @@ export default function StreamedWorld({ base = '/world', profile = 'desktop', fo
             texture.needsUpdate = true;
             // the seabed (lib/world/seabed.js): a floor to see through the water, and the water's column over it; ?seabed=0 keeps the distance shading alone
             const bed = new URLSearchParams(window.location.search).get('seabed') !== '0';
-            applySeaDepth(THREE, seaMaterial, field, texture, undefined, bed ? { ...SEABED, shallowY: SEA_FLOOR - 0.05, deepY: OCEAN_FLOOR, seaY: SEA_LEVEL } : null);
+            applySeaDepth(THREE, seaMaterial, field, texture, undefined, bed ? { ...SEABED, shallowY: SEA_FLOOR - 0.05, deepY: OCEAN_FLOOR, seaY: SEA_LEVEL } : null, (baked.manifest.tunnels ?? []).flatMap((t) => portalHoles(t))); // (the tunnels' portals: no sea plane over the trench)
             if (bed && parent) {
               const mesh = seabedMesh(field);
               const geometry = new THREE.BufferGeometry();

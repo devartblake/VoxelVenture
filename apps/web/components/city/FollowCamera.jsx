@@ -12,6 +12,8 @@ import { PRESETS, useView } from '@/lib/state/viewStore';
 const HEAD = 1.0; // the camera looks at the avatar's chest, not its feet
 const EYE = 1.3; // first person: the height of the avatar's eyes (a little higher in a car)
 const EYE_CAR = 1.45;
+// in the tunnel's tube the camera stays this close behind the rider and no higher than this over the head (the roof is 4.5 over the road, the walls 3.2 either side)
+export const TUBE_CAMERA = { distance: 2.4, lift: 1.2 };
 const isFirst = () => Boolean(PRESETS[useView.getState().view]?.fp);
 
 // The follow cameras (every view except the isometric map): a perspective camera that follows the avatar from a distance,
@@ -130,7 +132,7 @@ export default function FollowCamera() {
       // first person: at the eyes, looking along the heading (no smoothing, so looking round is immediate)
       const px = avatarState.x - center.x;
       const pz = avatarState.z - center.z;
-      const py = avatarState.vehicle ? EYE_CAR : EYE;
+      const py = (avatarState.vehicle?.kind === 'train' ? avatarState.vehicle.y ?? 0 : 0) + (avatarState.vehicle ? EYE_CAR : EYE); // (a rider of the train is at the rail's height)
       camera.position.set(px, py, pz);
       if (Math.abs(camera.near - 0.1) > 0.01) {
         camera.near = 0.1;
@@ -146,8 +148,13 @@ export default function FollowCamera() {
     const free = useView.getState().free;
     const tx = (free ? free.x : avatarState.x) - center.x;
     const tz = (free ? free.z : avatarState.z) - center.z;
-    const flat = Math.cos(pitch) * distance;
-    const want = { x: tx + Math.sin(azimuth) * flat, y: HEAD + Math.sin(pitch) * distance, z: tz + Math.cos(azimuth) * flat };
+    // a rider of the train is at the rail's height (up on a causeway's deck, down in the tunnel): the camera follows it. Inside the tunnel's tube (6.4 wide, 4.5 high) it is pulled in close and kept under the roof
+    const rider = avatarState.vehicle?.kind === 'train' ? avatarState.vehicle : null;
+    const ry = rider?.y ?? 0;
+    const inTube = Boolean(rider?.inTube);
+    const dist = inTube ? Math.min(distance, TUBE_CAMERA.distance) : distance;
+    const flat = Math.cos(pitch) * dist;
+    const want = { x: tx + Math.sin(azimuth) * flat, y: ry + HEAD + (inTube ? Math.min(Math.sin(pitch) * dist, TUBE_CAMERA.lift) : Math.sin(pitch) * dist), z: tz + Math.cos(azimuth) * flat };
     const k = 1 - Math.exp(-delta * 8);
     camera.position.x += (want.x - camera.position.x) * k;
     camera.position.y += (want.y - camera.position.y) * k;
@@ -160,7 +167,7 @@ export default function FollowCamera() {
       camera.updateProjectionMatrix();
     }
     camera.up.set(0, 1, 0);
-    camera.lookAt(tx, HEAD * 0.6, tz);
+    camera.lookAt(tx, ry + HEAD * 0.6, tz);
     avatarState.cameraYaw = azimuth;
   });
 

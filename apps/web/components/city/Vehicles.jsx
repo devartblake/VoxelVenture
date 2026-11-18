@@ -15,7 +15,7 @@ import { BOAT_FLOAT } from '@/lib/world/datum';
 import { boatModel } from '@/lib/content/boatModels';
 import { PropModel } from './PropModels';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { fleetRefs, useFleet } from '@/lib/state/fleetStore';
+import { fleetRefs, trainLineOf, useFleet } from '@/lib/state/fleetStore';
 import { canLeave, seat as trainSeat, station as trainStation, trainState } from '@/lib/world/train';
 import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
@@ -269,7 +269,7 @@ export default function Vehicles() {
     }
     // ---- riding the train (lib/world/train.js): the train carries you; the doors open in a station
     if (v.kind === 'train') {
-      const line = fleetRefs.trainLine;
+      const line = trainLineOf(v.lineId);
       if (!line) { avatarState.vehicle = null; return; }
       const st = trainState(line, Date.now());
       const s = trainSeat(line, st, (x, z) => activeTerrain()?.groundY(x, z) ?? 0);
@@ -279,7 +279,9 @@ export default function Vehicles() {
       avatarState.yaw = s.yaw;
       avatarState.moving = false;
       const open = canLeave(st);
-      const where = open ? trainStation(line, st.at).name : st.dir > 0 ? 'Harbor Isle Station' : 'Mainland Station';
+      const names = line.stationNames ?? ['Mainland Station', 'Harbor Isle Station'];
+      const where = open ? trainStation(line, st.at).name : st.dir > 0 ? names[1] : names[0];
+      v.inTube = Boolean(line.tunnel && s.s >= line.tunnel.s0 && s.s <= line.tunnel.s1); // (the camera stays inside the tube: FollowCamera.jsx)
       const label = open ? `Get off at ${where}` : `Next stop: ${where}`;
       const promptKey = `train-${label}`;
       if (promptKey !== last.current.prompt) {
