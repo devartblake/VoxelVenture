@@ -1,4 +1,4 @@
-// Makes the world gallery: converts the screenshots and diagrams kept while building the world (a folder of PNGs) to WebP in docs/world/gallery/ and writes docs/world/gallery.md, one section for each feature
+// Makes the world gallery's first pages: converts the screenshots and diagrams kept while building the world (a folder of PNGs) to WebP in docs/world/gallery/ and writes docs/world/gallery.md, one section for each feature
 // with a caption for each picture.
 //   node scripts/world/make-gallery.mjs <folder of PNGs>
 // Every PNG of the folder must have a caption below (the script stops and names any that has none), so the page never shows a picture without saying what it is.
@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { indexFile, indexText, pageText, readPages, slugOf } from './gallery-lib.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = process.argv[2];
@@ -175,19 +176,19 @@ const missing = [...captioned].filter((n) => !names.has(n));
 if (missing.length) console.warn('captions with no picture:', missing.join(', '));
 
 fs.mkdirSync(out, { recursive: true });
-let bytes = 0, count = 0;
-const md = [];
-md.push('# The world gallery', '', 'Written for: the owner and developers. Made 2026-11-16 from the screenshots and diagrams kept while the world was built (`node scripts/world/make-gallery.mjs <folder of PNGs>` rebuilds this page and the pictures). The pictures are WebP, 1400 pixels wide at most.', '');
-md.push('These are working pictures, taken on the development page (`/world/stream`) and in the game with `?world=baked` while each feature was built: many show an earlier stage, and the caption says so where it is known. For what each feature is now, follow the link under its heading.', '');
+// one page for each section in docs/world/gallery/ (scripts/world/gallery-lib.mjs), each keeping the order it has when it exists; then the index. The pages of features added since (not in SECTIONS) are not touched.
+let bytes = 0, count = 0, next = 1000;
 for (const [title, intro, items] of SECTIONS) {
-  md.push(`## ${title}`, '', intro, '');
+  const file = path.join(out, `${slugOf(title)}.md`);
+  const order = fs.existsSync(file) ? Number(/<!-- order: (\d+) -->/.exec(fs.readFileSync(file, 'utf8'))?.[1]) : (next += 10);
+  const body = [intro, ''];
   for (const [name, caption] of items) {
     if (!names.has(name)) continue;
-    const file = `gallery/${name}.webp`;
-    const info = await sharp(path.join(src, `${name}.png`)).resize({ width: 1400, withoutEnlargement: true }).webp({ quality: 80 }).toFile(path.join(root, 'docs/world', file));
+    const info = await sharp(path.join(src, `${name}.png`)).resize({ width: 1400, withoutEnlargement: true }).webp({ quality: 80 }).toFile(path.join(out, `${name}.webp`));
     bytes += info.size; count++;
-    md.push(`### ${name}`, '', `![${caption.replace(/[[\]]/g, '')}](${file})`, '', caption, '');
+    body.push(`## ${name}`, '', `![${caption.replace(/[[\]]/g, '')}](${name}.webp)`, '', caption, '');
   }
+  fs.writeFileSync(file, pageText(title, order, body.join('\n')));
 }
-fs.writeFileSync(path.join(root, 'docs/world/gallery.md'), md.join('\n'));
-console.log(`${count} pictures, ${(bytes / 1048576).toFixed(1)} MB, docs/world/gallery.md`);
+fs.writeFileSync(indexFile, indexText(readPages()));
+console.log(`${count} pictures, ${(bytes / 1048576).toFixed(1)} MB, ${SECTIONS.length} pages in docs/world/gallery/, docs/world/gallery.md`);
