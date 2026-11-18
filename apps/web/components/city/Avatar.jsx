@@ -12,6 +12,7 @@ import { surfaceHeight, waterYFor } from '@/lib/city/surfaceHeight';
 import { seatWorld } from '@/lib/content/boatModels';
 import { buildingHalf, buildCollisionMap, findSpawn, moveAvatar, resolveOverlap } from '@/lib/sim/collision';
 import { activeTerrain } from '@/lib/world/terrain';
+import { useGolf } from '@/lib/state/golfStore';
 import { startSpot } from '@/lib/game/spawn';
 import { CORNER_REACHED, findWalkPath, prepareWalkMap } from '@/lib/sim/pathfind';
 import { graphFor } from '@/lib/city/routing';
@@ -211,6 +212,7 @@ export default function Avatar() {
         else state.notify(`Buy the ${COSMETIC_BY_ID[def.id].name} emote in the Wardrobe first`);
         return;
       }
+      if (MOVE_KEYS[key] && useGolf.getState().active) return; // (A and D aim the putt: the golf panel takes them: components/world/MiniGolf.jsx)
       if (MOVE_KEYS[key]) {
         keys.current.add(key);
         avatarState.target = null;
@@ -453,6 +455,12 @@ export default function Avatar() {
           const d = Math.hypot(c.x - x, c.z - z);
           if (d < 1.5) consider(`car-${c.id}`, 'Drive this car', d / 1.5 - 0.35, () => useFleet.getState().enterCar(c));
         }
+      }
+      // mini-golf: at a tee, play the hole (lib/state/golfStore.js, components/world/MiniGolf.jsx)
+      const golf = useGolf.getState();
+      if (!golf.active && !avatarState.vehicle) {
+        const tee = golf.teeNear(x, z);
+        if (tee) consider(`golf-${tee.n}`, `Play hole ${tee.n} of ${golf.course.name} (par ${tee.par})`, Math.hypot(tee.tee.x - x, tee.tee.z - z) / 3.2 - 0.3, () => useGolf.getState().start(tee.n));
       }
       // the train: board at a station while it stands there (lib/world/train.js)
       for (const tline of !avatarState.vehicle ? fleetRefs.trainLines ?? [] : []) { // (the first causeway's line, and one through each tunnel)

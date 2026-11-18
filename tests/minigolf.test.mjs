@@ -1,76 +1,83 @@
-// The mini-golf course (lib/world/minigolf.js, lib/world/golfPhysics.js, docs/world/minigolf.md): nine holes made from a seed, laid on a flat site, baked into the world; and a ball that rolls, bounces off the walls
-// and drops into the cup.
+// The mini-golf course (lib/world/minigolf.js, lib/world/golfPhysics.js, docs/world/minigolf.md): nine holes of the Kenney Minigolf Kit's tiles made from a seed, laid on a flat site, baked into the world; and a ball that
+// rolls, bounces off the tiles' walls and drops into the cup.
 import fs from 'node:fs';
 import path from 'node:path';
 import { imp, problemTally, root } from './helpers.mjs';
 const M = await imp('world/minigolf.js');
 const G = await imp('world/golfPhysics.js');
 const { WORLD_RECIPE, validateRecipe } = await imp('world/worldRecipe.js');
-const { PALETTE } = await imp('world/track.js');
 const { bad, total } = problemTally();
 const C = M.COURSE;
 
-// ---- the generator: deterministic, nine holes, each a connected lane with its tee and cup on the felt
+// ---- the generator: deterministic, nine holes, each a connected path of tiles from the tee end to the cup end
 const a = M.generateCourse({ seed: 7, origin: { x: 100, z: 200 } }), b = M.generateCourse({ seed: 7, origin: { x: 100, z: 200 } });
 if (JSON.stringify(a) !== JSON.stringify(b)) bad('the same seed makes the same course', '');
-if (JSON.stringify(M.generateCourse({ seed: 8 }).holes.map((h) => h.kind)) !== JSON.stringify(M.KINDS) || a.holes.length !== 9) bad('nine holes in the order of KINDS (the seed varies the sizes and the turns)', a.holes.map((h) => h.kind).join());
-if (JSON.stringify(M.generateCourse({ seed: 8 }).boxes) === JSON.stringify(M.generateCourse({ seed: 9 }).boxes)) bad('a different seed makes different holes', '');
+if (a.holes.map((h) => h.kind).join() !== M.KINDS.join() || a.holes.length !== 9) bad('nine holes in the order of KINDS', a.holes.map((h) => h.kind).join());
+if (JSON.stringify(M.generateCourse({ seed: 8 }).tiles) === JSON.stringify(M.generateCourse({ seed: 9 }).tiles)) bad('a different seed makes different holes', '');
+for (let k = 0; k < 9; k++) {
+  let s = 4321 + k; const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  const hole = M.makeHole(M.KINDS[k], rnd);
+  const t = hole.tiles;
+  if (t[0].m !== 'end' || t.at(-1).m !== 'hole-round') bad('a hole starts at an end tile and finishes at the round cup tile', `${k + 1} ${M.KINDS[k]}`);
+  for (let i = 1; i < t.length; i++) if (Math.abs(t[i].ti - t[i - 1].ti) + Math.abs(t[i].tj - t[i - 1].tj) !== 1) bad('the tiles are in a connected path', `${k + 1} at ${i}`);
+  if (new Set(t.map((p) => `${p.ti},${p.tj}`)).size !== t.length) bad('the path does not cross itself', `${k + 1}`);
+  if (hole.w > 16 || hole.h > 8) bad('a hole fits its place in the grid (16 x 8 tiles)', `${k + 1}: ${hole.w} x ${hole.h}`);
+  if (!t.every((p) => Number.isInteger(p.r) && p.r >= 0 && p.r < 4)) bad('every tile has its quarter turns', `${k + 1}`);
+  const kinds = new Set(t.map((p) => p.extra).filter(Boolean));
+  const want = { block: 'obstacle-block', windmill: 'structure-windmill', castle: 'castle' }[M.KINDS[k]];
+  if (want ? !kinds.has(want) : kinds.size) bad('the obstacle of the hole is there (a bar, a windmill, a castle) and only on those', `${k + 1} ${M.KINDS[k]}: ${[...kinds]}`);
+  if (M.KINDS[k] === 'uturn' && t.filter((p) => p.m === 'corner').length !== 2) bad('a hole that doubles back has two corners', '');
+}
 for (const h of a.holes) {
   if (!(h.par >= 2 && h.par <= 4)) bad('par is 2 to 4', `${h.n}: ${h.par}`);
-  if (!(h.segments.length >= 4)) bad('a hole is walled', String(h.n));
   const w = h.bounds.x1 - h.bounds.x0, d = h.bounds.z1 - h.bounds.z0;
-  if (w > C.pitch[0] - 4 || d > C.pitch[1] - 4) bad('a hole fits its place in the grid', `${h.n}: ${w} x ${d}`);
-  if (Math.hypot(h.tee.x - h.cup.x, h.tee.z - h.cup.z) < (h.kind === 'uturn' ? 4 : 8)) bad('tee and cup are well apart (a hole that doubles back: 4)', String(h.n));
+  if (w > C.pitch[0] - 6 || d > C.pitch[1] - 6) bad('a hole fits its place in the grid', `${h.n}: ${w} x ${d}`);
+  if (Math.hypot(h.tee.x - h.cup.x, h.tee.z - h.cup.z) < 5) bad('tee and cup are apart', String(h.n));
+  // the walls: positive lengths, unit normals, inside the hole's bounds (to the wall's thickness)
+  for (const s of h.segments) {
+    const len = Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z), nl = Math.hypot(s.nx, s.nz);
+    if (!(len > 0.05) || Math.abs(nl - 1) > 1e-3) bad('a wall has a length and a unit normal', `${h.n}: ${JSON.stringify(s)}`);
+    if (Math.min(s.a.x, s.b.x) < h.bounds.x0 - 0.01 || Math.max(s.a.x, s.b.x) > h.bounds.x1 + 0.01 || Math.min(s.a.z, s.b.z) < h.bounds.z0 - 0.01 || Math.max(s.a.z, s.b.z) > h.bounds.z1 + 0.01) bad('the walls are inside the hole\'s tiles', `${h.n}`);
+  }
 }
-// holes do not touch: every pair of hole bounds is at least 4 units apart
 for (let i = 0; i < 9; i++) for (let j = i + 1; j < 9; j++) { const p = a.holes[i].bounds, q = a.holes[j].bounds; if (p.x0 < q.x1 + 4 && q.x0 < p.x1 + 4 && p.z0 < q.z1 + 4 && q.z0 < p.z1 + 4) bad('holes are 4 units apart', `${i + 1} ${j + 1}`); }
-// the lane is connected from the tee to the cup (a flood fill of the hole's cells), and every felt edge has a wall
-for (let k = 0; k < 9; k++) {
-  const hole = M.makeHole(M.KINDS[k], (() => { let s = 1234 + k; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; })());
-  const seen = new Set(), stack = [`${hole.tee.i},${hole.tee.j}`];
-  if (!hole.cells.has(stack[0]) || !hole.cells.has(`${hole.cup.i},${hole.cup.j}`)) bad('tee and cup are on the felt', `${k + 1} ${M.KINDS[k]}`);
-  while (stack.length) { const c = stack.pop(); if (seen.has(c) || !hole.cells.has(c)) continue; seen.add(c); const [i, j] = c.split(',').map(Number); stack.push(`${i + 1},${j}`, `${i - 1},${j}`, `${i},${j + 1}`, `${i},${j - 1}`); }
-  if (!seen.has(`${hole.cup.i},${hole.cup.j}`) || seen.size !== hole.cells.size) bad('the lane is one piece from tee to cup', `${k + 1} ${M.KINDS[k]}: ${seen.size} of ${hole.cells.size}`);
-  const runs = M.boundaryRuns(hole.cells);
-  const len = runs.reduce((s, r) => s + (r.to - r.from), 0);
-  let edges = 0;
-  for (const c of hole.cells) { const [i, j] = c.split(',').map(Number); for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!hole.cells.has(`${i + di},${j + dj}`)) edges++; }
-  if (len !== edges) bad('every edge of the felt has a wall (the runs cover all of them)', `${len} of ${edges}`);
-}
-// the painted quads use the palette and face up; the boxes are walls and flags
-if (a.surface.some((q) => !PALETTE[q[0]] || q.length !== 9)) bad('the quads name a palette entry', '');
-const up = (q) => { const ax = q[5] - q[1], az = q[6] - q[2], bx = q[3] - q[1], bz = q[4] - q[2]; return az * bx - ax * bz; }; // chunkMesh turns the quad (0, 2, 1): up when this is positive
-if (a.surface.some((q) => !(up(q) > 0))) bad('the quads face up (chunkMesh\'s winding)', '');
-if (a.boxes.some((q) => q.length < 10 || q[4] <= 0 || q[3] <= 0 || q[5] <= 0)) bad('the boxes have sizes', '');
+// the models the course places are in the kit's list, the fallback boxes are tagged 2 (or are the tee mats), the flags are at the cups
+const names = new Set(M.GOLF_MODELS);
+if (a.tiles.some((t) => !names.has(t.m))) bad('every tile is a model of GOLF_MODELS', [...new Set(a.tiles.map((t) => t.m).filter((m) => !names.has(m)))].join());
+if (a.boxes.some((q) => q.length !== 11 && !(q.length === 10 && Math.abs(q[4] - 0.01) < 1e-9)) || a.boxes.some((q) => q[3] <= 0 || q[4] <= 0 || q[5] <= 0)) bad('the boxes have sizes and the replaced tag (or are tee mats)', '');
+for (const h of a.holes) if (!a.tiles.some((t) => t.m === 'flag-red' && Math.hypot(t.x - h.cup.x, t.z - h.cup.z) < 1e-6)) bad('a flag at every cup', String(h.n));
+// the kit's files are all there
+for (const m of M.GOLF_MODELS) if (!fs.existsSync(path.join(root, 'apps/web/public/models/kenney/minigolf', `${m}.glb`))) bad('the kit file is in the repository', m);
 
 // ---- the ball (lib/world/golfPhysics.js)
 {
-  const hole = a.holes[0]; // a straight lane along +x
-  const run = (angle, power) => { const ball = G.newBall(hole.tee); G.putt(ball, angle, power); for (let t = 0; t < 40 && ball.moving; t += 1 / 60) G.stepBall(ball, hole, 1 / 60); return ball; };
+  const hole = a.holes[0]; // a straight lane
+  const run = (angle, power, h = hole) => { const ball = G.newBall(h.tee); G.putt(ball, angle, power); for (let t = 0; t < 40 && ball.moving; t += 1 / 60) G.stepBall(ball, h, 1 / 60); return ball; };
   const stopped = run(0, 0.2);
   if (stopped.moving || stopped.vx !== 0 || !(stopped.x > hole.tee.x + 0.5) || stopped.strokes !== 1) bad('a soft putt rolls and stops (friction), counting a stroke', JSON.stringify(stopped));
-  const again = run(0, 0.2);
-  if (again.x !== stopped.x || again.z !== stopped.z) bad('the same putt gives the same roll', '');
-  // the speed that just reaches the cup: v^2 / (2 friction) ~ the distance (the drag adds a little): find a power that sinks it
-  const dist = hole.cup.x - hole.tee.x;
+  if (JSON.stringify(run(0, 0.2)) !== JSON.stringify(stopped)) bad('the same putt gives the same roll', '');
+  const dir = Math.atan2(hole.cup.z - hole.tee.z, hole.cup.x - hole.tee.x);
   let sunk = null;
-  for (let p = 0.2; p <= 1; p += 0.01) { const r = run(0, p); if (r.sunk) { sunk = p; break; } }
-  if (sunk === null) bad('a straight putt along the lane at some power sinks', `distance ${dist.toFixed(1)}`);
-  // the cup takes a slow ball and not a fast one: at 10 units a second a ball passes over it, at 3 it drops
+  for (let p = 0.2; p <= 1; p += 0.01) { if (run(dir, p).sunk) { sunk = p; break; } }
+  if (sunk === null) bad('a straight putt along the lane at some power sinks', '');
   for (const [speed, drops] of [[10, false], [3, true]]) { const ball = G.newBall({ x: hole.cup.x - 0.3, z: hole.cup.z }); ball.vx = speed; ball.moving = true; G.stepBall(ball, hole, 0.08); if (ball.sunk !== drops) bad('the cup takes a slow ball and not a fast one', `${speed}: ${ball.sunk}`); }
-  const hard = run(0, 1);
-  if (hard.strokes !== 1 || !(hard.moving === false)) bad('a full-power putt comes to rest (after bouncing off the end wall, it may drop in)', JSON.stringify(hard));
-  // the wall: a putt at the side wall bounces back into the lane; the ball never leaves the felt
-  const side = run(Math.PI / 2, 0.6);
-  if (!(Math.abs(side.z - hole.tee.z) < C.lane * C.cell / 2)) bad('a putt at the side wall stays inside the lane', String(side.z - hole.tee.z));
-  // a hundred random putts on every hole: the ball is always on the felt (inside the hole's bounds, within the lane's cells)
+  const hard = run(dir, 1);
+  if (hard.strokes !== 1 || hard.moving) bad('a full-power putt comes to rest (after bouncing off the end, it may drop in)', JSON.stringify(hard));
+  // the windmill's arch is passable (a putt along the lane finds the cup through it) and its body is not (a putt at the wall beside the arch bounces back)
+  const wm = a.holes[3], wdir = Math.atan2(wm.cup.z - wm.tee.z, wm.cup.x - wm.tee.x);
+  let through = false;
+  for (let p = 0.2; p <= 1 && !through; p += 0.01) through = run(wdir, p, wm).sunk;
+  if (!through) bad('a putt along the lane goes through the windmill\'s arch to the cup', '');
+  const off = run(wdir + 0.12, 0.7, wm);
+  if (off.x > (wm.tee.x + wm.cup.x) / 2 + 1 && !off.sunk) bad('the windmill\'s body stops a ball that is not lined up with the arch', JSON.stringify([off.x, off.z]));
+  // a hundred random putts on every hole: the ball is always inside its hole's walls
   let seed = 99; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   let outside = 0;
-  for (const h of a.holes) for (let k = 0; k < 25; k++) {
+  for (const h of a.holes) for (let k = 0; k < 30; k++) {
     const ball = G.newBall(h.tee); G.putt(ball, rnd() * Math.PI * 2, 0.3 + rnd() * 0.7);
     for (let t = 0; t < 30 && ball.moving; t += 1 / 60) { G.stepBall(ball, h, 1 / 60); if (ball.x < h.bounds.x0 - 0.1 || ball.x > h.bounds.x1 + 0.1 || ball.z < h.bounds.z0 - 0.1 || ball.z > h.bounds.z1 + 0.1) outside++; }
   }
-  if (outside) bad('a ball never leaves its hole\'s walls (2,250 random putts)', String(outside));
+  if (outside) bad('a ball never leaves its hole\'s walls (2,430 random putts)', String(outside));
   if (G.holeScore({ sunk: true, strokes: 3 }, hole) !== 3 || G.holeScore({ sunk: false, strokes: 8 }, hole) !== Math.max(8, hole.par + 4)) bad('a score is the strokes; a hole not finished counts par + 4 at least', '');
 }
 
@@ -82,17 +89,16 @@ else {
   const isle = manifest.landmasses.find((l) => l.id === mc.landmass), town = manifest.towns.find((t) => t.landmass === isle.id).land;
   const b = mc.bounds;
   if (b.x1 > town.x0 - 40 && b.x0 < town.x1 + 40 && b.z1 > town.z0 - 40 && b.z0 < town.z1 + 40) bad('the course is clear of the town', '');
-  let felt = 0, walls = 0;
-  for (const c of manifest.chunks) { if (c.cx * 128 > b.x1 || (c.cx + 1) * 128 < b.x0 || c.cz * 128 > b.z1 || (c.cz + 1) * 128 < b.z0) continue; const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); felt += (j.surface ?? []).filter((q) => (q[1] + q[5]) / 2 >= b.x0 && (q[1] + q[5]) / 2 <= b.x1 && (q[2] + q[6]) / 2 >= b.z0 && (q[2] + q[6]) / 2 <= b.z1).length; walls += (j.structures ?? []).length; if (j.ground?.h?.some((v) => v !== 0)) bad('the course is on flat ground', c.key); }
+  let props = 0, boxes = 0;
+  for (const c of manifest.chunks) { if (c.cx * 128 > b.x1 || (c.cx + 1) * 128 < b.x0 || c.cz * 128 > b.z1 || (c.cz + 1) * 128 < b.z0) continue; const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); props += (j.props ?? []).filter((p) => /^golf-/.test(p.m)).length; boxes += (j.structures ?? []).length; if (j.ground?.h?.some((v) => v !== 0)) bad('the course is on flat ground', c.key); }
   const want = M.generateCourse({ seed: mc.seed, origin: { x: b.x0, z: b.z0 } });
-  if (felt !== want.surface.length || walls < want.boxes.length) bad('every quad and box of the course is baked', `${felt}/${want.surface.length} ${walls}/${want.boxes.length}`);
+  if (props !== want.tiles.length || boxes < want.boxes.length) bad('every tile and box of the course is baked', `${props}/${want.tiles.length} ${boxes}/${want.boxes.length}`);
   const h1 = mc.holes[0], seg = h1.segments[0];
   if (seg.length !== 6 || !(h1.par >= 2)) bad('a hole carries its walls as [ax, az, bx, bz, nx, nz]', JSON.stringify(seg));
-  // a hole from the manifest plays: putt to the cup
   const hole = { cup: h1.cup, segments: h1.segments.map(([ax, az, bx, bz, nx, nz]) => ({ a: { x: ax, z: az }, b: { x: bx, z: bz }, nx, nz })) };
   const ball = G.newBall(h1.tee); G.putt(ball, 0, 0.3); for (let t = 0; t < 20 && ball.moving; t += 1 / 60) G.stepBall(ball, hole, 1 / 60);
   if (!(ball.x > h1.tee.x)) bad('a hole from the manifest can be played', '');
 }
 if (!validateRecipe({ ...WORLD_RECIPE, courses: [{ id: 'x', name: 'X', landmass: 'nowhere', site: { x: 0, z: 0 }, seed: 1 }] }).some((p) => /nowhere/.test(p))) bad('a course on a landmass the recipe does not have is invalid', '');
-console.log(`minigolf: 9 holes, par ${a.par}, ${a.surface.length} quads, ${a.boxes.length} boxes; baked at (${mc?.bounds.x0}, ${mc?.bounds.z0})`);
+console.log(`minigolf: 9 holes of kit tiles, par ${a.par}, ${a.tiles.length} models, ${a.boxes.length} fallback boxes; baked at (${mc?.bounds.x0}, ${mc?.bounds.z0})`);
 if (total()) process.exitCode = 1;

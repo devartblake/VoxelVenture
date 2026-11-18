@@ -28,6 +28,7 @@ import Compass from '@/components/ui/Compass';
 import ExploreButton from '@/components/ui/ExploreButton';
 import Guide from '@/components/ui/Guide';
 import VehicleHud from '@/components/ui/VehicleHud';
+import GolfHud from '@/components/ui/GolfHud';
 import WorldMap from '@/components/ui/WorldMap';
 import DeepLink from '@/components/DeepLink';
 import SoundEngine from '@/components/SoundEngine';
@@ -91,6 +92,7 @@ export default function Home() {
       <InteractPrompt />
       <Toast />
       <VehicleHud />
+      <GolfHud />
       <RaceHud />
       <TouchControls />
       <InteriorModal />

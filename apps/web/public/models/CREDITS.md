@@ -20,3 +20,5 @@ The containers, tanks, boats, buoys, boat ramp, barrels, crates and palms at the
 The train and its rail in `kenney/train/` (the train on the first causeway: `lib/world/train.js`) are from the **Kenney Train Kit** 1.1, also CC0.
 
 Voxel landmarks in `vox/` are made for this project (see scripts/models/make-sample-vox.mjs, or your own MagicaVoxel `.vox` files).
+
+The mini-golf course's ball, clubs and flags in `kenney/minigolf/` (`lib/world/minigolf.js`, `docs/world/minigolf.md`) are from the **Kenney Minigolf Kit** 3.1 (CC0, kenney.nl/assets/minigolf-kit; its licence is `docs/licences/kenney/License-minigolf-kit.txt`): three balls, three clubs and three flags and the kit's colour map. The rest of the kit (its 117 other pieces) is not in the repository yet.
