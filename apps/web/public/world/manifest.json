@@ -13222,7 +13222,7 @@
    "cz": 0,
    "land": 0.91,
    "plots": 113,
-   "roads": 12,
+   "roads": 18,
    "highways": 2
   },
   {
@@ -13231,8 +13231,8 @@
    "cz": 1,
    "land": 0.91,
    "plots": 119,
-   "roads": 15,
-   "highways": 4
+   "roads": 26,
+   "highways": 5
   },
   {
    "key": "14_2",
@@ -13312,7 +13312,7 @@
    "cz": 0,
    "land": 1,
    "plots": 215,
-   "roads": 25,
+   "roads": 32,
    "highways": 1
   },
   {
@@ -13321,7 +13321,7 @@
    "cz": 1,
    "land": 1,
    "plots": 237,
-   "roads": 35,
+   "roads": 61,
    "highways": 1
   },
   {
@@ -13420,7 +13420,7 @@
    "cz": 0,
    "land": 1,
    "plots": 183,
-   "roads": 14,
+   "roads": 21,
    "highways": 0
   },
   {
@@ -13429,7 +13429,7 @@
    "cz": 1,
    "land": 1,
    "plots": 141,
-   "roads": 10,
+   "roads": 19,
    "highways": 1
   },
   {
@@ -14429,5 +14429,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "db84317d1913cca7"
+ "hash": "fef683965ca9f6d9"
 }
