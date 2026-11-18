@@ -11,6 +11,7 @@ import { buildChunkObject, createChunkMaterials, disposeChunkObject } from '@/li
 import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
 import { PORT_MODELS } from '@/lib/world/ports';
+import { GOLF_MODELS } from '@/lib/world/minigolf';
 import { MID_MADE, midModel } from '@/lib/world/portMid';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
@@ -62,6 +63,11 @@ function loadBridgeModels() {
       const entries = await Promise.all(TRACK_MODELS.map(async (name) => [name, await first(`../racing/${name}.glb`)]));
       models.props = Object.fromEntries(entries);
     } catch { models.props = null; }
+    // the mini-golf course's tiles and flags (lib/world/minigolf.js: the Kenney Minigolf Kit, public/models/kenney/minigolf): `golf-<file>`; without them the course keeps its boxes
+    try {
+      const entries = await Promise.all(GOLF_MODELS.map(async (name) => [`golf-${name}`, await first(`../minigolf/${name}.glb`)]));
+      models.props = { ...(models.props ?? {}), ...Object.fromEntries(entries) };
+    } catch { /* the boxes alone */ }
     // the ports' models (lib/world/ports.js: Kenney Industrial, Watercraft, Pirate and Nature kits, CC0): containers, tanks, boats, buoys, cargo, palms. A world that cannot load them keeps the ports' boxes alone.
     try {
       const entries = await Promise.all(Object.entries(PORT_MODELS).map(async ([name, m]) => [name, await first(`../${m.file}.glb`)]));

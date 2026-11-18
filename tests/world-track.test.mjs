@@ -112,7 +112,7 @@ const half = tr.width / 2;
   const { lagoonFringe } = await imp('world/isleWaters.js');
   const { widthAt } = await imp('world/riverPlan.js');
   const fringe = (world.rivers ?? []).flatMap((r) => lagoonFringe(r, widthAt)); // (and the lagoon's bank mangroves)
-  const propsInChunks = all.reduce((s, c) => s + (c.props ?? []).filter((p) => !p.d && !islands.some((i) => Math.hypot(p.x - i.x, p.z - i.z) <= i.r) && !fringe.some((f) => f.x === p.x && f.z === p.z)).length, 0);
+  const propsInChunks = all.reduce((s, c) => s + (c.props ?? []).filter((p) => !p.d && !/^golf-/.test(p.m) && !islands.some((i) => Math.hypot(p.x - i.x, p.z - i.z) <= i.r) && !fringe.some((f) => f.x === p.x && f.z === p.z)).length, 0);
   check('every painted quad and every model is in a chunk, once: the chunks hold exactly what the track made', inChunks === tr.surface.length + (world.courses ?? []).reduce((n, c) => n + c.surface.length, 0) && propsInChunks === tr.props.length, `${inChunks} quads, ${propsInChunks} models in ${all.filter((c) => c.surface).length} chunks`);
   const mt = manifest.tracks[0];
   check('the manifest records it: name, the OpenStreetMap way it came from, its lap, width, start, checkpoints and counts', mt.id === 'speedway' && mt.osmWay === 247345542 && mt.length === tr.length && mt.width === 10 && mt.checkpoints.length === 7 && mt.quads === tr.surface.length && mt.props === tr.props.length);
