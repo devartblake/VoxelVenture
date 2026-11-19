@@ -34,7 +34,7 @@ Downloaded on 2026-11-18 from kenney.nl/assets/minigolf-kit (3.1, CC0, 125 files
 ## What is not built
 
 1. **The park**: built (below).
-2. **Shared scores**: built (below). Not built: names over the heads of golfers.
+2. **Shared scores**: built (below). Over a golfer's head, under their name, a small green tag with the hole and how they stand ("Hole 4 · +1"; `RemotePlayers.jsx`).
 3. **The rest of the kit**: ramps, hills, bumps, tunnels and the other 100 pieces are not in the repository; the cell grid of the first version was replaced by the kit's tile grid (a tile = 3 units), so a hole is now made of whole tiles.
 4. **A mobile pass** (the triangle count; the controls are done, see On a phone): the tiles are 12 to 148 triangles (about 6,000 for the course), drawn only where the chunks are mounted; the fallback boxes (427) are only drawn without the models. Not measured on a phone.
 
@@ -74,10 +74,20 @@ Agreed with the owner: **"Golf park: course + clubhouse + landscaping", a Caribb
 - **The clubhouse** (the Suburban Kit's house, scaled 9.5, with a porch, a CLUBHOUSE sign and a **LEADERS board** in front of it that will show the saved leaderboard) stands beside the first tee, a small shop beside it and a service shed with barrels behind its side; a path runs from the car park along its front and to the loop at the first tee.
 - **The loop**: a path 3.2 wide round the nine holes, 5 units out from their walls, in the order of play; benches along it; the **rest and let-through spot** by the windmill hole (hole 4: two benches, a picnic table, a bin).
 - **Landmarks**: the **lighthouse** (red and white bands, a lantern room and roof, 32 high, the "HARBOR LIGHT" sign) in the north-east corner, the first thing seen from the spur road; the **pond** (14 painted triangles, rocks round it) with a **footbridge** from the loop's east side across it and the **wrecked jetty** (the Pirate Kit's dock) on its west shore; the windmill and the castle on the course.
-- **Planting and edges**: a fence of the Nature Kit's pieces all round but at the gate (313 pieces), 46 palms, 60 bushes and flowers, five lamps (boxes with warm heads) along the car park and the clubhouse path.
+- **Planting and edges**: a fence of the Nature Kit's pieces all round but at the gate (313 pieces), 46 palms, 60 bushes and flowers, five street lamps (the Racing Kit's `lightPostModern`, as along the track) along the car park and the clubhouse path: **their heads glow at night and each throws a pool of light** (the same night lights as the track's).
+
+![The park at night: a lamp's head and its pool of light over the car park.](gallery/minigolf_park_lamps_night.webp)
 - **Room for the second nine**: a strip 40 wide west of the course, 60 deep, with nothing in it and a **path stub** into it with a sign ("THE ADVENTURE LOOP: COMING SOON"), the harder, themed loop to come (mirroring the first, as Disney's do). `courses[].park.reserve` in the manifest says where.
 - **Cost**: 444 models (instanced by kind: the fence, palms and bushes are 32 to 190 triangles each), 72 boxes and 53 painted quads in the course's chunks; drawn only where the chunks are mounted, and a device that cannot load the models still sees the boxes, the paths and the car park's lines. The park is about 180 x 160 units on the flat land south of the east spur road; the recipe is refused if any of it is off flat land or within 14 of a highway (but for the road in), 40 of a river or the coast, or touches a town.
-- **Not done in the park**: cars do not drive in it (the car park is scenery), nothing is for sale at the shop, and the lamps do not glow at night.
+- **The shop's stand**: a counter under a red awning in front of the shop, the coloured balls laid out on it and a rack of putters behind ("RENT A PUTTER"): a display; nothing is sold.
+
+![The shop's stand with its sign, beside the leaderboard.](gallery/minigolf_park_shop.webp)
+
+- **Cars on the access road**: two cars of the Car Kit drive in from the highway on one lane, park by the gate for five seconds and leave on the other, over and over (`ParkCars` in `MiniGolf.jsx`); scenery only: not solid, not sent to other players, drawn only within 260 units of the park.
+
+![A car on the access road and the parked ones.](gallery/minigolf_park_cars.webp)
+
+- **Not done in the park**: the cars park nowhere in the lot (they turn at the gate), and nothing is for sale.
 
 ## Why a grid of cells
 

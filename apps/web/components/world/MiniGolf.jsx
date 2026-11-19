@@ -39,6 +39,41 @@ function useBallModel() {
   return model;
 }
 
+// Two cars on the park's access road: each comes in from the highway on the right-hand lane, parks by the gate for a few seconds, and leaves on the other lane, over and over (docs/world/minigolf.md). Scenery:
+// they are not solid and are not sent to other players; drawn only near the park, two models of the Car Kit (a few hundred triangles each).
+const CAR_FILES = ['sedan', 'taxi'], CAR_SPEED = 6, PARKED_FOR = 5, CAR_SCALE = 1.6, SHOW_RANGE = 260;
+function ParkCars({ road }) {
+  const [cars, setCars] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    CAR_FILES.forEach((f, i) => new GLTFLoader().load(`/models/kenney/cars/${f}.glb`, (gltf) => {
+      if (!alive) return;
+      gltf.scene.scale.setScalar(CAR_SCALE);
+      gltf.scene.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      setCars((c) => { const n = [...c]; n[i] = gltf.scene; return n; });
+    }, undefined, () => {}));
+    return () => { alive = false; };
+  }, []);
+  const len = Math.abs(road.to.z - road.from.z), dir = Math.sign(road.to.z - road.from.z) || 1, lane = road.width / 4;
+  const cycle = (2 * len) / CAR_SPEED + PARKED_FOR;
+  useFrame(({ clock }) => {
+    const near = Math.hypot(avatarState.x - road.to.x, avatarState.z - road.to.z) < SHOW_RANGE;
+    cars.forEach((car, i) => {
+      if (!car) return;
+      car.visible = near;
+      if (!near) return;
+      const t = ((clock.elapsedTime + i * cycle * 0.5) % cycle), drive = len / CAR_SPEED;
+      let along, side, face;
+      if (t < drive) { along = t * CAR_SPEED; side = lane; face = dir; } // in
+      else if (t < drive + PARKED_FOR) { along = len; side = lane; face = dir; } // parked by the gate
+      else { along = len - (t - drive - PARKED_FOR) * CAR_SPEED; side = -lane; face = -dir; } // out
+      car.position.set(road.from.x + side, 0.02, road.from.z + dir * along);
+      car.rotation.y = face > 0 ? 0 : Math.PI;
+    });
+  });
+  return <group name="park-cars">{cars.map((c, i) => c && <primitive key={i} object={c} />)}</group>;
+}
+
 export default function MiniGolf() {
   const course = useGolf((s) => s.course);
   const saved = useGolf((s) => s.round?.saved); // (a round just saved: the board is read again)
@@ -173,6 +208,7 @@ export default function MiniGolf() {
       {course?.park?.board && (leaders.length ? leaders : [{ rank: 1, name: 'be the first', empty: true }]).slice(0, 3).map((r, i) => (
         <Label3D key={`lead${i}${r.name}${r.strokes}`} text={r.empty ? 'NO ROUNDS YET' : `${r.rank}. ${r.name.slice(0, 12)}  ${r.strokes} (${r.diff === 0 ? 'E' : r.diff > 0 ? `+${r.diff}` : r.diff})`} position={[course.park.board.x, 3.75 - i * 0.7, course.park.board.z + 0.06]} background="#1a344e" color="#fde68a" height={0.55} />
       ))}
+      {course?.park?.road && <ParkCars road={course.park.road} />}
       {model
         ? <mesh ref={ball} visible={false} castShadow geometry={model.geometry} material={model.material} scale={model.scale} />
         : <mesh ref={ball} visible={false} castShadow><sphereGeometry args={[COURSE.ball, 16, 12]} /><meshStandardMaterial color="#f8fafc" roughness={0.35} /></mesh>}

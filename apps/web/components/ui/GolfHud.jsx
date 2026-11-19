@@ -101,7 +101,7 @@ export default function GolfHud() {
         </Box>
       ) : (
         <Box>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-sm max-sm:gap-x-2 max-sm:text-xs">
             <Flag className="h-4 w-4 text-emerald-300" />
             <span className="font-semibold">Hole {g.hole}</span><span className="text-slate-400">par {hole.par}</span>
             {two && <span className="rounded-full bg-sky-600/70 px-2 py-0.5 font-semibold" data-testid="golf-player">{g.names[g.player]}</span>}
@@ -137,9 +137,8 @@ export default function GolfHud() {
                 </div>
               </div>
               <div className="text-[11px] text-slate-400 max-sm:hidden">Drag back from the ball to aim and set the power · A D or arrows: aim · hold Space: power · gamepad: stick, hold A · Esc: put the club away</div>
-              <div className="text-[11px] text-slate-400 sm:hidden">{g.phase === 'roll' ? 'Rolling…' : 'Drag back from the ball, or use the dock below'}</div>
               {others.length > 0 && (
-                <div className="w-full border-t border-sx-line pt-1.5 text-[11px]" data-testid="golf-others">
+                <div className="w-full border-t border-sx-line pt-1.5 text-[11px] max-sm:hidden" data-testid="golf-others">
                   <div className="mb-0.5 text-slate-400">Playing here now</div>
                   {others.slice(0, 4).map((o) => <div key={o.id} className="flex justify-between gap-4"><span className="font-semibold">{o.name}</span><span className="tabular-nums text-slate-300">hole {o.hole} · {o.strokes} stroke{o.strokes === 1 ? '' : 's'} · card {o.card} ({toPar(o.diff)})</span></div>)}
                 </div>
