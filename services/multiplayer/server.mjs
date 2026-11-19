@@ -140,20 +140,22 @@ const cleanVeh = (v) =>
   v && (v.kind === 'car' || v.kind === 'boat' || v.kind === 'train')
     ? { kind: v.kind, boatKind: ['sailboat', 'rowboat-large', 'fishing'].includes(v.boatKind) ? v.boatKind : 'rowboat', color: /^#[0-9a-f]{6}$/i.test(String(v.color)) ? String(v.color) : '#3b82f6', ...(v.kind === 'car' && v.spec === 'racecar' ? { spec: 'racecar' } : {}) }
     : null;
+// What a golfer is doing on the mini-golf course (docs/world/minigolf.md): [hole 1 to 9, strokes on this hole, strokes on the card so far, against par so far], whole numbers in range, or null. It shows to the players near.
+const cleanGolf = (g) => (Array.isArray(g) && g.length === 4 && g.every((n) => Number.isInteger(n)) && g[0] >= 1 && g[0] <= 9 && g[1] >= 0 && g[1] <= 12 && g[2] >= 0 && g[2] <= 200 && g[3] >= -30 && g[3] <= 100 ? g.slice(0, 4) : null);
 // The cars a player has left parked (at most three): { x, z, yaw, color } each, kept only if they are plain numbers and a plain colour.
 const cleanParked = (list) =>
   (Array.isArray(list) ? list : [])
     .slice(0, 3)
     .map((c) => ({ x: num(c?.x), z: num(c?.z), yaw: num(c?.yaw, 0, 10), color: /^#[0-9a-f]{6}$/i.test(String(c?.color)) ? String(c.color) : '#3b82f6' }));
 // `account` is set only for a connection the API vouched for (a ticket), never from what a client says; `verified` says so.
-const publicPlayer = (p) => ({ id: p.id, name: p.name, appearance: p.appearance, x: p.x, z: p.z, y: p.y ?? 0, yaw: p.yaw, moving: p.moving, emote: p.emote, veh: p.veh ?? null, parked: p.parked ?? [], account: p.account?.id ?? null, verified: Boolean(p.account) });
+const publicPlayer = (p) => ({ id: p.id, name: p.name, appearance: p.appearance, x: p.x, z: p.z, y: p.y ?? 0, yaw: p.yaw, moving: p.moving, emote: p.emote, veh: p.veh ?? null, ...(p.golf ? { golf: p.golf } : {}), parked: p.parked ?? [], account: p.account?.id ?? null, verified: Boolean(p.account) });
 // What moves: the part of a player that goes out in every update, as a short array (a fifth of the bytes of an object):
-//   [id, x, z, yaw, moving (0 or 1), emote (a name, or 0), vehicle ([kind, boatKind, colour, spec (race cars only)], or 0), y (their height, only when it is not 0)]
+//   [id, x, z, yaw, moving (0 or 1), emote (a name, or 0), vehicle ([kind, boatKind, colour, spec (race cars only)], or 0), y (their height, only when it is not 0), golf (a golfer's [hole, strokes, card, against par], only when they are playing: then y is always there)]
 // `ver` changes whenever it does, so a client is only sent what it has not seen.
 const round1 = (n) => Math.round(n * 10) / 10;
 const round2 = (n) => Math.round(n * 100) / 100;
 function touch(p) {
-  const entry = [p.id, round1(p.x), round1(p.z), round2(p.yaw), p.moving ? 1 : 0, p.emote || 0, p.veh ? [p.veh.kind, p.veh.boatKind, p.veh.color, ...(p.veh.spec ? [p.veh.spec] : [])] : 0, ...(Math.abs(p.y ?? 0) > 0.05 ? [round1(p.y)] : [])];
+  const entry = [p.id, round1(p.x), round1(p.z), round2(p.yaw), p.moving ? 1 : 0, p.emote || 0, p.veh ? [p.veh.kind, p.veh.boatKind, p.veh.color, ...(p.veh.spec ? [p.veh.spec] : [])] : 0, ...(p.golf ? [Math.abs(p.y ?? 0) > 0.05 ? round1(p.y) : 0, p.golf] : Math.abs(p.y ?? 0) > 0.05 ? [round1(p.y)] : [])];
   const json = JSON.stringify(entry);
   if (json !== p.json) {
     p.json = json;
@@ -541,6 +543,7 @@ wss.on('connection', (ws, req) => {
       p.moving = Boolean(m.moving);
       p.emote = m.emote ? str(m.emote, 12) : null;
       p.veh = cleanVeh(m.veh);
+      p.golf = cleanGolf(m.golf);
       positions.onState(p, now); // plausible movement? (in enforce mode this puts the last verified position back)
       touch(p);
     } else if (m.type === 'parked') {

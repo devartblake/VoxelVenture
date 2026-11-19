@@ -40,7 +40,7 @@ const last = (c, type) => [...c.inbox].reverse().find((m) => m.type === type);
 const entered = (c) => c.inbox.filter((m) => m.type === 'snapshot').flatMap((m) => m.enter ?? []);
 const exited = (c) => c.inbox.filter((m) => m.type === 'snapshot').flatMap((m) => m.exit ?? []);
 // a changed player is a short array: [id, x, z, yaw, moving, emote or 0, vehicle ([kind, boatKind, colour]) or 0]
-const decode = (a) => ({ id: a[0], x: a[1], z: a[2], yaw: a[3], moving: Boolean(a[4]), emote: a[5] || null, veh: a[6] ? { kind: a[6][0], boatKind: a[6][1], color: a[6][2], spec: a[6][3] } : null, y: a[7] ?? 0 });
+const decode = (a) => ({ id: a[0], x: a[1], z: a[2], yaw: a[3], moving: Boolean(a[4]), emote: a[5] || null, veh: a[6] ? { kind: a[6][0], boatKind: a[6][1], color: a[6][2], spec: a[6][3] } : null, y: a[7] ?? 0, golf: a[8] ?? null });
 const latest = (c, id) => {
   for (const m of [...c.inbox].reverse()) {
     if (m.type !== 'snapshot') continue;
@@ -98,6 +98,21 @@ check('a wild height is clamped', latest(b, a.id)?.y === 60, JSON.stringify(late
 a.ws.send(JSON.stringify({ type: 'state', x: 14.5, z: -3, yaw: 1.5, moving: true, emote: null }));
 await sleep(350);
 check('a state with no height is at 0 (an older client)', (latest(b, a.id)?.y ?? 0) === 0, JSON.stringify(latest(b, a.id)));
+// a golfer's progress on the mini-golf course ([hole, strokes, card, against par]) goes to the others; bad ones are dropped; it stops when they stop
+a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: false, emote: null, golf: [4, 2, 9, 1] }));
+await sleep(350);
+check('Bob sees that Alice is on hole 4, 2 strokes, 9 on the card, 1 over', JSON.stringify(latest(b, a.id)?.golf) === '[4,2,9,1]' && (latest(b, a.id)?.y ?? 0) === 0, JSON.stringify(latest(b, a.id)));
+for (const bad of [[10, 1, 1, 0], [4, 99, 1, 0], [4, 1, 1], 'x', [4.5, 1, 1, 0], [4, 1, -1, 0]]) {
+  a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: false, emote: null, golf: bad }));
+  await sleep(250);
+  check('a golf progress out of range or the wrong shape is dropped', !latest(b, a.id)?.golf, JSON.stringify(bad));
+}
+a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, y: -5.5, yaw: 1.5, moving: false, emote: null, golf: [9, 1, 20, -2] }));
+await sleep(350);
+check('with a height and golf both in the update', latest(b, a.id)?.y === -5.5 && JSON.stringify(latest(b, a.id)?.golf) === '[9,1,20,-2]', JSON.stringify(latest(b, a.id)));
+a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: false, emote: null }));
+await sleep(350);
+check('when they stop golfing it stops showing', !latest(b, a.id)?.golf, JSON.stringify(latest(b, a.id)));
 a.ws.send(JSON.stringify({ type: 'parked', cars: [{ x: 20, z: 5, yaw: 1, color: '#00ff00' }, { x: 'bad', z: 1, color: 'x' }, { x: 1, z: 1 }, { x: 2, z: 2 }, { x: 3, z: 3 }] }));
 await sleep(300);
 const parkedMsg = last(b, 'parked');

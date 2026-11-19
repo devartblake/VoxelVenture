@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Flag, LogOut, RotateCcw, RotateCw, Users } from 'lucide-react';
 import { useGolf } from '@/lib/state/golfStore';
+import { golfersNearby } from '@/lib/net/multiplayer';
 import { cardTotals, scoreName, toPar } from '@/lib/world/golfScore';
 
 const Box = ({ children }) => <div className="pointer-events-auto flex flex-col items-center gap-2 rounded-2xl border border-sx-line bg-sx-panel/90 px-4 py-2.5 text-xs text-slate-100 shadow-xl backdrop-blur-md">{children}</div>;
@@ -26,6 +27,8 @@ function AimDial({ off }) {
 export default function GolfHud() {
   const g = useGolf();
   const turning = useRef(0);
+  const [others, setOthers] = useState([]);
+  useEffect(() => { const t = setInterval(() => setOthers((o) => { const n = golfersNearby(); return JSON.stringify(n) === JSON.stringify(o) ? o : n; }), 1000); return () => clearInterval(t); }, []);
   useEffect(() => {
     let raf = 0, last = performance.now();
     const loop = (t) => { const dt = Math.min(0.05, (t - last) / 1000); last = t; if (turning.current) useGolf.getState().turn(turning.current, dt); raf = requestAnimationFrame(loop); };
@@ -100,6 +103,12 @@ export default function GolfHud() {
                 </div>
               </div>
               <div className="text-[11px] text-slate-400 max-sm:hidden">Drag back from the ball to aim and set the power · A D or arrows: aim · hold Space: power · gamepad: stick, hold A · Esc: put the club away</div>
+              {others.length > 0 && (
+                <div className="w-full border-t border-sx-line pt-1.5 text-[11px]" data-testid="golf-others">
+                  <div className="mb-0.5 text-slate-400">Playing here now</div>
+                  {others.slice(0, 4).map((o) => <div key={o.id} className="flex justify-between gap-4"><span className="font-semibold">{o.name}</span><span className="tabular-nums text-slate-300">hole {o.hole} · {o.strokes} stroke{o.strokes === 1 ? '' : 's'} · card {o.card} ({toPar(o.diff)})</span></div>)}
+                </div>
+              )}
               {canAddPlayer && (
                 <button className="flex items-center gap-1 rounded-full border border-sx-line px-3 py-0.5 text-[11px] hover:bg-sx-alt" onClick={() => useGolf.getState().start(1, { players: two ? 1 : 2, names: ['Player 1', 'Player 2'] })} data-testid="golf-players">
                   <Users className="h-3 w-3" /> {two ? 'Play alone' : 'Play with a friend (turns, one device)'}

@@ -44,7 +44,7 @@ export const PRESENCE_CLIENT = {
   'auth.clear': message('auth.clear', { properties: {} }, true),
   // where the avatar is, several times a second
   state: message('state', {
-    properties: { x: finite, z: finite, y: finite, yaw: finite, moving: { type: 'boolean' }, emote: { type: ['string', 'null'], maxLength: 12 }, veh: vehicle },
+    properties: { golf: { type: ['array', 'null'], minItems: 4, maxItems: 4, items: { type: 'integer' } }, x: finite, z: finite, y: finite, yaw: finite, moving: { type: 'boolean' }, emote: { type: ['string', 'null'], maxLength: 12 }, veh: vehicle },
   }),
   // the cars this player left parked (at most three)
   parked: message('parked', {

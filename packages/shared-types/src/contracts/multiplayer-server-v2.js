@@ -13,6 +13,8 @@ const vehicle = {
   required: ['kind', 'boatKind', 'color'],
   properties: { kind: { type: 'string', enum: ['car', 'boat'] }, boatKind: { type: 'string', enum: ['rowboat', 'sailboat', 'rowboat-large', 'fishing'] }, color: colour },
 };
+// a golfer's progress: [hole 1 to 9, strokes on the hole, strokes on the card so far, against par so far]
+const golf = { type: 'array', minItems: 4, maxItems: 4, items: { type: 'integer' } };
 // a player as first seen (in `enter`) and in `profile`: `account` and `verified` come only from the API, never from what a client says
 const player = {
   type: 'object',
@@ -28,6 +30,7 @@ const player = {
     moving: { type: 'boolean' },
     emote: { type: ['string', 'null'], maxLength: 12 },
     veh: vehicle,
+    golf: golf, // what a golfer is doing on the mini-golf course; absent when not playing
     parked: { type: 'array', maxItems: 3, items: car },
     account: { type: ['integer', 'null'] },
     verified: { type: 'boolean' },
@@ -37,7 +40,7 @@ const player = {
 const moved = {
   type: 'array',
   minItems: 7,
-  maxItems: 8, // (the eighth, their height, only when it is not 0)
+  maxItems: 9, // (the eighth, their height, only when it is not 0 or they are golfing; the ninth, what a golfer is doing)
   prefixItems: [
     int,
     finite,
@@ -47,6 +50,7 @@ const moved = {
     { anyOf: [{ type: 'string', minLength: 1, maxLength: 12 }, { type: 'integer', enum: [0] }] },
     { anyOf: [{ type: 'array', minItems: 3, maxItems: 3, prefixItems: [{ type: 'string', enum: ['car', 'boat'] }, { type: 'string' }, colour] }, { type: 'integer', enum: [0] }] },
     finite,
+    golf,
   ],
 };
 const CHAT_REJECTED = ['bad_request', 'unavailable', 'empty', 'unauthenticated', 'rate_limited', 'content_rejected'];
