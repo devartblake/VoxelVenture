@@ -78,3 +78,8 @@ The park from above: the gate and the car park at the top, the clubhouse beside 
 
 The entrance at ground level: the gate posts and lintel, the drive in, the car park with its bay lines and cars, palms and the fence.
 
+## minigolf_leaders_board
+
+![The clubhouse's LEADERS board with the top three saved rounds.](minigolf_leaders_board.webp)
+
+The clubhouse's LEADERS board with the top three saved rounds (rank, name, strokes, against par).
