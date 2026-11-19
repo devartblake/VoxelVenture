@@ -9,6 +9,8 @@ import { aimFromDrag, previewPath } from '@/lib/world/golfPhysics';
 import { avatarState } from '@/lib/sim/avatarState';
 import { useGolf } from '@/lib/state/golfStore';
 import Label3D from '@/components/city/Label3D';
+import { golfLeaderboard } from '@/lib/data/golf';
+import { apiOn } from '@/lib/data/api';
 
 // Mini-golf in the world (docs/world/minigolf.md): loads the baked course (the manifest's `courses`), draws the ball, the aim arrow and the path the putt would take, and takes the controls while you play. The rules
 // are lib/state/golfStore.js, the ball's physics lib/world/golfPhysics.js, the panel components/ui/GolfHud.jsx; the tiles, flags and boxes are baked into the chunks. Mounted with the baked world; `?golf=0` leaves it out.
@@ -38,7 +40,15 @@ function useBallModel() {
 }
 
 export default function MiniGolf() {
-  const course = useGolf((s) => s.course); // (the park's signs: the gate, the clubhouse, the leaderboard, the lighthouse: lib/world/golfPark.js)
+  const course = useGolf((s) => s.course);
+  const saved = useGolf((s) => s.round?.saved); // (a round just saved: the board is read again)
+  const [leaders, setLeaders] = useState([]); // the clubhouse board: the top three saved rounds (services/api/golf.mjs)
+  useEffect(() => {
+    if (!course?.park || !apiOn()) return undefined;
+    let alive = true;
+    golfLeaderboard(course.id, 3).then((r) => { if (alive) setLeaders(r.board ?? []); }).catch(() => {});
+    return () => { alive = false; };
+  }, [course, saved]); // (the park's signs: the gate, the clubhouse, the leaderboard, the lighthouse: lib/world/golfPark.js)
   const ball = useRef(null), arrow = useRef(null), path = useRef(null), held = useRef(new Set());
   const pad = useRef({ a: false, b: false, start: false });
   const model = useBallModel();
@@ -160,6 +170,9 @@ export default function MiniGolf() {
   return (
     <group name="minigolf">
       {(course?.park?.labels ?? []).map((l) => <Label3D key={`${l.text}${l.x}`} text={l.text} position={[l.x, l.y, l.z]} background="#0f3d66" color="#ffffff" border="#7dd3fc" height={l.text.length > 14 ? 1.5 : 1.1} />)}
+      {course?.park?.board && (leaders.length ? leaders : [{ rank: 1, name: 'be the first', empty: true }]).slice(0, 3).map((r, i) => (
+        <Label3D key={`lead${i}${r.name}${r.strokes}`} text={r.empty ? 'NO ROUNDS YET' : `${r.rank}. ${r.name.slice(0, 12)}  ${r.strokes} (${r.diff === 0 ? 'E' : r.diff > 0 ? `+${r.diff}` : r.diff})`} position={[course.park.board.x, 3.75 - i * 0.7, course.park.board.z + 0.06]} background="#1a344e" color="#fde68a" height={0.55} />
+      ))}
       {model
         ? <mesh ref={ball} visible={false} castShadow geometry={model.geometry} material={model.material} scale={model.scale} />
         : <mesh ref={ball} visible={false} castShadow><sphereGeometry args={[COURSE.ball, 16, 12]} /><meshStandardMaterial color="#f8fafc" roughness={0.35} /></mesh>}

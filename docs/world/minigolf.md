@@ -34,7 +34,7 @@ Downloaded on 2026-11-18 from kenney.nl/assets/minigolf-kit (3.1, CC0, 125 files
 ## What is not built
 
 1. **The park**: built (below).
-2. **Shared scores**: built (below). Not built: names over the heads of golfers, and the leaderboard on the clubhouse's board in the world (a sign until the park and this are in the same build).
+2. **Shared scores**: built (below). Not built: names over the heads of golfers.
 3. **The rest of the kit**: ramps, hills, bumps, tunnels and the other 100 pieces are not in the repository; the cell grid of the first version was replaced by the kit's tile grid (a tile = 3 units), so a hole is now made of whole tiles.
 4. **A mobile pass** (the triangle count; the controls are done, see On a phone): the tiles are 12 to 148 triangles (about 6,000 for the course), drawn only where the chunks are mounted; the fallback boxes (427) are only drawn without the models. Not measured on a phone.
 
@@ -56,6 +56,9 @@ Designed for thumbs: the controls sit in the bottom corners, where the thumbs re
 
 - **Nearby, live**: a golfer's progress, `[hole, strokes on the hole, strokes on the card, against par]`, rides on the presence message (`golf`, the ninth item of a player's short array; `cleanGolf` in `services/multiplayer/server.mjs` keeps only four whole numbers in range and drops the rest; it stops when they stop playing). The HUD lists the people near who are playing ("Playing here now", `golfersNearby()` in `lib/net/multiplayer.js`). Nothing is saved: it is gone when they leave.
 - **Saved leaderboard** (`services/api/golf.mjs`, table `golf_rounds`; the same rule as the racing track: the server decides). A signed-in player's finished **one-player** round goes to `POST /golf/round` as the **putts** (for each hole, each putt's angle and power in whole thousandths), never a score. The server plays them again on its own copy of the course with the same physics and keeps the strokes that come out; a round that does not replay (a putt after the ball dropped, a hole not finished, a power or count out of range, a ball that never stops) is `422`, and a second round within 20 seconds of the last is `429`. `GET /golf/leaderboard?course=&limit=` (public) is each account's best round, fewest strokes first; `GET /golf/me` is the player's best, rank and last ten rounds. The card shows the rank ("New best on the leaderboard: rank 2"). Two-player rounds are not saved; guests and games without a server keep only the device's own best.
+- **The clubhouse board**: the LEADERS board in front of the clubhouse shows the top three (rank, name, strokes, against par), read from `GET /golf/leaderboard` when the course loads and again after you save a round (`MiniGolf.jsx`); "NO ROUNDS YET" when it is empty. Without a game server (no `NEXT_PUBLIC_LIVE_API_URL`) it stays a plain sign.
+
+![The clubhouse's LEADERS board with the top three rounds.](gallery/minigolf_leaders_board.webp)
 - **Why it can be trusted**: the physics only takes whole steps of 1/240 s whatever the frame time (`ball.acc` in `stepBall`), and the page quantises each putt before it hits, so the page and the server roll the same ball (`tests/golf-api.test.mjs` plays a round in 60 frames a second and in the server's replay and compares the cards). The putts, not a score, are what the page may say, so the board cannot be written to except by putting.
 - **Privacy**: nothing new is stored on the device; the server keeps the account's rounds (strokes, par, card, time) as it does lap times, and the board shows the username.
 
@@ -74,7 +77,7 @@ Agreed with the owner: **"Golf park: course + clubhouse + landscaping", a Caribb
 - **Planting and edges**: a fence of the Nature Kit's pieces all round but at the gate (313 pieces), 46 palms, 60 bushes and flowers, five lamps (boxes with warm heads) along the car park and the clubhouse path.
 - **Room for the second nine**: a strip 40 wide west of the course, 60 deep, with nothing in it and a **path stub** into it with a sign ("THE ADVENTURE LOOP: COMING SOON"), the harder, themed loop to come (mirroring the first, as Disney's do). `courses[].park.reserve` in the manifest says where.
 - **Cost**: 444 models (instanced by kind: the fence, palms and bushes are 32 to 190 triangles each), 72 boxes and 53 painted quads in the course's chunks; drawn only where the chunks are mounted, and a device that cannot load the models still sees the boxes, the paths and the car park's lines. The park is about 180 x 160 units on the flat land south of the east spur road; the recipe is refused if any of it is off flat land or within 14 of a highway (but for the road in), 40 of a river or the coast, or touches a town.
-- **Not done in the park**: cars do not drive in it (the car park is scenery), the leaderboard board is a sign until the leaderboard is built, nothing is for sale at the shop, and the lamps do not glow at night.
+- **Not done in the park**: cars do not drive in it (the car park is scenery), nothing is for sale at the shop, and the lamps do not glow at night.
 
 ## Why a grid of cells
 
