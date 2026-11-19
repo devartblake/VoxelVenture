@@ -103,3 +103,23 @@ The park at night: a lamp's head and its pool of light over the car park.
 ![A car on the access road and the parked ones in the car park.](minigolf_park_cars.webp)
 
 A car on the access road and the parked ones in the car park.
+
+## minigolf_loop_top
+
+![The second nine from above, east of the park: the path from the first park through a gap in its fence, and the loop round the nine holes.](minigolf_loop_top.webp)
+
+The second nine from above, east of the park: the path from the first park through a gap in its fence, and the loop round the nine holes.
+
+
+## minigolf_loop_entry
+
+![The way into The Adventure Loop: the arch, the board and the yard of barrels and crates, with a windmill hole beyond.](minigolf_loop_entry.webp)
+
+The way into The Adventure Loop: the arch, the board and the yard of barrels and crates, with a windmill hole beyond.
+
+
+## minigolf_loop_tee
+
+![The first tee of The Adventure Loop: a par 4 zigzag.](minigolf_loop_tee.webp)
+
+The first tee of The Adventure Loop: a par 4 zigzag.

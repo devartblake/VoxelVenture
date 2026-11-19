@@ -460,7 +460,7 @@ export default function Avatar() {
       const golf = useGolf.getState();
       if (!golf.active && !avatarState.vehicle) {
         const tee = golf.teeNear(x, z);
-        if (tee) consider(`golf-${tee.n}`, `Play hole ${tee.n} of ${golf.course.name} (par ${tee.par})`, Math.hypot(tee.tee.x - x, tee.tee.z - z) / 3.2 - 0.3, () => useGolf.getState().start(tee.n));
+        if (tee) consider(`golf-${tee.courseId}-${tee.n}`, `Play hole ${tee.n} of ${tee.courseName} (par ${tee.par})`, Math.hypot(tee.tee.x - x, tee.tee.z - z) / 3.2 - 0.3, () => useGolf.getState().start(tee.n, { course: tee.courseId }));
       }
       // the train: board at a station while it stands there (lib/world/train.js)
       for (const tline of !avatarState.vehicle ? fleetRefs.trainLines ?? [] : []) { // (the first causeway's line, and one through each tunnel)
