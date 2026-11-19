@@ -36,7 +36,21 @@ Downloaded on 2026-11-18 from kenney.nl/assets/minigolf-kit (3.1, CC0, 125 files
 1. **The park** (agreed with the owner 2026-11-18: "Golf park: course + clubhouse + landscaping", a Caribbean harbour theme, nine holes laid out so a second nine can be added): the clubhouse, car park, the looping path with benches and palms, a pond with a bridge, the lighthouse landmark and the gate. Designed in the next section; not built.
 2. **Shared scores**: built (below). Not built: names over the heads of golfers, and the leaderboard on the clubhouse's board in the world (a sign until the park and this are in the same build).
 3. **The rest of the kit**: ramps, hills, bumps, tunnels and the other 100 pieces are not in the repository; the cell grid of the first version was replaced by the kit's tile grid (a tile = 3 units), so a hole is now made of whole tiles.
-4. **A mobile pass**: the tiles are 12 to 148 triangles (about 6,000 for the course), drawn only where the chunks are mounted; the fallback boxes (427) are only drawn without the models. Not measured on a phone.
+4. **A mobile pass** (the triangle count; the controls are done, see On a phone): the tiles are 12 to 148 triangles (about 6,000 for the course), drawn only where the chunks are mounted; the fallback boxes (427) are only drawn without the models. Not measured on a phone.
+
+## On a phone (built 2026-11-18)
+
+![The phone's dock: the aim to the left (a turn each way, the dial and the angle between), the putt to the right (a round button with the power as a ring and a number).](gallery/minigolf_phone_dock.webp)
+
+Designed for thumbs: the controls sit in the bottom corners, where the thumbs rest, and every one is at least 56 px. **Left**: a turn each way (held to keep turning) with the angle dial and the degrees off the cup between them. **Right**: one 112 px round button, **held to charge and let go to hit**, the power filling a ring round it and shown as a number. A **drag back from the ball** anywhere on the world still aims and sets the power in one move, as on a desktop. Behind the dock the game's own touch controls get out of the way while you play: the walking joystick and its buttons are hidden (the walk is held at the tee anyway), as is the clock and sound corner; the top panel keeps the hole, the strokes and the card. The desktop panel's own controls are hidden on a phone (`max-sm`); the dock is `sm:hidden`. The dock is `PhoneDock` in `apps/web/components/ui/GolfHud.jsx`.
+
+## The web version (built 2026-11-18)
+
+![The web version on a phone: one hole from above in line art, the dotted line of the putt, the power as a thin bar.](gallery/minigolf_web_phone.webp)
+
+`/golf` is the same course, physics, scoring and saved leaderboard on a page of its own with nothing else on it (`apps/web/app/golf/page.jsx`): a plain light page, each hole drawn from above in line art (the walls, the tee, the cup with a flag, the ball), the hole's name, par and strokes in a thin header, the power as a thin bar. **One input**: pull back from the ball and let go (a slingshot: the dotted line is where the putt goes, bounces included, and how far it rolls); A and D turn the aim and Space putts, for a keyboard. A long hole on a tall screen is **turned a quarter** so it runs down the phone. After a hole, one button; after the ninth, the card, the rank if you are signed in, and the top five. It reads the baked manifest's course and uses the same store (`lib/state/golfStore.js`), so a round there is saved to the leaderboard exactly as one in the world is. Nothing is rendered in 3D, so it works on any device that can draw a canvas.
+
+![The web version on a desktop.](gallery/minigolf_web_desktop.webp)
 
 ## Shared scores (built 2026-11-18)
 

@@ -7,6 +7,7 @@ import { useSound, useSoundNow } from '@/lib/state/soundStore';
 import { syncClock, useTime } from '@/lib/state/timeStore';
 import { apiBase } from '@/lib/data/api';
 import { useQuietHud } from '@/lib/state/hudStore';
+import { useGolf } from '@/lib/state/golfStore';
 
 // Bottom right: the time of day (the city's shared clock; click it for Live / Dawn / Day / Dusk / Night) and the speaker button with its volume.
 // On a phone they stack bottom left, clear of the joystick in the middle and the run and interact buttons on the right, and step aside
@@ -39,13 +40,14 @@ export default function AmbientControls() {
     return () => clearInterval(t);
   }, []);
   const quiet = useQuietHud();
+  const golfing = useGolf((g) => g.active); // (on a phone the golf dock has the bottom corner: components/ui/GolfHud.jsx)
   const s = skyAt(modeHour(ready ? mode : 'day', Date.now(), offset));
   const Icon = ICON[s.phase] ?? Sun;
   if (quiet) return null;
   return (
     <div
       style={{ '--edge': 'max(0.5rem, env(safe-area-inset-left))' }}
-      className="absolute bottom-6 right-3 z-20 flex items-end gap-1 max-sm:bottom-[max(1.25rem,env(safe-area-inset-bottom))] max-sm:left-[var(--edge)] max-sm:right-auto max-sm:flex-col max-sm:items-start short:bottom-[max(1.25rem,env(safe-area-inset-bottom))] short:left-[var(--edge)] short:right-auto short:flex-col short:items-start"
+      className={`absolute bottom-6 right-3 z-20 flex items-end gap-1 max-sm:bottom-[max(1.25rem,env(safe-area-inset-bottom))] max-sm:left-[var(--edge)] max-sm:right-auto max-sm:flex-col max-sm:items-start short:bottom-[max(1.25rem,env(safe-area-inset-bottom))] short:left-[var(--edge)] short:right-auto short:flex-col short:items-start ${golfing ? 'max-sm:hidden' : ''}`}
       data-testid="ambient-controls"
     >
       {open && (

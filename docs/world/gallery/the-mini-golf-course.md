@@ -45,3 +45,23 @@ Aiming by dragging: the angle dial, the strength bar at 79 per cent, the degrees
 ![A two-player round: Player 1's turn on hole 1, the dial, the power bar and the Play alone button.](minigolf_two_players.webp)
 
 A two-player round: Player 1's turn on hole 1, the dial, the power bar and the Play alone button.
+
+## minigolf_phone_dock
+
+![The phone's dock: the aim to the left (a turn each way, the dial and the angle between), the putt to the right (a round button, the power as a ring).](minigolf_phone_dock.webp)
+
+The phone's dock: the aim to the left (a turn each way, the dial and the angle between), the putt to the right (a round button, the power as a ring).
+
+
+## minigolf_web_phone
+
+![The web version on a phone: one hole from above in line art, the dotted line of the putt, the power as a thin bar.](minigolf_web_phone.webp)
+
+The web version on a phone: one hole from above in line art, the dotted line of the putt, the power as a thin bar.
+
+
+## minigolf_web_desktop
+
+![The web version on a desktop: the same, wide.](minigolf_web_desktop.webp)
+
+The web version on a desktop: the same, wide.
