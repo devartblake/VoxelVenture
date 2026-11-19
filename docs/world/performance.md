@@ -52,3 +52,9 @@ The phone profile mounts 3 x 3 chunks; each chunk's ground is merged and its coa
 ## How to check
 
 `node scripts/world/measure-ports.mjs` (with `npm run dev`): the mounted chunks, draw calls, triangles and frame time at each port for both profiles. The tests: `tests/world-chunk-mesh.test.mjs` (the merge and the coarse edge), `tests/ports-models.test.mjs` (the tiers).
+
+## The golf park, measured (2026-11-19): the heaviest place, and what was done
+
+The park is now the heaviest spot in the baked world (a phone: 103 draw calls and 66,143 triangles, against Kingston's 42 and 15,288). The triangles were the Car Kit's cars (ten at about 2,000 each) and the fence (313 pieces at 64), so the phone tier got **made copies** of both (60 and 36 triangles: `lib/world/portMid.js`) and the park lost two plant kinds: **93 draw calls, 41,489 triangles** (37 per cent fewer triangles); a desktop is unchanged at 126 and 81,155. This is the "simplified copies" step above, applied to the park.
+
+**BatchedMesh and impostors are still not built**, and this measurement does not change that: the draw calls are many small instanced kinds (palms, bushes, the course's tile kinds, the lamps) spread over nine chunks, and batching them needs one material and one attribute set, which the kits do not share; the park has about 450 models, not the thousands that impostors pay off at. Revisit if the countryside gets trees by the thousand, or if a phone measured on real hardware (these numbers are a software renderer's: they compare, they are not a phone's) is not smooth at the park.

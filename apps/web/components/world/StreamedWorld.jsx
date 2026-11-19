@@ -13,7 +13,7 @@ import { TRACK_MODELS } from '@/lib/world/track';
 import { PORT_MODELS } from '@/lib/world/ports';
 import { GOLF_MODELS } from '@/lib/world/minigolf';
 import { PARK } from '@/lib/world/golfPark';
-import { MID_MADE, midModel } from '@/lib/world/portMid';
+import { MID_CARS, MID_MADE, midCar, midFence, midModel } from '@/lib/world/portMid';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
 import { applyRoadTexture } from '@/lib/world/roadTexture';
@@ -90,6 +90,20 @@ function loadBridgeModels() {
         geometry.setIndex(new THREE.BufferAttribute(m.indices, 1));
         mid[name] = { geometry, material: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 }) };
       }
+      for (const [kind, color] of Object.entries(MID_CARS)) { // the golf park's cars, made small for a phone (lib/world/portMid.js)
+        const m = midCar(color), geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(m.positions, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(m.colors, 3));
+        geometry.setIndex(new THREE.BufferAttribute(m.indices, 1));
+        mid[`park-${kind}`] = { geometry, material: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 }) };
+      }
+      { const m = midFence(), geometry = new THREE.BufferGeometry(); // and its fence
+        geometry.setAttribute('position', new THREE.BufferAttribute(m.positions, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(m.colors, 3));
+        geometry.setIndex(new THREE.BufferAttribute(m.indices, 1));
+        mid['park-fence'] = { geometry, material: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 }) }; }
       const rest = Object.keys(PORT_MODELS).filter((name) => !MID_MADE.includes(name));
       const loaded = await Promise.all(rest.map(async (name) => {
         const model = await first(`../../../world/lod/${name}.glb`); // (relative to /models/kenney/roads: /world/lod)

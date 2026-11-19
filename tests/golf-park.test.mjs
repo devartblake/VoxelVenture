@@ -69,5 +69,12 @@ else {
   if (props !== want.props.length) bad('every model of the park is baked', `${props} of ${want.props.length}`);
   if (!link) bad('the access road is baked as a link road', '');
 }
+// a phone's made copies of the park's cars and fence (lib/world/portMid.js): small, and one for each kind of car
+{
+  const MID = await imp('world/portMid.js');
+  for (const kind of ['sedan', 'suv', 'van', 'taxi']) if (!MID.MID_CARS[kind] || MID.triangles(MID.midCar(MID.MID_CARS[kind])) > 100) bad('a phone has a made car of each kind, under 100 triangles', kind);
+  if (MID.triangles(MID.midFence()) > 40) bad('the fence piece of a phone is under 40 triangles', String(MID.triangles(MID.midFence())));
+  for (const kind of Object.keys(MID.MID_CARS)) if (!(`park-${kind}` in Object.fromEntries(Object.keys(K.PARK.models).map((n) => [`park-${n}`, 1])))) bad('every made car is a model of the park', kind);
+}
 console.log(`golf park: ${a.props.length} models, ${a.boxes.length} boxes, ${a.surface.length} quads, ${cars.length} cars, ${fence.length} fence pieces`);
 if (total()) process.exitCode = 1;
