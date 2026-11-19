@@ -90,7 +90,7 @@ else {
   const b = mc.bounds;
   if (b.x1 > town.x0 - 40 && b.x0 < town.x1 + 40 && b.z1 > town.z0 - 40 && b.z0 < town.z1 + 40) bad('the course is clear of the town', '');
   let props = 0, boxes = 0;
-  for (const c of manifest.chunks) { if (c.cx * 128 > b.x1 || (c.cx + 1) * 128 < b.x0 || c.cz * 128 > b.z1 || (c.cz + 1) * 128 < b.z0) continue; const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); props += (j.props ?? []).filter((p) => /^golf-/.test(p.m)).length; boxes += (j.structures ?? []).length; if (j.ground?.h?.some((v) => v !== 0)) bad('the course is on flat ground', c.key); }
+  for (const c of manifest.chunks) { if (c.cx * 128 > b.x1 || (c.cx + 1) * 128 < b.x0 || c.cz * 128 > b.z1 || (c.cz + 1) * 128 < b.z0) continue; const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); props += (j.props ?? []).filter((p) => /^golf-/.test(p.m) && p.x >= b.x0 && p.x <= b.x1 && p.z >= b.z0 && p.z <= b.z1).length; boxes += (j.structures ?? []).filter((q) => q[0] >= b.x0 && q[0] <= b.x1 && q[2] >= b.z0 && q[2] <= b.z1).length; if (j.ground?.h?.some((v) => v !== 0)) bad('the course is on flat ground', c.key); }
   const want = M.generateCourse({ seed: mc.seed, origin: { x: b.x0, z: b.z0 } });
   if (props !== want.tiles.length || boxes < want.boxes.length) bad('every tile and box of the course is baked', `${props}/${want.tiles.length} ${boxes}/${want.boxes.length}`);
   const h1 = mc.holes[0], seg = h1.segments[0];

@@ -74,16 +74,30 @@ function ParkCars({ road }) {
   return <group name="park-cars">{cars.map((c, i) => c && <primitive key={i} object={c} />)}</group>;
 }
 
-export default function MiniGolf() {
-  const course = useGolf((s) => s.course);
-  const saved = useGolf((s) => s.round?.saved); // (a round just saved: the board is read again)
-  const [leaders, setLeaders] = useState([]); // the clubhouse board: the top three saved rounds (services/api/golf.mjs)
+// A course's signs (the gate, the clubhouse, the arch, the lighthouse: lib/world/golfPark.js) and its leaderboard: the top three saved rounds on its board, read when the world loads and again after a round is saved
+// (services/api/golf.mjs); "NO ROUNDS YET" when there are none, and a plain board when there is no game server.
+function ParkSigns({ course }) {
+  const saved = useGolf((s) => s.round?.saved);
+  const [leaders, setLeaders] = useState([]);
   useEffect(() => {
-    if (!course?.park || !apiOn()) return undefined;
+    if (!course.park?.board || !apiOn()) return undefined;
     let alive = true;
     golfLeaderboard(course.id, 3).then((r) => { if (alive) setLeaders(r.board ?? []); }).catch(() => {});
     return () => { alive = false; };
-  }, [course, saved]); // (the park's signs: the gate, the clubhouse, the leaderboard, the lighthouse: lib/world/golfPark.js)
+  }, [course, saved]);
+  const board = course.park.board;
+  return (
+    <group name={`signs-${course.id}`}>
+      {(course.park.labels ?? []).map((l) => <Label3D key={`${l.text}${l.x}`} text={l.text} position={[l.x, l.y, l.z]} background="#0f3d66" color="#ffffff" border="#7dd3fc" height={l.text.length > 14 ? 1.5 : 1.1} />)}
+      {board && (leaders.length ? leaders : [{ rank: 1, name: 'be the first', empty: true }]).slice(0, 3).map((r, i) => (
+        <Label3D key={`lead${i}${r.name}${r.strokes}`} text={r.empty ? 'NO ROUNDS YET' : `${r.rank}. ${r.name.slice(0, 12)}  ${r.strokes} (${r.diff === 0 ? 'E' : r.diff > 0 ? `+${r.diff}` : r.diff})`} position={[board.x, 3.75 - i * 0.7, board.z + 0.06]} background="#1a344e" color="#fde68a" height={0.55} />
+      ))}
+    </group>
+  );
+}
+
+export default function MiniGolf() {
+  const courses = useGolf((s) => s.courses); // (the park's two nines: the first, Harbor Mini-Golf, and The Adventure Loop; each has its own signs and board)
   const ball = useRef(null), arrow = useRef(null), path = useRef(null), held = useRef(new Set());
   const pad = useRef({ a: false, b: false, start: false });
   const model = useBallModel();
@@ -97,7 +111,7 @@ export default function MiniGolf() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('golf') === '0') return undefined;
     let alive = true;
-    fetch('/world/manifest.json').then((r) => r.json()).then((m) => { if (alive && m.courses?.length) useGolf.getState().setCourse(m.courses[0]); }).catch(() => {});
+    fetch('/world/manifest.json').then((r) => r.json()).then((m) => { if (alive && m.courses?.length) useGolf.getState().setCourses(m.courses); }).catch(() => {});
     return () => { alive = false; useGolf.getState().quit(); useGolf.getState().setCourse(null); };
   }, []);
 
@@ -204,11 +218,8 @@ export default function MiniGolf() {
 
   return (
     <group name="minigolf">
-      {(course?.park?.labels ?? []).map((l) => <Label3D key={`${l.text}${l.x}`} text={l.text} position={[l.x, l.y, l.z]} background="#0f3d66" color="#ffffff" border="#7dd3fc" height={l.text.length > 14 ? 1.5 : 1.1} />)}
-      {course?.park?.board && (leaders.length ? leaders : [{ rank: 1, name: 'be the first', empty: true }]).slice(0, 3).map((r, i) => (
-        <Label3D key={`lead${i}${r.name}${r.strokes}`} text={r.empty ? 'NO ROUNDS YET' : `${r.rank}. ${r.name.slice(0, 12)}  ${r.strokes} (${r.diff === 0 ? 'E' : r.diff > 0 ? `+${r.diff}` : r.diff})`} position={[course.park.board.x, 3.75 - i * 0.7, course.park.board.z + 0.06]} background="#1a344e" color="#fde68a" height={0.55} />
-      ))}
-      {course?.park?.road && <ParkCars road={course.park.road} />}
+      {courses.map((c) => c.park && <ParkSigns key={c.id} course={c} />)}
+      {courses.map((c) => c.park?.road && <ParkCars key={c.id} road={c.park.road} />)}
       {model
         ? <mesh ref={ball} visible={false} castShadow geometry={model.geometry} material={model.material} scale={model.scale} />
         : <mesh ref={ball} visible={false} castShadow><sphereGeometry args={[COURSE.ball, 16, 12]} /><meshStandardMaterial color="#f8fafc" roughness={0.35} /></mesh>}
