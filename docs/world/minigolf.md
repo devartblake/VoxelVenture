@@ -34,9 +34,16 @@ Downloaded on 2026-11-18 from kenney.nl/assets/minigolf-kit (3.1, CC0, 125 files
 ## What is not built
 
 1. **The park** (agreed with the owner 2026-11-18: "Golf park: course + clubhouse + landscaping", a Caribbean harbour theme, nine holes laid out so a second nine can be added): the clubhouse, car park, the looping path with benches and palms, a pond with a bridge, the lighthouse landmark and the gate. Designed in the next section; not built.
-2. **Shared scores**: "nearby players see each other's golf" (live, through the presence server) and "a saved leaderboard of best rounds" (the server). Not built.
+2. **Shared scores**: built (below). Not built: names over the heads of golfers, and the leaderboard on the clubhouse's board in the world (a sign until the park and this are in the same build).
 3. **The rest of the kit**: ramps, hills, bumps, tunnels and the other 100 pieces are not in the repository; the cell grid of the first version was replaced by the kit's tile grid (a tile = 3 units), so a hole is now made of whole tiles.
 4. **A mobile pass**: the tiles are 12 to 148 triangles (about 6,000 for the course), drawn only where the chunks are mounted; the fallback boxes (427) are only drawn without the models. Not measured on a phone.
+
+## Shared scores (built 2026-11-18)
+
+- **Nearby, live**: a golfer's progress, `[hole, strokes on the hole, strokes on the card, against par]`, rides on the presence message (`golf`, the ninth item of a player's short array; `cleanGolf` in `services/multiplayer/server.mjs` keeps only four whole numbers in range and drops the rest; it stops when they stop playing). The HUD lists the people near who are playing ("Playing here now", `golfersNearby()` in `lib/net/multiplayer.js`). Nothing is saved: it is gone when they leave.
+- **Saved leaderboard** (`services/api/golf.mjs`, table `golf_rounds`; the same rule as the racing track: the server decides). A signed-in player's finished **one-player** round goes to `POST /golf/round` as the **putts** (for each hole, each putt's angle and power in whole thousandths), never a score. The server plays them again on its own copy of the course with the same physics and keeps the strokes that come out; a round that does not replay (a putt after the ball dropped, a hole not finished, a power or count out of range, a ball that never stops) is `422`, and a second round within 20 seconds of the last is `429`. `GET /golf/leaderboard?course=&limit=` (public) is each account's best round, fewest strokes first; `GET /golf/me` is the player's best, rank and last ten rounds. The card shows the rank ("New best on the leaderboard: rank 2"). Two-player rounds are not saved; guests and games without a server keep only the device's own best.
+- **Why it can be trusted**: the physics only takes whole steps of 1/240 s whatever the frame time (`ball.acc` in `stepBall`), and the page quantises each putt before it hits, so the page and the server roll the same ball (`tests/golf-api.test.mjs` plays a round in 60 frames a second and in the server's replay and compares the cards). The putts, not a score, are what the page may say, so the board cannot be written to except by putting.
+- **Privacy**: nothing new is stored on the device; the server keeps the account's rounds (strokes, par, card, time) as it does lap times, and the board shows the username.
 
 ## The park (a design, for the owner's decision before anything is built)
 

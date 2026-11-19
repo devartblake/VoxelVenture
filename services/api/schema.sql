@@ -700,3 +700,16 @@ CREATE TABLE IF NOT EXISTS race_laps (
 -- (the vehicle column is added by db.mjs, for databases made before it: 'car' or 'racecar', each with its own board)
 CREATE INDEX IF NOT EXISTS race_laps_track ON race_laps(track, ms);
 CREATE INDEX IF NOT EXISTS race_laps_account ON race_laps(account_id, track, at);
+
+-- the mini-golf course's saved rounds (golf.mjs): one row for each finished one-player round the server played again and agreed with, never a score the page sent
+CREATE TABLE IF NOT EXISTS golf_rounds (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  course TEXT NOT NULL,
+  strokes INTEGER NOT NULL,
+  par INTEGER NOT NULL,
+  card TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS golf_rounds_course ON golf_rounds(course, strokes);
+CREATE INDEX IF NOT EXISTS golf_rounds_account ON golf_rounds(account_id, course, at);
