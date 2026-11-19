@@ -8251,6 +8251,12 @@
       "z": 278.2
      },
      {
+      "text": "RENT A PUTTER",
+      "x": 2278.3,
+      "y": 3.3,
+      "z": 279
+     },
+     {
       "text": "THE ADVENTURE LOOP: COMING SOON",
       "x": 2241,
       "y": 2.6,
@@ -8292,8 +8298,8 @@
      "z0": 315,
      "z1": 375
     },
-    "props": 444,
-    "boxes": 72
+    "props": 449,
+    "boxes": 76
    },
    "holes": [
     {
@@ -16481,7 +16487,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 0,
-   "props": 81,
+   "props": 82,
    "surface": 3
   },
   {
@@ -16568,7 +16574,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 0,
-   "props": 138,
+   "props": 142,
    "surface": 17
   },
   {
@@ -17373,5 +17379,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "35eb84f25523c786"
+ "hash": "0c9dad03e68e766f"
 }

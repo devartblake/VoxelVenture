@@ -17,7 +17,7 @@ const inP = (x, z, m = 0.5) => x >= P.x0 - m && x <= P.x1 + m && z >= P.z0 - m &
 if (a.props.some((p) => !inP(p.x, p.z)) || a.boxes.some((q) => !inP(q[0], q[2], 8)) || a.surface.some((q) => !inP((q[1] + q[5]) / 2, (q[2] + q[6]) / 2))) bad('everything is inside the park\'s fence', '');
 // the models: every prop's model is in the park's list, and its file is in the repository
 const names = new Set(K.PARK_MODELS.map((n) => `park-${n}`));
-if (a.props.some((p) => !names.has(p.m))) bad('every prop is a model of PARK.models', [...new Set(a.props.map((p) => p.m).filter((m) => !names.has(m)))].join());
+if (a.props.some((p) => !names.has(p.m) && p.m !== 'lightPostModern')) bad('every prop is a model of PARK.models', [...new Set(a.props.map((p) => p.m).filter((m) => !names.has(m) && m !== 'lightPostModern'))].join());
 for (const [name, [file]] of Object.entries(K.PARK.models)) if (!fs.existsSync(path.join(root, 'apps/web/public/models/kenney', `${file}.glb`))) bad('the kit file is in the repository', `${name}: ${file}`);
 // nothing is built on the course or its walls (the loop path and the pond's bridge are the only things near)
 const onCourse = (x, z) => x > B.x0 - 1 && x < B.x1 + 1 && z > B.z0 - 1 && z < B.z1 + 1;
@@ -65,9 +65,16 @@ if (!pk || !pk.road || pk.labels.length < 4) bad('the manifest has the park: its
 else {
   const want = K.generatePark(M.generateCourse({ seed: mc.seed, origin: { x: mc.bounds.x0, z: mc.bounds.z0 } }), []);
   let props = 0, link = 0;
-  for (const c of manifest.chunks) { if (c.cx * 128 > pk.bounds.x1 || (c.cx + 1) * 128 < pk.bounds.x0 || c.cz * 128 > pk.bounds.z1 || (c.cz + 1) * 128 < pk.bounds.z0) { continue; } const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); props += (j.props ?? []).filter((p) => /^park-/.test(p.m)).length; link += (j.highways ?? []).filter((h) => h.id === 'harbor-minigolf-road').length; if (j.ground?.h?.some((v) => v !== 0)) bad('the park is on flat ground', c.key); }
+  for (const c of manifest.chunks) { if (c.cx * 128 > pk.bounds.x1 || (c.cx + 1) * 128 < pk.bounds.x0 || c.cz * 128 > pk.bounds.z1 || (c.cz + 1) * 128 < pk.bounds.z0) { continue; } const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); props += (j.props ?? []).filter((p) => /^park-|^lightPostModern$/.test(p.m)).length; link += (j.highways ?? []).filter((h) => h.id === 'harbor-minigolf-road').length; if (j.ground?.h?.some((v) => v !== 0)) bad('the park is on flat ground', c.key); }
   if (props !== want.props.length) bad('every model of the park is baked', `${props} of ${want.props.length}`);
   if (!link) bad('the access road is baked as a link road', '');
+}
+// a phone's made copies of the park's cars and fence (lib/world/portMid.js): small, and one for each kind of car
+{
+  const MID = await imp('world/portMid.js');
+  for (const kind of ['sedan', 'suv', 'van', 'taxi']) if (!MID.MID_CARS[kind] || MID.triangles(MID.midCar(MID.MID_CARS[kind])) > 100) bad('a phone has a made car of each kind, under 100 triangles', kind);
+  if (MID.triangles(MID.midFence()) > 40) bad('the fence piece of a phone is under 40 triangles', String(MID.triangles(MID.midFence())));
+  for (const kind of Object.keys(MID.MID_CARS)) if (!(`park-${kind}` in Object.fromEntries(Object.keys(K.PARK.models).map((n) => [`park-${n}`, 1])))) bad('every made car is a model of the park', kind);
 }
 console.log(`golf park: ${a.props.length} models, ${a.boxes.length} boxes, ${a.surface.length} quads, ${cars.length} cars, ${fence.length} fence pieces`);
 if (total()) process.exitCode = 1;

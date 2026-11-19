@@ -83,3 +83,23 @@ The entrance at ground level: the gate posts and lintel, the drive in, the car p
 ![The clubhouse's LEADERS board with the top three saved rounds.](minigolf_leaders_board.webp)
 
 The clubhouse's LEADERS board with the top three saved rounds (rank, name, strokes, against par).
+
+## minigolf_park_shop
+
+![The shop's stand with its sign, beside the leaderboard.](minigolf_park_shop.webp)
+
+The shop's stand with its sign, beside the leaderboard.
+
+
+## minigolf_park_lamps_night
+
+![The park at night: a lamp's head and its pool of light over the car park.](minigolf_park_lamps_night.webp)
+
+The park at night: a lamp's head and its pool of light over the car park.
+
+
+## minigolf_park_cars
+
+![A car on the access road and the parked ones in the car park.](minigolf_park_cars.webp)
+
+A car on the access road and the parked ones in the car park.

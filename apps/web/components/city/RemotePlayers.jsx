@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LOOPS } from '@/lib/performance/visibilityPolicy';
 import { useGatedFrame } from '@/lib/performance/runtime';
 import { COSMETIC_BY_ID } from '@/lib/game/cosmetics';
@@ -29,6 +29,11 @@ function RemoteAvatar({ id }) {
   const car = useRef(null); // the car or boat they are in, drawn where they are
   const [vehSig, setVehSig] = useState('');
   const info = remotePlayers.get(id);
+  const [golf, setGolf] = useState(''); // a golfer's tag over their name: the hole and how they stand (docs/world/minigolf.md): read once a second, it changes with each stroke at most
+  useEffect(() => {
+    const t = setInterval(() => { const g = remotePlayers.get(id)?.golf; setGolf(g ? `Hole ${g[0]} · ${g[3] === 0 ? 'E' : g[3] > 0 ? `+${g[3]}` : g[3]}` : ''); }, 1000);
+    return () => clearInterval(t);
+  }, [id]);
   const shirt = COSMETIC_BY_ID[info?.appearance?.shirt]?.color ?? '#3b82f6';
   const pants = COSMETIC_BY_ID[info?.appearance?.pants]?.color ?? '#1e3a8a';
 
@@ -138,6 +143,7 @@ function RemoteAvatar({ id }) {
         <Hat id={info?.appearance?.hat} />
       </group>
       <Label3D text={info?.name ?? 'Player'} position={[0, 1.15, 0]} background="#38bdf8" color="#0c1a2b" height={0.3} />
+      {golf && <Label3D text={golf} position={[0, 1.5, 0]} background="#166534" color="#ffffff" height={0.26} />}
     </group>
     </>
   );
