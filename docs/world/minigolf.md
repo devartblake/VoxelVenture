@@ -33,21 +33,27 @@ Downloaded on 2026-11-18 from kenney.nl/assets/minigolf-kit (3.1, CC0, 125 files
 
 ## What is not built
 
-1. **The park** (agreed with the owner 2026-11-18: "Golf park: course + clubhouse + landscaping", a Caribbean harbour theme, nine holes laid out so a second nine can be added): the clubhouse, car park, the looping path with benches and palms, a pond with a bridge, the lighthouse landmark and the gate. Designed in the next section; not built.
+1. **The park**: built (below).
 2. **Shared scores**: "nearby players see each other's golf" (live, through the presence server) and "a saved leaderboard of best rounds" (the server). Not built.
 3. **The rest of the kit**: ramps, hills, bumps, tunnels and the other 100 pieces are not in the repository; the cell grid of the first version was replaced by the kit's tile grid (a tile = 3 units), so a hole is now made of whole tiles.
 4. **A mobile pass**: the tiles are 12 to 148 triangles (about 6,000 for the course), drawn only where the chunks are mounted; the fallback boxes (427) are only drawn without the models. Not measured on a phone.
 
-## The park (a design, for the owner's decision before anything is built)
+## The park (built 2026-11-18)
 
-From the research (golf-course and theme-park practice: **circulation first**, landmarks you can see from far away to pull people on, the car park near the clubhouse and the first tee, the clubhouse placed early in the plan, a mix of easy and hard holes with a water feature or windmill around holes 4 to 6, a place to rest and let others play through, service areas out of sight; and Disney's two-course sites, where the harder course mirrors the easier one): a **Caribbean harbour** golf park around the nine holes.
+![The park from above: the gate and the car park at the top, the clubhouse beside the first tee, the loop path round the nine holes, the pond with its footbridge, the lighthouse in the corner.](gallery/minigolf_park_top.webp)
 
-- **Arrival**: a gate with a sign and a small car park on the east spur road's side (the south), a short path to the **clubhouse** (ticket and score desk, a shop, the scoreboard for the saved leaderboard) beside the first tee (hole 1).
-- **The loop**: one looping path round the nine holes, in the order of play 1 to 9, with palms, benches (a rest and let-through spot after hole 4, by the windmill), and **a pond with a small bridge** between holes 5 and 6 (water as scenery: the physics has no water hazard).
-- **Landmarks**: the **windmill** (hole 4) and the **castle** (hole 9) as they are; a **lighthouse** at the north-east corner (visible from the whole course and from the spur road), a wrecked pirate ship (the Pirate Kit we already have) by the pond, tiki huts and barrels at the clubhouse.
-- **Room for the second nine**: a path stub and a cleared strip east of hole 3 and hole 6 for an "adventure" loop (harder, themed to the castle), mirroring the first as Disney's do.
-- **Out of sight**: bins, the shed and the lawn gear behind the clubhouse.
-- **Size**: the course is 150 x 96; the park would be about 190 x 150, still on the flat land south of the east spur road.
+Agreed with the owner: **"Golf park: course + clubhouse + landscaping", a Caribbean-harbour theme, nine holes laid out so a second nine can be added.** The design came from the research (golf and theme-park practice: circulation first, a landmark seen from far away, the car park near the clubhouse and the first tee, a rest and let-through spot, service areas out of sight, and Disney's two courses where the harder mirrors the easier). It is made by `lib/world/golfPark.js` from the course and the highways, baked by `lib/world/bake.js`, and tested by `tests/golf-park.test.mjs`.
+
+![The entrance: the gate with its sign, the drive and the car park with a few cars.](gallery/minigolf_park_entrance.webp)
+
+- **Arrival**: the **access road** (6 wide, a link road baked as `harbor-minigolf-road`) leaves the nearest highway (the east spur road, 18 units north) for the **gate** (two posts, a lintel and a "HARBOR MINI-GOLF" sign), and a **car park** (64 x 20, bay lines, eight cars of the Car Kit parked at random in about a third of the bays: a quiet course).
+- **The clubhouse** (the Suburban Kit's house, scaled 9.5, with a porch, a CLUBHOUSE sign and a **LEADERS board** in front of it that will show the saved leaderboard) stands beside the first tee, a small shop beside it and a service shed with barrels behind its side; a path runs from the car park along its front and to the loop at the first tee.
+- **The loop**: a path 3.2 wide round the nine holes, 5 units out from their walls, in the order of play; benches along it; the **rest and let-through spot** by the windmill hole (hole 4: two benches, a picnic table, a bin).
+- **Landmarks**: the **lighthouse** (red and white bands, a lantern room and roof, 32 high, the "HARBOR LIGHT" sign) in the north-east corner, the first thing seen from the spur road; the **pond** (14 painted triangles, rocks round it) with a **footbridge** from the loop's east side across it and the **wrecked jetty** (the Pirate Kit's dock) on its west shore; the windmill and the castle on the course.
+- **Planting and edges**: a fence of the Nature Kit's pieces all round but at the gate (313 pieces), 46 palms, 60 bushes and flowers, five lamps (boxes with warm heads) along the car park and the clubhouse path.
+- **Room for the second nine**: a strip 40 wide west of the course, 60 deep, with nothing in it and a **path stub** into it with a sign ("THE ADVENTURE LOOP: COMING SOON"), the harder, themed loop to come (mirroring the first, as Disney's do). `courses[].park.reserve` in the manifest says where.
+- **Cost**: 444 models (instanced by kind: the fence, palms and bushes are 32 to 190 triangles each), 72 boxes and 53 painted quads in the course's chunks; drawn only where the chunks are mounted, and a device that cannot load the models still sees the boxes, the paths and the car park's lines. The park is about 180 x 160 units on the flat land south of the east spur road; the recipe is refused if any of it is off flat land or within 14 of a highway (but for the road in), 40 of a river or the coast, or touches a town.
+- **Not done in the park**: cars do not drive in it (the car park is scenery), the leaderboard board is a sign until the leaderboard is built, nothing is for sale at the shop, and the lamps do not glow at night.
 
 ## Why a grid of cells
 

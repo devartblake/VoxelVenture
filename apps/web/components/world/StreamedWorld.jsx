@@ -12,6 +12,7 @@ import { createTerrain, setActiveTerrain } from '@/lib/world/terrain';
 import { TRACK_MODELS } from '@/lib/world/track';
 import { PORT_MODELS } from '@/lib/world/ports';
 import { GOLF_MODELS } from '@/lib/world/minigolf';
+import { PARK } from '@/lib/world/golfPark';
 import { MID_MADE, midModel } from '@/lib/world/portMid';
 import { useFleet } from '@/lib/state/fleetStore';
 import { applyGroundTexture } from '@/lib/world/groundTexture';
@@ -66,6 +67,11 @@ function loadBridgeModels() {
     // the mini-golf course's tiles and flags (lib/world/minigolf.js: the Kenney Minigolf Kit, public/models/kenney/minigolf): `golf-<file>`; without them the course keeps its boxes
     try {
       const entries = await Promise.all(GOLF_MODELS.map(async (name) => [`golf-${name}`, await first(`../minigolf/${name}.glb`)]));
+      models.props = { ...(models.props ?? {}), ...Object.fromEntries(entries) };
+    } catch { /* the boxes alone */ }
+    // the park's models (lib/world/golfPark.js: the Nature, Suburban, Car and Pirate kits): `park-<name>`; without them the park keeps its boxes and paths
+    try {
+      const entries = await Promise.all(Object.entries(PARK.models).map(async ([name, [file]]) => [`park-${name}`, await first(`../${file}.glb`)]));
       models.props = { ...(models.props ?? {}), ...Object.fromEntries(entries) };
     } catch { /* the boxes alone */ }
     // the ports' models (lib/world/ports.js: Kenney Industrial, Watercraft, Pirate and Nature kits, CC0): containers, tanks, boats, buoys, cargo, palms. A world that cannot load them keeps the ports' boxes alone.

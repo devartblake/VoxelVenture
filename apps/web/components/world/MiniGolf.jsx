@@ -8,6 +8,7 @@ import { COURSE } from '@/lib/world/minigolf';
 import { aimFromDrag, previewPath } from '@/lib/world/golfPhysics';
 import { avatarState } from '@/lib/sim/avatarState';
 import { useGolf } from '@/lib/state/golfStore';
+import Label3D from '@/components/city/Label3D';
 
 // Mini-golf in the world (docs/world/minigolf.md): loads the baked course (the manifest's `courses`), draws the ball, the aim arrow and the path the putt would take, and takes the controls while you play. The rules
 // are lib/state/golfStore.js, the ball's physics lib/world/golfPhysics.js, the panel components/ui/GolfHud.jsx; the tiles, flags and boxes are baked into the chunks. Mounted with the baked world; `?golf=0` leaves it out.
@@ -37,6 +38,7 @@ function useBallModel() {
 }
 
 export default function MiniGolf() {
+  const course = useGolf((s) => s.course); // (the park's signs: the gate, the clubhouse, the leaderboard, the lighthouse: lib/world/golfPark.js)
   const ball = useRef(null), arrow = useRef(null), path = useRef(null), held = useRef(new Set());
   const pad = useRef({ a: false, b: false, start: false });
   const model = useBallModel();
@@ -157,6 +159,7 @@ export default function MiniGolf() {
 
   return (
     <group name="minigolf">
+      {(course?.park?.labels ?? []).map((l) => <Label3D key={`${l.text}${l.x}`} text={l.text} position={[l.x, l.y, l.z]} background="#0f3d66" color="#ffffff" border="#7dd3fc" height={l.text.length > 14 ? 1.5 : 1.1} />)}
       {model
         ? <mesh ref={ball} visible={false} castShadow geometry={model.geometry} material={model.material} scale={model.scale} />
         : <mesh ref={ball} visible={false} castShadow><sphereGeometry args={[COURSE.ball, 16, 12]} /><meshStandardMaterial color="#f8fafc" roughness={0.35} /></mesh>}

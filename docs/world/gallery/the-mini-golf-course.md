@@ -45,3 +45,16 @@ Aiming by dragging: the angle dial, the strength bar at 79 per cent, the degrees
 ![A two-player round: Player 1's turn on hole 1, the dial, the power bar and the Play alone button.](minigolf_two_players.webp)
 
 A two-player round: Player 1's turn on hole 1, the dial, the power bar and the Play alone button.
+
+## minigolf_park_top
+
+![The park from above: the gate and the car park at the top, the clubhouse beside the first tee, the loop path round the nine holes, the pond with its footbridge, the lighthouse in the north-east corner.](minigolf_park_top.webp)
+
+The park from above: the gate and the car park at the top, the clubhouse beside the first tee, the loop path round the nine holes, the pond with its footbridge, the lighthouse in the north-east corner.
+
+## minigolf_park_entrance
+
+![The entrance at ground level: the gate posts and lintel, the drive in, the car park with its bay lines and cars, palms and the fence.](minigolf_park_entrance.webp)
+
+The entrance at ground level: the gate posts and lintel, the drive in, the car park with its bay lines and cars, palms and the fence.
+
