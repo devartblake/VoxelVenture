@@ -42,6 +42,7 @@ import * as stats from './stats.mjs';
 import * as community from './community.mjs';
 import * as gold from './gold.mjs';
 import * as race from './race.mjs';
+import * as golf from './golf.mjs';
 import { createTasks } from './tasks.mjs';
 import * as presence from './presence.mjs';
 import * as messaging from './messaging.mjs';
@@ -707,6 +708,10 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue 
     if (m === 'POST' && p === '/race/pass') return race.pass(db, account, await body(req));
     if (m === 'GET' && p === '/race/leaderboard') return race.leaderboard(db, url.searchParams.get('track') ?? 'speedway', url.searchParams.get('limit'), url.searchParams.get('vehicle'));
     if (m === 'GET' && p === '/race/me') return race.mine(db, account, url.searchParams.get('track') ?? 'speedway', url.searchParams.get('vehicle'));
+    // the mini-golf course (golf.mjs): a page sends the putts of a finished round; the server plays them again and keeps what comes out
+    if (m === 'POST' && p === '/golf/round') return golf.submit(db, account, await body(req));
+    if (m === 'GET' && p === '/golf/leaderboard') return golf.leaderboard(db, url.searchParams.get('course') ?? 'harbor-minigolf', url.searchParams.get('limit'));
+    if (m === 'GET' && p === '/golf/me') return golf.mine(db, account, url.searchParams.get('course') ?? 'harbor-minigolf');
     if (m === 'GET' && p === '/admin/currency/audit') return (adminOnly(token), gold.auditCurrency(db));
     // player tasks (tasks.mjs): what is available, collecting (the server checks and pays), and what you have collected
     if (m === 'GET' && p === '/tasks') return tasks.view(db, account);

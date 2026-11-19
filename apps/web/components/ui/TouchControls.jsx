@@ -5,6 +5,7 @@ import { Footprints, Hand } from 'lucide-react';
 import { useCityStore } from '@/lib/state/store';
 import { useWorld } from '@/lib/state/worldStore';
 import { usePanel } from '@/lib/state/panelStore';
+import { useGolf } from '@/lib/state/golfStore';
 import { avatarState } from '@/lib/sim/avatarState';
 import { TOUCH_UI_QUERY } from '@/lib/performance/capabilityProfile';
 
@@ -15,6 +16,7 @@ const RADIUS = 48; // how far the thumb can push the knob
 // (see lib/sim/avatarState.js) and hide while a card, the wardrobe or an interior is open.
 export default function TouchControls() {
   const [show, setShow] = useState(false);
+  const golfing = useGolf((s) => s.active); // (the golf dock takes the bottom of the screen: components/ui/GolfHud.jsx)
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const [run, setRun] = useState(false);
   const base = useRef(null);
@@ -45,7 +47,7 @@ export default function TouchControls() {
     avatarState.run = false;
   }, []);
 
-  if (!show || busy) return null;
+  if (!show || busy || golfing) return null;
 
   const move = (e) => {
     const r = base.current.getBoundingClientRect();

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Flag, LogOut, RotateCcw, RotateCw, Users } from 'lucide-react';
 import { useGolf } from '@/lib/state/golfStore';
+import { golfersNearby } from '@/lib/net/multiplayer';
 import { cardTotals, scoreName, toPar } from '@/lib/world/golfScore';
 
 const Box = ({ children }) => <div className="pointer-events-auto flex flex-col items-center gap-2 rounded-2xl border border-sx-line bg-sx-panel/90 px-4 py-2.5 text-xs text-slate-100 shadow-xl backdrop-blur-md">{children}</div>;
@@ -21,11 +22,44 @@ function AimDial({ off }) {
   );
 }
 
+// The phone's dock (docs/world/minigolf.md, "On a phone"): the controls sit where the thumbs rest, at the bottom corners, and are big (at least 56 px): the aim to the left (a turn each way, held, with the dial and the angle between), the
+// putt to the right, one round button held to charge and let go to hit, with the power as a ring that fills round it and as a number. The same actions as the desktop panel and a drag on the world, which still works anywhere.
+function PhoneDock({ g, off, hold }) {
+  const aiming = g.phase === 'aim', R = 44, C = 2 * Math.PI * R;
+  const deg = Math.round((off * 180) / Math.PI);
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex items-end justify-between px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:hidden" data-testid="golf-dock">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-sx-line bg-sx-panel/90 p-1.5 shadow-xl backdrop-blur-md">
+        <button className="flex h-16 w-16 touch-none select-none items-center justify-center rounded-full bg-slate-700/80 active:bg-slate-600" aria-label="Aim left" disabled={!aiming} {...hold(-1)}><RotateCcw className="h-6 w-6" /></button>
+        <div className="flex w-14 flex-col items-center"><AimDial off={off} /><span className="text-[11px] tabular-nums text-slate-300">{deg >= 0 ? '+' : ''}{deg}°</span></div>
+        <button className="flex h-16 w-16 touch-none select-none items-center justify-center rounded-full bg-slate-700/80 active:bg-slate-600" aria-label="Aim right" disabled={!aiming} {...hold(1)}><RotateCw className="h-6 w-6" /></button>
+      </div>
+      <button
+        className="pointer-events-auto relative flex h-28 w-28 touch-none select-none items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl active:bg-emerald-500 disabled:opacity-50"
+        disabled={!aiming}
+        onPointerDown={(e) => { e.preventDefault(); try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* (no such active pointer) */ } useGolf.getState().charge(true); }}
+        onPointerUp={() => useGolf.getState().release()}
+        onPointerCancel={() => useGolf.getState().release()}
+        aria-label="Hold to putt"
+        data-testid="golf-putt-phone"
+      >
+        <svg className="absolute inset-0 -rotate-90" viewBox="-50 -50 100 100" aria-hidden="true">
+          <circle r={R} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="5" />
+          <circle r={R} fill="none" stroke="#fde047" strokeWidth="5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - g.power)} />
+        </svg>
+        <span className="relative flex flex-col items-center leading-tight"><b className="text-lg tabular-nums">{g.phase === 'roll' ? '…' : `${Math.round(g.power * 100)}%`}</b><span className="text-[11px] font-semibold">{g.phase === 'roll' ? 'rolling' : 'hold, release'}</span></span>
+      </button>
+    </div>
+  );
+}
+
 // The mini-golf panel (lib/state/golfStore.js): the hole, who is playing, the strokes, the aim and power indicators and controls (keys, a drag on the world, a gamepad, and buttons for touch and mouse), the result of a hole and
 // the card at the end.
 export default function GolfHud() {
   const g = useGolf();
   const turning = useRef(0);
+  const [others, setOthers] = useState([]);
+  useEffect(() => { const t = setInterval(() => setOthers((o) => { const n = golfersNearby(); return JSON.stringify(n) === JSON.stringify(o) ? o : n; }), 1000); return () => clearInterval(t); }, []);
   useEffect(() => {
     let raf = 0, last = performance.now();
     const loop = (t) => { const dt = Math.min(0.05, (t - last) / 1000); last = t; if (turning.current) useGolf.getState().turn(turning.current, dt); raf = requestAnimationFrame(loop); };
@@ -43,6 +77,7 @@ export default function GolfHud() {
   const total = (i) => cardTotals(g.cards[i], g.course.holes);
   const canAddPlayer = g.phase === 'aim' && g.hole === 1 && strokes === 0 && g.player === 0 && !g.cards[0].length;
   return (
+    <>
     <div className="pointer-events-none absolute left-1/2 top-[8.2rem] z-20 flex -translate-x-1/2 flex-col items-center gap-1.5 max-sm:top-14" data-testid="golf-hud">
       {card ? (
         <Box>
@@ -56,6 +91,8 @@ export default function GolfHud() {
               ))}
             </tbody>
           </table>
+          {!two && g.round?.saved && !g.round.saved.error && <div className="text-sky-300" data-testid="golf-saved">{g.round.saved.record ? 'New best on the leaderboard' : 'Saved to the leaderboard'}: rank {g.round.saved.rank} ({g.round.saved.best} strokes best)</div>}
+          {!two && g.round?.saved?.error && <div className="text-slate-400">The leaderboard could not be reached; your round is not saved.</div>}
           <div className="text-slate-300">{!two && (g.round?.isBest ? 'A new best round on this device!' : g.round?.best ? `Your best on this device: ${g.round.best.strokes} (${toPar(g.round.best.strokes - g.round.best.par)})` : '')}</div>
           <div className="flex gap-2">
             <button className="rounded-full border border-sx-line px-3 py-1 hover:bg-sx-alt" onClick={() => useGolf.getState().start(1, { players: g.players, names: g.names })}>Play again</button>
@@ -78,7 +115,7 @@ export default function GolfHud() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 max-sm:hidden">
                 <div className="flex flex-col items-center"><AimDial off={off} /><span className="tabular-nums text-[11px] text-slate-300" data-testid="golf-angle">{off >= 0 ? '+' : ''}{Math.round((off * 180) / Math.PI)}° off the cup</span></div>
                 <div className="flex flex-col items-center gap-1.5">
                   <div className="flex items-center gap-2">
@@ -100,6 +137,13 @@ export default function GolfHud() {
                 </div>
               </div>
               <div className="text-[11px] text-slate-400 max-sm:hidden">Drag back from the ball to aim and set the power · A D or arrows: aim · hold Space: power · gamepad: stick, hold A · Esc: put the club away</div>
+              <div className="text-[11px] text-slate-400 sm:hidden">{g.phase === 'roll' ? 'Rolling…' : 'Drag back from the ball, or use the dock below'}</div>
+              {others.length > 0 && (
+                <div className="w-full border-t border-sx-line pt-1.5 text-[11px]" data-testid="golf-others">
+                  <div className="mb-0.5 text-slate-400">Playing here now</div>
+                  {others.slice(0, 4).map((o) => <div key={o.id} className="flex justify-between gap-4"><span className="font-semibold">{o.name}</span><span className="tabular-nums text-slate-300">hole {o.hole} · {o.strokes} stroke{o.strokes === 1 ? '' : 's'} · card {o.card} ({toPar(o.diff)})</span></div>)}
+                </div>
+              )}
               {canAddPlayer && (
                 <button className="flex items-center gap-1 rounded-full border border-sx-line px-3 py-0.5 text-[11px] hover:bg-sx-alt" onClick={() => useGolf.getState().start(1, { players: two ? 1 : 2, names: ['Player 1', 'Player 2'] })} data-testid="golf-players">
                   <Users className="h-3 w-3" /> {two ? 'Play alone' : 'Play with a friend (turns, one device)'}
@@ -111,5 +155,7 @@ export default function GolfHud() {
         </Box>
       )}
     </div>
+    {!card && !done && <PhoneDock g={g} off={off} hold={hold} />}
+    </>
   );
 }
