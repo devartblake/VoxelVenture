@@ -8208,6 +8208,93 @@
     "x1": 2447,
     "z1": 396
    },
+   "park": {
+    "bounds": {
+     "x0": 2233,
+     "x1": 2481,
+     "z0": 234,
+     "z1": 400
+    },
+    "gate": {
+     "x": 2360,
+     "z": 234,
+     "yaw": 0
+    },
+    "road": {
+     "from": {
+      "x": 2360,
+      "z": 218.86
+     },
+     "to": {
+      "x": 2360,
+      "z": 244
+     },
+     "width": 6
+    },
+    "labels": [
+     {
+      "text": "HARBOR MINI-GOLF",
+      "x": 2360,
+      "y": 7.9,
+      "z": 234
+     },
+     {
+      "text": "LEADERS",
+      "x": 2285.8,
+      "y": 4.6,
+      "z": 279.55
+     },
+     {
+      "text": "CLUBHOUSE",
+      "x": 2299.8,
+      "y": 12.6,
+      "z": 278.2
+     },
+     {
+      "text": "THE ADVENTURE LOOP: COMING SOON",
+      "x": 2241,
+      "y": 2.6,
+      "z": 343
+     },
+     {
+      "text": "HARBOR LIGHT",
+      "x": 2472,
+      "y": 33.6,
+      "z": 254
+     }
+    ],
+    "board": {
+     "x": 2285.8,
+     "z": 279.5,
+     "yaw": 0
+    },
+    "clubhouse": {
+     "x": 2299.8,
+     "z": 273
+    },
+    "rest": {
+     "x": 2303,
+     "z": 287
+    },
+    "pond": {
+     "x": 2466,
+     "z": 363,
+     "rx": 8.5,
+     "rz": 15
+    },
+    "lighthouse": {
+     "x": 2472,
+     "z": 254
+    },
+    "reserve": {
+     "x0": 2233,
+     "x1": 2269,
+     "z0": 315,
+     "z1": 375
+    },
+    "props": 444,
+    "boxes": 72
+   },
    "holes": [
     {
      "n": 1,
@@ -16383,7 +16470,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 2
+   "highways": 2,
+   "props": 45
   },
   {
    "key": "17_2",
@@ -16393,7 +16481,8 @@
    "plots": 0,
    "roads": 0,
    "highways": 0,
-   "props": 16
+   "props": 81,
+   "surface": 3
   },
   {
    "key": "17_3",
@@ -16402,7 +16491,8 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 1
+   "highways": 1,
+   "props": 36
   },
   {
    "key": "17_4",
@@ -16466,8 +16556,9 @@
    "land": 0.98,
    "plots": 0,
    "roads": 0,
-   "highways": 1,
-   "props": 5
+   "highways": 2,
+   "props": 64,
+   "surface": 16
   },
   {
    "key": "18_2",
@@ -16477,7 +16568,8 @@
    "plots": 0,
    "roads": 0,
    "highways": 0,
-   "props": 92
+   "props": 138,
+   "surface": 17
   },
   {
    "key": "18_3",
@@ -16486,7 +16578,9 @@
    "land": 0.82,
    "plots": 0,
    "roads": 0,
-   "highways": 6
+   "highways": 6,
+   "props": 49,
+   "surface": 1
   },
   {
    "key": "18_4",
@@ -16542,7 +16636,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 1,
-   "props": 38
+   "props": 70
   },
   {
    "key": "19_2",
@@ -16551,7 +16645,9 @@
    "land": 1,
    "plots": 0,
    "roads": 0,
-   "highways": 2
+   "highways": 2,
+   "props": 86,
+   "surface": 16
   },
   {
    "key": "19_3",
@@ -16560,7 +16656,8 @@
    "land": 0.48,
    "plots": 0,
    "roads": 0,
-   "highways": 6
+   "highways": 6,
+   "props": 26
   },
   {
    "key": "20_-8",
@@ -17276,5 +17373,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "f62bb104f5de7b4b"
+ "hash": "35eb84f25523c786"
 }

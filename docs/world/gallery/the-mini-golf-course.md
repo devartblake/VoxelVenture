@@ -65,3 +65,16 @@ The web version on a phone: one hole from above in line art, the dotted line of 
 ![The web version on a desktop: the same, wide.](minigolf_web_desktop.webp)
 
 The web version on a desktop: the same, wide.
+/^>>>>>>> origin/main$/d
+## minigolf_park_top
+
+![The park from above: the gate and the car park at the top, the clubhouse beside the first tee, the loop path round the nine holes, the pond with its footbridge, the lighthouse in the north-east corner.](minigolf_park_top.webp)
+
+The park from above: the gate and the car park at the top, the clubhouse beside the first tee, the loop path round the nine holes, the pond with its footbridge, the lighthouse in the north-east corner.
+
+## minigolf_park_entrance
+
+![The entrance at ground level: the gate posts and lintel, the drive in, the car park with its bay lines and cars, palms and the fence.](minigolf_park_entrance.webp)
+
+The entrance at ground level: the gate posts and lintel, the drive in, the car park with its bay lines and cars, palms and the fence.
+
