@@ -226,7 +226,7 @@ Tests: `tests/currency.test.mjs` (the server's rules), `tests/currency-client.te
 
 The server times the laps and keeps the leaderboard: a page says where the avatar is at a point of the circuit, never a time. `POST /race/pass`, `GET /race/leaderboard` (public), `GET /race/me`; the table is `race_laps`; a pass must be near the point, in order, and no further than a car could drive in the time; a lap pays no Gold; the page also says which vehicle it drives (`car` or `racecar`) and each vehicle has its own board and speed bound. Details in [racing_track.md](../world/racing_track.md); tested by `tests/race.test.mjs`.
 
-The mini-golf course keeps a saved leaderboard the same way (`services/api/golf.mjs`, docs/world/minigolf.md): a page sends the putts of a finished one-player round, never a score; the server plays them again with the shared physics and keeps what comes out. `POST /golf/round`, `GET /golf/leaderboard` (public), `GET /golf/me`; the table is `golf_rounds`; a round that does not replay is `422`, one within 20 seconds of the last `429`.
+The mini-golf course keeps a saved leaderboard the same way (`services/api/golf.mjs`, docs/world/minigolf.md): a page sends the putts of a finished one-player round, never a score; the server plays them again with the shared physics and keeps what comes out. `POST /golf/round`, `GET /golf/leaderboard` (public), `GET /golf/me`; the table is `golf_rounds`; a two-player round (`putts2` and `names` too) is replayed on both cards and kept as a match (`golf_matches`, `GET /golf/matches`); a round that does not replay is `422`, one within 20 seconds of the last `429`.
 
 ## Player tasks (`services/api/tasks.mjs`)
 

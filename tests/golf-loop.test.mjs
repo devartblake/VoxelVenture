@@ -33,6 +33,16 @@ else {
   if (!loop.park.props.some((p) => p.m === 'park-crate') || !loop.park.props.some((p) => p.m === 'park-barrel')) bad('a yard of barrels and crates', '');
   if (!loop.park.props.some((p) => p.m === 'lightPostModern')) bad('lamps', '');
   if (loop.park.props.some((p) => !/^park-|^lightPostModern$/.test(p.m))) bad('every prop is the park\'s', '');
+  // its own clubhouse, shop and rest spot, on a plaza south of the loop joined to it by a path
+  { const pk = loop.park;
+    if (!pk.club || !pk.shop || !pk.rest || !pk.plaza) bad('a clubhouse, a shop and a rest spot of its own', Object.keys(pk).join());
+    else {
+      if (!pk.props.some((p) => p.m === 'park-clubhouse') || !pk.props.some((p) => p.m === 'park-shop')) bad('the clubhouse and the shop are models', '');
+      if (!['THE CAPTAIN\'S CABIN', 'BALLS & MAPS', 'REST STOP'].every((t) => pk.labels.some((l) => l.text === t))) bad('they have signs', pk.labels.map((l) => l.text).join());
+      if (!onPath(pk, pk.club.x, pk.ring.z1 + 2)) bad('a path joins the loop to the clubhouse', '');
+      for (const t of [pk.club, pk.shop, pk.rest]) if (t.x < pk.plaza.x0 || t.x > pk.plaza.x1 || t.z < pk.plaza.z0 || t.z > pk.plaza.z1) bad('each stands on the plaza', JSON.stringify(t));
+      if (!pk.areas.includes(pk.plaza)) bad('the plaza is checked as ground like the rest', '');
+    } }
   // nothing stands on the holes or the loop
   for (const p of loop.park.props) if (/palm|rock|bush|flower/.test(p.m) && p.x > ring.x0 - 1 && p.x < ring.x1 + 1 && p.z > ring.z0 - 1 && p.z < ring.z1 + 1) { bad('no plant on the course or its loop', JSON.stringify(p)); break; }
   // every hole can be holed: a search for a putt that drops, stroke by stroke, aiming down the lane (the tile centres of the hole, in order, are the way) and keeping the putt that gets furthest along it

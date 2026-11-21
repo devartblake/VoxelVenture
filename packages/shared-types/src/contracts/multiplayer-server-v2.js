@@ -13,8 +13,8 @@ const vehicle = {
   required: ['kind', 'boatKind', 'color'],
   properties: { kind: { type: 'string', enum: ['car', 'boat'] }, boatKind: { type: 'string', enum: ['rowboat', 'sailboat', 'rowboat-large', 'fishing'] }, color: colour },
 };
-// a golfer's progress: [hole 1 to 9, strokes on the hole, strokes on the card so far, against par so far]
-const golf = { type: 'array', minItems: 4, maxItems: 4, items: { type: 'integer' } };
+// a golfer's progress: [hole 1 to 9, strokes on the hole, strokes on the card so far, against par so far, and which course (0 or 1; older pages leave it out)]
+const golf = { type: 'array', minItems: 4, maxItems: 5, items: { type: 'integer' } };
 // a player as first seen (in `enter`) and in `profile`: `account` and `verified` come only from the API, never from what a client says
 const player = {
   type: 'object',
