@@ -8247,14 +8247,20 @@
      {
       "text": "CLUBHOUSE",
       "x": 2299.8,
-      "y": 12.6,
+      "y": 10.8,
       "z": 278.2
      },
      {
       "text": "RENT A PUTTER",
-      "x": 2278.3,
+      "x": 2266.8,
       "y": 3.3,
-      "z": 279
+      "z": 277.5
+     },
+     {
+      "text": "MOUNT PUTT",
+      "x": 2469,
+      "y": 11.5,
+      "z": 318
      },
      {
       "text": "HARBOR LIGHT",
@@ -8291,7 +8297,7 @@
      "z": 300
     },
     "props": 428,
-    "boxes": 75
+    "boxes": 250
    },
    "holes": [
     {
@@ -11106,7 +11112,13 @@
       "text": "BALLS & MAPS",
       "x": 2533,
       "y": 3.3,
-      "z": 335.5
+      "z": 333
+     },
+     {
+      "text": "THE WRECK",
+      "x": 2492,
+      "y": 11.5,
+      "z": 343
      },
      {
       "text": "REST STOP",
@@ -11138,8 +11150,8 @@
      "z0": 329,
      "z1": 353
     },
-    "props": 79,
-    "boxes": 44
+    "props": 80,
+    "boxes": 167
    },
    "holes": [
     {
@@ -19413,7 +19425,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 2,
-   "props": 30
+   "props": 34
   },
   {
    "key": "17_2",
@@ -19423,8 +19435,8 @@
    "plots": 0,
    "roads": 0,
    "highways": 0,
-   "props": 77,
-   "surface": 2
+   "props": 75,
+   "surface": 4
   },
   {
    "key": "17_3",
@@ -19434,7 +19446,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 1,
-   "props": 26
+   "props": 25
   },
   {
    "key": "17_4",
@@ -19499,7 +19511,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 2,
-   "props": 66,
+   "props": 63,
    "surface": 16
   },
   {
@@ -19510,8 +19522,8 @@
    "plots": 0,
    "roads": 0,
    "highways": 0,
-   "props": 144,
-   "surface": 17
+   "props": 146,
+   "surface": 20
   },
   {
    "key": "18_3",
@@ -19522,7 +19534,7 @@
    "roads": 0,
    "highways": 6,
    "props": 49,
-   "surface": 1
+   "surface": 2
   },
   {
    "key": "18_4",
@@ -19578,8 +19590,8 @@
    "plots": 0,
    "roads": 0,
    "highways": 1,
-   "props": 91,
-   "surface": 1
+   "props": 92,
+   "surface": 2
   },
   {
    "key": "19_2",
@@ -19589,8 +19601,8 @@
    "plots": 0,
    "roads": 0,
    "highways": 2,
-   "props": 175,
-   "surface": 22
+   "props": 176,
+   "surface": 50
   },
   {
    "key": "19_3",
@@ -19600,7 +19612,7 @@
    "plots": 0,
    "roads": 0,
    "highways": 6,
-   "props": 28
+   "props": 26
   },
   {
    "key": "20_-8",
@@ -19658,8 +19670,8 @@
    "plots": 0,
    "roads": 0,
    "highways": 6,
-   "props": 80,
-   "surface": 1
+   "props": 81,
+   "surface": 2
   },
   {
    "key": "20_3",
@@ -20319,5 +20331,5 @@
   "plots": 2080,
   "townRoads": 148
  },
- "hash": "52d76963177e465d"
+ "hash": "dcefb0bb2cc35a11"
 }
