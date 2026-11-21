@@ -84,6 +84,23 @@ The park's second course, **`harbor-adventure`, "The Adventure Loop"**: nine mor
 - **Two-player rounds are saved** (built 2026-11-21): a signed-in two-player round sends both players' putts (`putts` and `putts2`, with the two names) to `POST /golf/round`; the server replays **both** cards, and if either does not replay the whole round is refused. It keeps a **match** (table `golf_matches`: names, both cards and totals, the winner or a tie) listed by `GET /golf/matches?course=`, and the **first player's** card also counts on the board like any round, since it is the account's; the second player is a guest on the same device and is never on the board. The card says "Match saved: A 20, B 24" and where the first player stands. Tests: `tests/golf-api.test.mjs`.
 - **Not done**: the cars on the access road are the first park's (no cars at the second nine); the shop sells nothing.
 
+## The makeover: a theme park, not a clinic (built 2026-11-21)
+
+The first park had grey suburban buildings, beige paths and one lawn, and read as a clinic or a food-bank queue. A look at how real courses are made (OpenStreetMap maps a course only as one area with `leisure=miniature_golf`, so it has no layouts to copy; the theme-park and design sources, Disney's Fantasia Gardens and Winter Summerland, Pirate's Cove, Castle Golf, White Hutchinson, agree that the theme is carried by every part of the grounds: rockwork, water, lighting, set pieces, hole variety) said the same: the story has to be in the colour, the ground and the things to look at. The pieces are in `lib/world/golfTheme.js` (boxes and a few models, no new kit) and both nines use them:
+
+- **Painted lodges** instead of the grey suburban models: the clubhouse (cream and teal, coral roof), the shop (sun yellow and navy, teal roof) and, at the second nine, the Captain's Cabin (navy, red roof): two-tier roofs, a chimney, windows with flower boxes, a striped canopy over the porch and a flagpole with a pennant.
+- **Ground that changes**: boardwalk paths (warm boards on a darker edge, `path` and `plank` in the palette), sand beaches round the pond and under the wreck (`sand`), a brighter water colour.
+- **Things to look at**: **Mount Putt** (a volcano with a glowing crater and two rivers of lava, torches round it, a treasure chest at its foot) in the first park's corner; **the Wreck**, a pirate ship run aground on a beach beside the second nine's clubhouse; a treasure chest and tiki torches at The Adventure Loop's arch and along the first loop; **bunting** and red-and-white striped posts on both gates; **food and drinks stalls** (the Coaster Kit's) beside the clubhouses; **flower beds** of six colours (boxes: the nature kit's flower model renders nearly black).
+- **Cost**: about 280 more boxes in all (a few thousand triangles) and six stall models, nothing per frame.
+- **Not done**: the volcano's cone is stepped, not smooth (boxes cannot lean); the ship's sails are flat; no moving parts (a waterfall, a spinning windmill sails) and the lights at night are only the lamp posts.
+
+![The whole park from above.](gallery/minigolf_makeover_overview.webp)
+![The clubhouse, with the striped canopy, flower beds and a stall.](gallery/minigolf_makeover_clubhouse.webp)
+![The second nine's Captain's Cabin and shop.](gallery/minigolf_makeover_plaza.webp)
+![The arch with its bunting and striped posts.](gallery/minigolf_makeover_arch.webp)
+![Mount Putt, with its torches.](gallery/minigolf_makeover_volcano.webp)
+![The Wreck on its beach.](gallery/minigolf_makeover_wreck.webp)
+
 ## The park (built 2026-11-18)
 
 ![The park from above: the gate and the car park at the top, the clubhouse beside the first tee, the loop path round the nine holes, the pond with its footbridge, the lighthouse in the corner.](gallery/minigolf_park_top.webp)

@@ -123,3 +123,39 @@ The way into The Adventure Loop: the arch, the board and the yard of barrels and
 ![The first tee of The Adventure Loop: a par 4 zigzag.](minigolf_loop_tee.webp)
 
 The first tee of The Adventure Loop: a par 4 zigzag.
+
+## minigolf_makeover_arch
+
+![The arch of The Adventure Loop with striped posts, bunting, tiki torches and a treasure chest.](minigolf_makeover_arch.webp)
+
+The arch of The Adventure Loop with striped posts, bunting, tiki torches and a treasure chest.
+
+## minigolf_makeover_clubhouse
+
+![The first clubhouse: a painted lodge with a striped canopy, flower beds and a stall.](minigolf_makeover_clubhouse.webp)
+
+The first clubhouse: a painted lodge with a striped canopy, flower beds and a stall.
+
+## minigolf_makeover_plaza
+
+![The second nine's Captain's Cabin and shop.](minigolf_makeover_plaza.webp)
+
+The second nine's Captain's Cabin and shop.
+
+## minigolf_makeover_volcano
+
+![Mount Putt: a volcano with a glowing crater and lava, with torches round it.](minigolf_makeover_volcano.webp)
+
+Mount Putt: a volcano with a glowing crater and lava, with torches round it.
+
+## minigolf_makeover_wreck
+
+![The Wreck: a pirate ship run aground on a sand beach.](minigolf_makeover_wreck.webp)
+
+The Wreck: a pirate ship run aground on a sand beach.
+
+## minigolf_makeover_overview
+
+![The whole mini-golf park from above: the first nine and its car park to the north, the pond, Mount Putt and the second nine to the south.](minigolf_makeover_overview.webp)
+
+The whole mini-golf park from above: the first nine and its car park, the pond, Mount Putt and the second nine.
