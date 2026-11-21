@@ -94,6 +94,23 @@ check('a round of nine holes replays to a card of nine scores', goodCard.length 
   check('a worse round later does not lower her best', (golf.submit(db, { id: db.prepare("SELECT id FROM accounts WHERE username = 'Ana'").get().id, username: 'Ana' }, { course: course.id, putts: slow }, Date.now() + 60_000)).best === Math.min(gTotal, sTotal) || gTotal > sTotal);
 }
 
+// ---- a two-player round: both cards replayed, kept as a match; the first player's round also counts on the board
+{
+  const cat = await signup('Cat'), slow = round(3), sCard = golf.replay(course, slow), sTotal = sCard.reduce((x, y) => x + y, 0), gTotal = goodCard.reduce((x, y) => x + y, 0);
+  const r = await call('POST', '/golf/round', { token: tokenOf(cat), body: { course: course.id, putts: good, putts2: slow, names: ['Cat', 'Her friend'] } });
+  const win = gTotal === sTotal ? -1 : gTotal < sTotal ? 0 : 1;
+  check('a two-player round is kept as a match with both replayed totals and the winner', r.status === 200 && r.data.match?.strokes?.[0] === gTotal && r.data.match.strokes[1] === sTotal && r.data.match.winner === win && r.data.match.names[1] === 'Her friend', JSON.stringify(r.data));
+  const m = await call('GET', `/golf/matches?course=${course.id}`, { token: tokenOf(cat) });
+  check('her matches list it', m.data.matches?.length === 1 && m.data.matches[0].strokes[1] === sTotal && m.data.matches[0].names[0] === 'Cat', JSON.stringify(m.data));
+  check("the first player's card counts on the board, the guest's does not", (await call('GET', '/golf/leaderboard?course=harbor-minigolf&limit=9')).data.board.filter((x) => x.name === 'Cat').length === 1 && !(await call('GET', '/golf/leaderboard?course=harbor-minigolf&limit=9')).data.board.some((x) => x.name === 'Her friend'));
+  check('matches need an account', (await call('GET', '/golf/matches')).status === 401);
+  const dan = await signup('Dan');
+  const bad = await call('POST', '/golf/round', { token: tokenOf(dan), body: { course: course.id, putts: good, putts2: slow.slice(0, 8), names: ['Dan', 'x'] } });
+  check('a second card that does not replay refuses the whole round', bad.status === 422 && (await call('GET', '/golf/me', { token: tokenOf(dan) })).data.best === null && (await call('GET', `/golf/matches?course=${course.id}`, { token: tokenOf(dan) })).data.matches.length === 0, `${bad.status}`);
+  const eve = await signup('Eve'), odd = await call('POST', '/golf/round', { token: tokenOf(eve), body: { course: course.id, putts: good, putts2: good, names: ['Eve', '' + 'y'.repeat(40)] } });
+  check("a tie is -1, and a guest's name is cleaned and cut to 20", odd.data.match?.winner === -1 && odd.data.match.names[1].length <= 20 && !//.test(odd.data.match.names[1]), JSON.stringify(odd.data.match));
+}
+
 // ---- the page's own play and the server's replay agree: the store plays the putts at 60 frames a second, the server at 10 steps a second, the card is the same
 {
   const { useGolf } = await imp('state/golfStore.js');
@@ -113,6 +130,15 @@ check('a round of nine holes replays to a card of nine scores', goodCard.length 
   const card = g().cards[0];
   check('the page, playing the same putts in frames, makes the same card as the server replay', JSON.stringify(card) === JSON.stringify(goodCard), `${JSON.stringify(card)} vs ${JSON.stringify(goodCard)}`);
   check('and the putts it kept are the ones it was given', JSON.stringify(g().putts) === JSON.stringify(good));
+  g().quit();
+  // two players: the second's putts are kept apart from the first's
+  g().start(1, { players: 2, names: ['A', 'B'] });
+  const first = good[0];
+  for (const [a, p] of first) { useGolf.setState({ aim: a / 1000, power: p / 1000, charging: true }); g().release(); for (let i = 0; i < 60 * 45 && g().phase === 'roll'; i++) g().tick(1 / 60); }
+  g().next(null);
+  const second = good[0];
+  for (const [a, p] of second) { useGolf.setState({ aim: a / 1000, power: p / 1000, charging: true }); g().release(); for (let i = 0; i < 60 * 45 && g().phase === 'roll'; i++) g().tick(1 / 60); }
+  check("on a two-player round each player's putts are kept apart", JSON.stringify(g().putts[0]) === JSON.stringify(first) && JSON.stringify(g().putts2[0]) === JSON.stringify(second) && g().player === 1);
   g().quit();
 }
 

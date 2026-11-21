@@ -91,8 +91,8 @@ export default function GolfHud() {
               ))}
             </tbody>
           </table>
-          {!two && g.round?.saved && !g.round.saved.error && <div className="text-sky-300" data-testid="golf-saved">{g.round.saved.record ? 'New best on the leaderboard' : 'Saved to the leaderboard'}: rank {g.round.saved.rank} ({g.round.saved.best} strokes best)</div>}
-          {!two && g.round?.saved?.error && <div className="text-slate-400">The leaderboard could not be reached; your round is not saved.</div>}
+          {g.round?.saved && !g.round.saved.error && <div className="text-sky-300" data-testid="golf-saved">{two && g.round.saved.match ? `Match saved: ${g.round.saved.match.names[0]} ${g.round.saved.match.strokes[0]}, ${g.round.saved.match.names[1]} ${g.round.saved.match.strokes[1]}. ` : ''}{g.round.saved.record ? `New best on the leaderboard${two ? ` for ${g.names[0]}` : ''}` : two ? `${g.names[0]}'s round is on the leaderboard` : 'Saved to the leaderboard'}: rank {g.round.saved.rank} ({g.round.saved.best} strokes best)</div>}
+          {g.round?.saved?.error && <div className="text-slate-400">The leaderboard could not be reached; {two ? 'the match is' : 'your round is'} not saved.</div>}
           <div className="text-slate-300">{!two && (g.round?.isBest ? 'A new best round on this device!' : g.round?.best ? `Your best on this device: ${g.round.best.strokes} (${toPar(g.round.best.strokes - g.round.best.par)})` : '')}</div>
           <div className="flex gap-2">
             <button className="rounded-full border border-sx-line px-3 py-1 hover:bg-sx-alt" onClick={() => useGolf.getState().start(1, { players: g.players, names: g.names })}>Play again</button>
@@ -140,7 +140,7 @@ export default function GolfHud() {
               {others.length > 0 && (
                 <div className="w-full border-t border-sx-line pt-1.5 text-[11px] max-sm:hidden" data-testid="golf-others">
                   <div className="mb-0.5 text-slate-400">Playing here now</div>
-                  {others.slice(0, 4).map((o) => <div key={o.id} className="flex justify-between gap-4"><span className="font-semibold">{o.name}</span><span className="tabular-nums text-slate-300">hole {o.hole} · {o.strokes} stroke{o.strokes === 1 ? '' : 's'} · card {o.card} ({toPar(o.diff)})</span></div>)}
+                  {others.slice(0, 4).map((o) => <div key={o.id} className="flex justify-between gap-4"><span className="font-semibold">{o.name}</span><span className="tabular-nums text-slate-300" data-testid="golf-other-course">{g.courses[o.course]?.name ?? 'the course'} · hole {o.hole} · {o.strokes} stroke{o.strokes === 1 ? '' : 's'} · card {o.card} ({toPar(o.diff)})</span></div>)}
                 </div>
               )}
               {canAddPlayer && (

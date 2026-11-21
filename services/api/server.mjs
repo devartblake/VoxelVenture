@@ -711,6 +711,7 @@ export function createApi({ dbFile = ':memory:', seed = 20260101, taskCatalogue 
     // the mini-golf course (golf.mjs): a page sends the putts of a finished round; the server plays them again and keeps what comes out
     if (m === 'POST' && p === '/golf/round') return golf.submit(db, account, await body(req));
     if (m === 'GET' && p === '/golf/leaderboard') return golf.leaderboard(db, url.searchParams.get('course') ?? 'harbor-minigolf', url.searchParams.get('limit'));
+    if (m === 'GET' && p === '/golf/matches') return golf.matches(db, account, url.searchParams.get('course') ?? 'harbor-minigolf');
     if (m === 'GET' && p === '/golf/me') return golf.mine(db, account, url.searchParams.get('course') ?? 'harbor-minigolf');
     if (m === 'GET' && p === '/admin/currency/audit') return (adminOnly(token), gold.auditCurrency(db));
     // player tasks (tasks.mjs): what is available, collecting (the server checks and pays), and what you have collected

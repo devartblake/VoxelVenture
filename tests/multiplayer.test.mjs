@@ -102,7 +102,10 @@ check('a state with no height is at 0 (an older client)', (latest(b, a.id)?.y ??
 a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: false, emote: null, golf: [4, 2, 9, 1] }));
 await sleep(350);
 check('Bob sees that Alice is on hole 4, 2 strokes, 9 on the card, 1 over', JSON.stringify(latest(b, a.id)?.golf) === '[4,2,9,1]' && (latest(b, a.id)?.y ?? 0) === 0, JSON.stringify(latest(b, a.id)));
-for (const bad of [[10, 1, 1, 0], [4, 99, 1, 0], [4, 1, 1], 'x', [4.5, 1, 1, 0], [4, 1, -1, 0]]) {
+a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: false, emote: null, golf: [2, 1, 5, 0, 1] }));
+await sleep(350);
+check('Bob sees which course Alice is on (the second nine)', JSON.stringify(latest(b, a.id)?.golf) === '[2,1,5,0,1]', JSON.stringify(latest(b, a.id)));
+for (const bad of [[10, 1, 1, 0], [4, 99, 1, 0], [4, 1, 1], 'x', [4.5, 1, 1, 0], [4, 1, -1, 0], [4, 1, 1, 0, 9], [4, 1, 1, 0, 1.5], [4, 1, 1, 0, 1, 1]]) {
   a.ws.send(JSON.stringify({ type: 'state', x: 14, z: -3, yaw: 1.5, moving: false, emote: null, golf: bad }));
   await sleep(250);
   check('a golf progress out of range or the wrong shape is dropped', !latest(b, a.id)?.golf, JSON.stringify(bad));
