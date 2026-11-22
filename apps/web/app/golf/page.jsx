@@ -22,8 +22,8 @@ export default function GolfPage() {
   // the course: the baked manifest's, as in the world
   useEffect(() => {
     let alive = true;
-    fetch('/world/manifest.json').then((r) => r.json()).then((m) => { if (alive && m.courses?.length) { useGolf.getState().setCourse(m.courses[0]); useGolf.getState().start(1, { players: 1 }); } }).catch(() => {});
-    return () => { alive = false; useGolf.getState().quit(); useGolf.getState().setCourse(null); };
+    fetch('/world/manifest.json').then((r) => r.json()).then((m) => { if (alive && m.courses?.length) { useGolf.getState().setCourses(m.courses); const want = new URLSearchParams(window.location.search).get('course'); useGolf.getState().start(1, { players: 1, course: m.courses.some((c) => c.id === want) ? want : m.courses[0].id }); } }).catch(() => {});
+    return () => { alive = false; useGolf.getState().quit(); useGolf.getState().setCourses([]); };
   }, []);
 
   // the saved leaderboard when the card comes up
@@ -114,7 +114,10 @@ export default function GolfPage() {
             {board?.board?.length > 0 && (
               <ol className="mx-auto mt-2 max-w-60 text-left text-xs tabular-nums">{board.board.map((r) => <li key={r.rank} className="flex justify-between py-0.5"><span>{r.rank}. {r.name}</span><b>{r.strokes} ({toPar(r.diff)})</b></li>)}</ol>
             )}
-            <button className="mt-5 h-12 min-w-44 rounded-full px-6 text-base font-semibold text-white" style={{ background: ACCENT }} onClick={() => { setBoard(null); useGolf.getState().start(1, { players: 1 }); }}>Play again</button>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <button className="h-12 min-w-44 rounded-full px-6 text-base font-semibold text-white" style={{ background: ACCENT }} onClick={() => { setBoard(null); useGolf.getState().start(1, { players: 1 }); }}>Play again</button>
+              {g.courses.filter((c) => c.id !== g.course.id).map((c) => <button key={c.id} className="h-12 rounded-full border px-5 text-sm font-semibold" style={{ borderColor: ACCENT, color: ACCENT }} onClick={() => { setBoard(null); useGolf.getState().start(1, { players: 1, course: c.id }); }} data-testid="golf-other-course">{c.name}</button>)}
+            </div>
           </div>
         </div>
       )}

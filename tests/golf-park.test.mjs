@@ -52,9 +52,9 @@ const bridge = a.boxes.filter((q) => Math.abs(q[2] - a.pond.z) < 2 && q[3] > 6);
 if (!bridge.length) bad('a footbridge across the pond', '');
 const top = Math.max(...a.boxes.filter((q) => Math.hypot(q[0] - a.lighthouse.x, q[2] - a.lighthouse.z) < 3).map((q) => q[1] + q[4]));
 if (!(top > 28) || !(a.lighthouse.x > B.x1 && a.lighthouse.z < B.z0)) bad('a lighthouse over 28 tall in the north-east corner', `${top}`);
-// a second nine can be added: a clear strip west of the course with a path stub to it
-if (a.props.some((p) => p.x > a.reserve.x0 && p.x < a.reserve.x1 && p.z > a.reserve.z0 && p.z < a.reserve.z1)) bad('the strip kept for a second nine has nothing in it', JSON.stringify(a.reserve));
-if (!onPath(a.reserve.x0 + 8, (a.reserve.z0 + a.reserve.z1) / 2)) bad('a path stub leads into the reserved strip', '');
+// the way to the second nine: a gap in the fence on the east side and a path through it from the loop
+if (a.props.some((p) => /fence/.test(p.m) && Math.abs(p.x - a.link.x) < 2 && Math.abs(p.z - a.link.z) < 4)) bad('the fence has a gap where the way to the second nine leaves', JSON.stringify(a.link));
+if (!onPath(a.link.x - 3, a.link.z) || !onPath(a.link.x + 8, a.link.z)) bad('a path runs from the loop through the gap', JSON.stringify(a.link));
 // the signs
 if (!['HARBOR MINI-GOLF', 'LEADERS', 'CLUBHOUSE', 'HARBOR LIGHT'].every((t) => a.labels.some((l) => l.text === t))) bad('the gate, the leaderboard, the clubhouse and the lighthouse have signs', a.labels.map((l) => l.text).join());
 
@@ -65,7 +65,7 @@ if (!pk || !pk.road || pk.labels.length < 4) bad('the manifest has the park: its
 else {
   const want = K.generatePark(M.generateCourse({ seed: mc.seed, origin: { x: mc.bounds.x0, z: mc.bounds.z0 } }), []);
   let props = 0, link = 0;
-  for (const c of manifest.chunks) { if (c.cx * 128 > pk.bounds.x1 || (c.cx + 1) * 128 < pk.bounds.x0 || c.cz * 128 > pk.bounds.z1 || (c.cz + 1) * 128 < pk.bounds.z0) { continue; } const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); props += (j.props ?? []).filter((p) => /^park-|^lightPostModern$/.test(p.m)).length; link += (j.highways ?? []).filter((h) => h.id === 'harbor-minigolf-road').length; if (j.ground?.h?.some((v) => v !== 0)) bad('the park is on flat ground', c.key); }
+  for (const c of manifest.chunks) { if (c.cx * 128 > pk.bounds.x1 || (c.cx + 1) * 128 < pk.bounds.x0 || c.cz * 128 > pk.bounds.z1 || (c.cz + 1) * 128 < pk.bounds.z0) { continue; } const j = JSON.parse(fs.readFileSync(path.join(root, 'apps/web/public/world/chunks', `${c.key}.json`), 'utf8')); props += (j.props ?? []).filter((p) => /^park-|^lightPostModern$/.test(p.m) && p.x >= pk.bounds.x0 && p.x <= pk.bounds.x1 && p.z >= pk.bounds.z0 && p.z <= pk.bounds.z1).length; link += (j.highways ?? []).filter((h) => h.id === 'harbor-minigolf-road').length; if (j.ground?.h?.some((v) => v !== 0)) bad('the park is on flat ground', c.key); }
   if (props !== want.props.length) bad('every model of the park is baked', `${props} of ${want.props.length}`);
   if (!link) bad('the access road is baked as a link road', '');
 }
