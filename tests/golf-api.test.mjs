@@ -108,7 +108,7 @@ check('a round of nine holes replays to a card of nine scores', goodCard.length 
   const bad = await call('POST', '/golf/round', { token: tokenOf(dan), body: { course: course.id, putts: good, putts2: slow.slice(0, 8), names: ['Dan', 'x'] } });
   check('a second card that does not replay refuses the whole round', bad.status === 422 && (await call('GET', '/golf/me', { token: tokenOf(dan) })).data.best === null && (await call('GET', `/golf/matches?course=${course.id}`, { token: tokenOf(dan) })).data.matches.length === 0, `${bad.status}`);
   const eve = await signup('Eve'), odd = await call('POST', '/golf/round', { token: tokenOf(eve), body: { course: course.id, putts: good, putts2: good, names: ['Eve', '' + 'y'.repeat(40)] } });
-  check("a tie is -1, and a guest's name is cleaned and cut to 20", odd.data.match?.winner === -1 && odd.data.match.names[1].length <= 20 && !//.test(odd.data.match.names[1]), JSON.stringify(odd.data.match));
+  check("a tie is -1, and a guest's name is cleaned and cut to 20", odd.data.match?.winner === -1 && odd.data.match.names[1].length <= 20 && ![...odd.data.match.names[1]].some((c) => c.charCodeAt(0) < 32), JSON.stringify(odd.data.match));
 }
 
 // ---- the page's own play and the server's replay agree: the store plays the putts at 60 frames a second, the server at 10 steps a second, the card is the same
