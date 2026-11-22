@@ -22,14 +22,15 @@ else {
   const P1 = first.park.bounds, P2 = loop.park.bounds;
   if (!(P2.x0 >= P1.x1 - 1) && P2.z0 < P1.z1 && P2.z1 > P1.z0 && P2.x0 < P1.x1) bad('the second nine\'s grounds start where the first park ends', `${P2.x0} ${P1.x1}`);
   // the way in: the first park's fence has a gap where its link is, and the two paths meet there
-  const link = first.park.link;
+  const link = first.park.link, ring0 = loop.park.ring;
   if (!link || Math.abs(link.x - P1.x1) > 1) bad('the first park has a link on its east edge', JSON.stringify(link));
-  const onPath = (park, x, z) => park.surface.some((q) => x >= Math.min(q[1], q[5]) && x <= Math.max(q[1], q[5]) && z >= Math.min(q[2], q[6]) && z <= Math.max(q[2], q[6]));
-  if (!onPath(first.park, link.x - 2, link.z) || !onPath(loop.park, link.x + 2, link.z)) bad('a path runs from the first park through the gap into the second nine', JSON.stringify(link));
+  const inQuad = (q, x, z) => { let pos = false, neg = false; for (let i = 0; i < 4; i++) { const ax = q[1 + i * 2], az = q[2 + i * 2], bx = q[1 + ((i + 1) % 4) * 2], bz = q[2 + ((i + 1) % 4) * 2], c = (bx - ax) * (z - az) - (bz - az) * (x - ax); if (c > 1e-9) pos = true; if (c < -1e-9) neg = true; } return !(pos && neg); }; // (a point inside a painted quad)
+  const PATH = PALETTE.findIndex((p) => p.name === 'path'), onPath = (park, x, z) => park.surface.some((q) => q[0] === PATH && inQuad(q, x, z));
+  if (!onPath(first.park, link.x - 2, link.z) || !onPath(first.park, link.x + 4, link.z) || !onPath(loop.park, ring0.x0 - 1, link.z)) bad('a path runs from the first park through the gap into the second nine', JSON.stringify(link));
   if (first.park.props.some((p) => /fence/.test(p.m) && Math.abs(p.x - link.x) < 2 && Math.abs(p.z - link.z) < 4)) bad('the gap in the fence', '');
   // the path goes on to the loop round the nine holes
   const ring = loop.park.ring;
-  if (!onPath(loop.park, ring.x0 + 1, (ring.z0 + ring.z1) / 2) || !onPath(loop.park, (ring.x0 + ring.x1) / 2, ring.z1 - 1)) bad('a path loops round the nine holes', '');
+  if (!onPath(loop.park, loop.park.logo.spineX, ring.z0 + 1) || !onPath(loop.park, loop.park.logo.spineX, (ring.z0 + ring.z1) / 2) || !onPath(loop.park, ring.x0 - 1, link.z)) bad('the half brain and its spine run through the nine holes', '');
   // the grounds: the arch with the name, a board of its own, lamps that glow, the yard of barrels and crates
   if (!['THE ADVENTURE LOOP', 'LEADERS'].every((t) => loop.park.labels.some((l) => l.text === t))) bad('the arch and the board have signs', loop.park.labels.map((l) => l.text).join());
   if (!loop.park.props.some((p) => p.m === 'park-crate') || !loop.park.props.some((p) => p.m === 'park-barrel')) bad('a yard of barrels and crates', '');

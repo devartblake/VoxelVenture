@@ -7,6 +7,10 @@ The Voxel Venture logos and how to use them. **Voxel Venture** is a game by Theo
 - **[logo_usage_guide.md](logo_usage_guide.md)** is the usage guide (version 1.0, 2026-10-18). It covers the three logos, which to use where, clear space, minimum sizes, backgrounds, colours, accessibility, icons, co-branding, taglines, what not to do, and the production checklist.
 - **[admin_dashboard.md](admin_dashboard.md)**: how the staff pages under `/admin` use the SynaptixPlay palette and the mark. It covers the layout, the shared components and the tokens.
 
+## The icons
+
+`icons/` holds the three logos cropped to their icons, with no wordmark: `voxel-venture-icon-cropped.png` (the mark trimmed to its edges), `synaptix-icon.png` (the circuit brain, with its dark background) and `theoretical-minds-icon.png` (the half brain and circuit, on a transparent background). The mini-golf park's paths are drawn from them ([the logo paths](../world/minigolf.md#the-logo-paths-built-2026-11-22)).
+
 ## The asset files
 
 The guide's `public/brand/` is **`apps/web/public/brand/`** in this repository, because the web app lives in `apps/web/`. Files there are served at `/brand/<file>`.

@@ -101,6 +101,15 @@ The first park had grey suburban buildings, beige paths and one lawn, and read a
 ![Mount Putt, with its torches.](gallery/minigolf_makeover_volcano.webp)
 ![The Wreck on its beach.](gallery/minigolf_makeover_wreck.webp)
 
+## The logo paths (built 2026-11-22)
+
+The boardwalks are the three logos (`lib/world/golfPaths.js`; the originals, cropped to their icons, are in `docs/brand/icons/`). The holes, buildings, car park and scoring are unchanged; only the paths and the ground paint round them are new.
+
+- **The first nine is the Synaptix brain.** The loop is the brain's outline: a rounded box with nine lobes, a **fissure** at the top where the way in comes down, and a stem at the bottom right. Inside it, two buses and two spines of circuit run between the rows and columns of holes (a bus wanders a little; it is not ruled), a branch peels off a bus with a rounded corner to every hole, and a **node** (a dark halo and a coloured core) sits on the hole's edge by its tee. The buses cross at the **orb**. The lit line down each boardwalk runs from cyan through blue to violet (the branches pink to violet).
+- **The gateway is the Voxel Venture double V.** Between the car park and the brain, a plate of navy ground carries the double V in two faces a stroke (sky and royal blue, lilac and indigo) with the **gold cube** at the middle. A gold-lit walk runs down to the fissure, and the clubhouse has a walk to the plate's side with a stub from its porch and one down to the brain. The way to the second nine is a gold-lit path with a second gold cube at the gap in the fence.
+- **The second nine is the Theoretical Minds brain.** A curved half-brain boardwalk wraps the left column of holes (a node at each tee on its inside), a straight spine runs down the middle to the plaza, and two right-angled traces branch east from it, with a branch and node for each hole in the other columns and a bigger node at each end, as in the logo.
+- **Built as paint.** Every path is painted quads (the chunk's `surface`): a darker edge, the boards, and the lit line, in short pieces (no quad is longer than 12 units, because the bake files a quad in the chunk of its middle). The palette has 18 new colours, appended (`logo-navy`, `v-*`, `gold*`, `inlay-*`, `node-*`, `orb`), and two new paint layers over the lit lines for a node's halo and core (`LIFT.paint.logo`, `logo2`). Palms, bushes and torches keep off the paths, and a few benches moved off the brain. A test checks every tee has a node, no boardwalk lies on a hole, and the gateway and orb are painted. **Cost** (`scripts/world/measure-ports.mjs`'s method, at the park): a phone draws **112 draw calls and 52,959 triangles** (110 and 50,291 before the logo paths, about 5 per cent more triangles), a desktop 165 and 100,387 (163 and 97,487). The busiest chunk is now 6,490 triangles (the chunk-mesh test's limit is 7,000, up from 6,000).
+
 ## The park (built 2026-11-18)
 
 ![The park from above: the gate and the car park at the top, the clubhouse beside the first tee, the loop path round the nine holes, the pond with its footbridge, the lighthouse in the corner.](gallery/minigolf_park_top.webp)
