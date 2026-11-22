@@ -8,6 +8,8 @@ import * as golf from '../services/api/golf.mjs';
 
 const { bad, total } = problemTally();
 const { buildWorld } = await imp('world/buildWorld.js');
+const { PALETTE } = await imp('world/track.js');
+const PAL_SAND = PALETTE.findIndex((p) => p.name === 'sand');
 const { GOLF, newBall, putt, stepBall } = await imp('world/golfPhysics.js');
 const world = buildWorld();
 const [first, loop] = world.courses;
@@ -37,7 +39,9 @@ else {
   { const pk = loop.park;
     if (!pk.club || !pk.shop || !pk.rest || !pk.plaza) bad('a clubhouse, a shop and a rest spot of its own', Object.keys(pk).join());
     else {
-      if (!pk.props.some((p) => p.m === 'park-clubhouse') || !pk.props.some((p) => p.m === 'park-shop')) bad('the clubhouse and the shop are models', '');
+      if (pk.boxes.length < 150) bad('the clubhouse, shop, wreck and torches are painted boxes, not grey models', String(pk.boxes.length));
+      if (!pk.props.some((p) => p.m === 'park-stallFood') || !pk.props.some((p) => p.m === 'park-stallDrinks')) bad('a food stall and a drinks stall', '');
+      if (!pk.surface.some((q) => q[0] === PAL_SAND)) bad('sand under the wreck', '');
       if (!['THE CAPTAIN\'S CABIN', 'BALLS & MAPS', 'REST STOP'].every((t) => pk.labels.some((l) => l.text === t))) bad('they have signs', pk.labels.map((l) => l.text).join());
       if (!onPath(pk, pk.club.x, pk.ring.z1 + 2)) bad('a path joins the loop to the clubhouse', '');
       for (const t of [pk.club, pk.shop, pk.rest]) if (t.x < pk.plaza.x0 || t.x > pk.plaza.x1 || t.z < pk.plaza.z0 || t.z > pk.plaza.z1) bad('each stands on the plaza', JSON.stringify(t));

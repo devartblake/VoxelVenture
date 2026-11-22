@@ -1,6 +1,6 @@
 # The world gallery
 
-Written for: the owner and developers. The screenshots and diagrams kept while the world was built, 188 pictures on 26 pages, one page for each feature (the pictures are WebP, 1400 pixels wide at most). This index is generated: `node scripts/world/gallery-index.mjs`.
+Written for: the owner and developers. The screenshots and diagrams kept while the world was built, 194 pictures on 26 pages, one page for each feature (the pictures are WebP, 1400 pixels wide at most). This index is generated: `node scripts/world/gallery-index.mjs`.
 
 These are working pictures, taken on the development page (`/world/stream`) and in the game with `?world=baked` while each feature was built: many show an earlier stage, and the caption says so where it is known. For what each feature is now, follow the link under its heading on its page.
 
@@ -33,4 +33,4 @@ These are working pictures, taken on the development page (`/world/stream`) and 
 | [Harbor Isle's water and Harbor Town](gallery/harbor-isle-water-and-harbor-town.md) | 6 | The lagoon, the canals and the mangroves of Harbor Isle ([isle_waters.md](isle_waters.md)), and Harbor Town's creek, bridges, ponds and its own streets ([harbor_town.md](harbor_town.md)). |
 | [The ports with the Kenney models](gallery/the-ports-with-the-kenney-models.md) | 3 | The container yards' front rows, the tugs, the boats at their moorings, the buoys and the palms are Kenney models; a phone draws the boxes alone ([ports_models.md](ports_models.md)). |
 | [The Harbor Tunnel, stage 1](gallery/the-harbor-tunnel-stage-1.md) | 2 | The train through the tube under the sea, and the station outside its portal ([tunnel.md](tunnel.md)). |
-| [The mini-golf course](gallery/the-mini-golf-course.md) | 19 | Harbor Mini-Golf: nine holes on Harbor Isle's flat land, with felt lanes, wooden walls, red tee mats and cups with flags ([minigolf.md](minigolf.md)). |
+| [The mini-golf course](gallery/the-mini-golf-course.md) | 25 | Harbor Mini-Golf: nine holes on Harbor Isle's flat land, with felt lanes, wooden walls, red tee mats and cups with flags ([minigolf.md](minigolf.md)). |
