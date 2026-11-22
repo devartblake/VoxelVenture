@@ -713,3 +713,17 @@ CREATE TABLE IF NOT EXISTS golf_rounds (
 );
 CREATE INDEX IF NOT EXISTS golf_rounds_course ON golf_rounds(course, strokes);
 CREATE INDEX IF NOT EXISTS golf_rounds_account ON golf_rounds(account_id, course, at);
+
+-- the mini-golf two-player matches (golf.mjs): both cards replayed by the server; the first player is the account's (their round is also in golf_rounds), the second a guest on the same device
+CREATE TABLE IF NOT EXISTS golf_matches (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  course TEXT NOT NULL,
+  names TEXT NOT NULL,
+  cards TEXT NOT NULL,
+  strokes TEXT NOT NULL,
+  par INTEGER NOT NULL,
+  winner INTEGER NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS golf_matches_account ON golf_matches(account_id, course, at);

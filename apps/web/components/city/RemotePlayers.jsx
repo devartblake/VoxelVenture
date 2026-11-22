@@ -31,7 +31,7 @@ function RemoteAvatar({ id }) {
   const info = remotePlayers.get(id);
   const [golf, setGolf] = useState(''); // a golfer's tag over their name: the hole and how they stand (docs/world/minigolf.md): read once a second, it changes with each stroke at most
   useEffect(() => {
-    const t = setInterval(() => { const g = remotePlayers.get(id)?.golf; setGolf(g ? `Hole ${g[0]} · ${g[3] === 0 ? 'E' : g[3] > 0 ? `+${g[3]}` : g[3]}` : ''); }, 1000);
+    const t = setInterval(() => { const g = remotePlayers.get(id)?.golf; setGolf(g ? `${g[4] === 1 ? 'Loop' : 'Park'} hole ${g[0]} · ${g[3] === 0 ? 'E' : g[3] > 0 ? `+${g[3]}` : g[3]}` : ''); }, 1000);
     return () => clearInterval(t);
   }, [id]);
   const shirt = COSMETIC_BY_ID[info?.appearance?.shirt]?.color ?? '#3b82f6';

@@ -46,13 +46,23 @@ export function submit(db, account, input, at = Date.now()) {
   requireAccount(account);
   const course = courseOf(input?.course);
   const card = replay(course, input?.putts);
-  const strokes = card.reduce((a, b) => a + b, 0), par = course.holes.reduce((a, h) => a + h.par, 0);
+  const card2 = input?.putts2 === undefined ? null : replay(course, input.putts2); // (a two-player round: the second player's card, replayed the same way)
+  const sum = (c) => c.reduce((a, b) => a + b, 0);
+  const strokes = sum(card), par = course.holes.reduce((a, h) => a + h.par, 0);
   const last = db.prepare('SELECT MAX(at) AS at FROM golf_rounds WHERE account_id = ?').get(account.id).at;
   if (last != null && at - Number(last) < ROUNDS.minGapMs) fail(429, 'That round came too soon after the last one.', 'too_fast');
   const prev = db.prepare('SELECT MIN(strokes) AS s FROM golf_rounds WHERE account_id = ? AND course = ?').get(account.id, course.id).s;
   db.prepare('INSERT INTO golf_rounds (account_id, course, strokes, par, card, at) VALUES (?, ?, ?, ?, ?, ?)').run(account.id, course.id, strokes, par, JSON.stringify(card), at);
   const best = Math.min(strokes, prev == null ? strokes : Number(prev));
-  return { card, strokes, par, diff: strokes - par, best, rank: rankOf(db, course.id, best), record: prev == null || strokes < Number(prev) };
+  let match = null;
+  if (card2) { // the first player is the account's: their card counts on the board as any round; the second (a guest on the same device) is kept only in the match
+    const names = (Array.isArray(input.names) ? input.names : []).slice(0, 2).map((n, i) => (typeof n === 'string' ? n.replace(/\p{Cc}/gu, ' ').trim().slice(0, 20) : '') || `Player ${i + 1}`);
+    while (names.length < 2) names.push(`Player ${names.length + 1}`);
+    const s2 = sum(card2), winner = strokes === s2 ? -1 : strokes < s2 ? 0 : 1;
+    db.prepare('INSERT INTO golf_matches (account_id, course, names, cards, strokes, par, winner, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(account.id, course.id, JSON.stringify(names), JSON.stringify([card, card2]), JSON.stringify([strokes, s2]), par, winner, at);
+    match = { names, cards: [card, card2], strokes: [strokes, s2], winner };
+  }
+  return { card, strokes, par, diff: strokes - par, best, rank: rankOf(db, course.id, best), record: prev == null || strokes < Number(prev), ...(match ? { match } : {}) };
 }
 
 /** The best round of every account on a course, fewest strokes first (the earlier round wins a tie): { course, par, board: [{ rank, name, strokes, diff, at }] }. */
@@ -71,4 +81,12 @@ export function mine(db, account, courseId) {
   const rounds = db.prepare('SELECT strokes, par, at FROM golf_rounds WHERE account_id = ? AND course = ? ORDER BY at DESC LIMIT ?').all(account.id, course.id, ROUNDS.keep).map((r) => ({ strokes: Number(r.strokes), par: Number(r.par), at: Number(r.at) }));
   const best = db.prepare('SELECT MIN(strokes) AS s FROM golf_rounds WHERE account_id = ? AND course = ?').get(account.id, course.id).s;
   return { course: course.id, best: best == null ? null : Number(best), rank: best == null ? null : rankOf(db, course.id, Number(best)), rounds };
+}
+
+/** The signed-in player's last two-player matches on a course: [{ names, strokes: [a, b], par, winner (0, 1 or -1 for a tie), at }], newest first. */
+export function matches(db, account, courseId) {
+  requireAccount(account);
+  const course = courseOf(courseId);
+  const rows = db.prepare('SELECT names, strokes, par, winner, at FROM golf_matches WHERE account_id = ? AND course = ? ORDER BY at DESC LIMIT ?').all(account.id, course.id, ROUNDS.keep);
+  return { course: course.id, matches: rows.map((r) => ({ names: JSON.parse(r.names), strokes: JSON.parse(r.strokes), par: Number(r.par), winner: Number(r.winner), at: Number(r.at) })) };
 }
