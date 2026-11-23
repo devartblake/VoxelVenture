@@ -38,8 +38,17 @@ for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) 
 const tee = course.holes[0].tee;
 if (Math.hypot(a.club.x - tee.x, a.club.z - (tee.z - 22)) > 25 || !(a.club.z > a.lot.z1 && a.club.z < a.ring.z0)) bad('the clubhouse is between the car park and the course, beside the first tee', JSON.stringify(a.club));
 const pathQuads = a.surface.filter((q) => q[0] === PALETTE.findIndex((p) => p.name === 'path'));
-const onPath = (x, z) => pathQuads.some((q) => x >= q[1] - 0.01 && x <= q[5] + 0.01 && z >= q[2] - 0.01 && z <= q[6] + 0.01);
-if (!onPath(a.club.x, a.ring.z0 - 4) || !onPath(a.ring.x0 + 1, a.ring.z1 - 1) || !onPath(a.ring.x1 - 1, a.ring.z0 + 1) || !onPath((B.x0 + B.x1) / 2, a.lot.z1 + 3)) bad('paths: car park to clubhouse, clubhouse to the loop, the loop round the course', '');
+const inQuad = (q, x, z) => { let pos = false, neg = false; for (let i = 0; i < 4; i++) { const ax = q[1 + i * 2], az = q[2 + i * 2], bx = q[1 + ((i + 1) % 4) * 2], bz = q[2 + ((i + 1) % 4) * 2], c = (bx - ax) * (z - az) - (bz - az) * (x - ax); if (c > 1e-9) pos = true; if (c < -1e-9) neg = true; } return !(pos && neg); }; // (a point inside a painted quad)
+const onPath = (x, z) => pathQuads.some((q) => inQuad(q, x, z));
+const nodeQuads = a.surface.filter((q) => /^node-(cyan|blue|violet|pink)$/.test(PALETTE[q[0]].name));
+// the logo paths: the Synaptix brain round and between the holes, the Voxel Venture gateway where the car park meets it, the clubhouse's walk to the plaza, a node at every tee
+if (!onPath(a.club.x, a.club.z + 10) || !onPath(a.club.x, a.club.z + 14.5) || !onPath(a.logo.notch.x, a.logo.notch.z) || !onPath(a.gate.x, (a.lot.z1 + a.logo.notch.z) / 2 + 12)) bad('paths: the clubhouse to the plaza, the plaza to the fissure', JSON.stringify(a.logo.notch));
+if (pathQuads.length < 200) bad('the brain is a boardwalk outline with circuit inside it', String(pathQuads.length));
+for (const h of course.holes) if (!nodeQuads.some((q) => Math.hypot((q[1] + q[5]) / 2 - h.tee.x, (q[2] + q[6]) / 2 - h.tee.z) < 10)) bad('every tee has a node of the circuit by it', String(h.n));
+if (!a.surface.some((q) => PALETTE[q[0]].name === 'orb')) bad('the orb at the middle of the brain', '');
+for (const n of ['v-sky', 'v-royal', 'v-lilac', 'v-indigo', 'gold-light', 'logo-navy']) if (!a.surface.some((q) => PALETTE[q[0]].name === n)) bad('the double V and its gold cube are painted', n);
+const inner = (h, x, z) => x > h.bounds.x0 + 1.2 && x < h.bounds.x1 - 1.2 && z > h.bounds.z0 + 1.2 && z < h.bounds.z1 - 1.2;
+if (pathQuads.some((q) => course.holes.some((h) => inner(h, (q[1] + q[5]) / 2, (q[2] + q[6]) / 2)))) bad('no boardwalk lies on a hole', '');
 // the rest spot by the windmill (hole 4): benches, a picnic table
 const w4 = course.holes[3];
 if (Math.abs(a.rest.x - (w4.bounds.x0 + w4.bounds.x1) / 2) > 1 || !a.boxes.some((q) => Math.abs(q[0] - (a.rest.x - 5)) < 2.5 && Math.abs(q[2] - a.rest.z) < 2)) bad('a rest spot with benches beside the windmill hole', '');
@@ -54,7 +63,7 @@ const top = Math.max(...a.boxes.filter((q) => Math.hypot(q[0] - a.lighthouse.x, 
 if (!(top > 28) || !(a.lighthouse.x > B.x1 && a.lighthouse.z < B.z0)) bad('a lighthouse over 28 tall in the north-east corner', `${top}`);
 // the way to the second nine: a gap in the fence on the east side and a path through it from the loop
 if (a.props.some((p) => /fence/.test(p.m) && Math.abs(p.x - a.link.x) < 2 && Math.abs(p.z - a.link.z) < 4)) bad('the fence has a gap where the way to the second nine leaves', JSON.stringify(a.link));
-if (!onPath(a.link.x - 3, a.link.z) || !onPath(a.link.x + 8, a.link.z)) bad('a path runs from the loop through the gap', JSON.stringify(a.link));
+if (!onPath(a.link.x - 3, a.link.z) || !onPath(a.link.x + 4, a.link.z)) bad('a path runs from the brain through the gap', JSON.stringify(a.link));
 // the signs
 if (!['HARBOR MINI-GOLF', 'LEADERS', 'CLUBHOUSE', 'HARBOR LIGHT'].every((t) => a.labels.some((l) => l.text === t))) bad('the gate, the leaderboard, the clubhouse and the lighthouse have signs', a.labels.map((l) => l.text).join());
 
